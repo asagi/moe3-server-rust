@@ -5,6 +5,8 @@ pub mod unit;
 
 pub use power::Power;
 pub use province::Province;
+pub use unit::Army;
+pub use unit::Fleet;
 pub use unit::Unit;
 
 pub type OrderId = i64;

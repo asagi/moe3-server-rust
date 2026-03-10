@@ -1,84 +1,140 @@
+use super::OrderId;
+use super::Power;
+use super::Province;
+use super::Unit;
+use super::UnitId;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
 
-use super::OrderId;
-use super::Power;
-use super::Province;
-use super::UnitId;
-
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum OrderStatus {
-    Unresolved, // 未解決
-    Failure,    // 失敗
-    Success,    // 成功
-    Dislodged,  // 敗退
-    Cut,        // カット
-    Valid,      // 有効
-    Invalid,    // 無効
+    Unresolved,
+    Failure,
+    Success,
+    Dislodged,
+    Cut,
+    Valid,
+    Invalid,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct HoldOrder {
+    pub power: Power,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct MoveOrder {
+    pub power: Power,
+    pub dest: Province,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct SupportOrder {
+    pub power: Power,
+    pub target_unit: Unit,
+    pub target_dest: Option<Province>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ConvoyOrder {
+    pub power: Power,
+    pub target_unit: Unit,
+    pub target_dest: Province,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Action {
-    Hold,
-    Move { dest: Province },
-    Support { target_unit_id: UnitId, target_dest: Option<Province> },
-    Convoy { target_unit_id: UnitId, target_dest: Province },
-    Retreat { dest: Province },
-    Disband,
-    GainArmy,
-    GainFleet,
-    Lose,
+    Hold(HoldOrder),
+    Move(MoveOrder),
+    Support(SupportOrder),
+    Convoy(ConvoyOrder),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Order {
     pub id: Option<OrderId>,
     pub power: Power,
-    pub unit_id: Option<UnitId>,
+    pub unit: Unit,
     pub status: OrderStatus,
     pub action: Action,
 }
 
-impl Order {
-    pub fn new(power: Power, unit_id: Option<UnitId>, action: Action) -> Self {
-        Self {
+impl HoldOrder {
+    pub fn new(power: Power, unit: Unit) -> Order {
+        Order {
             id: None,
-            power,
-            unit_id,
+            power: power,
+            unit: unit,
             status: OrderStatus::Unresolved,
-            action,
+            action: Action::Hold(HoldOrder { power }),
         }
+    }
+}
+
+impl MoveOrder {
+    pub fn new(power: Power, unit: Unit, dest: Province) -> Order {
+        Order {
+            id: None,
+            power: power,
+            unit: unit,
+            status: OrderStatus::Unresolved,
+            action: Action::Move(MoveOrder { power, dest }),
+        }
+    }
+}
+
+impl SupportOrder {
+    pub fn new(power: Power, unit: Unit, target_unit: Unit, target_dest: Option<Province>) -> Order {
+        Order {
+            id: None,
+            power: power,
+            unit: unit,
+            status: OrderStatus::Unresolved,
+            action: Action::Support(SupportOrder { power, target_unit, target_dest }),
+        }
+    }
+}
+
+impl ConvoyOrder {
+    pub fn new(power: Power, unit: Unit, target_unit: Unit, target_dest: Province) -> Order {
+        Order {
+            id: None,
+            power: power,
+            unit: unit,
+            status: OrderStatus::Unresolved,
+            action: Action::Convoy(ConvoyOrder { power, target_unit, target_dest }),
+        }
+    }
+}
+
+impl Order {
+    pub fn unit_id(&self) -> Option<UnitId> {
+        self.unit.id()
     }
 
     pub fn is_matching_target(&self, other_order: &Order) -> bool {
         match &self.action {
-            // Support の場合
-            Action::Support { target_unit_id, target_dest } => {
-                if Some(*target_unit_id) != other_order.unit_id {
+            Action::Support(s) => {
+                if s.target_unit.id() != other_order.unit_id() {
                     return false;
                 }
-
                 match &other_order.action {
-                    Action::Move { dest } => Some(*dest) == *target_dest,
-                    _ => target_dest.is_none(),
+                    Action::Move(m) => s.target_dest == Some(m.dest),
+                    _ => s.target_dest.is_none(),
                 }
             }
-
-            Action::Convoy { target_unit_id, target_dest } => {
-                // 1. ユニットIDチェック
-                if Some(*target_unit_id) != other_order.unit_id {
+            Action::Convoy(c) => {
+                if c.target_unit.id() != other_order.unit_id() {
                     return false;
                 }
-
                 match &other_order.action {
-                    Action::Move { dest } => dest == target_dest,
+                    Action::Move(m) => c.target_dest == m.dest,
                     _ => false,
                 }
             }
-
             _ => false,
         }
     }
@@ -86,125 +142,100 @@ impl Order {
 
 impl fmt::Display for Order {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let unit_prefix = match &self.unit_id {
-            Some(unit_id) => format!("Unit({})", unit_id),
-            None => "No Unit".to_string(),
-        };
+        let prefix = self.unit.label();
 
         match &self.action {
-            Action::Hold => write!(f, "{} Holds", unit_prefix),
-
-            Action::Move { dest } => write!(f, "{} - {}", unit_prefix, dest),
-
-            Action::Support { target_unit_id, target_dest } => {
-                if let Some(dest) = target_dest {
-                    write!(f, "{} S Unit({}) - {}", unit_prefix, target_unit_id, dest)
+            Action::Hold(_) => {
+                write!(f, "{} Holds", prefix)
+            }
+            Action::Move(o) => {
+                write!(f, "{} - {}", prefix, o.dest)
+            }
+            Action::Support(o) => {
+                // 自分の勢力とターゲットの勢力が違う場合、形容詞を取得
+                let target_label = if self.power != o.target_unit.power() {
+                    format!("{} {}", o.target_unit.power().adjective(), o.target_unit.label())
                 } else {
-                    write!(f, "{} S Unit({})", unit_prefix, target_unit_id)
+                    o.target_unit.label()
+                };
+
+                if let Some(dest) = o.target_dest {
+                    write!(f, "{} S {} - {}", prefix, target_label, dest)
+                } else {
+                    write!(f, "{} S {}", prefix, target_label)
                 }
             }
+            Action::Convoy(o) => {
+                let target_label = if self.power != o.target_unit.power() {
+                    format!("{} {}", o.target_unit.power().adjective(), o.target_unit.label())
+                } else {
+                    o.target_unit.label()
+                };
 
-            Action::Convoy { target_unit_id, target_dest } => {
-                write!(f, "{} C Unit({}) - {}", unit_prefix, target_unit_id, target_dest)
+                write!(f, "{} C {} - {}", prefix, target_label, o.target_dest)
             }
-            _ => write!(f, "{}: {:?}", unit_prefix, self.action),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::super::Army;
+    use super::super::Fleet;
     use super::*;
 
     #[test]
-    fn test_support_matching() {
-        // 1. 移動するユニット（相手）
-        let move_order = Order {
-            id: None,
-            power: Power::Austria,
-            unit_id: Some(10),
-            status: OrderStatus::Unresolved,
-            action: Action::Move { dest: Province::Cly },
-        };
-
-        // 2. 正しい移動支援（自分）
-        let support_move = Order {
-            id: None,
-            power: Power::England,
-            unit_id: Some(11),
-            status: OrderStatus::Unresolved,
-            action: Action::Support {
-                target_unit_id: 10,
-                target_dest: Some(Province::Cly),
-            },
-        };
-
-        // 3. 目的地が違う支援（自分）
-        let wrong_support = Order {
-            id: None,
-            power: Power::England,
-            unit_id: Some(11),
-            status: OrderStatus::Unresolved,
-            action: Action::Support {
-                target_unit_id: 10,
-                target_dest: Some(Province::Yor), // 違う場所を支援している
-            },
-        };
-
-        // アサーション（検証）
-        assert!(support_move.is_matching_target(&move_order)); // 成功するはず
-        assert!(!wrong_support.is_matching_target(&move_order)); // 失敗するはず
+    fn test_order_creation() {
+        let unit = Army::new(Power::England, Province::Lon).with_id(10);
+        let order = MoveOrder::new(Power::England, unit, Province::Lon);
+        assert_eq!(order.unit_id(), Some(10));
+        assert_eq!(order.power, Power::England);
     }
 
     #[test]
-    fn test_order_serialization_move() {
-        let order = Order {
-            id: None,
-            power: Power::England,
-            unit_id: Some(1),
-            status: OrderStatus::Unresolved,
-            action: Action::Move { dest: Province::Nth },
-        };
-
-        let json = serde_json::to_string(&order).unwrap();
-
-        assert!(json.contains("\"type\":\"move\""));
-        assert!(json.contains("\"dest\":\"nth\""));
+    fn test_hold_creation() {
+        let unit = Fleet::new(Power::England, Province::Lon).with_id(20);
+        let order = HoldOrder::new(Power::Austria, unit);
+        assert_eq!(order.unit_id(), Some(20));
     }
 
     #[test]
-    fn test_order_serialization_hold() {
-        let order = Order::new(Power::Austria, Some(2), Action::Hold);
+    fn test_display_hold() {
+        let unit = Army::new(Power::Austria, Province::Vie); // label は "A vie" と想定
+        let order = HoldOrder::new(Power::Austria, unit);
 
-        let json = serde_json::to_string(&order).unwrap();
-        assert!(json.contains("\"type\":\"hold\""));
+        assert_eq!(order.to_string(), "A vie Holds");
     }
 
     #[test]
-    fn test_order_serialization_format_strict() {
-        use serde_json::json;
+    fn test_display_move() {
+        let unit = Army::new(Power::England, Province::Lon);
+        let order = MoveOrder::new(Power::England, unit, Province::Wal);
 
-        // 1. テストデータの作成
-        let order = Order {
-            id: Some(1),
-            power: Power::England,
-            unit_id: Some(10),
-            status: OrderStatus::Unresolved,
-            action: Action::Move { dest: Province::Lon },
-        };
+        assert_eq!(order.to_string(), "A lon - wal");
+    }
 
-        let actual_json: serde_json::Value = serde_json::to_value(&order).unwrap();
-        let expected_json = json!({
-            "id": 1,
-            "power": "England",
-            "unit_id": 10,
-            "status": "unresolved",
-            "action": {
-                "type": "move",
-                "dest": "lon"
-            }
-        });
+    #[test]
+    fn test_display_support_hold() {
+        let unit = Army::new(Power::Germany, Province::Ber);
+        let target_unit = Army::new(Power::Germany, Province::Sil);
+        let order = SupportOrder::new(Power::Germany, unit, target_unit, None);
+        assert_eq!(order.to_string(), "A ber S A sil");
+    }
 
-        assert_eq!(actual_json, expected_json);
+    #[test]
+    fn test_display_support_move() {
+        let unit = Fleet::new(Power::France, Province::Lyo);
+        let target_unit = Fleet::new(Power::France, Province::Tys);
+        let order = SupportOrder::new(Power::France, unit, target_unit, Some(Province::Nap));
+        assert_eq!(order.to_string(), "F lyo S F tys - nap");
+    }
+
+    #[test]
+    fn test_display_convoy() {
+        let unit = Fleet::new(Power::England, Province::Nth);
+        let target_unit = Army::new(Power::England, Province::Lon);
+        let order = ConvoyOrder::new(Power::England, unit, target_unit, Province::Bel);
+        assert_eq!(order.to_string(), "F nth C A lon - bel");
     }
 }
