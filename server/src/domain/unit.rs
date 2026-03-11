@@ -1,6 +1,6 @@
+use super::Power;
+use super::Province;
 use super::UnitId;
-use super::power::Power;
-use super::province::Province;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -81,10 +81,7 @@ impl Unit {
 
 #[cfg(test)]
 mod tests {
-    use super::Army;
-    use super::Fleet;
-    use super::Power;
-    use super::Province;
+    use super::*;
 
     #[test]
     fn test_unit_creation() {

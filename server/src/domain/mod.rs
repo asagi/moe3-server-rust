@@ -1,10 +1,12 @@
 pub mod order;
-pub mod power;
-pub mod province;
-pub mod unit;
 
+pub mod power;
 pub use power::Power;
+
+pub mod province;
 pub use province::Province;
+
+pub mod unit;
 pub use unit::Army;
 pub use unit::Fleet;
 pub use unit::Unit;

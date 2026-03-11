@@ -1,4 +1,4 @@
-use super::power::Power;
+use super::Power;
 use serde::Deserialize;
 use serde::Serialize;
 use strum::AsRefStr;
