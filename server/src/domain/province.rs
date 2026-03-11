@@ -1,6 +1,7 @@
 use super::Power;
 use serde::Deserialize;
 use serde::Serialize;
+use std::str::FromStr;
 use strum::AsRefStr;
 use strum::Display;
 use strum::EnumIter;
@@ -213,6 +214,10 @@ impl Province {
     pub fn home_power(&self) -> Option<Power> {
         self.get_str("Home").and_then(|s| s.parse::<Power>().ok())
     }
+
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::from_str(code).ok()
+    }
 }
 
 impl From<i64> for Province {
@@ -237,6 +242,16 @@ mod tests {
         let water = Province::Adr;
         assert!(water.is_water());
         assert!(!water.is_suppliable());
+    }
+
+    #[test]
+    fn test_province_from_code() {
+        let p = Province::from_code("par").unwrap();
+        assert_eq!(p.jname(), "パリ");
+        assert_eq!(p.fullname(), "Paris");
+        assert!(p.is_inland());
+        assert!(p.is_suppliable());
+        assert_eq!(p.home_power(), Some(Power::France));
     }
 
     #[test]
