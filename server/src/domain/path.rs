@@ -1,6 +1,4 @@
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Path {
     pub origin: &'static str,
     pub dest: &'static str,
@@ -463,16 +461,15 @@ impl Path {
     pub fn can_fleet_move(origin: &str, dest: &str) -> bool {
         PATHS.iter().any(|p| p.origin == origin && p.dest == dest && p.fleet)
     }
-
-    /// Get the total number of paths
-    pub fn count_paths() -> usize {
-        PATHS.len()
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn count_paths() -> usize {
+        PATHS.len()
+    }
 
     #[test]
     fn test_can_move() {
@@ -499,6 +496,6 @@ mod tests {
 
     #[test]
     fn test_path_count() {
-        assert_eq!(Path::count_paths(), 436);
+        assert_eq!(count_paths(), 436);
     }
 }
