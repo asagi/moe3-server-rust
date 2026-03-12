@@ -6,8 +6,9 @@ use strum::EnumProperty;
 use strum::EnumString;
 use strum::IntoEnumIterator;
 
+/// 国の定義
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumIter, Display, EnumString, EnumProperty)]
-#[repr(i64)]
+#[serde(rename_all = "snake_case")]
 pub enum Power {
     #[strum(serialize = "Austria", props(Symbol = "a", Adj = "Austrian"))]
     Austria = 1,
@@ -25,9 +26,14 @@ pub enum Power {
     Turkey = 7,
 }
 
+/// 国のロジック
 impl Power {
     pub fn all() -> impl Iterator<Item = Self> {
         Self::iter()
+    }
+
+    pub fn from_symbol(symbol: &str) -> Option<Self> {
+        Self::all().find(|p| p.symbol().eq_ignore_ascii_case(symbol))
     }
 
     pub fn symbol(&self) -> &'static str {
@@ -43,8 +49,14 @@ impl Power {
     }
 }
 
-impl From<i64> for Power {
-    fn from(id: i64) -> Self {
-        Self::all().find(|p| *p as i64 == id).unwrap_or_else(|| panic!("Unknown PowerId: {}", id))
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_from_symbol() {
+        assert_eq!(Power::from_symbol("a"), Some(Power::Austria));
+        assert_eq!(Power::from_symbol("E"), Some(Power::England));
+        assert_eq!(Power::from_symbol("x"), None);
     }
 }

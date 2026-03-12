@@ -7,6 +7,17 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
 
+/// 命令の定義
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct Order {
+    pub id: Option<OrderId>,
+    pub power: Power,
+    pub unit: Unit,
+    pub status: OrderStatus,
+    pub kind: OrderKind,
+}
+
+/// 命令の状態
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum OrderStatus {
@@ -19,17 +30,30 @@ pub enum OrderStatus {
     Invalid,
 }
 
+/// 命令の種類
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum OrderKind {
+    Hold(HoldOrder),
+    Move(MoveOrder),
+    Support(SupportOrder),
+    Convoy(ConvoyOrder),
+}
+
+/// ホールド命令
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct HoldOrder {
     pub power: Power,
 }
 
+/// 移動命令
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct MoveOrder {
     pub power: Power,
     pub dest: Province,
 }
 
+/// サポート命令
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct SupportOrder {
     pub power: Power,
@@ -37,6 +61,7 @@ pub struct SupportOrder {
     pub target_dest: Option<Province>,
 }
 
+/// 輸送命令
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct ConvoyOrder {
     pub power: Power,
@@ -44,94 +69,31 @@ pub struct ConvoyOrder {
     pub target_dest: Province,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum Action {
-    Hold(HoldOrder),
-    Move(MoveOrder),
-    Support(SupportOrder),
-    Convoy(ConvoyOrder),
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Order {
-    pub id: Option<OrderId>,
-    pub power: Power,
-    pub unit: Unit,
-    pub status: OrderStatus,
-    pub action: Action,
-}
-
-impl HoldOrder {
-    pub fn new(power: Power, unit: Unit) -> Order {
-        Order {
-            id: None,
-            power: power,
-            unit: unit,
-            status: OrderStatus::Unresolved,
-            action: Action::Hold(HoldOrder { power }),
-        }
-    }
-}
-
-impl MoveOrder {
-    pub fn new(power: Power, unit: Unit, dest: Province) -> Order {
-        Order {
-            id: None,
-            power: power,
-            unit: unit,
-            status: OrderStatus::Unresolved,
-            action: Action::Move(MoveOrder { power, dest }),
-        }
-    }
-}
-
-impl SupportOrder {
-    pub fn new(power: Power, unit: Unit, target_unit: Unit, target_dest: Option<Province>) -> Order {
-        Order {
-            id: None,
-            power: power,
-            unit: unit,
-            status: OrderStatus::Unresolved,
-            action: Action::Support(SupportOrder { power, target_unit, target_dest }),
-        }
-    }
-}
-
-impl ConvoyOrder {
-    pub fn new(power: Power, unit: Unit, target_unit: Unit, target_dest: Province) -> Order {
-        Order {
-            id: None,
-            power: power,
-            unit: unit,
-            status: OrderStatus::Unresolved,
-            action: Action::Convoy(ConvoyOrder { power, target_unit, target_dest }),
-        }
-    }
-}
-
+/// 命令のロジック
 impl Order {
+    /// ユニットIDを取得
     pub fn unit_id(&self) -> Option<UnitId> {
         self.unit.id()
     }
 
+    /// ターゲット命令と一致するかどうかを判定
     pub fn is_matching_target(&self, other_order: &Order) -> bool {
-        match &self.action {
-            Action::Support(s) => {
+        match &self.kind {
+            OrderKind::Support(s) => {
                 if s.target_unit.id() != other_order.unit_id() {
                     return false;
                 }
-                match &other_order.action {
-                    Action::Move(m) => s.target_dest == Some(m.dest),
+                match &other_order.kind {
+                    OrderKind::Move(m) => s.target_dest == Some(m.dest),
                     _ => s.target_dest.is_none(),
                 }
             }
-            Action::Convoy(c) => {
+            OrderKind::Convoy(c) => {
                 if c.target_unit.id() != other_order.unit_id() {
                     return false;
                 }
-                match &other_order.action {
-                    Action::Move(m) => c.target_dest == m.dest,
+                match &other_order.kind {
+                    OrderKind::Move(m) => c.target_dest == m.dest,
                     _ => false,
                 }
             }
@@ -140,18 +102,77 @@ impl Order {
     }
 }
 
+/// 維持命令の実装
+impl HoldOrder {
+    pub fn new(power: Power, unit: Unit) -> Order {
+        Order {
+            id: None,
+            power: power,
+            unit: unit,
+            status: OrderStatus::Unresolved,
+            kind: OrderKind::Hold(HoldOrder { power }),
+        }
+    }
+}
+
+/// 移動命令の実装
+impl MoveOrder {
+    pub fn new(power: Power, unit: Unit, dest: Province) -> Order {
+        Order {
+            id: None,
+            power: power,
+            unit: unit,
+            status: OrderStatus::Unresolved,
+            kind: OrderKind::Move(MoveOrder { power, dest }),
+        }
+    }
+}
+
+/// サポート命令の実装
+impl SupportOrder {
+    pub fn new(power: Power, unit: Unit, target_unit: Unit, target_dest: Option<Province>) -> Order {
+        Order {
+            id: None,
+            power: power,
+            unit: unit,
+            status: OrderStatus::Unresolved,
+            kind: OrderKind::Support(SupportOrder { power, target_unit, target_dest }),
+        }
+    }
+}
+
+/// 輸送命令の実装
+impl ConvoyOrder {
+    pub fn new(power: Power, unit: Unit, target_unit: Unit, target_dest: Province) -> Order {
+        Order {
+            id: None,
+            power: power,
+            unit: unit,
+            status: OrderStatus::Unresolved,
+            kind: OrderKind::Convoy(ConvoyOrder { power, target_unit, target_dest }),
+        }
+    }
+}
+
+/// 命令を Diplomacy 風の短縮表記で整形する。
+///
+/// 例:
+/// - Hold: A lon Holds
+/// - Move: A lon - wal
+/// - Support: A lon S A wal - yor
+/// - Convoy: F eng C A lon - bre
 impl fmt::Display for Order {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let prefix = self.unit.label();
 
-        match &self.action {
-            Action::Hold(_) => {
+        match &self.kind {
+            OrderKind::Hold(_) => {
                 write!(f, "{} Holds", prefix)
             }
-            Action::Move(o) => {
+            OrderKind::Move(o) => {
                 write!(f, "{} - {}", prefix, o.dest)
             }
-            Action::Support(o) => {
+            OrderKind::Support(o) => {
                 // 自分の勢力とターゲットの勢力が違う場合、形容詞を取得
                 let target_label = if self.power != o.target_unit.power() {
                     format!("{} {}", o.target_unit.power().adjective(), o.target_unit.label())
@@ -165,7 +186,7 @@ impl fmt::Display for Order {
                     write!(f, "{} S {}", prefix, target_label)
                 }
             }
-            Action::Convoy(o) => {
+            OrderKind::Convoy(o) => {
                 let target_label = if self.power != o.target_unit.power() {
                     format!("{} {}", o.target_unit.power().adjective(), o.target_unit.label())
                 } else {
