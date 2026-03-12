@@ -81,6 +81,10 @@ impl Fleet {
 mod tests {
     use super::*;
 
+    fn p(code: &str) -> Province {
+        Province::from_code(code).expect("valid province code")
+    }
+
     impl Unit {
         pub fn with_id(mut self, id: UnitId) -> Self {
             match self {
@@ -93,11 +97,11 @@ mod tests {
 
     #[test]
     fn test_unit_creation() {
-        let army = Army::new(Power::France, Province::Par);
+        let army = Army::new(Power::France, p("par"));
         assert_eq!(army.symbol(), "A");
         assert_eq!(army.label(), "A par");
 
-        let fleet = Fleet::new(Power::England, Province::Lon);
+        let fleet = Fleet::new(Power::England, p("lon"));
         assert_eq!(fleet.symbol(), "F");
         assert_eq!(fleet.label(), "F lon");
     }
