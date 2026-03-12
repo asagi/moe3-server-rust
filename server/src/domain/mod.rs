@@ -1,6 +1,9 @@
 pub mod order;
 pub use order::Order;
 
+pub mod path;
+pub use path::Path;
+
 pub mod phase;
 
 pub mod player;
