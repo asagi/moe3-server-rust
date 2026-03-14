@@ -65,14 +65,14 @@ impl Unit {
 
 /// 陸軍の実装
 impl Army {
-    pub fn new(power: Power, province: Province) -> Unit {
+    pub fn to_unit(power: Power, province: Province) -> Unit {
         Unit::Army(Army { id: None, power, province })
     }
 }
 
 /// 海軍の実装
 impl Fleet {
-    pub fn new(power: Power, province: Province) -> Unit {
+    pub fn to_unit(power: Power, province: Province) -> Unit {
         Unit::Fleet(Fleet { id: None, power, province })
     }
 }
@@ -97,11 +97,11 @@ mod tests {
 
     #[test]
     fn test_unit_creation() {
-        let army = Army::new(Power::France, p("par"));
+        let army = Army::to_unit(Power::France, p("par"));
         assert_eq!(army.symbol(), "A");
         assert_eq!(army.label(), "A par");
 
-        let fleet = Fleet::new(Power::England, p("lon"));
+        let fleet = Fleet::to_unit(Power::England, p("lon"));
         assert_eq!(fleet.symbol(), "F");
         assert_eq!(fleet.label(), "F lon");
     }

@@ -104,11 +104,11 @@ impl Order {
 
 /// 維持命令の実装
 impl HoldOrder {
-    pub fn new(power: Power, unit: Unit) -> Order {
+    pub fn to_order(power: Power, unit: Unit) -> Order {
         Order {
             id: None,
-            power: power,
-            unit: unit,
+            power,
+            unit,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Hold(HoldOrder { power }),
         }
@@ -117,11 +117,11 @@ impl HoldOrder {
 
 /// 移動命令の実装
 impl MoveOrder {
-    pub fn new(power: Power, unit: Unit, dest: Province) -> Order {
+    pub fn to_order(power: Power, unit: Unit, dest: Province) -> Order {
         Order {
             id: None,
-            power: power,
-            unit: unit,
+            power,
+            unit,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Move(MoveOrder { power, dest }),
         }
@@ -130,11 +130,11 @@ impl MoveOrder {
 
 /// サポート命令の実装
 impl SupportOrder {
-    pub fn new(power: Power, unit: Unit, target_unit: Unit, target_dest: Option<Province>) -> Order {
+    pub fn to_order(power: Power, unit: Unit, target_unit: Unit, target_dest: Option<Province>) -> Order {
         Order {
             id: None,
-            power: power,
-            unit: unit,
+            power,
+            unit,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Support(SupportOrder { power, target_unit, target_dest }),
         }
@@ -143,11 +143,11 @@ impl SupportOrder {
 
 /// 輸送命令の実装
 impl ConvoyOrder {
-    pub fn new(power: Power, unit: Unit, target_unit: Unit, target_dest: Province) -> Order {
+    pub fn to_order(power: Power, unit: Unit, target_unit: Unit, target_dest: Province) -> Order {
         Order {
             id: None,
-            power: power,
-            unit: unit,
+            power,
+            unit,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Convoy(ConvoyOrder { power, target_unit, target_dest }),
         }
@@ -211,56 +211,56 @@ mod tests {
 
     #[test]
     fn test_order_creation() {
-        let unit = Army::new(Power::England, p("lon")).with_id(10);
-        let order = MoveOrder::new(Power::England, unit, p("lon"));
+        let unit = Army::to_unit(Power::England, p("lon")).with_id(10);
+        let order = MoveOrder::to_order(Power::England, unit, p("lon"));
         assert_eq!(order.unit_id(), Some(10));
         assert_eq!(order.power, Power::England);
     }
 
     #[test]
     fn test_hold_creation() {
-        let unit = Fleet::new(Power::England, p("lon")).with_id(20);
-        let order = HoldOrder::new(Power::Austria, unit);
+        let unit = Fleet::to_unit(Power::England, p("lon")).with_id(20);
+        let order = HoldOrder::to_order(Power::Austria, unit);
         assert_eq!(order.unit_id(), Some(20));
     }
 
     #[test]
     fn test_display_hold() {
-        let unit = Army::new(Power::Austria, p("vie")); // label は "A vie" と想定
-        let order = HoldOrder::new(Power::Austria, unit);
+        let unit = Army::to_unit(Power::Austria, p("vie")); // label は "A vie" と想定
+        let order = HoldOrder::to_order(Power::Austria, unit);
 
         assert_eq!(order.to_string(), "A vie Holds");
     }
 
     #[test]
     fn test_display_move() {
-        let unit = Army::new(Power::England, p("lon"));
-        let order = MoveOrder::new(Power::England, unit, p("wal"));
+        let unit = Army::to_unit(Power::England, p("lon"));
+        let order = MoveOrder::to_order(Power::England, unit, p("wal"));
 
         assert_eq!(order.to_string(), "A lon - wal");
     }
 
     #[test]
     fn test_display_support_hold() {
-        let unit = Army::new(Power::Germany, p("ber"));
-        let target_unit = Army::new(Power::Germany, p("sil"));
-        let order = SupportOrder::new(Power::Germany, unit, target_unit, None);
+        let unit = Army::to_unit(Power::Germany, p("ber"));
+        let target_unit = Army::to_unit(Power::Germany, p("sil"));
+        let order = SupportOrder::to_order(Power::Germany, unit, target_unit, None);
         assert_eq!(order.to_string(), "A ber S A sil");
     }
 
     #[test]
     fn test_display_support_move() {
-        let unit = Fleet::new(Power::France, p("lyo"));
-        let target_unit = Fleet::new(Power::France, p("tys"));
-        let order = SupportOrder::new(Power::France, unit, target_unit, Some(p("nap")));
+        let unit = Fleet::to_unit(Power::France, p("lyo"));
+        let target_unit = Fleet::to_unit(Power::France, p("tys"));
+        let order = SupportOrder::to_order(Power::France, unit, target_unit, Some(p("nap")));
         assert_eq!(order.to_string(), "F lyo S F tys - nap");
     }
 
     #[test]
     fn test_display_convoy() {
-        let unit = Fleet::new(Power::England, p("nth"));
-        let target_unit = Army::new(Power::England, p("lon"));
-        let order = ConvoyOrder::new(Power::England, unit, target_unit, p("bel"));
+        let unit = Fleet::to_unit(Power::England, p("nth"));
+        let target_unit = Army::to_unit(Power::England, p("lon"));
+        let order = ConvoyOrder::to_order(Power::England, unit, target_unit, p("bel"));
         assert_eq!(order.to_string(), "F nth C A lon - bel");
     }
 }

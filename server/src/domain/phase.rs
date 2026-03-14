@@ -98,43 +98,43 @@ impl Phase {
 
 /// 各フェイズの生成ロジック
 impl ReadyPhase {
-    pub fn new() -> Phase {
+    pub fn to_phase() -> Phase {
         Phase::new_base(1900, 0, PhaseType::Ready(ReadyPhase {}))
     }
 }
 
 impl SpringOrderPhase {
-    pub fn new(prev_year: i32, prev_index: i32) -> Phase {
+    pub fn to_phase(prev_year: i32, prev_index: i32) -> Phase {
         Phase::new_base(prev_year + 1, prev_index + 1, PhaseType::SpringOrder(SpringOrderPhase {}))
     }
 }
 
 impl SpringRetreatPhase {
-    pub fn new(current_year: i32, prev_index: i32) -> Phase {
+    pub fn to_phase(current_year: i32, prev_index: i32) -> Phase {
         Phase::new_base(current_year, prev_index + 1, PhaseType::SpringRetreat(SpringRetreatPhase {}))
     }
 }
 
 impl FallOrderPhase {
-    pub fn new(current_year: i32, prev_index: i32) -> Phase {
+    pub fn to_phase(current_year: i32, prev_index: i32) -> Phase {
         Phase::new_base(current_year, prev_index + 1, PhaseType::FallOrder(FallOrderPhase {}))
     }
 }
 
 impl FallRetreatPhase {
-    pub fn new(current_year: i32, prev_index: i32) -> Phase {
+    pub fn to_phase(current_year: i32, prev_index: i32) -> Phase {
         Phase::new_base(current_year, prev_index + 1, PhaseType::FallRetreat(FallRetreatPhase {}))
     }
 }
 
 impl AdjustmentPhase {
-    pub fn new(current_year: i32, prev_index: i32) -> Phase {
+    pub fn to_phase(current_year: i32, prev_index: i32) -> Phase {
         Phase::new_base(current_year, prev_index + 1, PhaseType::Adjustment(AdjustmentPhase {}))
     }
 }
 
 impl DebriefPhase {
-    pub fn new(current_year: i32, prev_index: i32) -> Phase {
+    pub fn to_phase(current_year: i32, prev_index: i32) -> Phase {
         Phase::new_base(current_year, prev_index + 1, PhaseType::Debrief(DebriefPhase {}))
     }
 }
@@ -188,37 +188,37 @@ pub trait PhaseCloseLogic {
 /// 各フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for ReadyPhase {
     fn create_next_phase(&self, current_year: i32, current_index: i32, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(SpringOrderPhase::new(current_year, current_index))
+        Some(SpringOrderPhase::to_phase(current_year, current_index))
     }
 }
 
 impl PhaseCloseLogic for SpringOrderPhase {
     fn create_next_phase(&self, current_year: i32, current_index: i32, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(SpringRetreatPhase::new(current_year, current_index))
+        Some(SpringRetreatPhase::to_phase(current_year, current_index))
     }
 }
 
 impl PhaseCloseLogic for SpringRetreatPhase {
     fn create_next_phase(&self, current_year: i32, current_index: i32, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(FallOrderPhase::new(current_year, current_index))
+        Some(FallOrderPhase::to_phase(current_year, current_index))
     }
 }
 
 impl PhaseCloseLogic for FallOrderPhase {
     fn create_next_phase(&self, current_year: i32, current_index: i32, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(FallRetreatPhase::new(current_year, current_index))
+        Some(FallRetreatPhase::to_phase(current_year, current_index))
     }
 }
 
 impl PhaseCloseLogic for FallRetreatPhase {
     fn create_next_phase(&self, current_year: i32, current_index: i32, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(AdjustmentPhase::new(current_year, current_index))
+        Some(AdjustmentPhase::to_phase(current_year, current_index))
     }
 }
 
 impl PhaseCloseLogic for AdjustmentPhase {
     fn create_next_phase(&self, current_year: i32, current_index: i32, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(SpringOrderPhase::new(current_year, current_index))
+        Some(SpringOrderPhase::to_phase(current_year, current_index))
     }
 }
 
