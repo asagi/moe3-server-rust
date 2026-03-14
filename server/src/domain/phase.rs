@@ -79,8 +79,8 @@ impl Phase {
         Self::new(current_year, prev_index + 1, PhaseType::SpringRetreat(SpringRetreatPhase {}))
     }
 
-    pub fn new_spring_order(prev_year: i32, prev_index: i32) -> Self {
-        Self::new(prev_year + 1, prev_index + 1, PhaseType::SpringOrder(SpringOrderPhase {}))
+    pub fn new_spring_order(current_year: i32, current_index: i32) -> Self {
+        Self::new(current_year + 1, current_index + 1, PhaseType::SpringOrder(SpringOrderPhase {}))
     }
 
     pub fn new_fall_order(current_year: i32, prev_index: i32) -> Self {
@@ -99,85 +99,86 @@ impl Phase {
         Self::new(current_year, prev_index + 1, PhaseType::Debrief(DebriefPhase {}))
     }
 
-    pub fn close(&self, context: &mut PhaseContext) -> PhaseCloseResult {
-        match &self.phase_type {
-            PhaseType::Ready(r) => r.close(self, context),
-            PhaseType::SpringOrder(s) => s.close(self, context),
-            PhaseType::SpringRetreat(s) => s.close(self, context),
-            PhaseType::FallOrder(f) => f.close(self, context),
-            PhaseType::FallRetreat(f) => f.close(self, context),
-            PhaseType::Adjustment(a) => a.close(self, context),
-            PhaseType::Debrief(d) => d.close(self, context),
+    pub fn close(mut self, context: &mut PhaseContext) -> PhaseCloseResult {
+        match self.phase_type.clone() {
+            PhaseType::Ready(r) => r.close(&mut self, context),
+            PhaseType::SpringOrder(s) => s.close(&mut self, context),
+            PhaseType::SpringRetreat(s) => s.close(&mut self, context),
+            PhaseType::FallOrder(f) => f.close(&mut self, context),
+            PhaseType::FallRetreat(f) => f.close(&mut self, context),
+            PhaseType::Adjustment(a) => a.close(&mut self, context),
+            PhaseType::Debrief(d) => d.close(&mut self, context),
         }
     }
 }
 
 /// フェイズの終了ロジック
 trait PhaseCloseLogic {
-    fn close(&self, current_phase: &Phase, context: &mut PhaseContext) -> PhaseCloseResult
+    fn close(&self, current_phase: &mut Phase, context: &mut PhaseContext) -> PhaseCloseResult
     where
         Self: Sized,
     {
-        // 1. 和平判定
+        // 和平判定
         if self.check_draw_condition(context) {
-            return self.close_in_draw(context);
+            return self.close_on_draw(current_phase, context);
         }
 
-        // 2. 解決（selfの状態を書き換える）
-        self.resolve_orders(context);
-        self.occupy(context);
+        // 解決
+        self.resolve_orders(current_phase, context);
+        self.occupy(current_phase, context);
 
-        // 3. 制覇判定
+        // 制覇判定
         if self.check_resolved_condition(context) {
-            return self.end_due_to_resolution(context);
+            return self.close_on_resolution(current_phase, context);
         }
 
-        // 4. 次フェイズ生成
+        // 次フェイズ生成
         if let Some(next_phase) = self.create_next_phase(current_phase, context) {
-            // 5. スキップ判定と再帰
-            if !self.should_skip_next_phase(context, &next_phase) {
-                context.next_phase = next_phase;
-                return context.into_result();
+            // スキップ判定と再帰
+            context.phases.push(current_phase.clone());
+            if self.should_skip_next_phase(context, &next_phase) {
+                return next_phase.close(context);
             }
-
-            // 次のフェイズをそのまま close() にかける（再帰）
-            return next_phase.close(context);
+            return context.into_result(&next_phase);
         }
-        context.into_result()
+        context.into_result(current_phase)
     }
 
     fn check_draw_condition(&self, _context: &PhaseContext) -> bool {
         false
     }
 
-    fn close_in_draw(&self, _context: &mut PhaseContext) -> PhaseCloseResult {
-        // # TODO: self.table のステータスを DRAW に変更
-        // ...
+    fn close_on_draw(&self, current_phase: &mut Phase, context: &mut PhaseContext) -> PhaseCloseResult {
+        // TODO: 和平合意による終了処理
+        // - テーブルのステータスを DRAW に変更する
+        // - 現在のフェイズ種別に応じて後続フェイズを生成して context.phases に積む
+        //   （春命令中なら撤退フェイズ、秋命令中なら撤退→調整フェイズ）
+        // - 最後に感想戦フェイズを生成して積む
+        // - 期限時刻を考慮して感想戦フェイズの due_time を設定する
 
-        // if not self.due_time:
-        //     return self._create_debrief_phase()._open()
-
-        // now = get_current_time()
-        // if self.table.due_mode == DueMode.FIXED or now >= self.due_time:
-        //     due_time = self.due_time + timedelta(minutes=self.table.get_debrief_phase_duration())
-        // else:
-        //     due_time = now + timedelta(minutes=self.table.get_debrief_phase_duration())
-        // return self._create_debrief_phase(due_time)._open()
-
-        PhaseCloseResult {}
+        // TODO: 暫定実装
+        // 本来は後続フェイズと Debrief を context.phases に積んだうえで結果化する
+        context.into_result(current_phase)
     }
 
-    fn resolve_orders(&self, _context: &mut PhaseContext) {}
+    fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {}
 
-    fn occupy(&self, _context: &PhaseContext) {}
+    fn occupy(&self, _current_phase: &mut Phase, _context: &PhaseContext) {}
 
     fn check_resolved_condition(&self, _context: &PhaseContext) -> bool {
         false
     }
 
-    fn end_due_to_resolution(&self, _context: &PhaseContext) -> PhaseCloseResult {
-        // TODO
-        PhaseCloseResult {}
+    fn close_on_resolution(&self, current_phase: &mut Phase, context: &mut PhaseContext) -> PhaseCloseResult {
+        // TODO: 制覇勝利による終了処理
+        // - テーブルのステータスを RESOLVED に変更する
+        // - 現在のフェイズ種別に応じて後続フェイズを生成して context.phases に積む
+        //   （close_on_draw と同様）
+        // - 最後に感想戦フェイズを生成して積む
+
+        // TODO: 暫定実装
+        // 本来は後続フェイズと Debrief を context.phases に積んだうえで結果化する
+        context.into_result(current_phase)
     }
 
     fn create_next_phase(&self, current_phase: &Phase, context: &mut PhaseContext) -> Option<Phase>;
@@ -185,31 +186,20 @@ trait PhaseCloseLogic {
     fn should_skip_next_phase(&self, _context: &PhaseContext, _next_phase: &Phase) -> bool {
         false
     }
-
-    // fn open(self) -> Self;
 }
 
 fn check_draw_condition_for_order_phase(_context: &PhaseContext) -> bool {
-    // TODO
-
-    // powers = active_powers if active_powers else Power.all()
-    // draw_agreed_players = [p for p in self.table.players if p.power in powers and p.is_draw_agreed]
-    // return len(draw_agreed_players) / len(powers) > 0.5
+    // TODO: 和平合意条件の判定
+    // - 有効な勢力のうち、和平に同意しているプレイヤーが過半数を超えたら true を返す
 
     false
 }
 
 fn resolve_orders_for_order_phase(_context: &mut PhaseContext) {
-    // TODO
-
-    // standoffs: set[Province] = set()
-    // self.resolve_marching_orders(self.orders, standoffs)
-
-    // for order in filter(lambda o: not o.is_assumed(), self.orders):
-    //     self.units.append(order.create_unit())
-
-    // for province in standoffs:
-    //     self.standoffs.append(Standoff(province))
+    // TODO: 命令の解決処理
+    // - 行軍命令を解決し、スタンドオフが発生した地域を記録する
+    // - 解決済み命令からユニットを生成して current_phase.units に追加する
+    // - スタンドオフ情報を current_phase に記録する
 }
 
 /// 各フェイズの終了ロジックの差分実装
@@ -228,7 +218,7 @@ impl PhaseCloseLogic for SpringOrderPhase {
         check_draw_condition_for_order_phase(_context)
     }
 
-    fn resolve_orders(&self, context: &mut PhaseContext) {
+    fn resolve_orders(&self, _current_phase: &mut Phase, context: &mut PhaseContext) {
         resolve_orders_for_order_phase(context);
     }
 }
@@ -248,7 +238,7 @@ impl PhaseCloseLogic for FallOrderPhase {
         check_draw_condition_for_order_phase(_context)
     }
 
-    fn resolve_orders(&self, context: &mut PhaseContext) {
+    fn resolve_orders(&self, _current_phase: &mut Phase, context: &mut PhaseContext) {
         resolve_orders_for_order_phase(context);
     }
 }
@@ -272,13 +262,14 @@ impl PhaseCloseLogic for DebriefPhase {
 }
 
 /// フェイズのコンテキストと終了結果（必要に応じてフィールドを追加）
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PhaseContext {
-    pub next_phase: Phase,
+    pub phases: Vec<Phase>,
 }
 
 impl PhaseContext {
-    pub fn into_result(&self) -> PhaseCloseResult {
+    pub fn into_result(&mut self, latest_phase: &Phase) -> PhaseCloseResult {
+        self.phases.push(latest_phase.clone());
         PhaseCloseResult {}
     }
 }
