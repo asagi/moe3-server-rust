@@ -30,6 +30,14 @@ pub struct Fleet {
 
 /// ユニットのロジック
 impl Unit {
+    pub fn new_army(power: Power, province: Province) -> Self {
+        Self::Army(Army { id: None, power, province })
+    }
+
+    pub fn new_fleet(power: Power, province: Province) -> Self {
+        Self::Fleet(Fleet { id: None, power, province })
+    }
+
     pub fn id(&self) -> Option<UnitId> {
         match self {
             Unit::Army(u) => u.id,
@@ -63,20 +71,6 @@ impl Unit {
     }
 }
 
-/// 陸軍の実装
-impl Army {
-    pub fn to_unit(power: Power, province: Province) -> Unit {
-        Unit::Army(Army { id: None, power, province })
-    }
-}
-
-/// 海軍の実装
-impl Fleet {
-    pub fn to_unit(power: Power, province: Province) -> Unit {
-        Unit::Fleet(Fleet { id: None, power, province })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -97,11 +91,11 @@ mod tests {
 
     #[test]
     fn test_unit_creation() {
-        let army = Army::to_unit(Power::France, p("par"));
+        let army = Unit::new_army(Power::France, p("par"));
         assert_eq!(army.symbol(), "A");
         assert_eq!(army.label(), "A par");
 
-        let fleet = Fleet::to_unit(Power::England, p("lon"));
+        let fleet = Unit::new_fleet(Power::England, p("lon"));
         assert_eq!(fleet.symbol(), "F");
         assert_eq!(fleet.label(), "F lon");
     }
