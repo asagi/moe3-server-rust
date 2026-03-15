@@ -202,6 +202,7 @@ trait PhaseCloseLogic {
     }
 }
 
+/// 命令フェイズの和平合意条件の判定
 fn check_draw_condition_for_order_phase(_context: &PhaseContext) -> bool {
     // TODO: 和平合意条件の判定
     // - 有効な勢力のうち、和平に同意しているプレイヤーが過半数を超えたら true を返す
@@ -209,11 +210,19 @@ fn check_draw_condition_for_order_phase(_context: &PhaseContext) -> bool {
     false
 }
 
+/// 命令フェイズの命令解決処理
 fn resolve_orders_for_order_phase(_current_phase: &mut Phase, _context: &mut PhaseContext) {
     // TODO: 命令の解決処理
     // - 行軍命令を解決し、スタンドオフが発生した地域を記録する
     // - 解決済み命令からユニットを生成して current_phase.units に追加する
     // - スタンドオフ情報を current_phase に記録する（シグネチャ変更予定）
+}
+
+/// 撤退フェイズの占領処理
+fn occupy_for_retreat_phase(_current_phase: &mut Phase, _context: &mut PhaseContext) {
+    // TODO: 占領処理
+    // - 撤退命令を解決し、占領が発生した地域を記録する
+    // - 占領情報を current_phase に記録する
 }
 
 /// 各フェイズの終了ロジックの差分実装
@@ -244,6 +253,10 @@ impl PhaseCloseLogic for SpringOrderPhase {
 }
 
 impl PhaseCloseLogic for SpringRetreatPhase {
+    fn occupy(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
+        occupy_for_retreat_phase(_current_phase, _context);
+    }
+
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
         Some(Phase::new_fall_order(current_phase.year, current_phase.index))
     }
@@ -270,6 +283,10 @@ impl PhaseCloseLogic for FallOrderPhase {
 }
 
 impl PhaseCloseLogic for FallRetreatPhase {
+    fn occupy(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
+        occupy_for_retreat_phase(_current_phase, _context);
+    }
+
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
         Some(Phase::new_adjustment(current_phase.year, current_phase.index))
     }
