@@ -1,6 +1,7 @@
 use super::Order;
 use super::PhaseId;
 use super::Unit;
+use super::phase_order_resolution::resolve_orders_for_order_phase;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -210,14 +211,6 @@ fn check_draw_condition_for_order_phase(_context: &PhaseContext) -> bool {
     false
 }
 
-/// 命令フェイズの命令解決処理
-fn resolve_orders_for_order_phase(_current_phase: &mut Phase, _context: &mut PhaseContext) {
-    // TODO: 命令の解決処理
-    // - 行軍命令を解決し、スタンドオフが発生した地域を記録する
-    // - 解決済み命令からユニットを生成して current_phase.units に追加する
-    // - スタンドオフ情報を current_phase に記録する（シグネチャ変更予定）
-}
-
 /// 撤退フェイズの占領処理
 fn occupy_for_retreat_phase(_current_phase: &mut Phase, _context: &mut PhaseContext) {
     // TODO: 占領処理
@@ -333,6 +326,7 @@ pub struct PhaseCloseResult {}
 
 #[cfg(test)]
 mod tests {
+    use super::super::phase_order_resolution::test_hook;
     use super::*;
 
     #[test]
@@ -341,5 +335,29 @@ mod tests {
         assert_eq!(p.year, 1901);
         assert_eq!(p.index, 8);
         assert!(matches!(p.phase_type, PhaseType::SpringOrder(_)));
+    }
+
+    #[test]
+    fn spring_order_close_calls_common_order_resolution() {
+        test_hook::reset();
+
+        let phase = Phase::new_spring_order(1900, 0);
+        let mut context = PhaseContext { phases: vec![] };
+
+        let _ = phase.close(&mut context);
+
+        assert_eq!(test_hook::call_count(), 1);
+    }
+
+    #[test]
+    fn fall_order_close_calls_common_order_resolution() {
+        test_hook::reset();
+
+        let phase = Phase::new_fall_order(1901, 1);
+        let mut context = PhaseContext { phases: vec![] };
+
+        let _ = phase.close(&mut context);
+
+        assert_eq!(test_hook::call_count(), 1);
     }
 }
