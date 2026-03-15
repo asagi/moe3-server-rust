@@ -45,7 +45,7 @@ impl Unit {
         }
     }
 
-    pub fn province(&self) -> Province {
+    pub fn location(&self) -> Province {
         match self {
             Unit::Army(u) => u.province,
             Unit::Fleet(u) => u.province,
@@ -67,7 +67,17 @@ impl Unit {
     }
 
     pub fn label(&self) -> String {
-        format!("{} {}", self.symbol(), self.province())
+        format!("{} {}", self.symbol(), self.location())
+    }
+
+    /// 陸軍かどうか判定
+    pub fn is_army(&self) -> bool {
+        matches!(self, Unit::Army(_))
+    }
+
+    /// 海軍かどうか判定
+    pub fn is_fleet(&self) -> bool {
+        matches!(self, Unit::Fleet(_))
     }
 }
 

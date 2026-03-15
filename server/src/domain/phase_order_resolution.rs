@@ -1,6 +1,11 @@
 use super::order::Order;
+use super::order::OrderKind;
+use super::order::OrderStatus;
+use super::path::Path;
 use super::phase::Phase;
 use super::phase::PhaseContext;
+use super::unit::Unit;
+use std::collections::HashSet;
 
 /// 命令フェイズの命令解決処理
 ///
@@ -44,7 +49,40 @@ pub fn resolve_orders_for_order_phase(current_phase: &mut Phase, context: &mut P
 }
 
 /// 移動命令検証
-fn validate_move_orders(_orders: &mut [Order], _context: &PhaseContext) {}
+fn validate_move_orders(orders: &mut [Order], _context: &PhaseContext) {
+    let convoy_orders: Vec<Order> = orders.iter().filter(|o| matches!(o.kind, OrderKind::Convoy(_))).cloned().collect();
+
+    for move_order in orders.iter_mut() {
+        let OrderKind::Move(ref m) = move_order.kind else { continue };
+
+        match &move_order.unit {
+            Unit::Fleet(_) => {
+                if !Path::can_fleet_move(move_order.location().code(), m.dest.code()) {
+                    move_order.set_invalid();
+                    continue;
+                }
+            }
+            Unit::Army(_) => {
+                if m.dest.is_water() {
+                    move_order.set_invalid();
+                    continue;
+                }
+
+                if Path::is_adjacent(move_order.location().code(), m.dest.code()) {
+                    continue;
+                }
+
+                // 輸送経路の成立していない陸軍の遠隔地移動は失敗
+                let effective_convoy_orders: Vec<&Order> = convoy_orders.iter().filter(|o| is_effective_convoy(o, move_order)).collect();
+                let allowed_waters: HashSet<&str> = effective_convoy_orders.iter().map(|order| order.location().code()).collect();
+                if !Path::is_reachable_by_sea(move_order.location().code(), m.dest.code(), &allowed_waters) {
+                    move_order.set_invalid();
+                    continue;
+                }
+            }
+        }
+    }
+}
 
 /// 支援命令検証
 fn validate_support_orders(_orders: &mut [Order], _context: &PhaseContext) {}
@@ -66,6 +104,21 @@ fn handle_remaining_move_orders(_orders: &mut [Order], _context: &PhaseContext) 
 
 /// 未処理の命令を全て成功判定
 fn succeed_remaining_orders(_orders: &mut [Order], _context: &PhaseContext) {}
+
+fn is_effective_convoy(convoy_order: &Order, target: &Order) -> bool {
+    let OrderKind::Convoy(convoy) = &convoy_order.kind else { return false };
+
+    if convoy.target_unit != target.unit {
+        return false;
+    }
+    if !matches!(&target.kind, OrderKind::Move(m) if convoy.target_dest == m.dest) {
+        return false;
+    }
+    if convoy_order.status == OrderStatus::Dislodged {
+        return false;
+    }
+    true
+}
 
 #[cfg(test)]
 pub(crate) mod test_hook {

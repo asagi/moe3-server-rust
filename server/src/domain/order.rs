@@ -116,6 +116,11 @@ impl Order {
         self.unit.id()
     }
 
+    /// ユニットの現在地を返す
+    pub fn location(&self) -> Province {
+        self.unit.location()
+    }
+
     /// ターゲット命令と一致するかどうかを判定
     pub fn is_matching_target(&self, other_order: &Order) -> bool {
         match &self.kind {
@@ -139,6 +144,41 @@ impl Order {
             }
             _ => false,
         }
+    }
+
+    /// ステータスを Unresolved に変更
+    pub fn set_unresolved(&mut self) {
+        self.status = OrderStatus::Unresolved;
+    }
+
+    /// ステータスを Failure に変更
+    pub fn set_failure(&mut self) {
+        self.status = OrderStatus::Failure;
+    }
+
+    /// ステータスを Success に変更
+    pub fn set_success(&mut self) {
+        self.status = OrderStatus::Success;
+    }
+
+    /// ステータスを Dislodged に変更
+    pub fn set_dislodged(&mut self) {
+        self.status = OrderStatus::Dislodged;
+    }
+
+    /// ステータスを Cut に変更
+    pub fn set_cut(&mut self) {
+        self.status = OrderStatus::Cut;
+    }
+
+    /// ステータスを Valid に変更
+    pub fn set_valid(&mut self) {
+        self.status = OrderStatus::Valid;
+    }
+
+    /// ステータスを Invalid に変更
+    pub fn set_invalid(&mut self) {
+        self.status = OrderStatus::Invalid;
     }
 }
 
