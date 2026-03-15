@@ -71,34 +71,45 @@ impl Phase {
         }
     }
 
+    /// 準備フェイズを生成する。
     pub fn new_ready() -> Self {
         Self::new(1900, 0, PhaseType::Ready(ReadyPhase {}))
     }
 
-    pub fn new_spring_retreat(current_year: i32, prev_index: i32) -> Self {
-        Self::new(current_year, prev_index + 1, PhaseType::SpringRetreat(SpringRetreatPhase {}))
-    }
-
+    /// 春命令フェイズを生成する。
+    ///
+    /// - 春命令は「次年の開始フェイズ」なので、必ず `year = prev_year + 1`。
+    /// - このルールは Ready -> SpringOrder / Adjustment -> SpringOrder の両方で共通。
     pub fn new_spring_order(current_year: i32, current_index: i32) -> Self {
         Self::new(current_year + 1, current_index + 1, PhaseType::SpringOrder(SpringOrderPhase {}))
     }
 
+    /// 春撤退フェイズを生成する。
+    pub fn new_spring_retreat(current_year: i32, prev_index: i32) -> Self {
+        Self::new(current_year, prev_index + 1, PhaseType::SpringRetreat(SpringRetreatPhase {}))
+    }
+
+    /// 秋命令フェイズを生成する。
     pub fn new_fall_order(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseType::FallOrder(FallOrderPhase {}))
     }
 
+    /// 秋撤退フェイズを生成する。
     pub fn new_fall_retreat(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseType::FallRetreat(FallRetreatPhase {}))
     }
 
+    /// 調整フェイズを生成する。
     pub fn new_adjustment(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseType::Adjustment(AdjustmentPhase {}))
     }
 
+    /// 感想戦フェイズを生成する。
     pub fn new_debrief(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseType::Debrief(DebriefPhase {}))
     }
 
+    /// フェイズを締め切り命令を解決する。
     pub fn close(mut self, context: &mut PhaseContext) -> PhaseCloseResult {
         match self.phase_type.clone() {
             PhaseType::Ready(r) => r.close(&mut self, context),
@@ -134,14 +145,15 @@ trait PhaseCloseLogic {
 
         // 次フェイズ生成
         if let Some(next_phase) = self.create_next_phase(current_phase, context) {
-            // スキップ判定と再帰
             context.phases.push(current_phase.clone());
+
+            // スキップ判定と再帰
             if self.should_skip_next_phase(context, &next_phase) {
                 return next_phase.close(context);
             }
-            return context.into_result(&next_phase);
+            return context.finalize(&next_phase);
         }
-        context.into_result(current_phase)
+        context.finalize(current_phase)
     }
 
     fn check_draw_condition(&self, _context: &PhaseContext) -> bool {
@@ -158,12 +170,12 @@ trait PhaseCloseLogic {
 
         // TODO: 暫定実装
         // 本来は後続フェイズと Debrief を context.phases に積んだうえで結果化する
-        context.into_result(current_phase)
+        context.finalize(current_phase)
     }
 
     fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {}
 
-    fn occupy(&self, _current_phase: &mut Phase, _context: &PhaseContext) {}
+    fn occupy(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {}
 
     fn check_resolved_condition(&self, _context: &PhaseContext) -> bool {
         false
@@ -178,11 +190,13 @@ trait PhaseCloseLogic {
 
         // TODO: 暫定実装
         // 本来は後続フェイズと Debrief を context.phases に積んだうえで結果化する
-        context.into_result(current_phase)
+        context.finalize(current_phase)
     }
 
     fn create_next_phase(&self, current_phase: &Phase, context: &mut PhaseContext) -> Option<Phase>;
 
+    /// 次フェイズがスキップ可能な場合に true を返す
+    /// true を返す可能性のある場合にのみオーバーライドする
     fn should_skip_next_phase(&self, _context: &PhaseContext, _next_phase: &Phase) -> bool {
         false
     }
@@ -195,11 +209,11 @@ fn check_draw_condition_for_order_phase(_context: &PhaseContext) -> bool {
     false
 }
 
-fn resolve_orders_for_order_phase(_context: &mut PhaseContext) {
+fn resolve_orders_for_order_phase(_current_phase: &mut Phase, _context: &mut PhaseContext) {
     // TODO: 命令の解決処理
     // - 行軍命令を解決し、スタンドオフが発生した地域を記録する
     // - 解決済み命令からユニットを生成して current_phase.units に追加する
-    // - スタンドオフ情報を current_phase に記録する
+    // - スタンドオフ情報を current_phase に記録する（シグネチャ変更予定）
 }
 
 /// 各フェイズの終了ロジックの差分実装
@@ -219,7 +233,13 @@ impl PhaseCloseLogic for SpringOrderPhase {
     }
 
     fn resolve_orders(&self, _current_phase: &mut Phase, context: &mut PhaseContext) {
-        resolve_orders_for_order_phase(context);
+        resolve_orders_for_order_phase(_current_phase, context);
+    }
+
+    /// 撤退指示が必要なユニットが存在しない場合に true を返す
+    fn should_skip_next_phase(&self, _context: &PhaseContext, _next_phase: &Phase) -> bool {
+        // TODO
+        false
     }
 }
 
@@ -239,13 +259,25 @@ impl PhaseCloseLogic for FallOrderPhase {
     }
 
     fn resolve_orders(&self, _current_phase: &mut Phase, context: &mut PhaseContext) {
-        resolve_orders_for_order_phase(context);
+        resolve_orders_for_order_phase(_current_phase, context);
+    }
+
+    /// 撤退指示が必要なユニットが存在しない場合に true を返す
+    fn should_skip_next_phase(&self, _context: &PhaseContext, _next_phase: &Phase) -> bool {
+        // TODO
+        false
     }
 }
 
 impl PhaseCloseLogic for FallRetreatPhase {
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
         Some(Phase::new_adjustment(current_phase.year, current_phase.index))
+    }
+
+    /// 調整が不要な場合に true を返す
+    fn should_skip_next_phase(&self, _context: &PhaseContext, _next_phase: &Phase) -> bool {
+        // TODO
+        false
     }
 }
 
@@ -268,8 +300,12 @@ pub struct PhaseContext {
 }
 
 impl PhaseContext {
-    pub fn into_result(&mut self, latest_phase: &Phase) -> PhaseCloseResult {
+    pub fn finalize(&mut self, latest_phase: &Phase) -> PhaseCloseResult {
         self.phases.push(latest_phase.clone());
+        self.to_result()
+    }
+
+    fn to_result(&self) -> PhaseCloseResult {
         PhaseCloseResult {}
     }
 }
@@ -277,3 +313,16 @@ impl PhaseContext {
 /// フェイズの終了結果（必要に応じてフィールドを追加）
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PhaseCloseResult {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn spec_new_spring_order_always_increments_year() {
+        let p = Phase::new_spring_order(1900, 7);
+        assert_eq!(p.year, 1901);
+        assert_eq!(p.index, 8);
+        assert!(matches!(p.phase_type, PhaseType::SpringOrder(_)));
+    }
+}
