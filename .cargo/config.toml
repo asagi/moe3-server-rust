@@ -1,0 +1,4 @@
+[alias]
+cov = "llvm-cov --lcov --output-path target/lcov.info"
+cov-summary = "llvm-cov --summary-only"
+cov-html = "llvm-cov --html"

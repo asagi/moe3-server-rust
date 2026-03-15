@@ -1,8 +1,23 @@
 {
-	"folders": [
-		{
-			"path": "."
-		}
-	],
-	"settings": {}
+  "folders": [
+    {
+      "path": "."
+    },
+  ],
+  "settings": {
+    "testing.alwaysRevealTestOnStateChange": true,
+    "rust-analyzer.check.command": "clippy",
+    "rust-analyzer.check.extraArgs": [
+      "--",
+      "-Dwarnings"
+    ],
+    "rust-analyzer.cargo.buildScripts.enable": true,
+    "rust-analyzer.procMacro.enable": true,
+    "rust-analyzer.completion.autoimport.enable": true,
+    "rust-analyzer.imports.merge.glob": false,
+    "rust-analyzer.imports.granularity.group": "item",
+    "rust-analyzer.inlayHints.typeHints.enable": true,
+    "rust-analyzer.inlayHints.parameterHints.enable": true,
+    "rust-analyzer.testExplorer": true
+  }
 }
