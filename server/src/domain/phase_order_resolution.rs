@@ -86,7 +86,35 @@ fn validate_move_orders(orders: &mut [Order], _context: &PhaseContext) {
 }
 
 /// 支援命令検証
-fn validate_support_orders(_orders: &mut [Order], _context: &PhaseContext) {}
+fn validate_support_orders(orders: &mut [Order], _context: &PhaseContext) {
+    let orders_cloned = orders.to_vec();
+    let support_orders: Vec<&mut Order> = orders.iter_mut().filter(|o| matches!(o.kind, OrderKind::Support(_))).collect();
+
+    // TODO: copied_ordrs から、命令した勢力と命令対象ユニットの所属勢力が一致しない情報を除去する
+    // TODO: そのためにはまず Order に power フィールドを追加する必要がある
+
+    for support_order in support_orders {
+        let OrderKind::Support(ref s) = support_order.kind else { continue };
+
+        // 支援対象が存在しない場合は無効
+        let Some(target_order) = orders_cloned.iter().find(|o| o.unit == s.target_unit) else {
+            support_order.set_invalid();
+            continue;
+        };
+
+        if let OrderKind::Move(m) = &target_order.kind {
+            if Some(m.dest) != s.target_dest {
+                // 移動命令の移動先と支援命令の移動先が一致しない場合は無効
+                support_order.set_invalid();
+                continue;
+            }
+        } else if s.target_dest.is_some() {
+            // 移動命令以外に対する支援命令に移動先が指定されている場合は無効
+            support_order.set_invalid();
+            continue;
+        }
+    }
+}
 
 /// 輸送命令検証
 fn validate_convoy_orders(_orders: &mut [Order], _context: &PhaseContext) {}
