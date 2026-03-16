@@ -51,8 +51,9 @@ pub fn resolve_orders_for_order_phase(current_phase: &mut Phase, context: &mut P
 /// 移動命令検証
 fn validate_move_orders(orders: &mut [Order], _context: &PhaseContext) {
     let convoy_orders: Vec<Order> = orders.iter().filter(|o| matches!(o.kind, OrderKind::Convoy(_))).cloned().collect();
+    let move_orders: Vec<&mut Order> = orders.iter_mut().filter(|o| matches!(o.kind, OrderKind::Move(_))).collect();
 
-    for move_order in orders.iter_mut() {
+    for move_order in move_orders {
         let OrderKind::Move(ref m) = move_order.kind else { continue };
 
         match &move_order.unit {
