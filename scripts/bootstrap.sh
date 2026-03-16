@@ -14,20 +14,39 @@ if ! command -v cargo >/dev/null 2>&1; then
   exit 1
 fi
 
-TOOLCHAIN="$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml | head -n1)"
+if [[ ! -f rust-toolchain.toml ]]; then
+  echo "rust-toolchain.toml が見つかりません。"
+  exit 1
+fi
 
-if [[ -z "${TOOLCHAIN}" ]]; then
+TOOLCHAIN="$(grep -m1 '^channel' rust-toolchain.toml | sed -E 's/.*\"([^\"]+)\".*/\1/' || true)"
+
+if [[ -z "${TOOLCHAIN:-}" ]]; then
   echo "rust-toolchain.toml から channel を取得できませんでした。"
   exit 1
 fi
 
 echo "==> toolchain: ${TOOLCHAIN}"
-rustup toolchain install "${TOOLCHAIN}"
+
+if rustup toolchain list | grep -q -E \"^${TOOLCHAIN}\(\\s|$\)\"; then
+  echo "toolchain ${TOOLCHAIN} は既にインストールされています。"
+else
+  echo "==> installing toolchain ${TOOLCHAIN}"
+  rustup toolchain install "${TOOLCHAIN}"
+fi
+
+echo "==> adding components (rustfmt, clippy, llvm-tools-preview)"
 rustup component add rustfmt clippy llvm-tools-preview --toolchain "${TOOLCHAIN}"
 
-echo "==> install cargo-llvm-cov"
-cargo +"${TOOLCHAIN}" install cargo-llvm-cov --locked
+if command -v cargo-llvm-cov >/dev/null 2>&1; then
+  echo "cargo-llvm-cov は既にインストールされています。"
+else
+  echo "==> install cargo-llvm-cov"
+  cargo +"${TOOLCHAIN}" install cargo-llvm-cov --locked || {
+    echo "cargo-llvm-cov のインストールに失敗しました（手動で再試行してください）。"
+  }
+fi
 
 echo "==> done"
-rustc +"${TOOLCHAIN}" --version
-cargo +"${TOOLCHAIN}" llvm-cov --version
+rustc +"${TOOLCHAIN}" --version || true
+cargo +"${TOOLCHAIN}" llvm-cov --version || true
