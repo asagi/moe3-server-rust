@@ -174,6 +174,46 @@ impl Order {
     pub fn set_invalid(&mut self) {
         self.status = OrderStatus::Invalid;
     }
+
+    /// ステータスが `Unresolved` かどうか
+    pub fn is_unresolved(&self) -> bool {
+        self.status == OrderStatus::Unresolved
+    }
+
+    /// ステータスが `Success` かどうか
+    pub fn is_success(&self) -> bool {
+        self.status == OrderStatus::Success
+    }
+
+    /// ステータスが `Dislodged` かどうか
+    pub fn is_dislodged(&self) -> bool {
+        self.status == OrderStatus::Dislodged
+    }
+
+    /// ステータスが `Cut` かどうか
+    pub fn is_cut(&self) -> bool {
+        self.status == OrderStatus::Cut
+    }
+
+    /// ステータスが `Valid` かどうか
+    pub fn is_valid(&self) -> bool {
+        self.status == OrderStatus::Valid
+    }
+
+    /// ステータスが `Invalid` かどうか
+    pub fn is_invalid(&self) -> bool {
+        self.status == OrderStatus::Invalid
+    }
+
+    /// ステータスが `Failure` かどうか
+    pub fn is_failure(&self) -> bool {
+        self.status == OrderStatus::Failure
+    }
+
+    /// 命令が他の勢力のユニットに対するもの（仮想命令）であるかどうか
+    pub fn is_virtual(&self) -> bool {
+        self.power != self.unit.power()
+    }
 }
 
 /// 命令を Diplomacy 風の短縮表記で整形する。
