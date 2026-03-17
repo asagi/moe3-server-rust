@@ -3,6 +3,8 @@ use super::PhaseId;
 use super::TableId;
 use super::Unit;
 use super::phase_order_resolution::resolve_orders_for_order_phase;
+use chrono::DateTime;
+use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -12,7 +14,7 @@ use serde::Serialize;
 pub struct Phase {
     pub id: Option<PhaseId>,
     pub table_id: Option<TableId>,
-    pub created_at: Option<i64>,
+    pub created_at: Option<DateTime<Utc>>,
     pub data: PhaseData,
 }
 
@@ -22,6 +24,7 @@ pub struct Phase {
 pub struct PhaseData {
     pub index: i32,
     pub year: i32,
+    #[serde(flatten)]
     pub phase_type: PhaseType,
     pub orders: Vec<Order>,
     pub resolved_units: Vec<Unit>,
