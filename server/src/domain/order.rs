@@ -2,13 +2,12 @@ use super::OrderId;
 use super::Power;
 use super::Province;
 use super::Unit;
-use super::UnitId;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
 
 /// 命令の定義
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub struct Order {
     pub id: Option<OrderId>,
     pub power: Power,
@@ -31,7 +30,7 @@ pub enum OrderStatus {
 }
 
 /// 命令の種類
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum OrderKind {
     Hold(HoldOrder),
@@ -41,20 +40,20 @@ pub enum OrderKind {
 }
 
 /// ホールド命令
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct HoldOrder {
     pub power: Power,
 }
 
 /// 移動命令
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct MoveOrder {
     pub power: Power,
     pub dest: Province,
 }
 
 /// サポート命令
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct SupportOrder {
     pub power: Power,
     pub target_unit: Unit,
@@ -62,7 +61,7 @@ pub struct SupportOrder {
 }
 
 /// 輸送命令
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct ConvoyOrder {
     pub power: Power,
     pub target_unit: Unit,
@@ -111,11 +110,6 @@ impl Order {
         }
     }
 
-    /// ユニットIDを取得
-    pub fn unit_id(&self) -> Option<UnitId> {
-        self.unit.id()
-    }
-
     /// ユニットの現在地を返す
     pub fn location(&self) -> Province {
         self.unit.location()
@@ -125,7 +119,7 @@ impl Order {
     pub fn is_matching_target(&self, other_order: &Order) -> bool {
         match &self.kind {
             OrderKind::Support(s) => {
-                if s.target_unit.id() != other_order.unit_id() {
+                if s.target_unit != other_order.unit {
                     return false;
                 }
                 match &other_order.kind {
@@ -134,7 +128,7 @@ impl Order {
                 }
             }
             OrderKind::Convoy(c) => {
-                if c.target_unit.id() != other_order.unit_id() {
+                if c.target_unit != other_order.unit {
                     return false;
                 }
                 match &other_order.kind {
@@ -237,17 +231,17 @@ mod tests {
 
     #[test]
     fn test_order_creation() {
-        let unit = Unit::new_army(Power::England, p("lon")).with_id(10);
+        let unit = Unit::new_army(Power::England, p("lon"));
         let order = Order::new_move(Power::England, unit, p("lon"));
-        assert_eq!(order.unit_id(), Some(10));
+        assert_eq!(order.unit, unit);
         assert_eq!(order.power, Power::England);
     }
 
     #[test]
     fn test_hold_creation() {
-        let unit = Unit::new_fleet(Power::England, p("lon")).with_id(20);
+        let unit = Unit::new_fleet(Power::England, p("lon"));
         let order = Order::new_hold(Power::Austria, unit);
-        assert_eq!(order.unit_id(), Some(20));
+        assert_eq!(order.unit, unit);
     }
 
     #[test]

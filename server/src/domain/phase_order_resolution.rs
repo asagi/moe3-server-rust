@@ -4,14 +4,14 @@ use super::order::OrderStatus;
 use super::path::Path;
 use super::phase::Phase;
 use super::phase::PhaseContext;
-use super::unit::Unit;
+use super::unit::UnitKind;
 use std::collections::HashSet;
 
 /// 命令フェイズの命令解決処理
 ///
 /// 方針（暫定）:
 /// - 現在は戻り値を持たず、`current_phase` への副作用で結果を反映する。
-/// - 入力の主対象は `current_phase.orders`。
+/// - 入力の主対象は `current_phase.data.orders`。
 /// - 解決結果は `current_phase.units` や（将来的に）スタンドオフ情報へ書き戻す。
 /// - `context` は参照用（過去フェイズ参照など）を基本とし、不要な更新は避ける。
 /// - I/O は行わず、同じ入力に対して同じ結果になる決定的な処理を維持する。
@@ -21,7 +21,7 @@ pub fn resolve_orders_for_order_phase(current_phase: &mut Phase, context: &mut P
         test_hook::mark_called();
     }
 
-    let orders = &mut current_phase.orders;
+    let orders = &mut current_phase.data.orders;
 
     // # 01. 移動命令検証
     validate_move_orders(orders, context);
@@ -50,20 +50,24 @@ pub fn resolve_orders_for_order_phase(current_phase: &mut Phase, context: &mut P
 
 /// 移動命令検証
 fn validate_move_orders(orders: &mut [Order], _context: &PhaseContext) {
-    let convoy_orders: Vec<Order> = orders.iter().filter(|o| matches!(o.kind, OrderKind::Convoy(_))).cloned().collect();
-    let move_orders: Vec<&mut Order> = orders.iter_mut().filter(|o| matches!(o.kind, OrderKind::Move(_))).collect();
+    let convoy_orders: Vec<Order> = orders.iter().filter(|o| matches!(o.kind, OrderKind::Convoy(_))).copied().collect();
+    let move_orders: Vec<&mut Order> = orders
+        .iter_mut()
+        .filter(|o| matches!(o.kind, OrderKind::Move(_)))
+        .filter(|o| o.power == o.unit.power())
+        .collect();
 
     for move_order in move_orders {
         let OrderKind::Move(ref m) = move_order.kind else { continue };
 
-        match &move_order.unit {
-            Unit::Fleet(_) => {
+        match &move_order.unit.kind {
+            UnitKind::Fleet(_) => {
                 if !Path::can_fleet_move(move_order.location().code(), m.dest.code()) {
                     move_order.set_invalid();
                     continue;
                 }
             }
-            Unit::Army(_) => {
+            UnitKind::Army(_) => {
                 if m.dest.is_water() {
                     move_order.set_invalid();
                     continue;
@@ -87,17 +91,14 @@ fn validate_move_orders(orders: &mut [Order], _context: &PhaseContext) {
 
 /// 支援命令検証
 fn validate_support_orders(orders: &mut [Order], _context: &PhaseContext) {
-    let orders_cloned = orders.to_vec();
+    let orders_copied: Vec<Order> = orders.iter().filter(|o| o.power == o.unit.power()).copied().collect();
     let support_orders: Vec<&mut Order> = orders.iter_mut().filter(|o| matches!(o.kind, OrderKind::Support(_))).collect();
-
-    // TODO: copied_ordrs から、命令した勢力と命令対象ユニットの所属勢力が一致しない情報を除去する
-    // TODO: そのためにはまず Order に power フィールドを追加する必要がある
 
     for support_order in support_orders {
         let OrderKind::Support(ref s) = support_order.kind else { continue };
 
         // 支援対象が存在しない場合は無効
-        let Some(target_order) = orders_cloned.iter().find(|o| o.unit == s.target_unit) else {
+        let Some(target_order) = orders_copied.iter().find(|o| o.unit == s.target_unit) else {
             support_order.set_invalid();
             continue;
         };

@@ -1,5 +1,6 @@
 use super::Order;
 use super::PhaseId;
+use super::TableId;
 use super::Unit;
 use super::phase_order_resolution::resolve_orders_for_order_phase;
 use serde::Deserialize;
@@ -10,15 +11,24 @@ use serde::Serialize;
 #[serde(rename_all = "snake_case")]
 pub struct Phase {
     pub id: Option<PhaseId>,
+    pub table_id: Option<TableId>,
+    pub created_at: Option<i64>,
+    pub data: PhaseData,
+}
+
+/// フェイズのデータ本体
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub struct PhaseData {
     pub index: i32,
     pub year: i32,
     pub phase_type: PhaseType,
     pub orders: Vec<Order>,
-    pub units: Vec<Unit>,
+    pub resolved_units: Vec<Unit>,
 }
 
 /// フェイズの種類
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PhaseType {
     Ready(ReadyPhase),                 // 準備
@@ -31,31 +41,31 @@ pub enum PhaseType {
 }
 
 /// 各フェイズの詳細な構造体（必要に応じてフィールドを追加）
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub struct ReadyPhase {}
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub struct SpringOrderPhase {}
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub struct SpringRetreatPhase {}
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub struct FallOrderPhase {}
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub struct FallRetreatPhase {}
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub struct AdjustmentPhase {}
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub struct DebriefPhase {}
 
@@ -64,11 +74,15 @@ impl Phase {
     fn new(year: i32, index: i32, phase_type: PhaseType) -> Self {
         Self {
             id: None,
-            index,
-            year,
-            phase_type,
-            orders: Vec::new(),
-            units: Vec::new(),
+            table_id: None,
+            created_at: None,
+            data: PhaseData {
+                index,
+                year,
+                phase_type,
+                orders: Vec::new(),
+                resolved_units: Vec::new(),
+            },
         }
     }
 
@@ -110,9 +124,34 @@ impl Phase {
         Self::new(current_year, prev_index + 1, PhaseType::Debrief(DebriefPhase {}))
     }
 
+    /// フェイズの年を返す
+    pub fn year(&self) -> i32 {
+        self.data.year
+    }
+
+    /// フェイズ内での通し番号を返す
+    pub fn index(&self) -> i32 {
+        self.data.index
+    }
+
+    /// フェイズの種別を返す
+    pub fn phase_type(&self) -> PhaseType {
+        self.data.phase_type
+    }
+
+    /// 命令のミュータブルな参照を返す
+    pub fn orders_mut(&mut self) -> &mut Vec<Order> {
+        &mut self.data.orders
+    }
+
+    /// 命令のイミュータブルな参照を返す
+    pub fn orders(&self) -> &Vec<Order> {
+        &self.data.orders
+    }
+
     /// フェイズを締め切り命令を解決する。
     pub fn close(mut self, context: &mut PhaseContext) -> PhaseCloseResult {
-        match self.phase_type.clone() {
+        match self.data.phase_type {
             PhaseType::Ready(r) => r.close(&mut self, context),
             PhaseType::SpringOrder(s) => s.close(&mut self, context),
             PhaseType::SpringRetreat(s) => s.close(&mut self, context),
@@ -221,13 +260,13 @@ fn occupy_for_retreat_phase(_current_phase: &mut Phase, _context: &mut PhaseCont
 /// 各フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for ReadyPhase {
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(Phase::new_spring_order(current_phase.year, current_phase.index))
+        Some(Phase::new_spring_order(current_phase.year(), current_phase.index()))
     }
 }
 
 impl PhaseCloseLogic for SpringOrderPhase {
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(Phase::new_spring_retreat(current_phase.year, current_phase.index))
+        Some(Phase::new_spring_retreat(current_phase.year(), current_phase.index()))
     }
 
     fn check_draw_condition(&self, _context: &PhaseContext) -> bool {
@@ -251,13 +290,13 @@ impl PhaseCloseLogic for SpringRetreatPhase {
     }
 
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(Phase::new_fall_order(current_phase.year, current_phase.index))
+        Some(Phase::new_fall_order(current_phase.year(), current_phase.index()))
     }
 }
 
 impl PhaseCloseLogic for FallOrderPhase {
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(Phase::new_fall_retreat(current_phase.year, current_phase.index))
+        Some(Phase::new_fall_retreat(current_phase.year(), current_phase.index()))
     }
 
     fn check_draw_condition(&self, _context: &PhaseContext) -> bool {
@@ -281,7 +320,7 @@ impl PhaseCloseLogic for FallRetreatPhase {
     }
 
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(Phase::new_adjustment(current_phase.year, current_phase.index))
+        Some(Phase::new_adjustment(current_phase.year(), current_phase.index()))
     }
 
     /// 調整が不要な場合に true を返す
@@ -293,7 +332,7 @@ impl PhaseCloseLogic for FallRetreatPhase {
 
 impl PhaseCloseLogic for AdjustmentPhase {
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(Phase::new_spring_order(current_phase.year, current_phase.index))
+        Some(Phase::new_spring_order(current_phase.year(), current_phase.index()))
     }
 }
 
@@ -332,9 +371,9 @@ mod tests {
     #[test]
     fn spec_new_spring_order_always_increments_year() {
         let p = Phase::new_spring_order(1900, 7);
-        assert_eq!(p.year, 1901);
-        assert_eq!(p.index, 8);
-        assert!(matches!(p.phase_type, PhaseType::SpringOrder(_)));
+        assert_eq!(p.year(), 1901);
+        assert_eq!(p.index(), 8);
+        assert!(matches!(p.phase_type(), PhaseType::SpringOrder(_)));
     }
 
     #[test]
