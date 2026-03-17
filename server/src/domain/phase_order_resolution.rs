@@ -50,9 +50,15 @@ pub fn resolve_orders_for_order_phase(current_phase: &mut Phase, context: &mut P
 /// 移動命令検証
 fn validate_move_orders(orders: &mut [Order], _context: &PhaseContext) {
     let convoy_orders: Vec<Order> = orders.iter().filter(|o| matches!(o.kind, OrderKind::Convoy(_))).copied().collect();
-    let move_orders: Vec<&mut Order> = orders.iter_mut().filter(|o| matches!(o.kind, OrderKind::Move(_))).filter(|o| !o.is_virtual()).collect();
+    let non_virtual_move_idxs: Vec<usize> = orders
+        .iter()
+        .enumerate()
+        .filter(|(_, o)| !o.is_virtual() && matches!(o.kind, OrderKind::Move(_)))
+        .map(|(i, _)| i)
+        .collect();
 
-    for move_order in move_orders {
+    for &idx in &non_virtual_move_idxs {
+        let move_order = &mut orders[idx];
         let OrderKind::Move(ref m) = move_order.kind else { continue };
 
         match &move_order.unit.kind {
@@ -86,14 +92,17 @@ fn validate_move_orders(orders: &mut [Order], _context: &PhaseContext) {
 
 /// 支援命令検証
 fn validate_support_orders(orders: &mut [Order], _context: &PhaseContext) {
-    let orders_copied: Vec<Order> = orders.iter().filter(|o| !o.is_virtual()).copied().collect();
-    let support_orders: Vec<&mut Order> = orders.iter_mut().filter(|o| matches!(o.kind, OrderKind::Support(_))).collect();
+    let non_virtual_orders_copied: Vec<Order> = orders.iter().filter(|o| !o.is_virtual()).copied().collect();
 
-    for support_order in support_orders {
-        let OrderKind::Support(_) = support_order.kind else { continue };
+    let support_idxs: Vec<usize> = orders.iter().enumerate().filter(|(_, o)| matches!(o.kind, OrderKind::Support(_))).map(|(i, _)| i).collect();
+    for &idx in &support_idxs {
+        let support_order = &mut orders[idx];
 
-        // 支援対象が存在しない場合は無効
-        let Some(_) = orders_copied.iter().find(|o| support_order.is_matching_target(o)) else {
+        // 支援対象が存在すれば有効、なければ無効
+        if non_virtual_orders_copied.iter().any(|o| support_order.is_matching_target(o)) {
+            support_order.set_valid();
+            continue;
+        } else {
             support_order.set_invalid();
             continue;
         };
@@ -102,38 +111,24 @@ fn validate_support_orders(orders: &mut [Order], _context: &PhaseContext) {
 
 /// 輸送命令検証
 fn validate_convoy_orders(orders: &mut [Order], _context: &PhaseContext) {
-    let move_orders: Vec<Order> = orders
+    let non_virtual_move_orders: Vec<Order> = orders
         .iter()
         .filter(|o| matches!(o.kind, OrderKind::Move(_)) && !o.is_invalid() && !o.is_virtual())
         .copied()
         .collect();
 
-    let mut convoy_orders: Vec<&mut Order> = orders
-        .iter_mut()
-        .filter(|o| matches!(o.kind, OrderKind::Convoy(_)) && o.is_unresolved() && !o.is_virtual())
-        .collect();
+    let convoy_idxs: Vec<usize> = orders.iter().enumerate().filter(|(_, o)| matches!(o.kind, OrderKind::Convoy(_))).map(|(i, _)| i).collect();
+    for &idx in &convoy_idxs {
+        let convoy_order = &mut orders[idx];
 
-    // 移動命令が一つもなければ、輸送命令は全て無効
-    if move_orders.is_empty() {
-        for convoy_order in convoy_orders {
-            convoy_order.set_invalid();
-        }
-        return;
-    }
-
-    // 各輸送命令を検証
-    for convoy_order in convoy_orders
-        .iter_mut()
-        .filter(|o| matches!(o.kind, OrderKind::Convoy(_)) && o.is_unresolved() && !o.is_virtual())
-    {
-        // 寄港中でない艦による輸送命令は無効
+        // 水上にない艦への輸送命令は無効
         if !convoy_order.location().is_water() {
             convoy_order.set_invalid();
             continue;
         }
 
-        // 対象移動命令が存在すれば有効、なければ無効
-        if move_orders.iter().any(|m| convoy_order.is_matching_target(m)) {
+        // 輸送対象移動命令が存在すれば有効、なければ無効
+        if non_virtual_move_orders.iter().any(|m| convoy_order.is_matching_target(m)) {
             convoy_order.set_valid();
         } else {
             convoy_order.set_invalid();
