@@ -461,7 +461,7 @@ impl Path {
         PATHS.iter().any(|p| p.origin == origin && p.dest == dest)
     }
 
-    pub fn can_unit_move_to(unit: Unit, dest: &str) -> bool {
+    pub fn can_unit_move_to(unit: &Unit, dest: &str) -> bool {
         match unit.kind {
             UnitKind::Army(_) => PATHS.iter().any(|p| p.dest == dest && p.army),
             UnitKind::Fleet(_) => PATHS.iter().any(|p| p.dest == dest && p.fleet),
