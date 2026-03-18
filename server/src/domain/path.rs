@@ -1,3 +1,5 @@
+use super::unit::Unit;
+use super::unit::UnitKind;
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -457,6 +459,13 @@ impl Path {
     /// Check if a direct path exists between two provinces
     pub fn can_move(origin: &str, dest: &str) -> bool {
         PATHS.iter().any(|p| p.origin == origin && p.dest == dest)
+    }
+
+    pub fn can_unit_move_to(unit: Unit, dest: &str) -> bool {
+        match unit.kind {
+            UnitKind::Army(_) => PATHS.iter().any(|p| p.dest == dest && p.army),
+            UnitKind::Fleet(_) => PATHS.iter().any(|p| p.dest == dest && p.fleet),
+        }
     }
 
     /// Check if an army can move from origin to dest
