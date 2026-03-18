@@ -210,8 +210,8 @@ impl Order {
         self.status == OrderStatus::Failure
     }
 
-    /// 命令が他の勢力のユニットに対するもの（仮想命令）であるかどうか
-    pub fn is_virtual(&self) -> bool {
+    /// 命令が他の勢力のユニットに対するもの（仮定命令）であるかどうか
+    pub fn is_assumed(&self) -> bool {
         self.power != self.unit.power()
     }
 }

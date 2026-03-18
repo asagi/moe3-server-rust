@@ -3,6 +3,7 @@ use super::order::OrderKind;
 use super::path::Path;
 use super::phase::Phase;
 use super::phase::PhaseContext;
+use super::province::Province;
 use super::unit::UnitKind;
 use std::collections::HashSet;
 
@@ -62,8 +63,7 @@ fn validate_move_orders(original_orders: &mut [Order], _context: &PhaseContext) 
         // 陸軍の遠隔移動は輸送経路が成立している場合のみ有効
         if let UnitKind::Army(_) = move_order.unit.kind {
             let matched_convoy_orders: Vec<&Order> = convoy_orders.iter().filter(|o| o.is_matching_target(move_order)).collect();
-            let allowed_waters: HashSet<&str> = matched_convoy_orders.iter().map(|order| order.location().code()).collect();
-            if Path::is_reachable_by_sea(move_order.location().code(), m.dest.code(), &allowed_waters) {
+            if can_move_via_convoy(move_order, m.dest, &matched_convoy_orders) {
                 move_order.set_valid();
                 continue;
             } else {
@@ -129,8 +129,95 @@ fn validate_convoy_orders(original_orders: &mut [Order], _context: &PhaseContext
         continue;
     }
 }
+
 /// 支援命令のカット
-fn handle_cutting_support_orders(_orders: &mut [Order], _context: &PhaseContext) {}
+fn handle_cutting_support_orders(original_orders: &mut [Order], _context: &PhaseContext) {
+    let convoy_orders: Vec<Order> = collect_convoy_orders(original_orders).iter().filter(|o| o.is_valid()).copied().collect();
+    let move_orders = collect_move_orders(original_orders);
+
+    // 支援命令をカットし得る移動命令がなければ終了
+    if !move_orders.iter().any(|m| m.is_valid()) {
+        return;
+    }
+
+    for idx in collect_support_indices(original_orders) {
+        let support_order = &mut original_orders[idx];
+
+        // 無効支援はスキップ
+        if !support_order.is_valid() {
+            continue;
+        }
+
+        // support_order に向かう移動命令は攻撃とみなす（自国軍は除く）
+        let attack_orders: Vec<&Order> = move_orders
+            .iter()
+            .filter(|o| o.power != support_order.power)
+            .filter(|o| if let OrderKind::Move(m) = &o.kind { m.dest == support_order.location() } else { false })
+            .collect();
+
+        // 支援命令をカットし得る移動命令がなければスキップ
+        if attack_orders.is_empty() {
+            continue;
+        }
+
+        // 複数個所からの攻撃は即カット
+        if attack_orders.len() > 1 {
+            support_order.set_cut();
+            continue;
+        }
+        let attack_order = attack_orders[0];
+
+        // support_order が移動命令の支援でなければ攻撃を向けられた時点でカット
+        let OrderKind::Support(s) = &support_order.kind else { unreachable!("expected Support") };
+        let Some(support_target_dest) = s.target_dest else {
+            support_order.set_cut();
+            continue;
+        };
+
+        // support_order の支援対象の移動先が attack_order ならカット回避
+        if attack_order.location() == support_target_dest {
+            continue;
+        }
+
+        // attack_order が隣接地域からの場合はカット（遠隔攻撃の場合はさらに経路判定が必要）
+        if Path::is_adjacent(attack_order.location().code(), support_order.location().code()) {
+            support_order.set_cut();
+            continue;
+        }
+
+        // 輸送経路が成立していなければ経路不成立でカット回避
+        let matched_convoy_orders: Vec<&Order> = convoy_orders.iter().filter(|o| o.is_matching_target(attack_order)).collect();
+        if !can_move_via_convoy(attack_order, support_order.location(), &matched_convoy_orders) {
+            continue;
+        }
+
+        // 支援対象の移動先が輸送海軍でなければ経路寸断見込みなしでカット
+        let Some(convoy_order_support_target_attacking) = &matched_convoy_orders.iter().find(|c| c.location() == support_target_dest) else {
+            support_order.set_cut();
+            continue;
+        };
+
+        // 支援対象の移動先の輸送海軍の輸送対象が attack_order でなければカット回避とは無関係のためカット
+        let OrderKind::Convoy(c) = &convoy_order_support_target_attacking.kind else {
+            unreachable!("expected Convoy")
+        };
+        if c.target_dest != support_order.location() {
+            support_order.set_cut();
+            continue;
+        }
+
+        // 支援対象の移動先の輸送海軍を除去したと仮定しても輸送経路が寸断されなければカット
+        let matched_convoy_orders_without_support_target: Vec<&Order> = matched_convoy_orders
+            .iter()
+            .filter(|o| o.location() != convoy_order_support_target_attacking.location())
+            .copied()
+            .collect();
+        if can_move_via_convoy(attack_order, support_order.location(), &matched_convoy_orders_without_support_target) {
+            support_order.set_cut();
+            continue;
+        }
+    }
+}
 
 /// 輸送妨害の優先解決
 fn handle_disruption_convoy_order(_orders: &mut [Order], _context: &PhaseContext) {}
@@ -146,23 +233,14 @@ fn succeed_remaining_orders(_orders: &mut [Order], _context: &PhaseContext) {}
 
 /// 有効な命令のコレクションを作成
 fn collect_orders(orders: &[Order]) -> Vec<Order> {
-    orders.iter().filter(|o| !o.is_virtual() && !o.is_invalid()).copied().collect()
-}
-
-/// 有効な輸送命令のコレクションを作成
-fn collect_convoy_orders(orders: &[Order]) -> Vec<Order> {
-    orders
-        .iter()
-        .filter(|o| !o.is_virtual() && !o.is_invalid() && matches!(o.kind, OrderKind::Convoy(_)))
-        .copied()
-        .collect()
+    orders.iter().filter(|o| !o.is_assumed() && !o.is_invalid()).copied().collect()
 }
 
 /// 有効な移動命令のコレクションを作成
 fn collect_move_orders(orders: &[Order]) -> Vec<Order> {
     orders
         .iter()
-        .filter(|o| !o.is_virtual() && !o.is_invalid() && matches!(o.kind, OrderKind::Move(_)))
+        .filter(|o| !o.is_assumed() && !o.is_invalid() && matches!(o.kind, OrderKind::Move(_)))
         .copied()
         .collect()
 }
@@ -172,7 +250,7 @@ fn collect_move_indices(orders: &[Order]) -> Vec<usize> {
     orders
         .iter()
         .enumerate()
-        .filter(|(_, o)| !o.is_virtual() && !o.is_invalid() && matches!(o.kind, OrderKind::Move(_)))
+        .filter(|(_, o)| !o.is_assumed() && !o.is_invalid() && matches!(o.kind, OrderKind::Move(_)))
         .map(|(i, _)| i)
         .collect()
 }
@@ -182,8 +260,17 @@ fn collect_support_indices(orders: &[Order]) -> Vec<usize> {
     orders
         .iter()
         .enumerate()
-        .filter(|(_, o)| !o.is_virtual() && !o.is_invalid() && matches!(o.kind, OrderKind::Support(_)))
+        .filter(|(_, o)| !o.is_assumed() && !o.is_invalid() && matches!(o.kind, OrderKind::Support(_)))
         .map(|(i, _)| i)
+        .collect()
+}
+
+/// 有効な輸送命令のコレクションを作成
+fn collect_convoy_orders(orders: &[Order]) -> Vec<Order> {
+    orders
+        .iter()
+        .filter(|o| !o.is_assumed() && !o.is_invalid() && matches!(o.kind, OrderKind::Convoy(_)))
+        .copied()
         .collect()
 }
 
@@ -192,9 +279,15 @@ fn collect_convoy_indices(orders: &[Order]) -> Vec<usize> {
     orders
         .iter()
         .enumerate()
-        .filter(|(_, o)| !o.is_virtual() && !o.is_invalid() && matches!(o.kind, OrderKind::Convoy(_)))
+        .filter(|(_, o)| !o.is_assumed() && !o.is_invalid() && matches!(o.kind, OrderKind::Convoy(_)))
         .map(|(i, _)| i)
         .collect()
+}
+
+/// 輸送経路が成立しているかどうかを判定
+fn can_move_via_convoy(move_order: &Order, dest: Province, matched_convoy_orders: &Vec<&Order>) -> bool {
+    let allowed_waters: HashSet<&str> = matched_convoy_orders.iter().map(|order| order.location().code()).collect();
+    Path::is_reachable_by_sea(move_order.location().code(), dest.code(), &allowed_waters)
 }
 
 #[cfg(test)]
