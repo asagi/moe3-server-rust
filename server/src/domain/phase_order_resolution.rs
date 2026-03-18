@@ -15,39 +15,39 @@ use std::collections::HashSet;
 /// - 解決結果は `current_phase.units` や（将来的に）スタンドオフ情報へ書き戻す。
 /// - `context` は参照用（過去フェイズ参照など）を基本とし、不要な更新は避ける。
 /// - I/O は行わず、同じ入力に対して同じ結果になる決定的な処理を維持する。
-pub fn resolve_orders_for_order_phase(current_phase: &mut Phase, context: &mut PhaseContext) {
+pub fn resolve_orders_for_order_phase(current_phase: &mut Phase, _context: &mut PhaseContext) {
     #[cfg(test)]
     {
         test_hook::mark_called();
     }
 
     // # 01. 移動命令検証
-    validate_move_orders(current_phase.orders_mut(), context);
+    validate_move_orders(current_phase.orders_mut());
 
     // # 02. 支援命令検証
-    validate_support_orders(current_phase.orders_mut(), context);
+    validate_support_orders(current_phase.orders_mut());
 
     // # 03. 輸送命令検証
-    validate_convoy_orders(current_phase.orders_mut(), context);
+    validate_convoy_orders(current_phase.orders_mut());
 
     // # 04. 支援命令のカット
-    handle_cutting_support_orders(current_phase.orders_mut(), context);
+    handle_cutting_support_orders(current_phase.orders_mut());
 
     // # 05 . 輸送妨害の優先解決
-    handle_disruption_convoy_order(current_phase.orders_mut(), context);
+    handle_disruption_convoy_order(current_phase.orders_mut());
 
     // # 06. 交換移動命令解決
-    handle_switch_orders(current_phase.orders_mut(), context);
+    handle_switch_orders(current_phase.orders_mut());
 
     // # 07. 未解決移動命令解決
-    handle_remaining_move_orders(current_phase.orders_mut(), context);
+    handle_remaining_move_orders(current_phase.orders_mut());
 
     // # 08. 未処理の命令を全て成功判定
-    succeed_remaining_orders(current_phase.orders_mut(), context);
+    succeed_remaining_orders(current_phase.orders_mut());
 }
 
 /// 移動命令検証
-fn validate_move_orders(original_orders: &mut [Order], _context: &PhaseContext) {
+fn validate_move_orders(original_orders: &mut [Order]) {
     let convoy_orders = collect_convoy_orders(original_orders);
 
     for idx in collect_move_indices(original_orders) {
@@ -75,7 +75,7 @@ fn validate_move_orders(original_orders: &mut [Order], _context: &PhaseContext) 
 }
 
 /// 支援命令検証
-fn validate_support_orders(original_orders: &mut [Order], _context: &PhaseContext) {
+fn validate_support_orders(original_orders: &mut [Order]) {
     let orders = collect_orders(original_orders);
 
     for idx in collect_support_indices(original_orders) {
@@ -108,7 +108,7 @@ fn validate_support_orders(original_orders: &mut [Order], _context: &PhaseContex
 }
 
 /// 輸送命令検証
-fn validate_convoy_orders(original_orders: &mut [Order], _context: &PhaseContext) {
+fn validate_convoy_orders(original_orders: &mut [Order]) {
     let move_orders = collect_move_orders(original_orders);
 
     for idx in collect_convoy_indices(original_orders) {
@@ -131,7 +131,7 @@ fn validate_convoy_orders(original_orders: &mut [Order], _context: &PhaseContext
 }
 
 /// 支援命令のカット
-fn handle_cutting_support_orders(original_orders: &mut [Order], _context: &PhaseContext) {
+fn handle_cutting_support_orders(original_orders: &mut [Order]) {
     let convoy_orders: Vec<Order> = collect_convoy_orders(original_orders).iter().filter(|o| o.is_valid()).copied().collect();
     let move_orders = collect_move_orders(original_orders);
 
@@ -220,16 +220,16 @@ fn handle_cutting_support_orders(original_orders: &mut [Order], _context: &Phase
 }
 
 /// 輸送妨害の優先解決
-fn handle_disruption_convoy_order(_orders: &mut [Order], _context: &PhaseContext) {}
+fn handle_disruption_convoy_order(_orders: &mut [Order]) {}
 
 /// 交換移動命令解決
-fn handle_switch_orders(_orders: &mut [Order], _context: &PhaseContext) {}
+fn handle_switch_orders(_orders: &mut [Order]) {}
 
 /// 未解決移動命令解決
-fn handle_remaining_move_orders(_orders: &mut [Order], _context: &PhaseContext) {}
+fn handle_remaining_move_orders(_orders: &mut [Order]) {}
 
 /// 未処理の命令を全て成功判定
-fn succeed_remaining_orders(_orders: &mut [Order], _context: &PhaseContext) {}
+fn succeed_remaining_orders(_orders: &mut [Order]) {}
 
 /// 有効な命令のコレクションを作成
 fn collect_orders(orders: &[Order]) -> Vec<Order> {
