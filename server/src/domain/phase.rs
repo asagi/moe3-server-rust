@@ -3,11 +3,13 @@ use super::PhaseId;
 use super::Province;
 use super::TableId;
 use super::Unit;
-use super::phase_order_resolution::resolve_orders_for_order_phase;
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
+
+mod order_resolution;
+use order_resolution::resolve_orders_for_order_phase;
 
 /// フェイズの定義
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -370,7 +372,7 @@ pub struct PhaseCloseResult {}
 
 #[cfg(test)]
 mod tests {
-    use super::super::phase_order_resolution::test_hook;
+    use super::order_resolution::test_hook;
     use super::*;
 
     #[test]

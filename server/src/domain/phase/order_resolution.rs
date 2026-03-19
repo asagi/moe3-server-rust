@@ -1,10 +1,10 @@
-use super::order::Order;
-use super::order::OrderKind;
-use super::path::Path;
-use super::phase::Phase;
-use super::phase::PhaseContext;
-use super::province::Province;
-use super::unit::UnitKind;
+use crate::domain::order::Order;
+use crate::domain::order::OrderKind;
+use crate::domain::path::Path;
+use crate::domain::phase::Phase;
+use crate::domain::phase::PhaseContext;
+use crate::domain::province::Province;
+use crate::domain::unit::UnitKind;
 use std::collections::HashSet;
 
 /// 命令フェイズの命令解決処理
