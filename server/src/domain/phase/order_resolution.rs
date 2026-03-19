@@ -8,13 +8,6 @@ use crate::domain::unit::UnitKind;
 use std::collections::HashSet;
 
 /// 命令フェイズの命令解決処理
-///
-/// 方針（暫定）:
-/// - 現在は戻り値を持たず、`current_phase` への副作用で結果を反映する。
-/// - 入力の主対象は `current_phase.data.orders`。
-/// - 解決結果は `current_phase.units` や（将来的に）スタンドオフ情報へ書き戻す。
-/// - `context` は参照用（過去フェイズ参照など）を基本とし、不要な更新は避ける。
-/// - I/O は行わず、同じ入力に対して同じ結果になる決定的な処理を維持する。
 pub fn resolve_orders_for_order_phase(current_phase: &mut Phase, context: &mut PhaseContext) {
     #[cfg(test)]
     {
@@ -37,7 +30,7 @@ pub fn resolve_orders_for_order_phase(current_phase: &mut Phase, context: &mut P
     handle_disruption_convoy_order(current_phase.orders_mut(), context);
 
     // # 06. 交換移動命令解決
-    handle_switch_orders(current_phase.orders_mut());
+    handle_switch_orders(current_phase.orders_mut(), context);
 
     // # 07. 未解決移動命令解決
     handle_remaining_move_orders(current_phase.orders_mut());
@@ -262,60 +255,85 @@ fn handle_disruption_convoy_order(original_orders: &mut [Order], context: &mut P
         }
     }
 }
-
-/// 戦闘解決
-fn handle_conflicting(original_orders: &mut [Order], target_order_idx: usize, standoff_provinces: &mut Vec<Province>) -> Option<usize> {
-    let support_orders = collect_valid_support_orders(original_orders);
-    let conflicting_move_indicies: Vec<usize> = collect_valid_move_indices(original_orders)
-        .into_iter()
-        .filter(|&idx| {
-            if let OrderKind::Move(m) = original_orders[idx].kind {
-                m.dest == original_orders[target_order_idx].location()
-            } else {
-                false
-            }
-        })
-        .collect();
-
-    // 移動命令がなければ勝者なしで終了
-    if conflicting_move_indicies.is_empty() {
-        return None;
+/// 交換移動命令解決
+fn handle_switch_orders(original_orders: &mut [Order], context: &mut PhaseContext) {
+    let move_order_indices = collect_valid_move_indices(original_orders);
+    if move_order_indices.len() < 2 {
+        // 移動命令が 2 つ以上なければ終了
+        return;
     }
 
-    // 移動命令が 1 つなら即勝者確定で終了
-    if conflicting_move_indicies.len() == 1 {
-        let winner_idx = conflicting_move_indicies[0];
-        return Some(winner_idx);
-    }
+    for idx in move_order_indices {
+        // 過去のループで対向の判定時に同時に処理済みであればスキップ
+        // - 以下 original_orders[idx] を甲軍とする
+        if !original_orders[idx].is_unresolved() {
+            continue;
+        }
+        let OrderKind::Move(m) = &original_orders[idx].kind else {
+            unreachable!("expected Move")
+        };
 
-    // 支援数集計
-    // - support_counts: (move_order の index, 支援数) の配列
-    // - support_counts は 支援数降順（戦力順）にソートする
-    let mut support_counts: Vec<(usize, usize)> = conflicting_move_indicies
-        .iter()
-        .map(|&idx| (idx, support_orders.iter().filter(|s| s.is_matching_target(&original_orders[idx])).count()))
-        .collect();
-    support_counts.sort_by(|a, b| b.1.cmp(&a.1));
+        // 対向する移動命令がなければスキップ
+        // - 以下 original_orders[opposite_move_order_idx] を乙軍とする
+        let opposite_move_order_idx = original_orders.iter().position(|o| {
+            o != &original_orders[idx]
+                && if let OrderKind::Move(om) = &o.kind {
+                    o.location() == m.dest && original_orders[idx].location() == om.dest
+                } else {
+                    false
+                }
+        });
+        let Some(opposite_idx) = opposite_move_order_idx else {
+            continue;
+        };
 
-    // 戦闘解決： 単独勝利以外は移動失敗
-    if support_counts.iter().filter(|(_, count)| *count == support_counts[0].1).count() > 1 {
-        // 戦力トップが複数なら勝者なしで終了
-        for (idx, _) in support_counts {
-            original_orders[idx].set_failure();
+        // スタンドオフ判定
+        let conflict_winner_idx = handle_conflicting(original_orders, opposite_idx, &mut context.standoff_provinces);
+        let opposite_conflict_winner_idx = handle_conflicting(original_orders, idx, &mut context.standoff_provinces);
+        if conflict_winner_idx.is_none() && opposite_conflict_winner_idx.is_none() {
+            // 両地域スタンドオフで関連する全軍移動失敗
+            continue;
         }
 
-        // スタンドオフ地点を記録
-        standoff_provinces.push(original_orders[target_order_idx].location());
-        return None;
+        if conflict_winner_idx == Some(idx) && opposite_conflict_winner_idx != Some(opposite_idx) {
+            // 甲軍進軍成功かつ乙軍進軍失敗からの乙軍の防衛成否判定
+            resolve_no_support_defense(original_orders, idx, opposite_idx, opposite_conflict_winner_idx);
+            continue;
+        } else if conflict_winner_idx != Some(idx) && opposite_conflict_winner_idx == Some(opposite_idx) {
+            // 甲軍進軍失敗かつ乙軍進軍成功からの甲軍の防衛成否判定
+            resolve_no_support_defense(original_orders, opposite_idx, idx, conflict_winner_idx);
+            continue;
+        } else if conflict_winner_idx != Some(idx) && opposite_conflict_winner_idx != Some(opposite_idx) {
+            if let Some(conflict_winner_idx) = conflict_winner_idx {
+                // 甲乙両軍進軍失敗からの乙軍の防衛成否判定
+                resolve_no_support_defense(original_orders, conflict_winner_idx, opposite_idx, None);
+            }
+            if let Some(opposite_conflict_winner_idx) = opposite_conflict_winner_idx {
+                // 甲乙両軍進軍失敗からの甲軍の防衛成否判定
+                resolve_no_support_defense(original_orders, opposite_conflict_winner_idx, idx, None);
+            }
+            continue;
+        }
+
+        debug_assert!(conflict_winner_idx == Some(idx) && opposite_conflict_winner_idx == Some(opposite_idx));
+
+        // TODO: 隣接地域海路迂回交換移動判定
+        // - 隣接地交換の場合はどちらか一方に海路ルートが存在すれば双方移動成功
+
+        // TODO: 遠隔地域海路迂回交換移動判定
+        // - 遠隔地域交換の場合は双方に海路ルートが必要
+
+        // 自軍衝突判定
+        if original_orders[idx].power == original_orders[opposite_idx].power {
+            // 自国軍同士の衝突は双方移動失敗
+            original_orders[idx].set_failure();
+            original_orders[opposite_idx].set_failure();
+            continue;
+        }
+
+        // TODO: 直接対決判定
     }
-
-    // 支援数トップの単独勝利
-    let winner_idx = support_counts[0].0;
-    Some(winner_idx)
 }
-
-/// 交換移動命令解決
-fn handle_switch_orders(_orders: &mut [Order]) {}
 
 /// 未解決移動命令解決
 fn handle_remaining_move_orders(_orders: &mut [Order]) {}
@@ -436,6 +454,102 @@ fn collect_matched_convoy_orders<'a>(convoy_orders: &'a [Order], attack_order: &
 fn can_move_via_convoy(move_order: &Order, dest: &Province, matched_convoy_orders: &Vec<&Order>) -> bool {
     let allowed_waters: HashSet<&str> = matched_convoy_orders.iter().map(|order| order.location().code()).collect();
     Path::is_reachable_by_sea(move_order.location().code(), dest.code(), &allowed_waters)
+}
+
+/// 戦闘解決
+fn handle_conflicting(original_orders: &mut [Order], target_order_idx: usize, standoff_provinces: &mut Vec<Province>) -> Option<usize> {
+    let support_orders = collect_valid_support_orders(original_orders);
+    let conflicting_move_indicies: Vec<usize> = collect_valid_move_indices(original_orders)
+        .into_iter()
+        .filter(|&idx| {
+            if let OrderKind::Move(m) = original_orders[idx].kind {
+                m.dest == original_orders[target_order_idx].location()
+            } else {
+                false
+            }
+        })
+        .collect();
+
+    // 移動命令がなければ勝者なしで終了
+    if conflicting_move_indicies.is_empty() {
+        return None;
+    }
+
+    // 移動命令が 1 つなら即勝者確定で終了
+    if conflicting_move_indicies.len() == 1 {
+        let winner_idx = conflicting_move_indicies[0];
+        return Some(winner_idx);
+    }
+
+    // 支援数集計
+    // - support_counts: (move_order の index, 支援数) の配列
+    // - support_counts は 支援数降順（戦力順）にソートする
+    let mut support_counts: Vec<(usize, usize)> = conflicting_move_indicies
+        .iter()
+        .map(|&idx| (idx, support_orders.iter().filter(|s| s.is_matching_target(&original_orders[idx])).count()))
+        .collect();
+    support_counts.sort_by(|a, b| b.1.cmp(&a.1));
+
+    // 戦闘解決： 単独勝利以外は移動失敗
+    if support_counts.iter().filter(|(_, count)| *count == support_counts[0].1).count() > 1 {
+        // 戦力トップが複数なら勝者なしで終了
+        for (idx, _) in support_counts {
+            original_orders[idx].set_failure();
+        }
+
+        // スタンドオフ地点を記録
+        standoff_provinces.push(original_orders[target_order_idx].location());
+        return None;
+    }
+
+    // 支援数トップの単独勝利
+    let winner_idx = support_counts[0].0;
+    Some(winner_idx)
+}
+
+fn resolve_no_support_defense(original_orders: &mut [Order], attacker_idx: usize, defender_idx: usize, flanker_idx: Option<usize>) {
+    let support_orders = collect_valid_support_orders(original_orders);
+
+    // attacker 進軍成功かつ defender 進軍失敗からの defender の防衛成否判定
+    // - defender は進軍に失敗しているので支援は全て切れている
+    // - attacker に有効な支援が残っていれば進軍成功で defender の敗退
+    if original_orders[attacker_idx].power == original_orders[defender_idx].power {
+        // 自国軍同士の衝突は攻撃失敗
+        original_orders[attacker_idx].set_failure();
+        return;
+    }
+    if support_orders.iter().any(|o| o.is_matching_target(&original_orders[attacker_idx])) {
+        // defender 防衛失敗
+        original_orders[attacker_idx].set_success();
+        original_orders[defender_idx].set_dislodged_from(original_orders[attacker_idx].location());
+        return;
+    }
+
+    // defender の防衛成功により attacker の進軍失敗からの attacker の防衛成否判定
+    let Some(flanker_idx) = flanker_idx else {
+        // flanker 不在による防衛成否判定不要で attacker の進軍失敗確定で終了
+        original_orders[attacker_idx].set_failure();
+        return;
+    };
+
+    debug_assert!(flanker_idx != attacker_idx && flanker_idx != defender_idx);
+
+    if original_orders[flanker_idx].power == original_orders[attacker_idx].power {
+        // 自国軍同士の衝突は攻撃失敗
+        original_orders[attacker_idx].set_failure();
+        return;
+    }
+
+    // defender との進軍競争に勝ち抜いた flanker からの攻撃に対する attacker の防衛成否判定
+    if support_orders.iter().any(|o| o.is_matching_target(&original_orders[flanker_idx])) {
+        // attacker 防衛失敗
+        original_orders[attacker_idx].set_dislodged_from(original_orders[flanker_idx].location());
+        original_orders[flanker_idx].set_success();
+    } else {
+        // attacker 防衛成功（進軍は失敗）
+        original_orders[attacker_idx].set_failure();
+        original_orders[flanker_idx].set_failure();
+    }
 }
 
 #[cfg(test)]
