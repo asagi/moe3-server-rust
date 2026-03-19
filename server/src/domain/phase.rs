@@ -1,5 +1,6 @@
 use super::Order;
 use super::PhaseId;
+use super::Province;
 use super::TableId;
 use super::Unit;
 use super::phase_order_resolution::resolve_orders_for_order_phase;
@@ -349,6 +350,7 @@ impl PhaseCloseLogic for DebriefPhase {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PhaseContext {
     pub phases: Vec<Phase>,
+    pub(crate) standoff_provinces: Vec<Province>,
 }
 
 impl PhaseContext {
@@ -384,7 +386,10 @@ mod tests {
         test_hook::reset();
 
         let phase = Phase::new_spring_order(1900, 0);
-        let mut context = PhaseContext { phases: vec![] };
+        let mut context = PhaseContext {
+            phases: vec![],
+            standoff_provinces: vec![],
+        };
 
         let _ = phase.close(&mut context);
 
@@ -396,7 +401,10 @@ mod tests {
         test_hook::reset();
 
         let phase = Phase::new_fall_order(1901, 1);
-        let mut context = PhaseContext { phases: vec![] };
+        let mut context = PhaseContext {
+            phases: vec![],
+            standoff_provinces: vec![],
+        };
 
         let _ = phase.close(&mut context);
 

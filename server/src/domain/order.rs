@@ -12,6 +12,7 @@ pub struct Order {
     pub id: Option<OrderId>,
     pub power: Power,
     pub unit: Unit,
+    pub dislodged_by: Option<Province>,
     pub status: OrderStatus,
     pub kind: OrderKind,
 }
@@ -75,6 +76,7 @@ impl Order {
             id: None,
             power,
             unit,
+            dislodged_by: None,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Hold(HoldOrder { power }),
         }
@@ -85,6 +87,7 @@ impl Order {
             id: None,
             power,
             unit,
+            dislodged_by: None,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Move(MoveOrder { power, dest }),
         }
@@ -95,6 +98,7 @@ impl Order {
             id: None,
             power,
             unit,
+            dislodged_by: None,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Support(SupportOrder { power, target_unit, target_dest }),
         }
@@ -105,6 +109,7 @@ impl Order {
             id: None,
             power,
             unit,
+            dislodged_by: None,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Convoy(ConvoyOrder { power, target_unit, target_dest }),
         }
@@ -213,6 +218,10 @@ impl Order {
     /// 命令が他の勢力のユニットに対するもの（仮定命令）であるかどうか
     pub fn is_assumed(&self) -> bool {
         self.power != self.unit.power()
+    }
+
+    pub(crate) fn set_dislodged_from(&mut self, winner_location: Province) {
+        self.dislodged_by = Some(winner_location);
     }
 }
 

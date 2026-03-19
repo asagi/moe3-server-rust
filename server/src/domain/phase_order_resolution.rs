@@ -15,7 +15,7 @@ use std::collections::HashSet;
 /// - 解決結果は `current_phase.units` や（将来的に）スタンドオフ情報へ書き戻す。
 /// - `context` は参照用（過去フェイズ参照など）を基本とし、不要な更新は避ける。
 /// - I/O は行わず、同じ入力に対して同じ結果になる決定的な処理を維持する。
-pub fn resolve_orders_for_order_phase(current_phase: &mut Phase, _context: &mut PhaseContext) {
+pub fn resolve_orders_for_order_phase(current_phase: &mut Phase, context: &mut PhaseContext) {
     #[cfg(test)]
     {
         test_hook::mark_called();
@@ -34,7 +34,7 @@ pub fn resolve_orders_for_order_phase(current_phase: &mut Phase, _context: &mut 
     handle_cutting_support_orders(current_phase.orders_mut());
 
     // # 05 . 輸送妨害の優先解決
-    handle_disruption_convoy_order(current_phase.orders_mut());
+    handle_disruption_convoy_order(current_phase.orders_mut(), context);
 
     // # 06. 交換移動命令解決
     handle_switch_orders(current_phase.orders_mut());
@@ -215,7 +215,103 @@ fn handle_cutting_support_orders(original_orders: &mut [Order]) {
 }
 
 /// 輸送妨害の優先解決
-fn handle_disruption_convoy_order(_orders: &mut [Order]) {}
+fn handle_disruption_convoy_order(original_orders: &mut [Order], context: &mut PhaseContext) {
+    let support_orders = collect_valid_support_orders(original_orders);
+
+    for convoy_order_idx in collect_valid_convoy_indices(original_orders) {
+        // 輸送命令に対する攻撃競争の勝者を取得
+        let Some(winner_idx) = handle_conflicting(original_orders, convoy_order_idx, &mut context.standoff_provinces) else {
+            // 勝者がいなければスキップ
+            continue;
+        };
+
+        if original_orders[winner_idx].power == original_orders[convoy_order_idx].power {
+            // 勝者が自国軍であればその移動は無条件失敗となりスキップ
+            original_orders[winner_idx].set_failure();
+            continue;
+        }
+
+        // 戦闘解決
+        let convoy_supports_count = support_orders.iter().filter(|o| o.is_matching_target(&original_orders[convoy_order_idx])).count();
+        let winner_supports_count = support_orders
+            .iter()
+            .filter(|o| o.is_matching_target(&original_orders[winner_idx]) && o.power != original_orders[convoy_order_idx].power)
+            .count();
+        if convoy_supports_count >= winner_supports_count {
+            // 攻撃失敗
+            original_orders[winner_idx].set_failure();
+            continue;
+        }
+
+        // 輸送敗退
+        original_orders[winner_idx].set_success();
+        original_orders[convoy_order_idx].set_dislodged_from(original_orders[winner_idx].location());
+
+        // 輸送路切断判定
+        let convoy_orders = collect_valid_convoy_orders(original_orders);
+        let Some(move_order_idx) = original_orders.iter().position(|o| original_orders[convoy_order_idx].is_matching_target(o)) else {
+            unreachable!("move order matching convoy order should exist");
+        };
+        let OrderKind::Move(m) = &original_orders[move_order_idx].kind else {
+            unreachable!("expected Move")
+        };
+        let matched_convoy_orders = collect_matched_convoy_orders(&convoy_orders, &original_orders[move_order_idx]);
+        if !can_move_via_convoy(&original_orders[move_order_idx], &m.dest, &matched_convoy_orders) {
+            original_orders[move_order_idx].set_failure();
+            continue;
+        }
+    }
+}
+
+/// 戦闘解決
+fn handle_conflicting(original_orders: &mut [Order], target_order_idx: usize, standoff_provinces: &mut Vec<Province>) -> Option<usize> {
+    let support_orders = collect_valid_support_orders(original_orders);
+
+    let conflicting_move_indicies: Vec<usize> = collect_valid_move_indices(original_orders)
+        .into_iter()
+        .filter(|&idx| {
+            if let OrderKind::Move(m) = original_orders[idx].kind {
+                m.dest == original_orders[target_order_idx].location()
+            } else {
+                false
+            }
+        })
+        .collect();
+
+    // 移動命令がなければ勝者なしで終了
+    if conflicting_move_indicies.is_empty() {
+        return None;
+    }
+
+    // 移動命令が 1 つなら即勝者確定で終了
+    if conflicting_move_indicies.len() == 1 {
+        return Some(conflicting_move_indicies[0]); // 単独勝利移動命令の original_orders での index
+    }
+
+    // 支援数集計
+    // - support_counts: (move_order の index, 支援数) の配列
+    // - support_counts は 支援数降順でソートされる
+    let mut support_counts: Vec<(usize, usize)> = conflicting_move_indicies
+        .iter()
+        .map(|&idx| (idx, support_orders.iter().filter(|s| s.is_matching_target(&original_orders[idx])).count()))
+        .collect();
+    support_counts.sort_by(|a, b| b.1.cmp(&a.1));
+
+    // 戦闘解決： 単独勝利以外は移動失敗
+    if support_counts.iter().filter(|(_, count)| *count == support_counts[0].1).count() > 1 {
+        // 戦力トップが複数なら勝者なしで終了
+        for (idx, _) in support_counts {
+            original_orders[idx].set_failure();
+        }
+
+        // スタンドオフ地点を記録
+        standoff_provinces.push(original_orders[target_order_idx].location());
+        return None;
+    }
+
+    // 支援数トップの単独勝利
+    Some(support_counts[0].0) // 単独勝利移動命令の original_orders での index
+}
 
 /// 交換移動命令解決
 fn handle_switch_orders(_orders: &mut [Order]) {}
@@ -231,6 +327,16 @@ fn collect_not_invalid_orders(orders: &[Order]) -> Vec<Order> {
     orders.iter().filter(|o| !o.is_assumed() && !o.is_invalid()).copied().collect()
 }
 
+/// 未処理の移動命令のインデックスコレクションを作成
+fn collect_unresolved_move_indices(orders: &[Order]) -> Vec<usize> {
+    orders
+        .iter()
+        .enumerate()
+        .filter(|(_, o)| !o.is_assumed() && o.is_unresolved() && matches!(o.kind, OrderKind::Move(_)))
+        .map(|(i, _)| i)
+        .collect()
+}
+
 /// 有効な移動命令のコレクションを作成
 fn collect_valid_move_orders(orders: &[Order]) -> Vec<Order> {
     orders
@@ -240,12 +346,12 @@ fn collect_valid_move_orders(orders: &[Order]) -> Vec<Order> {
         .collect()
 }
 
-/// 未処理の移動命令のインデックスコレクションを作成
-fn collect_unresolved_move_indices(orders: &[Order]) -> Vec<usize> {
+/// 有効な移動命令のインデックスコレクションを作成
+fn collect_valid_move_indices(orders: &[Order]) -> Vec<usize> {
     orders
         .iter()
         .enumerate()
-        .filter(|(_, o)| !o.is_assumed() && o.is_unresolved() && matches!(o.kind, OrderKind::Move(_)))
+        .filter(|(_, o)| !o.is_assumed() && o.is_valid() && matches!(o.kind, OrderKind::Move(_)))
         .map(|(i, _)| i)
         .collect()
 }
@@ -257,6 +363,15 @@ fn collect_unresolved_support_indices(orders: &[Order]) -> Vec<usize> {
         .enumerate()
         .filter(|(_, o)| !o.is_assumed() && o.is_unresolved() && matches!(o.kind, OrderKind::Support(_)))
         .map(|(i, _)| i)
+        .collect()
+}
+
+/// 有効な支援命令のコレクションを作成
+fn collect_valid_support_orders(orders: &[Order]) -> Vec<Order> {
+    orders
+        .iter()
+        .filter(|o| !o.is_assumed() && o.is_valid() && matches!(o.kind, OrderKind::Support(_)))
+        .copied()
         .collect()
 }
 
@@ -279,6 +394,16 @@ fn collect_unresolved_convoy_orders(orders: &[Order]) -> Vec<Order> {
         .collect()
 }
 
+/// 未処理の輸送命令のインデックスコレクションを作成
+fn collect_unresolved_convoy_indices(orders: &[Order]) -> Vec<usize> {
+    orders
+        .iter()
+        .enumerate()
+        .filter(|(_, o)| !o.is_assumed() && o.is_unresolved() && matches!(o.kind, OrderKind::Convoy(_)))
+        .map(|(i, _)| i)
+        .collect()
+}
+
 /// 有効な輸送命令のコレクションを作成
 fn collect_valid_convoy_orders(orders: &[Order]) -> Vec<Order> {
     orders
@@ -288,21 +413,21 @@ fn collect_valid_convoy_orders(orders: &[Order]) -> Vec<Order> {
         .collect()
 }
 
+/// 有効な輸送命令のインデックスコレクションを作成
+fn collect_valid_convoy_indices(orders: &[Order]) -> Vec<usize> {
+    orders
+        .iter()
+        .enumerate()
+        .filter(|(_, o)| !o.is_assumed() && o.is_valid() && matches!(o.kind, OrderKind::Convoy(_)))
+        .map(|(i, _)| i)
+        .collect()
+}
+
 /// attack_order にマッチする輸送命令のコレクションを作成
 fn collect_matched_convoy_orders<'a>(convoy_orders: &'a [Order], attack_order: &Order) -> Vec<&'a Order> {
     convoy_orders
         .iter()
         .filter(|o| matches!(o.kind, OrderKind::Convoy(_)) && o.is_matching_target(attack_order))
-        .collect()
-}
-
-/// 未処理の輸送命令のインデックスコレクションを作成
-fn collect_unresolved_convoy_indices(orders: &[Order]) -> Vec<usize> {
-    orders
-        .iter()
-        .enumerate()
-        .filter(|(_, o)| !o.is_assumed() && o.is_unresolved() && matches!(o.kind, OrderKind::Convoy(_)))
-        .map(|(i, _)| i)
         .collect()
 }
 
