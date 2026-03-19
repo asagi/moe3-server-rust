@@ -266,7 +266,6 @@ fn handle_disruption_convoy_order(original_orders: &mut [Order], context: &mut P
 /// 戦闘解決
 fn handle_conflicting(original_orders: &mut [Order], target_order_idx: usize, standoff_provinces: &mut Vec<Province>) -> Option<usize> {
     let support_orders = collect_valid_support_orders(original_orders);
-
     let conflicting_move_indicies: Vec<usize> = collect_valid_move_indices(original_orders)
         .into_iter()
         .filter(|&idx| {
@@ -285,12 +284,13 @@ fn handle_conflicting(original_orders: &mut [Order], target_order_idx: usize, st
 
     // 移動命令が 1 つなら即勝者確定で終了
     if conflicting_move_indicies.len() == 1 {
-        return Some(conflicting_move_indicies[0]); // 単独勝利移動命令の original_orders での index
+        let winner_idx = conflicting_move_indicies[0];
+        return Some(winner_idx);
     }
 
     // 支援数集計
     // - support_counts: (move_order の index, 支援数) の配列
-    // - support_counts は 支援数降順でソートされる
+    // - support_counts は 支援数降順（戦力順）にソートする
     let mut support_counts: Vec<(usize, usize)> = conflicting_move_indicies
         .iter()
         .map(|&idx| (idx, support_orders.iter().filter(|s| s.is_matching_target(&original_orders[idx])).count()))
@@ -310,7 +310,8 @@ fn handle_conflicting(original_orders: &mut [Order], target_order_idx: usize, st
     }
 
     // 支援数トップの単独勝利
-    Some(support_counts[0].0) // 単独勝利移動命令の original_orders での index
+    let winner_idx = support_counts[0].0;
+    Some(winner_idx)
 }
 
 /// 交換移動命令解決
