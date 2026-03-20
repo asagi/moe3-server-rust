@@ -31,6 +31,7 @@ pub struct PhaseData {
     pub kind: PhaseKind,
     pub orders: Vec<Order>,
     pub resolved_units: Vec<Unit>,
+    pub standoff_provinces: Vec<Province>,
 }
 
 /// フェイズの種類
@@ -88,6 +89,7 @@ impl Phase {
                 kind: phase_type,
                 orders: Vec::new(),
                 resolved_units: Vec::new(),
+                standoff_provinces: Vec::new(),
             },
         }
     }
@@ -143,16 +145,6 @@ impl Phase {
     /// フェイズの種別を返す
     pub fn phase_type(&self) -> PhaseKind {
         self.data.kind
-    }
-
-    /// 命令のミュータブルな参照を返す
-    pub fn orders_mut(&mut self) -> &mut Vec<Order> {
-        &mut self.data.orders
-    }
-
-    /// 命令のイミュータブルな参照を返す
-    pub fn orders(&self) -> &Vec<Order> {
-        &self.data.orders
     }
 
     /// フェイズを締め切り命令を解決する。
@@ -279,8 +271,8 @@ impl PhaseCloseLogic for SpringOrderPhase {
         check_draw_condition_for_order_phase(_context)
     }
 
-    fn resolve_orders(&self, _current_phase: &mut Phase, context: &mut PhaseContext) {
-        resolve_orders_for_order_phase(_current_phase, context);
+    fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
+        resolve_orders_for_order_phase(_current_phase);
     }
 
     /// 撤退指示が必要なユニットが存在しない場合に true を返す
@@ -309,8 +301,8 @@ impl PhaseCloseLogic for FallOrderPhase {
         check_draw_condition_for_order_phase(_context)
     }
 
-    fn resolve_orders(&self, _current_phase: &mut Phase, context: &mut PhaseContext) {
-        resolve_orders_for_order_phase(_current_phase, context);
+    fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
+        resolve_orders_for_order_phase(_current_phase);
     }
 
     /// 撤退指示が必要なユニットが存在しない場合に true を返す

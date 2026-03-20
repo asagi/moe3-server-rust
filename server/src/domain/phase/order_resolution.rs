@@ -3,7 +3,6 @@ use crate::domain::order::OrderKind;
 use crate::domain::order::OrderStatus;
 use crate::domain::path::Path;
 use crate::domain::phase::Phase;
-use crate::domain::phase::PhaseContext;
 use crate::domain::province::Province;
 use crate::domain::unit::UnitKind;
 use indexmap::IndexSet;
@@ -11,35 +10,38 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 
 /// 命令フェイズの命令解決処理
-pub fn resolve_orders_for_order_phase(current_phase: &mut Phase, context: &mut PhaseContext) {
+pub fn resolve_orders_for_order_phase(current_phase: &mut Phase) {
     #[cfg(test)]
     {
         test_hook::mark_called();
     }
 
+    let orders = &mut current_phase.data.orders;
+    let standoff_provinces = &mut current_phase.data.standoff_provinces;
+
     // # 01. 移動命令検証
-    validate_move_orders(current_phase.orders_mut());
+    validate_move_orders(orders);
 
     // # 02. 支援命令検証
-    validate_support_orders(current_phase.orders_mut());
+    validate_support_orders(orders);
 
     // # 03. 輸送命令検証
-    validate_convoy_orders(current_phase.orders_mut());
+    validate_convoy_orders(orders);
 
     // # 04. 支援命令のカット
-    handle_cutting_support_orders(current_phase.orders_mut());
+    handle_cutting_support_orders(orders);
 
     // # 05 . 輸送妨害の優先解決
-    handle_disruption_convoy_order(current_phase.orders_mut(), context);
+    handle_disruption_convoy_order(orders, standoff_provinces);
 
     // # 06. 交換移動命令解決
-    handle_switch_orders(current_phase.orders_mut(), context);
+    handle_switch_orders(orders, standoff_provinces);
 
     // # 07. 未解決移動命令解決
-    handle_remaining_move_orders(current_phase.orders_mut(), context);
+    handle_remaining_move_orders(orders, standoff_provinces);
 
     // # 08. 未処理の命令を全て成功判定
-    succeed_remaining_orders(current_phase.orders_mut());
+    succeed_remaining_orders(orders);
 
     // # 09. 命令解決後のユニット配置情報をフェイズに反映
     // current_phase.update_unit_locations(&mut current_phase);
@@ -214,12 +216,12 @@ fn handle_cutting_support_orders(original_orders: &mut [Order]) {
 }
 
 /// 輸送妨害の優先解決
-fn handle_disruption_convoy_order(original_orders: &mut [Order], context: &mut PhaseContext) {
+fn handle_disruption_convoy_order(original_orders: &mut [Order], standoff_provinces: &mut Vec<Province>) {
     let support_orders = collect_valid_support_orders(original_orders);
 
     for convoy_order_idx in collect_valid_convoy_indices(original_orders) {
         // 輸送命令に対する攻撃競争の勝者を取得
-        let Some(winner_idx) = handle_conflicting(original_orders, &original_orders[convoy_order_idx].location(), &mut context.standoff_provinces) else {
+        let Some(winner_idx) = handle_conflicting(original_orders, &original_orders[convoy_order_idx].location(), standoff_provinces) else {
             // 勝者がいなければスキップ
             continue;
         };
@@ -262,7 +264,7 @@ fn handle_disruption_convoy_order(original_orders: &mut [Order], context: &mut P
     }
 }
 /// 交換移動命令解決
-fn handle_switch_orders(original_orders: &mut [Order], context: &mut PhaseContext) {
+fn handle_switch_orders(original_orders: &mut [Order], standoff_provinces: &mut Vec<Province>) {
     let move_order_indices = collect_valid_move_indices(original_orders);
     if move_order_indices.len() < 2 {
         // 移動命令が 2 つ以上なければ終了
@@ -294,8 +296,8 @@ fn handle_switch_orders(original_orders: &mut [Order], context: &mut PhaseContex
         };
 
         // スタンドオフ判定
-        let conflict_winner_idx = handle_conflicting(original_orders, &original_orders[opposite_idx].location(), &mut context.standoff_provinces);
-        let opposite_conflict_winner_idx = handle_conflicting(original_orders, &original_orders[idx].location(), &mut context.standoff_provinces);
+        let conflict_winner_idx = handle_conflicting(original_orders, &original_orders[opposite_idx].location(), standoff_provinces);
+        let opposite_conflict_winner_idx = handle_conflicting(original_orders, &original_orders[idx].location(), standoff_provinces);
         if conflict_winner_idx.is_none() && opposite_conflict_winner_idx.is_none() {
             // 両地域スタンドオフで関連する全軍移動失敗
             continue;
@@ -369,7 +371,7 @@ fn handle_switch_orders(original_orders: &mut [Order], context: &mut PhaseContex
 }
 
 /// 未解決移動命令解決
-fn handle_remaining_move_orders(original_orders: &mut [Order], context: &mut PhaseContext) {
+fn handle_remaining_move_orders(original_orders: &mut [Order], standoff_provinces: &mut Vec<Province>) {
     let move_orders = collect_valid_move_orders(original_orders);
     let mut dests = collect_unresolved_move_destination_set(&move_orders);
 
@@ -388,7 +390,7 @@ fn handle_remaining_move_orders(original_orders: &mut [Order], context: &mut Pha
         }
 
         // target_location に対する攻撃競争の勝者を取得
-        let Some(attacker_idx) = handle_conflicting(original_orders, &target_location, &mut context.standoff_provinces) else {
+        let Some(attacker_idx) = handle_conflicting(original_orders, &target_location, standoff_provinces) else {
             // 勝者がいなければ関係全軍移動失敗
             dest_snapshots.clear();
             continue;
