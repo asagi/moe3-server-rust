@@ -102,10 +102,7 @@ const PROVINCE_DATA: &[ProvinceData] = &[
 
 impl Province {
     pub fn from_code(code: &str) -> Option<Self> {
-        PROVINCE_DATA
-            .iter()
-            .position(|d| d.code == code)
-            .map(|idx| Self(idx as u8))
+        PROVINCE_DATA.iter().position(|d| d.code == code).map(|idx| Self(idx as u8))
     }
 
     pub fn all() -> impl Iterator<Item = Self> {

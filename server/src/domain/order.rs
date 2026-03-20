@@ -1,18 +1,18 @@
 use super::OrderId;
-use super::Power;
-use super::Province;
-use super::Unit;
-use super::UnitId;
+use super::power::Power;
+use super::province::Province;
+use super::unit::Unit;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
 
 /// 命令の定義
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub struct Order {
     pub id: Option<OrderId>,
     pub power: Power,
     pub unit: Unit,
+    pub dislodged_from: Option<Province>,
     pub status: OrderStatus,
     pub kind: OrderKind,
 }
@@ -31,7 +31,7 @@ pub enum OrderStatus {
 }
 
 /// 命令の種類
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum OrderKind {
     Hold(HoldOrder),
@@ -41,20 +41,20 @@ pub enum OrderKind {
 }
 
 /// ホールド命令
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct HoldOrder {
     pub power: Power,
 }
 
 /// 移動命令
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct MoveOrder {
     pub power: Power,
     pub dest: Province,
 }
 
 /// サポート命令
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct SupportOrder {
     pub power: Power,
     pub target_unit: Unit,
@@ -62,7 +62,7 @@ pub struct SupportOrder {
 }
 
 /// 輸送命令
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct ConvoyOrder {
     pub power: Power,
     pub target_unit: Unit,
@@ -76,6 +76,7 @@ impl Order {
             id: None,
             power,
             unit,
+            dislodged_from: None,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Hold(HoldOrder { power }),
         }
@@ -86,6 +87,7 @@ impl Order {
             id: None,
             power,
             unit,
+            dislodged_from: None,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Move(MoveOrder { power, dest }),
         }
@@ -96,6 +98,7 @@ impl Order {
             id: None,
             power,
             unit,
+            dislodged_from: None,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Support(SupportOrder { power, target_unit, target_dest }),
         }
@@ -106,21 +109,22 @@ impl Order {
             id: None,
             power,
             unit,
+            dislodged_from: None,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Convoy(ConvoyOrder { power, target_unit, target_dest }),
         }
     }
 
-    /// ユニットIDを取得
-    pub fn unit_id(&self) -> Option<UnitId> {
-        self.unit.id()
+    /// ユニットの現在地を返す
+    pub fn location(&self) -> Province {
+        self.unit.location()
     }
 
     /// ターゲット命令と一致するかどうかを判定
     pub fn is_matching_target(&self, other_order: &Order) -> bool {
         match &self.kind {
             OrderKind::Support(s) => {
-                if s.target_unit.id() != other_order.unit_id() {
+                if s.target_unit != other_order.unit {
                     return false;
                 }
                 match &other_order.kind {
@@ -129,7 +133,7 @@ impl Order {
                 }
             }
             OrderKind::Convoy(c) => {
-                if c.target_unit.id() != other_order.unit_id() {
+                if c.target_unit != other_order.unit {
                     return false;
                 }
                 match &other_order.kind {
@@ -139,6 +143,85 @@ impl Order {
             }
             _ => false,
         }
+    }
+
+    /// ステータスを Unresolved に変更
+    pub fn set_unresolved(&mut self) {
+        self.status = OrderStatus::Unresolved;
+    }
+
+    /// ステータスを Failure に変更
+    pub fn set_failure(&mut self) {
+        self.status = OrderStatus::Failure;
+    }
+
+    /// ステータスを Success に変更
+    pub fn set_success(&mut self) {
+        self.status = OrderStatus::Success;
+    }
+
+    /// ステータスを Dislodged に変更
+    pub fn set_dislodged(&mut self) {
+        self.status = OrderStatus::Dislodged;
+    }
+
+    /// ステータスを Cut に変更
+    pub fn set_cut(&mut self) {
+        self.status = OrderStatus::Cut;
+    }
+
+    /// ステータスを Valid に変更
+    pub fn set_valid(&mut self) {
+        self.status = OrderStatus::Valid;
+    }
+
+    /// ステータスを Invalid に変更
+    pub fn set_invalid(&mut self) {
+        self.status = OrderStatus::Invalid;
+    }
+
+    /// ステータスが `Unresolved` かどうか
+    pub fn is_unresolved(&self) -> bool {
+        self.status == OrderStatus::Unresolved
+    }
+
+    /// ステータスが `Success` かどうか
+    pub fn is_success(&self) -> bool {
+        self.status == OrderStatus::Success
+    }
+
+    /// ステータスが `Dislodged` かどうか
+    pub fn is_dislodged(&self) -> bool {
+        self.status == OrderStatus::Dislodged
+    }
+
+    /// ステータスが `Cut` かどうか
+    pub fn is_cut(&self) -> bool {
+        self.status == OrderStatus::Cut
+    }
+
+    /// ステータスが `Valid` かどうか
+    pub fn is_valid(&self) -> bool {
+        self.status == OrderStatus::Valid
+    }
+
+    /// ステータスが `Invalid` かどうか
+    pub fn is_invalid(&self) -> bool {
+        self.status == OrderStatus::Invalid
+    }
+
+    /// ステータスが `Failure` かどうか
+    pub fn is_failure(&self) -> bool {
+        self.status == OrderStatus::Failure
+    }
+
+    /// 命令が他の勢力のユニットに対するもの（仮定命令）であるかどうか
+    pub fn is_assumed(&self) -> bool {
+        self.power != self.unit.power()
+    }
+
+    pub(crate) fn set_dislodged_from(&mut self, winner_location: &Province) {
+        self.dislodged_from = Some(*winner_location);
     }
 }
 
@@ -197,17 +280,17 @@ mod tests {
 
     #[test]
     fn test_order_creation() {
-        let unit = Unit::new_army(Power::England, p("lon")).with_id(10);
+        let unit = Unit::new_army(Power::England, p("lon"));
         let order = Order::new_move(Power::England, unit, p("lon"));
-        assert_eq!(order.unit_id(), Some(10));
+        assert_eq!(order.unit, unit);
         assert_eq!(order.power, Power::England);
     }
 
     #[test]
     fn test_hold_creation() {
-        let unit = Unit::new_fleet(Power::England, p("lon")).with_id(20);
+        let unit = Unit::new_fleet(Power::England, p("lon"));
         let order = Order::new_hold(Power::Austria, unit);
-        assert_eq!(order.unit_id(), Some(20));
+        assert_eq!(order.unit, unit);
     }
 
     #[test]

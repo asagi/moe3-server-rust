@@ -1,3 +1,7 @@
+use super::unit::Unit;
+use super::unit::UnitKind;
+use std::collections::HashSet;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Path {
     pub origin: &'static str,
@@ -447,9 +451,21 @@ const PATHS: &[Path] = &[
 ];
 
 impl Path {
+    /// 2つの地名コードが隣接しているか判定する（origin→dest方向のみ）
+    pub fn is_adjacent(origin: &str, dest: &str) -> bool {
+        PATHS.iter().any(|p| p.origin == origin && p.dest == dest)
+    }
+
     /// Check if a direct path exists between two provinces
     pub fn can_move(origin: &str, dest: &str) -> bool {
         PATHS.iter().any(|p| p.origin == origin && p.dest == dest)
+    }
+
+    pub fn can_unit_move_to(unit: &Unit, dest: &str) -> bool {
+        match unit.kind {
+            UnitKind::Army(_) => PATHS.iter().any(|p| p.dest == dest && p.army),
+            UnitKind::Fleet(_) => PATHS.iter().any(|p| p.dest == dest && p.fleet),
+        }
     }
 
     /// Check if an army can move from origin to dest
@@ -460,6 +476,32 @@ impl Path {
     /// Check if a fleet can move from origin to dest
     pub fn can_fleet_move(origin: &str, dest: &str) -> bool {
         PATHS.iter().any(|p| p.origin == origin && p.dest == dest && p.fleet)
+    }
+
+    /// allowed_waters だけを通って origin から dest まで到達可能か判定する
+    pub fn is_reachable_by_sea(origin: &str, dest: &str, allowed_waters: &HashSet<&str>) -> bool {
+        use std::collections::VecDeque;
+        let mut visited = HashSet::new();
+        let mut queue = VecDeque::new();
+
+        // originに隣接するwaterからスタート
+        for path in PATHS.iter().filter(|p| p.origin == origin && allowed_waters.contains(&p.dest)) {
+            queue.push_back(path.dest);
+        }
+
+        while let Some(current) = queue.pop_front() {
+            if current == dest {
+                return true;
+            }
+            if !visited.insert(current) {
+                continue;
+            }
+            // currentからallowed_waters内の隣接waterへ進む
+            for path in PATHS.iter().filter(|p| p.origin == current && allowed_waters.contains(&p.dest)) {
+                queue.push_back(path.dest);
+            }
+        }
+        false
     }
 }
 
