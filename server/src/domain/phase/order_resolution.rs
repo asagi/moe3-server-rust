@@ -1,10 +1,12 @@
 use crate::domain::order::Order;
 use crate::domain::order::OrderKind;
+use crate::domain::order::OrderStatus;
 use crate::domain::path::Path;
 use crate::domain::phase::Phase;
 use crate::domain::phase::PhaseContext;
 use crate::domain::province::Province;
 use crate::domain::unit::UnitKind;
+use indexmap::IndexSet;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 
@@ -34,10 +36,13 @@ pub fn resolve_orders_for_order_phase(current_phase: &mut Phase, context: &mut P
     handle_switch_orders(current_phase.orders_mut(), context);
 
     // # 07. 未解決移動命令解決
-    handle_remaining_move_orders(current_phase.orders_mut());
+    handle_remaining_move_orders(current_phase.orders_mut(), context);
 
     // # 08. 未処理の命令を全て成功判定
     succeed_remaining_orders(current_phase.orders_mut());
+
+    // # 09. 命令解決後のユニット配置情報をフェイズに反映
+    // current_phase.update_unit_locations(&mut current_phase);
 }
 
 /// 移動命令検証
@@ -347,7 +352,7 @@ fn handle_switch_orders(original_orders: &mut [Order], context: &mut PhaseContex
         }
 
         // 直接対決
-        match decide_winner_by_supports(original_orders, idx, opposite_idx) {
+        match decide_move_conflict_winner(original_orders, idx, opposite_idx) {
             Some(winner_idx) => {
                 let loser_idx = if winner_idx == idx { opposite_idx } else { idx };
                 original_orders[winner_idx].set_success();
@@ -364,14 +369,88 @@ fn handle_switch_orders(original_orders: &mut [Order], context: &mut PhaseContex
 }
 
 /// 未解決移動命令解決
-fn handle_remaining_move_orders(_orders: &mut [Order]) {}
+fn handle_remaining_move_orders(original_orders: &mut [Order], context: &mut PhaseContext) {
+    let move_orders = collect_valid_move_orders(original_orders);
+    let mut dests = collect_unresolved_move_destination_set(&move_orders);
+
+    let mut dest_snapshots: HashSet<Vec<Province>> = HashSet::new();
+
+    loop {
+        let Some(target_location) = dests.shift_remove_index(0) else {
+            // 全ての移動先に対する処理が終われば終了
+            break;
+        };
+
+        // dest を IndexSet から Vec に変換して snapshot を取得
+        if !dest_snapshots.insert(dests.iter().copied().collect::<Vec<Province>>()) {
+            // 全 dest に対する処理が一巡したのでループ終了
+            break;
+        }
+
+        // target_location に対する攻撃競争の勝者を取得
+        let Some(attacker_idx) = handle_conflicting(original_orders, &target_location, &mut context.standoff_provinces) else {
+            // 勝者がいなければ関係全軍移動失敗
+            dest_snapshots.clear();
+            continue;
+        };
+
+        // 移動先の状況を確認
+        let Some(occupant_idx) = original_orders.iter().enumerate().position(|(_, o)| !o.is_assumed() && o.location() == target_location) else {
+            // 移動先に駐留軍がいなければ勝者の移動成功で終了
+            original_orders[attacker_idx].set_success();
+            dest_snapshots.clear();
+            continue;
+        };
+
+        // winner の移動成否判定
+        if !matches!(original_orders[occupant_idx].kind, OrderKind::Move(_)) {
+            // 移動先の非移動駐留軍に対して排除判定を実施する
+            resolve_attack_against_non_move(original_orders, attacker_idx, occupant_idx);
+            dest_snapshots.clear();
+            continue;
+        } else {
+            match &original_orders[occupant_idx].status {
+                OrderStatus::Success => {
+                    if original_orders[occupant_idx].is_success() {
+                        // 移動先に駐留軍がいてもの軍の移動が成功していれば勝者の移動成功で終了
+                        original_orders[attacker_idx].set_success();
+                        dest_snapshots.clear();
+                        continue;
+                    }
+                }
+                OrderStatus::Unresolved => {
+                    // 移動先の駐留軍の移動が未解決のため当地域への移動判定処理を保留
+                    dests.insert(target_location);
+                    continue;
+                }
+                _ => {
+                    // 移動先の駐留軍は移動に失敗しているので排除判定を実施する
+                    resolve_no_support_defense(original_orders, attacker_idx, occupant_idx, None);
+                    dest_snapshots.clear();
+                    continue;
+                }
+            }
+        }
+    }
+}
 
 /// 未処理の命令を全て成功判定
-fn succeed_remaining_orders(_orders: &mut [Order]) {}
+fn succeed_remaining_orders(original_orders: &mut [Order]) {
+    let unresolved_indices = collect_unresolved_indices(original_orders);
+
+    for idx in unresolved_indices {
+        original_orders[idx].set_success();
+    }
+}
 
 /// 全ての命令のコレクションを作成
 fn collect_not_invalid_orders(orders: &[Order]) -> Vec<Order> {
     orders.iter().filter(|o| !o.is_assumed() && !o.is_invalid()).copied().collect()
+}
+
+/// 未処理の命令のインデックスコレクションを作成
+fn collect_unresolved_indices(orders: &[Order]) -> Vec<usize> {
+    orders.iter().enumerate().filter(|(_, o)| !o.is_assumed() && o.is_unresolved()).map(|(i, _)| i).collect()
 }
 
 /// 未処理の移動命令のインデックスコレクションを作成
@@ -484,6 +563,15 @@ fn can_move_via_convoy(move_order: &Order, dest: &Province, matched_convoy_order
     Path::is_reachable_by_sea(move_order.location().code(), dest.code(), &allowed_waters)
 }
 
+/// 未解決移動命令の移動先を重複なしで収集取する
+fn collect_unresolved_move_destination_set(orders: &[Order]) -> IndexSet<Province> {
+    orders
+        .iter()
+        .filter(|o| !o.is_assumed() && o.is_unresolved())
+        .filter_map(|o| if let OrderKind::Move(m) = o.kind { Some(m.dest) } else { None })
+        .collect()
+}
+
 /// 戦闘解決
 fn handle_conflicting(original_orders: &mut [Order], target_location: &Province, standoff_provinces: &mut Vec<Province>) -> Option<usize> {
     let support_orders = collect_valid_support_orders(original_orders);
@@ -590,9 +678,9 @@ fn can_reach_via_convoy(original_orders: &[Order], idx: usize) -> bool {
     can_move_via_convoy(&move_order, &m.dest, &matched_convoys)
 }
 
-/// `a_idx` と `b_idx` 双方の支援が生きている前提で支援数を比較し勝者のインデックスを返す。
+/// 交換移動命令双方の支援が生きている前提で支援数を比較し勝者のインデックスを返す。
 /// - 同点または同勢力の場合は `None` を返す
-fn decide_winner_by_supports(original_orders: &[Order], a_idx: usize, b_idx: usize) -> Option<usize> {
+fn decide_move_conflict_winner(original_orders: &[Order], a_idx: usize, b_idx: usize) -> Option<usize> {
     // 自軍同士は勝者なし
     if original_orders[a_idx].power == original_orders[b_idx].power {
         return None;
@@ -606,6 +694,30 @@ fn decide_winner_by_supports(original_orders: &[Order], a_idx: usize, b_idx: usi
         Ordering::Greater => Some(a_idx),
         Ordering::Less => Some(b_idx),
         Ordering::Equal => None,
+    }
+}
+
+/// 移動命令 `attacker_idx` が非移動命令 `defender_idx` を攻撃したときの判定を行う。
+/// - attacker が勝てば attacker を success、defender を dislodged_from(attacker.location()) にする。
+/// - attacker が負ければ attacker を failure にする。
+/// - 同勢力の場合は attacker を failure にする。
+fn resolve_attack_against_non_move(original_orders: &mut [Order], attacker_idx: usize, defender_idx: usize) {
+    // 自軍攻撃は失敗
+    if original_orders[attacker_idx].power == original_orders[defender_idx].power {
+        original_orders[attacker_idx].set_failure();
+        return;
+    }
+
+    let support_orders = collect_valid_support_orders(original_orders);
+    let attacker_supports = support_orders.iter().filter(|s| s.is_matching_target(&original_orders[attacker_idx])).count();
+    let defender_supports = support_orders.iter().filter(|s| s.is_matching_target(&original_orders[defender_idx])).count();
+
+    if attacker_supports > defender_supports {
+        original_orders[attacker_idx].set_success();
+        original_orders[defender_idx].set_dislodged_from(&original_orders[attacker_idx].location());
+    } else {
+        // 同点・守備優勢ともに攻撃失敗
+        original_orders[attacker_idx].set_failure();
     }
 }
 
