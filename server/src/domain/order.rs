@@ -1,7 +1,7 @@
 use super::OrderId;
-use super::Power;
-use super::Province;
-use super::Unit;
+use super::power::Power;
+use super::province::Province;
+use super::unit::Unit;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;

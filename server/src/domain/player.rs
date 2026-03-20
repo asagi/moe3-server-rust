@@ -1,7 +1,7 @@
 use super::PlayerId;
-use super::Power;
 use super::TableId;
-use super::User;
+use super::power::Power;
+use super::user::User;
 use serde::Deserialize;
 use serde::Serialize;
 

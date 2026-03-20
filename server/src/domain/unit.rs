@@ -1,5 +1,5 @@
-use super::Power;
-use super::Province;
+use super::power::Power;
+use super::province::Province;
 use serde::Deserialize;
 use serde::Serialize;
 
