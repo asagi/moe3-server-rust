@@ -1,3 +1,8 @@
+mod order_resolution;
+
+#[cfg(test)]
+mod order_resolution_tests;
+
 use super::Order;
 use super::PhaseId;
 use super::Province;
@@ -5,11 +10,9 @@ use super::TableId;
 use super::Unit;
 use chrono::DateTime;
 use chrono::Utc;
+use order_resolution::resolve_orders_for_order_phase;
 use serde::Deserialize;
 use serde::Serialize;
-
-mod order_resolution;
-use order_resolution::resolve_orders_for_order_phase;
 
 /// フェイズの定義
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
