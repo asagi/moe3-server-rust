@@ -5,6 +5,7 @@ use crate::domain::phase::Phase;
 use crate::domain::phase::PhaseContext;
 use crate::domain::province::Province;
 use crate::domain::unit::UnitKind;
+use std::cmp::Ordering;
 use std::collections::HashSet;
 
 /// 命令フェイズの命令解決処理
@@ -345,15 +346,20 @@ fn handle_switch_orders(original_orders: &mut [Order], context: &mut PhaseContex
             }
         }
 
-        // 自軍衝突判定
-        if original_orders[idx].power == original_orders[opposite_idx].power {
-            // 自国軍同士の衝突は双方移動失敗
-            original_orders[idx].set_failure();
-            original_orders[opposite_idx].set_failure();
-            continue;
+        // 直接対決
+        match decide_winner_by_supports(original_orders, idx, opposite_idx) {
+            Some(winner_idx) => {
+                let loser_idx = if winner_idx == idx { opposite_idx } else { idx };
+                original_orders[winner_idx].set_success();
+                original_orders[loser_idx].set_dislodged_from(original_orders[winner_idx].location());
+                continue;
+            }
+            None => {
+                original_orders[idx].set_failure();
+                original_orders[opposite_idx].set_failure();
+                continue;
+            }
         }
-
-        // TODO: 直接対決判定
     }
 }
 
@@ -529,12 +535,12 @@ fn handle_conflicting(original_orders: &mut [Order], target_order_idx: usize, st
     Some(winner_idx)
 }
 
+/// attacker 進軍成功かつ defender 進軍失敗からの defender の防衛成否判定
+// - defender は進軍に失敗しているので支援は全て切れている
+// - attacker に有効な支援が残っていれば進軍成功で defender の敗退
 fn resolve_no_support_defense(original_orders: &mut [Order], attacker_idx: usize, defender_idx: usize, flanker_idx: Option<usize>) {
     let support_orders = collect_valid_support_orders(original_orders);
 
-    // attacker 進軍成功かつ defender 進軍失敗からの defender の防衛成否判定
-    // - defender は進軍に失敗しているので支援は全て切れている
-    // - attacker に有効な支援が残っていれば進軍成功で defender の敗退
     if original_orders[attacker_idx].power == original_orders[defender_idx].power {
         // 自国軍同士の衝突は攻撃失敗
         original_orders[attacker_idx].set_failure();
@@ -578,9 +584,29 @@ fn resolve_no_support_defense(original_orders: &mut [Order], attacker_idx: usize
 fn can_reach_via_convoy(original_orders: &[Order], idx: usize) -> bool {
     let convoy_orders = collect_valid_convoy_orders(original_orders);
     let move_order = original_orders[idx];
-    let OrderKind::Move(m) = move_order.kind else { return false };
+    let OrderKind::Move(m) = move_order.kind else { unreachable!("expected Move") };
     let matched_convoys = collect_matched_convoy_orders(&convoy_orders, &move_order);
+
     can_move_via_convoy(&move_order, &m.dest, &matched_convoys)
+}
+
+/// `a_idx` と `b_idx` 双方の支援が生きている前提で支援数を比較し勝者のインデックスを返す。
+/// - 同点または同勢力の場合は `None` を返す
+fn decide_winner_by_supports(original_orders: &[Order], a_idx: usize, b_idx: usize) -> Option<usize> {
+    // 自軍同士は勝者なし
+    if original_orders[a_idx].power == original_orders[b_idx].power {
+        return None;
+    }
+
+    let support_orders = collect_valid_support_orders(original_orders);
+    let a_supports = support_orders.iter().filter(|s| s.is_matching_target(&original_orders[a_idx])).count();
+    let b_supports = support_orders.iter().filter(|s| s.is_matching_target(&original_orders[b_idx])).count();
+
+    match a_supports.cmp(&b_supports) {
+        Ordering::Greater => Some(a_idx),
+        Ordering::Less => Some(b_idx),
+        Ordering::Equal => None,
+    }
 }
 
 #[cfg(test)]
