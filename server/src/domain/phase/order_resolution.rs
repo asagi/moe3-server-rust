@@ -4,6 +4,7 @@ use crate::domain::order::OrderStatus;
 use crate::domain::path::Path;
 use crate::domain::phase::Phase;
 use crate::domain::province::Province;
+use crate::domain::unit::Unit;
 use crate::domain::unit::UnitKind;
 use indexmap::IndexSet;
 use std::cmp::Ordering;
@@ -18,6 +19,7 @@ pub fn resolve_orders_for_order_phase(current_phase: &mut Phase) {
 
     let orders = &mut current_phase.data.orders;
     let standoff_provinces = &mut current_phase.data.standoff_provinces;
+    let resolved_units = &mut current_phase.data.resolved_units;
 
     // # 01. 移動命令検証
     validate_move_orders(orders);
@@ -44,7 +46,7 @@ pub fn resolve_orders_for_order_phase(current_phase: &mut Phase) {
     succeed_remaining_orders(orders);
 
     // # 09. 命令解決後のユニット配置情報をフェイズに反映
-    // current_phase.update_unit_locations(&mut current_phase);
+    apply_resolved_unit_locations(orders, resolved_units);
 }
 
 /// 移動命令検証
@@ -442,6 +444,31 @@ fn succeed_remaining_orders(original_orders: &mut [Order]) {
 
     for idx in unresolved_indices {
         original_orders[idx].set_success();
+    }
+}
+
+/// 命令解決後のユニット配置情報をフェイズに反映
+fn apply_resolved_unit_locations(orders: &[Order], resolved_units: &mut Vec<Unit>) {
+    for order in collect_not_invalid_orders(orders) {
+        // 移動に成功した軍の保存
+        if let OrderKind::Move(m) = &order.kind
+            && order.is_success()
+        {
+            resolved_units.push(Unit { province: m.dest, ..order.unit });
+            continue;
+        }
+
+        // 撃退された軍の保存
+        if order.is_dislodged() {
+            resolved_units.push(Unit {
+                province: order.dislodged_from.expect("dislodged_from should be set if is_dislodged is true"),
+                ..order.unit
+            });
+            continue;
+        }
+
+        // それ以外の軍は現状維持
+        resolved_units.push(Unit { ..order.unit });
     }
 }
 

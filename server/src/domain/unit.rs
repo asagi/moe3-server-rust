@@ -9,6 +9,7 @@ pub struct Unit {
     pub power: Power,
     pub province: Province,
     pub kind: UnitKind,
+    pub dislodged_from: Option<Province>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,6 +34,7 @@ impl Unit {
             power,
             province,
             kind: UnitKind::Army(Army {}),
+            dislodged_from: None,
         }
     }
 
@@ -41,6 +43,7 @@ impl Unit {
             power,
             province,
             kind: UnitKind::Fleet(Fleet {}),
+            dislodged_from: None,
         }
     }
 
