@@ -82,7 +82,7 @@ mod tests {
         Province::from_code(code).expect("valid province code")
     }
 
-#[test]
+    #[test]
     fn test_unit_creation() {
         let army = Unit::new_army(Power::France, p("par"));
         assert_eq!(army.symbol(), "A");

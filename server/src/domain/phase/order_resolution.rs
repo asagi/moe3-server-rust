@@ -214,7 +214,7 @@ fn handle_disruption_convoy_order(original_orders: &mut [Order], context: &mut P
 
     for convoy_order_idx in collect_valid_convoy_indices(original_orders) {
         // 輸送命令に対する攻撃競争の勝者を取得
-        let Some(winner_idx) = handle_conflicting(original_orders, convoy_order_idx, &mut context.standoff_provinces) else {
+        let Some(winner_idx) = handle_conflicting(original_orders, &original_orders[convoy_order_idx].location(), &mut context.standoff_provinces) else {
             // 勝者がいなければスキップ
             continue;
         };
@@ -239,7 +239,7 @@ fn handle_disruption_convoy_order(original_orders: &mut [Order], context: &mut P
 
         // 輸送敗退
         original_orders[winner_idx].set_success();
-        original_orders[convoy_order_idx].set_dislodged_from(original_orders[winner_idx].location());
+        original_orders[convoy_order_idx].set_dislodged_from(&original_orders[winner_idx].location());
 
         // 輸送路切断判定
         let convoy_orders = collect_valid_convoy_orders(original_orders);
@@ -289,8 +289,8 @@ fn handle_switch_orders(original_orders: &mut [Order], context: &mut PhaseContex
         };
 
         // スタンドオフ判定
-        let conflict_winner_idx = handle_conflicting(original_orders, opposite_idx, &mut context.standoff_provinces);
-        let opposite_conflict_winner_idx = handle_conflicting(original_orders, idx, &mut context.standoff_provinces);
+        let conflict_winner_idx = handle_conflicting(original_orders, &original_orders[opposite_idx].location(), &mut context.standoff_provinces);
+        let opposite_conflict_winner_idx = handle_conflicting(original_orders, &original_orders[idx].location(), &mut context.standoff_provinces);
         if conflict_winner_idx.is_none() && opposite_conflict_winner_idx.is_none() {
             // 両地域スタンドオフで関連する全軍移動失敗
             continue;
@@ -351,7 +351,7 @@ fn handle_switch_orders(original_orders: &mut [Order], context: &mut PhaseContex
             Some(winner_idx) => {
                 let loser_idx = if winner_idx == idx { opposite_idx } else { idx };
                 original_orders[winner_idx].set_success();
-                original_orders[loser_idx].set_dislodged_from(original_orders[winner_idx].location());
+                original_orders[loser_idx].set_dislodged_from(&original_orders[winner_idx].location());
                 continue;
             }
             None => {
@@ -485,13 +485,13 @@ fn can_move_via_convoy(move_order: &Order, dest: &Province, matched_convoy_order
 }
 
 /// 戦闘解決
-fn handle_conflicting(original_orders: &mut [Order], target_order_idx: usize, standoff_provinces: &mut Vec<Province>) -> Option<usize> {
+fn handle_conflicting(original_orders: &mut [Order], target_location: &Province, standoff_provinces: &mut Vec<Province>) -> Option<usize> {
     let support_orders = collect_valid_support_orders(original_orders);
     let conflicting_move_indicies: Vec<usize> = collect_valid_move_indices(original_orders)
         .into_iter()
         .filter(|&idx| {
             if let OrderKind::Move(m) = original_orders[idx].kind {
-                m.dest == original_orders[target_order_idx].location()
+                m.dest == *target_location
             } else {
                 false
             }
@@ -526,7 +526,7 @@ fn handle_conflicting(original_orders: &mut [Order], target_order_idx: usize, st
         }
 
         // スタンドオフ地点を記録
-        standoff_provinces.push(original_orders[target_order_idx].location());
+        standoff_provinces.push(*target_location);
         return None;
     }
 
@@ -549,7 +549,7 @@ fn resolve_no_support_defense(original_orders: &mut [Order], attacker_idx: usize
     if support_orders.iter().any(|o| o.is_matching_target(&original_orders[attacker_idx])) {
         // defender 防衛失敗
         original_orders[attacker_idx].set_success();
-        original_orders[defender_idx].set_dislodged_from(original_orders[attacker_idx].location());
+        original_orders[defender_idx].set_dislodged_from(&original_orders[attacker_idx].location());
         return;
     }
 
@@ -571,7 +571,7 @@ fn resolve_no_support_defense(original_orders: &mut [Order], attacker_idx: usize
     // defender との進軍競争に勝ち抜いた flanker からの攻撃に対する attacker の防衛成否判定
     if support_orders.iter().any(|o| o.is_matching_target(&original_orders[flanker_idx])) {
         // attacker 防衛失敗
-        original_orders[attacker_idx].set_dislodged_from(original_orders[flanker_idx].location());
+        original_orders[attacker_idx].set_dislodged_from(&original_orders[flanker_idx].location());
         original_orders[flanker_idx].set_success();
     } else {
         // attacker 防衛成功（進軍は失敗）

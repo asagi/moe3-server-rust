@@ -12,7 +12,7 @@ pub struct Order {
     pub id: Option<OrderId>,
     pub power: Power,
     pub unit: Unit,
-    pub dislodged_by: Option<Province>,
+    pub dislodged_from: Option<Province>,
     pub status: OrderStatus,
     pub kind: OrderKind,
 }
@@ -76,7 +76,7 @@ impl Order {
             id: None,
             power,
             unit,
-            dislodged_by: None,
+            dislodged_from: None,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Hold(HoldOrder { power }),
         }
@@ -87,7 +87,7 @@ impl Order {
             id: None,
             power,
             unit,
-            dislodged_by: None,
+            dislodged_from: None,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Move(MoveOrder { power, dest }),
         }
@@ -98,7 +98,7 @@ impl Order {
             id: None,
             power,
             unit,
-            dislodged_by: None,
+            dislodged_from: None,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Support(SupportOrder { power, target_unit, target_dest }),
         }
@@ -109,7 +109,7 @@ impl Order {
             id: None,
             power,
             unit,
-            dislodged_by: None,
+            dislodged_from: None,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Convoy(ConvoyOrder { power, target_unit, target_dest }),
         }
@@ -220,8 +220,8 @@ impl Order {
         self.power != self.unit.power()
     }
 
-    pub(crate) fn set_dislodged_from(&mut self, winner_location: Province) {
-        self.dislodged_by = Some(winner_location);
+    pub(crate) fn set_dislodged_from(&mut self, winner_location: &Province) {
+        self.dislodged_from = Some(*winner_location);
     }
 }
 
