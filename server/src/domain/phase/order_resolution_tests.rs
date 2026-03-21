@@ -146,7 +146,14 @@ fn test_datc_6_a_5() {
 /// F London - North Sea
 /// Order should fail.
 #[test]
-fn test_datc_6_a_6() {}
+fn test_datc_6_a_6() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit = Unit::new_fleet(Power::England, p("lon"));
+    let order = unit.move_to(p("nth")).assumed_by(Power::Germany);
+    phase.data.orders.push(order);
+    resolve_orders_for_order_phase(&mut phase);
+    assert!(phase.data.orders[0].is_unresolved());
+}
 
 /// 6.A.7. TEST CASE, ONLY ARMIES CAN BE CONVOYED
 /// A fleet cannot be convoyed.
