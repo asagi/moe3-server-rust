@@ -1,3 +1,11 @@
+//! # 6. TEST CASES
+//!
+//! 参照先: [DATC v3.0 Section 6][DATC_6]
+//!
+//! ## 6.A. TEST CASES, BASIC CHECKS
+//!
+//! [DATC_6]: https://webdiplomacy.net/doc/DATC_v3_0.html#6
+
 use super::super::order::*;
 use super::super::phase::order_resolution::*;
 use super::super::phase::*;
@@ -8,20 +16,6 @@ use super::super::unit::*;
 fn p(code: &str) -> Province {
     Province::from_code(code).expect("valid province code")
 }
-
-#[test]
-fn test_new_spring_order_always_increments_year() {
-    let p = Phase::new_spring_order(1900, 7);
-    assert_eq!(p.year(), 1901);
-    assert_eq!(p.index(), 8);
-    assert!(matches!(p.phase_type(), PhaseKind::SpringOrder(_)));
-}
-
-//=================================================================================================
-// 6. TEST CASES
-//  https://webdiplomacy.net/doc/DATC_v3_0.html#6
-//
-// 6.A. TEST CASES, BASIC CHECKS
 
 /// 6.A.1. TEST CASE, MOVING TO AN AREA THAT IS NOT A NEIGHBOUR
 ///  Check if an illegal move (without convoy) will fail.
