@@ -50,3 +50,18 @@ fn test_datc_6_a_2() {
     resolve_orders_for_order_phase(&mut phase);
     assert!(phase.data.orders[0].is_invalid());
 }
+
+/// 6.A.3. TEST CASE, MOVE FLEET TO LAND
+/// Check whether a fleet cannot move to land.
+///
+/// Germany:
+/// F Kiel - Munich
+/// Order should fail.
+#[test]
+fn test_datc_6_a_3() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let order = Order::new_move(Power::Germany, Unit::new_fleet(Power::Germany, p("kie")), p("mun"));
+    phase.data.orders.push(order);
+    resolve_orders_for_order_phase(&mut phase);
+    assert!(phase.data.orders[0].is_invalid());
+}
