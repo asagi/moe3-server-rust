@@ -184,17 +184,17 @@ fn test_datc_6_a_8() {
     let mut phase = Phase::new_spring_order(1900, 1);
     let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
     let unit_i_2 = Unit::new_army(Power::Italy, p("tyr"));
-    let order_e_1 = unit_i_1.move_to(p("tri"));
-    let order_e_2 = unit_i_2.support_move(unit_i_1, p("tri"));
-    phase.data.orders.push(order_e_1);
-    phase.data.orders.push(order_e_2);
+    let order_i_1 = unit_i_1.move_to(p("tri"));
+    let order_i_2 = unit_i_2.support_move(unit_i_1, p("tri"));
+    phase.data.orders.push(order_i_1);
+    phase.data.orders.push(order_i_2);
     let unit_a_1 = Unit::new_fleet(Power::Austria, p("tri"));
     let order_a_1 = unit_a_1.support_hold(unit_a_1);
     phase.data.orders.push(order_a_1);
     resolve_orders_for_order_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].unit, order_e_1.unit);
+    assert_eq!(phase.data.orders[0].unit, order_i_1.unit);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
-    assert_eq!(phase.data.orders[1].unit, order_e_2.unit);
+    assert_eq!(phase.data.orders[1].unit, order_i_2.unit);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].unit, order_a_1.unit);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Dislodged);
@@ -208,7 +208,14 @@ fn test_datc_6_a_8() {
 /// F Rome - Venice
 /// Move fails. An army can go from Rome to Venice, but a fleet cannot.
 #[test]
-fn test_datc_6_a_9() {}
+fn test_datc_6_a_9() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_i_1 = Unit::new_fleet(Power::Italy, p("rom"));
+    let order_i_1 = unit_i_1.move_to(p("ven"));
+    phase.data.orders.push(order_i_1);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+}
 
 /// 6.A.10. TEST CASE, SUPPORT ON UNREACHABLE DESTINATION NOT POSSIBLE
 /// The destination of the move that is supported must be reachable by the supporting unit.
