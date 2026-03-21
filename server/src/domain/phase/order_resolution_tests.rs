@@ -259,7 +259,20 @@ fn test_datc_6_a_10() {
 /// A Venice - Tyrolia
 /// The two units bounce.
 #[test]
-fn test_datc_6_a_11() {}
+fn test_datc_6_a_11() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_a_1 = Unit::new_army(Power::Austria, p("vie"));
+    let order_a_1 = unit_a_1.move_to(p("tyr"));
+    phase.data.orders.push(order_a_1);
+    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
+    let order_i_1 = unit_i_1.move_to(p("tyr"));
+    phase.data.orders.push(order_i_1);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].unit, order_a_1.unit);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].unit, order_i_1.unit);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+}
 
 /// 6.A.12. TEST CASE, BOUNCE OF THREE UNITS
 /// If three units move to the same area,
