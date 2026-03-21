@@ -35,3 +35,18 @@ fn test_illegal_move_without_convoy_fails() {
     resolve_orders_for_order_phase(&mut phase);
     assert!(phase.data.orders[0].is_invalid());
 }
+
+/// 6.A.2. TEST CASE, MOVE ARMY TO SEA
+/// Check if an army could not be moved to open sea.
+///
+/// England:
+/// A Liverpool - Irish Sea
+/// Order should fail.
+#[test]
+fn test_army_could_not_be_moved_to_open_sea() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let order = Order::new_move(Power::England, Unit::new_army(Power::England, p("lvp")), p("iri"));
+    phase.data.orders.push(order);
+    resolve_orders_for_order_phase(&mut phase);
+    assert!(phase.data.orders[0].is_invalid());
+}
