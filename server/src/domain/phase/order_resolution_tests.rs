@@ -229,7 +229,25 @@ fn test_datc_6_a_9() {
 /// The support of Rome is illegal, because Venice cannot be reached from Rome by a fleet.
 /// Venice is not dislodged.
 #[test]
-fn test_datc_6_a_10() {}
+fn test_datc_6_a_10() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_a_1 = Unit::new_army(Power::Austria, p("ven"));
+    let order_a_1 = unit_a_1.hold();
+    phase.data.orders.push(order_a_1);
+    let unit_i_1 = Unit::new_army(Power::Italy, p("apu"));
+    let order_i_1 = unit_i_1.move_to(p("ven"));
+    let unit_i_2 = Unit::new_fleet(Power::Italy, p("rom"));
+    let order_i_2 = unit_i_2.support_move(unit_i_1, p("ven"));
+    phase.data.orders.push(order_i_1);
+    phase.data.orders.push(order_i_2);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].unit, order_a_1.unit);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].unit, order_i_1.unit);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].unit, order_i_2.unit);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Invalid);
+}
 
 /// 6.A.11. TEST CASE, SIMPLE BOUNCE
 /// Two armies bouncing on each other.
