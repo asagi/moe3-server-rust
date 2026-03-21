@@ -28,7 +28,7 @@ fn test_new_spring_order_always_increments_year() {
 ///  F North Sea - Picardy
 ///  Order should fail.
 #[test]
-fn test_illegal_move_without_convoy_fails() {
+fn test_datc_6_a_1() {
     let mut phase = Phase::new_spring_order(1900, 1);
     let order = Order::new_move(Power::England, Unit::new_fleet(Power::England, p("nth")), p("pic"));
     phase.data.orders.push(order);
@@ -43,7 +43,7 @@ fn test_illegal_move_without_convoy_fails() {
 /// A Liverpool - Irish Sea
 /// Order should fail.
 #[test]
-fn test_army_could_not_be_moved_to_open_sea() {
+fn test_datc_6_a_2() {
     let mut phase = Phase::new_spring_order(1900, 1);
     let order = Order::new_move(Power::England, Unit::new_army(Power::England, p("lvp")), p("iri"));
     phase.data.orders.push(order);
