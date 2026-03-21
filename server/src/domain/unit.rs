@@ -1,3 +1,10 @@
+use super::order::ConvoyOrder;
+use super::order::HoldOrder;
+use super::order::MoveOrder;
+use super::order::Order;
+use super::order::OrderKind;
+use super::order::OrderStatus;
+use super::order::SupportOrder;
 use super::power::Power;
 use super::province::Province;
 use serde::Deserialize;
@@ -74,6 +81,58 @@ impl Unit {
     /// 海軍かどうか判定
     pub fn is_fleet(&self) -> bool {
         matches!(self.kind, UnitKind::Fleet(_))
+    }
+
+    /// 維持命令を生成
+    pub fn hold(&self) -> Order {
+        Order {
+            id: None,
+            power: self.power,
+            unit: *self,
+            dislodged_from: None,
+            status: OrderStatus::Unresolved,
+            kind: OrderKind::Hold(HoldOrder {}),
+        }
+    }
+
+    /// 移動命令を生成
+    pub fn move_to(&self, dest: Province) -> Order {
+        Order {
+            id: None,
+            power: self.power,
+            unit: *self,
+            dislodged_from: None,
+            status: OrderStatus::Unresolved,
+            kind: OrderKind::Move(MoveOrder { dest }),
+        }
+    }
+
+    /// サポート命令を生成
+    pub fn support(&self, target_unit: Unit, target_dest: Option<Province>) -> Order {
+        Order {
+            id: None,
+            power: self.power,
+            unit: *self,
+            dislodged_from: None,
+            status: OrderStatus::Unresolved,
+            kind: OrderKind::Support(SupportOrder { target_unit, target_dest }),
+        }
+    }
+
+    /// 輸送命令を生成
+    pub fn convoy(&self, target_unit: Unit, target_dest: Province) -> Order {
+        if !self.is_fleet() {
+            panic!("Only fleets can convoy");
+        }
+
+        Order {
+            id: None,
+            power: self.power,
+            unit: *self,
+            dislodged_from: None,
+            status: OrderStatus::Unresolved,
+            kind: OrderKind::Convoy(ConvoyOrder { target_unit, target_dest }),
+        }
     }
 }
 

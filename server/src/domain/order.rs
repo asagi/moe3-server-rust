@@ -42,21 +42,17 @@ pub enum OrderKind {
 
 /// ホールド命令
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
-pub struct HoldOrder {
-    pub power: Power,
-}
+pub struct HoldOrder {}
 
 /// 移動命令
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct MoveOrder {
-    pub power: Power,
     pub dest: Province,
 }
 
 /// サポート命令
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct SupportOrder {
-    pub power: Power,
     pub target_unit: Unit,
     pub target_dest: Option<Province>,
 }
@@ -64,7 +60,6 @@ pub struct SupportOrder {
 /// 輸送命令
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct ConvoyOrder {
-    pub power: Power,
     pub target_unit: Unit,
     pub target_dest: Province,
 }
@@ -78,7 +73,7 @@ impl Order {
             unit,
             dislodged_from: None,
             status: OrderStatus::Unresolved,
-            kind: OrderKind::Hold(HoldOrder { power }),
+            kind: OrderKind::Hold(HoldOrder {}),
         }
     }
 
@@ -89,7 +84,7 @@ impl Order {
             unit,
             dislodged_from: None,
             status: OrderStatus::Unresolved,
-            kind: OrderKind::Move(MoveOrder { power, dest }),
+            kind: OrderKind::Move(MoveOrder { dest }),
         }
     }
 
@@ -100,7 +95,7 @@ impl Order {
             unit,
             dislodged_from: None,
             status: OrderStatus::Unresolved,
-            kind: OrderKind::Support(SupportOrder { power, target_unit, target_dest }),
+            kind: OrderKind::Support(SupportOrder { target_unit, target_dest }),
         }
     }
 
@@ -111,7 +106,7 @@ impl Order {
             unit,
             dislodged_from: None,
             status: OrderStatus::Unresolved,
-            kind: OrderKind::Convoy(ConvoyOrder { power, target_unit, target_dest }),
+            kind: OrderKind::Convoy(ConvoyOrder { target_unit, target_dest }),
         }
     }
 
@@ -220,9 +215,16 @@ impl Order {
         self.power != self.unit.power()
     }
 
+    /// ユニットがどこから追い出されたかを記録
     pub(crate) fn set_dislodged_from(&mut self, winner_location: &Province) {
         self.status = OrderStatus::Dislodged;
         self.dislodged_from = Some(*winner_location);
+    }
+
+    /// 命令を仮定命令に変換
+    pub fn assumed_by(&mut self, power: Power) -> Self {
+        self.power = power;
+        *self
     }
 }
 
