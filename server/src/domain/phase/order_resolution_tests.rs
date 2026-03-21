@@ -4,7 +4,7 @@ use super::super::phase::*;
 use super::order_resolution::test_hook;
 
 #[test]
-fn spec_new_spring_order_always_increments_year() {
+fn test_new_spring_order_always_increments_year() {
     let p = Phase::new_spring_order(1900, 7);
     assert_eq!(p.year(), 1901);
     assert_eq!(p.index(), 8);
@@ -12,7 +12,7 @@ fn spec_new_spring_order_always_increments_year() {
 }
 
 #[test]
-fn spring_order_close_calls_common_order_resolution() {
+fn test_spring_order_close_calls_common_order_resolution() {
     test_hook::reset();
 
     let phase = Phase::new_spring_order(1900, 0);
@@ -27,7 +27,7 @@ fn spring_order_close_calls_common_order_resolution() {
 }
 
 #[test]
-fn fall_order_close_calls_common_order_resolution() {
+fn test_fall_order_close_calls_common_order_resolution() {
     test_hook::reset();
 
     let phase = Phase::new_fall_order(1901, 1);
@@ -41,17 +41,10 @@ fn fall_order_close_calls_common_order_resolution() {
     assert_eq!(test_hook::call_count(), 1);
 }
 
-fn make_simple_phase() -> Phase {
-    // テスト用ビルダーをここに実装（省略）
-    Phase::new_spring_order(1900, 1)
-}
-
 #[test]
-fn resolves_calls_main_entry() {
+fn test_resolve_orders_for_order_phase_calls_test_hook() {
     test_hook::reset();
-    let mut phase = make_simple_phase();
+    let mut phase = Phase::new_spring_order(1900, 1);
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(test_hook::call_count(), 1);
 }
-
-// 以降、ヘルパーを使って多くのケースを追加
