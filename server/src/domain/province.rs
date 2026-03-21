@@ -20,7 +20,7 @@ const PROVINCE_DATA: &[ProvinceData] = &[
     ProvinceData { code: "adr", full: "Adriatic Water", jname: "アドリア海", kind: "Water", supply: false, home: None },
     ProvinceData { code: "aeg", full: "Aegean Water", jname: "エーゲ海", kind: "Water", supply: false, home: None },
     ProvinceData { code: "alb", full: "Albania", jname: "アルバニア", kind: "Coast", supply: false, home: None },
-    ProvinceData { code: "ank", full: "Ankara", jname: "アンカラ", kind: "Coast", supply: false, home: Some("Turkey") },
+    ProvinceData { code: "ank", full: "Ankara", jname: "アンカラ", kind: "Coast", supply: true, home: Some("Turkey") },
     ProvinceData { code: "apu", full: "Apulia", jname: "アプリア", kind: "Coast", supply: false, home: Some("Italy") },
     ProvinceData { code: "arm", full: "Armenia", jname: "アルメニア", kind: "Coast", supply: false, home: Some("Turkey") },
     ProvinceData { code: "bal", full: "Baltic Water", jname: "バルト海", kind: "Water", supply: false, home: None },
