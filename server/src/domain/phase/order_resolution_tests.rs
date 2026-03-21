@@ -1,3 +1,4 @@
+use super::super::order::*;
 use super::super::phase::order_resolution::*;
 use super::super::phase::*;
 use super::super::power::*;
@@ -16,10 +17,12 @@ fn test_new_spring_order_always_increments_year() {
     assert!(matches!(p.phase_type(), PhaseKind::SpringOrder(_)));
 }
 
+//=================================================================================================
 // 6. TEST CASES
-//    https://webdiplomacy.net/doc/DATC_v3_0.html#6
+//  https://webdiplomacy.net/doc/DATC_v3_0.html#6
 //
 // 6.A. TEST CASES, BASIC CHECKS
+//=================================================================================================
 
 /// 6.A.1. TEST CASE, MOVING TO AN AREA THAT IS NOT A NEIGHBOUR
 ///  Check if an illegal move (without convoy) will fail.
@@ -94,7 +97,33 @@ fn test_datc_6_a_4() {
 /// A Wales Supports F London - Yorkshire
 /// The move of the army in Yorkshire is illegal. This makes the support of Liverpool also illegal and without the support, the Germans have a stronger force. The army in London dislodges the army in Yorkshire.
 #[test]
-fn test_datc_6_a_5() {}
+fn test_datc_6_a_5() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+
+    let order_e_1 = Order::new_move(Power::England, Unit::new_army(Power::England, p("yor")), p("yor"));
+    let order_e_2 = Order::new_convoy(Power::England, Unit::new_fleet(Power::England, p("nth")), order_e_1.unit, p("yor"));
+    let order_e_3 = Order::new_support(Power::England, Unit::new_army(Power::England, p("lvp")), order_e_1.unit, Some(p("yor")));
+    phase.data.orders.push(order_e_1);
+    phase.data.orders.push(order_e_2);
+    phase.data.orders.push(order_e_3);
+
+    let order_g_1 = Order::new_move(Power::Germany, Unit::new_fleet(Power::Germany, p("lon")), p("yor"));
+    let order_g_2 = Order::new_support(Power::England, Unit::new_army(Power::England, p("wal")), order_g_1.unit, Some(p("yor")));
+    phase.data.orders.push(order_g_1);
+    phase.data.orders.push(order_g_2);
+
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].unit, order_e_1.unit);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[1].unit, order_e_2.unit);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[2].unit, order_e_3.unit);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[3].unit, order_g_1.unit);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[4].unit, order_g_2.unit);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+}
 
 /// 6.A.6. TEST CASE, ORDERING A UNIT OF ANOTHER COUNTRY
 /// Check whether someone cannot order a unit that is not his own unit.

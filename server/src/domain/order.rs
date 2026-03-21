@@ -221,6 +221,7 @@ impl Order {
     }
 
     pub(crate) fn set_dislodged_from(&mut self, winner_location: &Province) {
+        self.status = OrderStatus::Dislodged;
         self.dislodged_from = Some(*winner_location);
     }
 }

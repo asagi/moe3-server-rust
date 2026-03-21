@@ -373,7 +373,7 @@ fn handle_switch_orders(original_orders: &mut [Order], standoff_provinces: &mut 
 /// 未解決移動命令解決
 fn handle_remaining_move_orders(original_orders: &mut [Order], standoff_provinces: &mut Vec<Province>) {
     let move_orders = collect_valid_move_orders(original_orders);
-    let mut dests = collect_unresolved_move_destination_set(&move_orders);
+    let mut dests = collect_valid_move_destination_set(&move_orders);
 
     let mut dest_snapshots: HashSet<Vec<Province>> = HashSet::new();
 
@@ -397,7 +397,7 @@ fn handle_remaining_move_orders(original_orders: &mut [Order], standoff_province
         };
 
         // 移動先の状況を確認
-        let Some(occupant_idx) = original_orders.iter().enumerate().position(|(_, o)| !o.is_assumed() && o.location() == target_location) else {
+        let Some(occupant_idx) = find_occupant_order_index(original_orders, &target_location) else {
             // 移動先に駐留軍がいなければ勝者の移動成功で終了
             original_orders[attacker_idx].set_success();
             dest_snapshots.clear();
@@ -584,17 +584,25 @@ fn collect_matched_convoy_orders<'a>(convoy_orders: &'a [Order], attack_order: &
         .collect()
 }
 
+/// 指定地域に非移動命令または失敗した移動命令があればその命令のインデックスを返す
+fn find_occupant_order_index(orders: &[Order], target_location: &Province) -> Option<usize> {
+    orders
+        .iter()
+        .enumerate()
+        .position(|(_, o)| !o.is_assumed() && o.location() == *target_location && !(matches!(o.kind, OrderKind::Move(_)) && o.is_success()))
+}
+
 /// 輸送経路が成立しているかどうかを判定
 fn can_move_via_convoy(move_order: &Order, dest: &Province, matched_convoy_orders: &Vec<&Order>) -> bool {
     let allowed_waters: HashSet<&str> = matched_convoy_orders.iter().map(|order| order.location().code()).collect();
     Path::is_reachable_by_sea(move_order.location().code(), dest.code(), &allowed_waters)
 }
 
-/// 未解決移動命令の移動先を重複なしで収集取する
-fn collect_unresolved_move_destination_set(orders: &[Order]) -> IndexSet<Province> {
+/// 未解決の有効な移動命令の移動先を重複なしで収集取する
+fn collect_valid_move_destination_set(orders: &[Order]) -> IndexSet<Province> {
     orders
         .iter()
-        .filter(|o| !o.is_assumed() && o.is_unresolved())
+        .filter(|o| !o.is_assumed() && o.is_valid())
         .filter_map(|o| if let OrderKind::Move(m) = o.kind { Some(m.dest) } else { None })
         .collect()
 }
