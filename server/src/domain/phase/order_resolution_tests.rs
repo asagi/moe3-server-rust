@@ -157,7 +157,20 @@ fn test_datc_6_a_6() {
 /// F North Sea Convoys A London - Belgium
 /// Move from London to Belgium should fail.
 #[test]
-fn test_datc_6_a_7() {}
+fn test_datc_6_a_7() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("lon"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("nth"));
+    let order_e_1 = unit_e_1.move_to(p("bel"));
+    let order_e_2 = unit_e_2.convoy(unit_e_1, p("bel"));
+    phase.data.orders.push(order_e_1);
+    phase.data.orders.push(order_e_2);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].unit, order_e_1.unit);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[1].unit, order_e_2.unit);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+}
 
 /// 6.A.8. TEST CASE, SUPPORT TO HOLD YOURSELF IS NOT POSSIBLE
 /// An army cannot get an additional hold power by supporting itself.
