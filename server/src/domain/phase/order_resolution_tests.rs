@@ -22,7 +22,6 @@ fn test_new_spring_order_always_increments_year() {
 //  https://webdiplomacy.net/doc/DATC_v3_0.html#6
 //
 // 6.A. TEST CASES, BASIC CHECKS
-//=================================================================================================
 
 /// 6.A.1. TEST CASE, MOVING TO AN AREA THAT IS NOT A NEIGHBOUR
 ///  Check if an illegal move (without convoy) will fail.
@@ -73,7 +72,8 @@ fn test_datc_6_a_3() {
 }
 
 /// 6.A.4. TEST CASE, MOVE TO OWN SECTOR
-/// Moving to the same sector is an illegal move (2023 rulebook, page 7, "An Army can be ordered to move into an adjacent inland or coastal province.").
+/// Moving to the same sector is an illegal move (2023 rulebook, page 7,
+/// "An Army can be ordered to move into an adjacent inland or coastal province.").
 ///
 /// Germany:
 /// F Kiel - Kiel
@@ -89,7 +89,8 @@ fn test_datc_6_a_4() {
 }
 
 /// 6.A.5. TEST CASE, MOVE TO OWN SECTOR WITH CONVOY
-/// Moving to the same sector is still illegal with convoy (2023 rulebook, page 7, "Note: An Army can move across water provinces from one coastal province to another...").
+/// Moving to the same sector is still illegal with convoy (2023 rulebook, page 7,
+/// "Note: An Army can move across water provinces from one coastal province to another...").
 ///
 /// England:
 /// F North Sea Convoys A Yorkshire - Yorkshire
@@ -99,7 +100,9 @@ fn test_datc_6_a_4() {
 /// Germany:
 /// F London - Yorkshire
 /// A Wales Supports F London - Yorkshire
-/// The move of the army in Yorkshire is illegal. This makes the support of Liverpool also illegal and without the support, the Germans have a stronger force. The army in London dislodges the army in Yorkshire.
+/// The move of the army in Yorkshire is illegal.
+/// This makes the support of Liverpool also illegal and without the support,
+/// the Germans have a stronger force. The army in London dislodges the army in Yorkshire.
 #[test]
 fn test_datc_6_a_5() {
     let mut phase = Phase::new_spring_order(1900, 1);
@@ -169,7 +172,8 @@ fn test_datc_6_a_7() {}
 fn test_datc_6_a_8() {}
 
 /// 6.A.9. TEST CASE, FLEETS MUST FOLLOW COAST IF NOT ON SEA
-/// If two provinces are adjacent, that does not mean that a fleet can move between those two provinces. An implementation that only holds one list of adjacent provinces for each province is incorrect.
+/// If two provinces are adjacent, that does not mean that a fleet can move between those two provinces.
+/// An implementation that only holds one list of adjacent provinces for each province is incorrect.
 ///
 /// Italy:
 /// F Rome - Venice
@@ -186,7 +190,8 @@ fn test_datc_6_a_9() {}
 /// Italy:
 /// F Rome Supports A Apulia - Venice
 /// A Apulia - Venice
-/// The support of Rome is illegal, because Venice cannot be reached from Rome by a fleet. Venice is not dislodged.
+/// The support of Rome is illegal, because Venice cannot be reached from Rome by a fleet.
+/// Venice is not dislodged.
 #[test]
 fn test_datc_6_a_10() {}
 
@@ -203,7 +208,8 @@ fn test_datc_6_a_10() {}
 fn test_datc_6_a_11() {}
 
 /// 6.A.12. TEST CASE, BOUNCE OF THREE UNITS
-/// If three units move to the same area, the adjudicator should not bounce the first two units and then let the third unit go to the now open area.
+/// If three units move to the same area,
+/// the adjudicator should not bounce the first two units and then let the third unit go to the now open area.
 ///
 /// Austria:
 /// A Vienna - Tyrolia
