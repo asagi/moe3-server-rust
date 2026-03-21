@@ -12,11 +12,6 @@ use std::collections::HashSet;
 
 /// 命令フェイズの命令解決処理
 pub fn resolve_orders_for_order_phase(current_phase: &mut Phase) {
-    #[cfg(test)]
-    {
-        test_hook::mark_called();
-    }
-
     let orders = &mut current_phase.data.orders;
     let standoff_provinces = &mut current_phase.data.standoff_provinces;
     let resolved_units = &mut current_phase.data.resolved_units;
@@ -58,7 +53,7 @@ fn validate_move_orders(original_orders: &mut [Order]) {
         let OrderKind::Move(m) = &move_order.kind else { unreachable!("expected Move") };
 
         // 隣接経路が成立していれば有効
-        if Path::can_unit_move_to(&move_order.unit, m.dest.code()) {
+        if Path::can_unit_move_to(&move_order.unit, move_order.location().code(), m.dest.code()) {
             move_order.set_valid();
             continue;
         }
@@ -73,6 +68,9 @@ fn validate_move_orders(original_orders: &mut [Order]) {
                 move_order.set_invalid();
                 continue;
             }
+        } else {
+            move_order.set_invalid();
+            continue;
         }
     }
 }
@@ -92,7 +90,7 @@ fn validate_support_orders(original_orders: &mut [Order]) {
 
         // 支援対象の移動命令の移動先に支援ユニットが移動できるなら有効
         if let OrderKind::Move(m) = &target.kind {
-            if Path::can_unit_move_to(&support_order.unit, m.dest.code()) {
+            if Path::can_unit_move_to(&support_order.unit, support_order.location().code(), m.dest.code()) {
                 support_order.set_valid();
                 continue;
             }
@@ -101,7 +99,7 @@ fn validate_support_orders(original_orders: &mut [Order]) {
         }
 
         // 支援対象の非移動命令の現在地に支援ユニットが移動できるなら有効
-        if Path::can_unit_move_to(&support_order.unit, target.location().code()) {
+        if Path::can_unit_move_to(&support_order.unit, support_order.location().code(), target.location().code()) {
             support_order.set_valid();
             continue;
         }
@@ -747,25 +745,5 @@ fn resolve_attack_against_non_move(original_orders: &mut [Order], attacker_idx: 
     } else {
         // 同点・守備優勢ともに攻撃失敗
         original_orders[attacker_idx].set_failure();
-    }
-}
-
-#[cfg(test)]
-pub(crate) mod test_hook {
-    use std::sync::atomic::AtomicUsize;
-    use std::sync::atomic::Ordering;
-
-    static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
-
-    pub(crate) fn reset() {
-        CALL_COUNT.store(0, Ordering::SeqCst);
-    }
-
-    pub(crate) fn mark_called() {
-        CALL_COUNT.fetch_add(1, Ordering::SeqCst);
-    }
-
-    pub(crate) fn call_count() -> usize {
-        CALL_COUNT.load(Ordering::SeqCst)
     }
 }
