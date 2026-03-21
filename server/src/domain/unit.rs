@@ -107,8 +107,18 @@ impl Unit {
         }
     }
 
+    /// 維持サポート命令を生成
+    pub fn support_hold(&self, target_unit: Unit) -> Order {
+        self.support(target_unit, None)
+    }
+
+    /// 移動サポート命令を生成
+    pub fn support_move(&self, target_unit: Unit, target_dest: Province) -> Order {
+        self.support(target_unit, Some(target_dest))
+    }
+
     /// サポート命令を生成
-    pub fn support(&self, target_unit: Unit, target_dest: Option<Province>) -> Order {
+    fn support(&self, target_unit: Unit, target_dest: Option<Province>) -> Order {
         Order {
             id: None,
             power: self.power,

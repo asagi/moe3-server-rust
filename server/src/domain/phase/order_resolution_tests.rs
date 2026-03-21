@@ -100,24 +100,21 @@ fn test_datc_6_a_4() {
 #[test]
 fn test_datc_6_a_5() {
     let mut phase = Phase::new_spring_order(1900, 1);
-
     let unit_e_1 = Unit::new_army(Power::England, p("yor"));
     let unit_e_2 = Unit::new_fleet(Power::England, p("nth"));
     let unit_e_3 = Unit::new_army(Power::England, p("lvp"));
     let order_e_1 = unit_e_1.move_to(p("yor"));
     let order_e_2 = unit_e_2.convoy(unit_e_1, p("yor"));
-    let order_e_3 = unit_e_3.support(unit_e_1, Some(p("yor")));
+    let order_e_3 = unit_e_3.support_move(unit_e_1, p("yor"));
     phase.data.orders.push(order_e_1);
     phase.data.orders.push(order_e_2);
     phase.data.orders.push(order_e_3);
-
     let unit_g_1 = Unit::new_fleet(Power::Germany, p("lon"));
     let unit_g_2 = Unit::new_army(Power::Germany, p("wal"));
     let order_g_1 = unit_g_1.move_to(p("yor"));
-    let order_g_2 = unit_g_2.support(unit_g_1, Some(p("yor")));
+    let order_g_2 = unit_g_2.support_move(unit_g_1, p("yor"));
     phase.data.orders.push(order_g_1);
     phase.data.orders.push(order_g_2);
-
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].unit, order_e_1.unit);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
@@ -183,7 +180,25 @@ fn test_datc_6_a_7() {
 /// F Trieste Supports F Trieste
 /// The army in Trieste should be dislodged.
 #[test]
-fn test_datc_6_a_8() {}
+fn test_datc_6_a_8() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
+    let unit_i_2 = Unit::new_army(Power::Italy, p("tyr"));
+    let order_e_1 = unit_i_1.move_to(p("tri"));
+    let order_e_2 = unit_i_2.support_move(unit_i_1, p("tri"));
+    phase.data.orders.push(order_e_1);
+    phase.data.orders.push(order_e_2);
+    let unit_a_1 = Unit::new_fleet(Power::Austria, p("tri"));
+    let order_a_1 = unit_a_1.support_hold(unit_a_1);
+    phase.data.orders.push(order_a_1);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].unit, order_e_1.unit);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].unit, order_e_2.unit);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].unit, order_a_1.unit);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Dislodged);
+}
 
 /// 6.A.9. TEST CASE, FLEETS MUST FOLLOW COAST IF NOT ON SEA
 /// If two provinces are adjacent, that does not mean that a fleet can move between those two provinces.
