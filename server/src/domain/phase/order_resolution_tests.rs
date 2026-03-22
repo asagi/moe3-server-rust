@@ -508,7 +508,26 @@ fn test_datc_6_b_8() {
 /// See issue 4.B.4. Support of Portugal is invalid
 /// and the Italian fleet in the Western Mediterranean moves successfully.
 #[test]
-fn test_datc_6_b_9() {}
+fn test_datc_6_b_9() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_f_1 = Unit::new_fleet(Power::France, p("mao"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("por"));
+    let order_f_1 = unit_f_1.move_to(p("spa_sc"));
+    let order_f_2 = unit_f_2.support_move(unit_f_1, p("spa_nc"));
+    phase.data.orders.push(order_f_1);
+    phase.data.orders.push(order_f_2);
+    let unit_i_1 = Unit::new_fleet(Power::Italy, p("wes"));
+    let unit_i_2 = Unit::new_fleet(Power::Italy, p("lyo"));
+    let order_i_1 = unit_i_1.move_to(p("spa_sc"));
+    let order_i_2 = unit_i_2.support_move(unit_i_1, p("spa_sc"));
+    phase.data.orders.push(order_i_1);
+    phase.data.orders.push(order_i_2);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+}
 
 /// 6.B.10. TEST CASE, UNIT ORDERED WITH WRONG COAST
 /// A player might specify the wrong coast for the ordered unit.
