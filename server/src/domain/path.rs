@@ -461,10 +461,19 @@ impl Path {
         PATHS.iter().any(|p| p.origin == origin && p.dest == dest)
     }
 
+    /// ユニットが指定地点に移動可能かを判定する
     pub fn can_unit_move_to(unit: &Unit, origin: &str, dest: &str) -> bool {
         match unit.kind {
             UnitKind::Army(_) => PATHS.iter().any(|p| p.origin == origin && p.dest == dest && p.army),
             UnitKind::Fleet(_) => PATHS.iter().any(|p| p.origin == origin && p.dest == dest && p.fleet),
+        }
+    }
+
+    /// ユニットが指定地点へのサポートが可能かを判定する
+    pub fn can_unit_support_to(unit: &Unit, origin: &str, dest: &str) -> bool {
+        match unit.kind {
+            UnitKind::Army(_) => PATHS.iter().any(|p| p.origin == origin && p.dest == dest && p.army),
+            UnitKind::Fleet(_) => PATHS.iter().any(|p| p.origin == origin && p.dest[..3] == dest[..3] && p.fleet),
         }
     }
 

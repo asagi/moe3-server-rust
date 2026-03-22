@@ -13,7 +13,7 @@ use std::collections::HashSet;
 /// 命令フェイズの命令解決処理
 pub fn resolve_orders_for_order_phase(current_phase: &mut Phase) {
     let orders = &mut current_phase.data.orders;
-    let standoff_provinces = &mut current_phase.data.standoff_provinces;
+    let standoff_province_codes = &mut current_phase.data.standoff_province_codes;
     let resolved_units = &mut current_phase.data.resolved_units;
 
     // # 01. 移動命令検証
@@ -29,13 +29,13 @@ pub fn resolve_orders_for_order_phase(current_phase: &mut Phase) {
     handle_cutting_support_orders(orders);
 
     // # 05 . 輸送妨害の優先解決
-    handle_disruption_convoy_order(orders, standoff_provinces);
+    handle_disruption_convoy_order(orders, standoff_province_codes);
 
     // # 06. 交換移動命令解決
-    handle_switch_orders(orders, standoff_provinces);
+    handle_switch_orders(orders, standoff_province_codes);
 
     // # 07. 未解決移動命令解決
-    handle_remaining_move_orders(orders, standoff_provinces);
+    handle_remaining_move_orders(orders, standoff_province_codes);
 
     // # 08. 未処理の命令を全て成功判定
     succeed_remaining_orders(orders);
@@ -90,7 +90,7 @@ fn validate_support_orders(original_orders: &mut [Order]) {
 
         // 支援対象の移動命令の移動先に支援ユニットが移動できるなら有効
         if let OrderKind::Move(m) = &target.kind {
-            if Path::can_unit_move_to(&support_order.unit, support_order.location().code(), m.dest.code()) {
+            if Path::can_unit_support_to(&support_order.unit, support_order.location().code(), m.dest.code()) {
                 support_order.set_valid();
                 continue;
             }
@@ -99,7 +99,7 @@ fn validate_support_orders(original_orders: &mut [Order]) {
         }
 
         // 支援対象の非移動命令の現在地に支援ユニットが移動できるなら有効
-        if Path::can_unit_move_to(&support_order.unit, support_order.location().code(), target.location().code()) {
+        if Path::can_unit_support_to(&support_order.unit, support_order.location().code(), target.location().code()) {
             support_order.set_valid();
             continue;
         }
@@ -216,12 +216,12 @@ fn handle_cutting_support_orders(original_orders: &mut [Order]) {
 }
 
 /// 輸送妨害の優先解決
-fn handle_disruption_convoy_order(original_orders: &mut [Order], standoff_provinces: &mut Vec<Province>) {
+fn handle_disruption_convoy_order(original_orders: &mut [Order], standoff_province_codes: &mut Vec<String>) {
     let support_orders = collect_valid_support_orders(original_orders);
 
     for convoy_order_idx in collect_valid_convoy_indices(original_orders) {
         // 輸送命令に対する攻撃競争の勝者を取得
-        let Some(winner_idx) = handle_conflicting(original_orders, &original_orders[convoy_order_idx].location(), standoff_provinces) else {
+        let Some(winner_idx) = handle_conflicting(original_orders, original_orders[convoy_order_idx].location().code(), standoff_province_codes) else {
             // 勝者がいなければスキップ
             continue;
         };
@@ -264,7 +264,7 @@ fn handle_disruption_convoy_order(original_orders: &mut [Order], standoff_provin
     }
 }
 /// 交換移動命令解決
-fn handle_switch_orders(original_orders: &mut [Order], standoff_provinces: &mut Vec<Province>) {
+fn handle_switch_orders(original_orders: &mut [Order], standoff_province_codes: &mut Vec<String>) {
     let move_order_indices = collect_valid_move_indices(original_orders);
     if move_order_indices.len() < 2 {
         // 移動命令が 2 つ以上なければ終了
@@ -296,8 +296,8 @@ fn handle_switch_orders(original_orders: &mut [Order], standoff_provinces: &mut 
         };
 
         // スタンドオフ判定
-        let conflict_winner_idx = handle_conflicting(original_orders, &original_orders[opposite_idx].location(), standoff_provinces);
-        let opposite_conflict_winner_idx = handle_conflicting(original_orders, &original_orders[idx].location(), standoff_provinces);
+        let conflict_winner_idx = handle_conflicting(original_orders, original_orders[opposite_idx].location().code(), standoff_province_codes);
+        let opposite_conflict_winner_idx = handle_conflicting(original_orders, original_orders[idx].location().code(), standoff_province_codes);
         if conflict_winner_idx.is_none() && opposite_conflict_winner_idx.is_none() {
             // 両地域スタンドオフで関連する全軍移動失敗
             continue;
@@ -371,33 +371,33 @@ fn handle_switch_orders(original_orders: &mut [Order], standoff_provinces: &mut 
 }
 
 /// 未解決移動命令解決
-fn handle_remaining_move_orders(original_orders: &mut [Order], standoff_provinces: &mut Vec<Province>) {
+fn handle_remaining_move_orders(original_orders: &mut [Order], standoff_province_codes: &mut Vec<String>) {
     let move_orders = collect_valid_move_orders(original_orders);
-    let mut dests = collect_valid_move_destination_set(&move_orders);
+    let mut dest_codes: IndexSet<&str> = collect_valid_move_destination_set(&move_orders).iter().map(|&p| &p.code()[..3]).collect();
 
-    let mut dest_snapshots: HashSet<Vec<Province>> = HashSet::new();
+    let mut dest_snapshots: HashSet<Vec<&str>> = HashSet::new();
 
     loop {
-        let Some(target_location) = dests.shift_remove_index(0) else {
+        let Some(target_location_code) = dest_codes.shift_remove_index(0) else {
             // 全ての移動先に対する処理が終われば終了
             break;
         };
 
         // dest を IndexSet から Vec に変換して snapshot を取得
-        if !dest_snapshots.insert(dests.iter().copied().collect::<Vec<Province>>()) {
+        if !dest_snapshots.insert(dest_codes.iter().copied().collect::<Vec<&str>>()) {
             // 全 dest に対する処理が一巡したのでループ終了
             break;
         }
 
         // target_location に対する攻撃競争の勝者を取得
-        let Some(attacker_idx) = handle_conflicting(original_orders, &target_location, standoff_provinces) else {
+        let Some(attacker_idx) = handle_conflicting(original_orders, target_location_code, standoff_province_codes) else {
             // 勝者がいなければ関係全軍移動失敗
             dest_snapshots.clear();
             continue;
         };
 
         // 移動先の状況を確認
-        let Some(occupant_idx) = find_occupant_order_index(original_orders, &target_location) else {
+        let Some(occupant_idx) = find_occupant_order_index(original_orders, target_location_code) else {
             // 移動先に駐留軍がいなければ勝者の移動成功で終了
             original_orders[attacker_idx].set_success();
             dest_snapshots.clear();
@@ -422,7 +422,7 @@ fn handle_remaining_move_orders(original_orders: &mut [Order], standoff_province
                 }
                 OrderStatus::Unresolved => {
                     // 移動先の駐留軍の移動が未解決のため当地域への移動判定処理を保留
-                    dests.insert(target_location);
+                    dest_codes.insert(target_location_code);
                     continue;
                 }
                 _ => {
@@ -585,11 +585,11 @@ fn collect_matched_convoy_orders<'a>(convoy_orders: &'a [Order], attack_order: &
 }
 
 /// 指定地域に非移動命令または失敗した移動命令があればその命令のインデックスを返す
-fn find_occupant_order_index(orders: &[Order], target_location: &Province) -> Option<usize> {
+fn find_occupant_order_index(orders: &[Order], target_location_code: &str) -> Option<usize> {
     orders
         .iter()
         .enumerate()
-        .position(|(_, o)| !o.is_assumed() && o.location() == *target_location && !(matches!(o.kind, OrderKind::Move(_)) && o.is_success()))
+        .position(|(_, o)| !o.is_assumed() && o.location().code()[..3] == target_location_code[..3] && !(matches!(o.kind, OrderKind::Move(_)) && o.is_success()))
 }
 
 /// 輸送経路が成立しているかどうかを判定
@@ -608,13 +608,13 @@ fn collect_valid_move_destination_set(orders: &[Order]) -> IndexSet<Province> {
 }
 
 /// 戦闘解決
-fn handle_conflicting(original_orders: &mut [Order], target_location: &Province, standoff_provinces: &mut Vec<Province>) -> Option<usize> {
+fn handle_conflicting(original_orders: &mut [Order], target_location_code: &str, standoff_province_codes: &mut Vec<String>) -> Option<usize> {
     let support_orders = collect_valid_support_orders(original_orders);
     let conflicting_move_indicies: Vec<usize> = collect_valid_move_indices(original_orders)
         .into_iter()
         .filter(|&idx| {
             if let OrderKind::Move(m) = original_orders[idx].kind {
-                m.dest == *target_location
+                m.dest.code()[..3] == target_location_code[..3]
             } else {
                 false
             }
@@ -649,12 +649,18 @@ fn handle_conflicting(original_orders: &mut [Order], target_location: &Province,
         }
 
         // スタンドオフ地点を記録
-        standoff_provinces.push(*target_location);
+        standoff_province_codes.push(target_location_code[..3].to_string());
         return None;
     }
 
     // 支援数トップの単独勝利
     let winner_idx = support_counts[0].0;
+    for (idx, _) in support_counts {
+        if idx == winner_idx {
+            continue;
+        }
+        original_orders[idx].set_failure();
+    }
     Some(winner_idx)
 }
 

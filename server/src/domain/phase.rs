@@ -34,7 +34,7 @@ pub struct PhaseData {
     pub kind: PhaseKind,
     pub orders: Vec<Order>,
     pub resolved_units: Vec<Unit>,
-    pub standoff_provinces: Vec<Province>,
+    pub standoff_province_codes: Vec<String>,
 }
 
 /// フェイズの種類
@@ -92,7 +92,7 @@ impl Phase {
                 kind: phase_type,
                 orders: Vec::new(),
                 resolved_units: Vec::new(),
-                standoff_provinces: Vec::new(),
+                standoff_province_codes: Vec::new(),
             },
         }
     }
