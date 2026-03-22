@@ -345,11 +345,17 @@ fn test_datc_6_b_2() {
 /// France:
 /// F Gascony - Spain(sc)
 /// If the rules are given a lenient interpretation,
-/// a move will be attempted to the north coast of Spain. However,
-/// this order is very precisely wrong.
+/// a move will be attempted to the north coast of Spain. However, this order is very precisely wrong.
 /// The order should be declared illegal and fleet should hold. See issue 4.B.3.
 #[test]
-fn test_datc_6_b_3() {}
+fn test_datc_6_b_3() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_f_1 = Unit::new_fleet(Power::France, p("gas"));
+    let order_f_1 = unit_f_1.move_to(p("spa_sc"));
+    phase.data.orders.push(order_f_1);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+}
 
 /// 6.B.4. TEST CASE, SUPPORT TO UNREACHABLE COAST ALLOWED
 /// A fleet can give support to a coast where it cannot go.
