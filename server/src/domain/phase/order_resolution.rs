@@ -58,16 +58,16 @@ fn validate_move_orders(original_orders: &mut [Order]) {
             continue;
         }
 
-        // 現在地と目的地が同一の場合は無効
-        if move_order.location().code() == m.dest.code() {
-            move_order.set_invalid();
-            continue;
-        }
-
         // 陸軍の遠隔移動は輸送経路が成立している場合のみ有効
         if let UnitKind::Army(_) = &move_order.unit.kind {
             // 目的地が海岸でなければ無効
             if !m.dest.is_coast() {
+                move_order.set_invalid();
+                continue;
+            }
+
+            // 現在地と目的地が同一の場合は無効
+            if move_order.location().code() == m.dest.code() {
                 move_order.set_invalid();
                 continue;
             }
