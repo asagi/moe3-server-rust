@@ -490,26 +490,34 @@ impl Path {
     /// allowed_waters だけを通って origin から dest まで到達可能か判定する
     pub fn is_reachable_by_sea(origin: &str, dest: &str, allowed_waters: &HashSet<&str>) -> bool {
         use std::collections::VecDeque;
-        let mut visited = HashSet::new();
-        let mut queue = VecDeque::new();
+        let mut visited: HashSet<&str> = HashSet::new();
+        let mut queue: VecDeque<&str> = VecDeque::new();
 
-        // originに隣接するwaterからスタート
-        for path in PATHS.iter().filter(|p| p.origin == origin && allowed_waters.contains(&p.dest)) {
-            queue.push_back(path.dest);
-        }
-
-        while let Some(current) = queue.pop_front() {
-            if current == dest {
+        // 初期起点を集める
+        for p in PATHS.iter().filter(|p| p.fleet && &p.origin[..3] == origin) {
+            if &p.dest[..3] == dest {
                 return true;
             }
+            if allowed_waters.contains(p.dest) {
+                queue.push_back(p.dest);
+            }
+        }
+
+        // BFS でチェーン探索
+        while let Some(current) = queue.pop_front() {
             if !visited.insert(current) {
                 continue;
             }
-            // currentからallowed_waters内の隣接waterへ進む
-            for path in PATHS.iter().filter(|p| p.origin == current && allowed_waters.contains(&p.dest)) {
-                queue.push_back(path.dest);
+            for p in PATHS.iter().filter(|p| p.fleet && p.origin == current) {
+                if &p.dest[..3] == dest {
+                    return true;
+                }
+                if allowed_waters.contains(p.dest) && !visited.contains(p.dest) {
+                    queue.push_back(p.dest);
+                }
             }
         }
+
         false
     }
 }
