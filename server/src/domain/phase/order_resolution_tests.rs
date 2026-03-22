@@ -554,8 +554,10 @@ fn test_datc_6_b_10() {
 /// France:
 /// F Spain(sc) - Gulf of Lyon
 /// The move fails.
-#[test]
-fn test_datc_6_b_11() {}
+#[allow(unused)]
+fn test_datc_6_b_11() {
+    // 命令対象の誤りに関するテスト（対応予定なし）
+}
 
 /// 6.B.12. TEST CASE, ARMY MOVEMENT WITH COASTAL SPECIFICATION
 /// For armies the coasts are irrelevant:
