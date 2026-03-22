@@ -603,8 +603,10 @@ fn test_datc_6_b_13() {
 /// Russia:
 /// Build F St Petersburg
 /// See issue 4.B.7. Build fails.
-#[test]
-fn test_datc_6_b_14() {}
+#[allow(unused)]
+fn test_datc_6_b_14() {
+    // 建造命令に関するテストは対象外
+}
 
 /// 6.B.15. TEST CASE, SUPPORTING FOREIGN UNIT WITH UNSPECIFIED COAST
 /// Opinions differ on this.
