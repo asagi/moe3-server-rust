@@ -723,7 +723,8 @@ fn test_datc_6_c_3() {
 }
 
 /// 6.C.4. TEST CASE, A CIRCULAR MOVEMENT WITH ATTACKED CONVOY
-/// When the circular movement contains an attacked convoy, the circular movement succeeds. The adjudication algorithm should handle attack of convoys before calculating circular movement.
+/// When the circular movement contains an attacked convoy, the circular movement succeeds.
+/// The adjudication algorithm should handle attack of convoys before calculating circular movement.
 ///
 /// Austria:
 /// A Trieste - Serbia
@@ -737,9 +738,41 @@ fn test_datc_6_c_3() {
 ///
 /// Italy:
 /// F Naples - Ionian Sea
-/// The fleet in the Ionian Sea is attacked but not dislodged. The circular movement succeeds. The Austrian and Turkish armies will advance.
+/// The fleet in the Ionian Sea is attacked but not dislodged. The circular movement succeeds.
+/// The Austrian and Turkish armies will advance.
 #[test]
-fn test_datc_6_c_4() {}
+fn test_datc_6_c_4() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_a_1 = Unit::new_army(Power::Austria, p("tri"));
+    let unit_a_2 = Unit::new_army(Power::Austria, p("ser"));
+    let order_a_1 = unit_a_1.move_to(p("ser"));
+    let order_a_2 = unit_a_2.move_to(p("bul"));
+    phase.data.orders.push(order_a_1);
+    phase.data.orders.push(order_a_2);
+    let unit_t_1 = Unit::new_army(Power::Turkey, p("bul"));
+    let unit_t_2 = Unit::new_fleet(Power::Turkey, p("aeg"));
+    let unit_t_3 = Unit::new_fleet(Power::Turkey, p("ion"));
+    let unit_t_4 = Unit::new_fleet(Power::Turkey, p("adr"));
+    let order_t_1 = unit_t_1.move_to(p("tri"));
+    let order_t_2 = unit_t_2.convoy(unit_t_1, p("tri"));
+    let order_t_3 = unit_t_3.convoy(unit_t_1, p("tri"));
+    let order_t_4 = unit_t_4.convoy(unit_t_1, p("tri"));
+    phase.data.orders.push(order_t_1);
+    phase.data.orders.push(order_t_2);
+    phase.data.orders.push(order_t_3);
+    phase.data.orders.push(order_t_4);
+    let unit_i_1 = Unit::new_fleet(Power::Italy, p("nap"));
+    let order_i_1 = unit_i_1.move_to(p("ion"));
+    phase.data.orders.push(order_i_1);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Failure);
+}
 
 /// 6.C.5. TEST CASE, A DISRUPTED CIRCULAR MOVEMENT DUE TO DISLODGED CONVOY
 /// When the circular movement contains a convoy, the circular movement is disrupted when the convoying fleet is dislodged. The adjudication algorithm should disrupt convoys before calculating circular movement.
