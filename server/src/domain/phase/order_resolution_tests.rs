@@ -4,6 +4,7 @@
 //!
 //! * 6.A. TEST CASES, BASIC CHECKS
 //! * 6.B. TEST CASES, COASTAL ISSUES
+//! * 6.C. TEST CASES, CIRCULAR MOVEMENT
 //!
 //! [DATC_6]: https://webdiplomacy.net/doc/DATC_v3_0.html#6
 
@@ -631,3 +632,140 @@ fn test_datc_6_b_14() {
 fn test_datc_6_b_15() {
     // 不適切命令の救済に関するテスト（対応予定なし）
 }
+
+/// 6.C.1. TEST CASE, THREE ARMY CIRCULAR MOVEMENT
+/// Three units can change place, even in spring 1901.
+///
+/// Turkey:
+/// F Ankara - Constantinople
+/// A Constantinople - Smyrna
+/// A Smyrna - Ankara
+/// All three units will move.
+#[test]
+fn test_datc_6_c_1() {}
+
+/// 6.C.2. TEST CASE, THREE ARMY CIRCULAR MOVEMENT WITH SUPPORT
+/// Three units can change place, even when one gets support.
+///
+/// Turkey:
+/// F Ankara - Constantinople
+/// A Constantinople - Smyrna
+/// A Smyrna - Ankara
+/// A Bulgaria Supports F Ankara - Constantinople
+/// Of course, the three units will move, but knowing how programs are written, this can confuse the adjudicator.
+#[test]
+fn test_datc_6_c_2() {}
+
+/// 6.C.3. TEST CASE, A DISRUPTED THREE ARMY CIRCULAR MOVEMENT
+/// When one of the units bounces, the whole circular movement will hold.
+///
+/// Turkey:
+/// F Ankara - Constantinople
+/// A Constantinople - Smyrna
+/// A Smyrna - Ankara
+/// A Bulgaria - Constantinople
+/// Every unit will keep its place.
+#[test]
+fn test_datc_6_c_3() {}
+
+/// 6.C.4. TEST CASE, A CIRCULAR MOVEMENT WITH ATTACKED CONVOY
+/// When the circular movement contains an attacked convoy, the circular movement succeeds. The adjudication algorithm should handle attack of convoys before calculating circular movement.
+///
+/// Austria:
+/// A Trieste - Serbia
+/// A Serbia - Bulgaria
+///
+/// Turkey:
+/// A Bulgaria - Trieste
+/// F Aegean Sea Convoys A Bulgaria - Trieste
+/// F Ionian Sea Convoys A Bulgaria - Trieste
+/// F Adriatic Sea Convoys A Bulgaria - Trieste
+///
+/// Italy:
+/// F Naples - Ionian Sea
+/// The fleet in the Ionian Sea is attacked but not dislodged. The circular movement succeeds. The Austrian and Turkish armies will advance.
+#[test]
+fn test_datc_6_c_4() {}
+
+/// 6.C.5. TEST CASE, A DISRUPTED CIRCULAR MOVEMENT DUE TO DISLODGED CONVOY
+/// When the circular movement contains a convoy, the circular movement is disrupted when the convoying fleet is dislodged. The adjudication algorithm should disrupt convoys before calculating circular movement.
+///
+/// Austria:
+/// A Trieste - Serbia
+/// A Serbia - Bulgaria
+///
+/// Turkey:
+/// A Bulgaria - Trieste
+/// F Aegean Sea Convoys A Bulgaria - Trieste
+/// F Ionian Sea Convoys A Bulgaria - Trieste
+/// F Adriatic Sea Convoys A Bulgaria - Trieste
+///
+/// Italy:
+/// F Naples - Ionian Sea
+/// F Tunis Supports F Naples - Ionian Sea
+/// Due to the dislodged convoying fleet, all Austrian and Turkish armies will not move.
+#[test]
+fn test_datc_6_c_5() {}
+
+/// 6.C.6. TEST CASE, TWO ARMIES WITH TWO CONVOYS
+/// Two armies can swap places even when they are not adjacent.
+///
+/// England:
+/// F North Sea Convoys A London - Belgium
+/// A London - Belgium
+///
+/// France:
+/// F English Channel Convoys A Belgium - London
+/// A Belgium - London
+/// Both convoys should succeed.
+#[test]
+fn test_datc_6_c_6() {}
+
+/// 6.C.7. TEST CASE, DISRUPTED UNIT SWAP
+/// If in a swap one of the unit bounces, then the swap fails.
+///
+/// England:
+/// F North Sea Convoys A London - Belgium
+/// A London - Belgium
+///
+/// France:
+/// F English Channel Convoys A Belgium - London
+/// A Belgium - London
+/// A Burgundy - Belgium
+/// None of the units will succeed to move.
+#[test]
+fn test_datc_6_c_7() {}
+
+/// 6.C.8. TEST CASE, NO SELF DISLODGEMENT IN DISRUPTED CIRCULAR MOVEMENT
+/// Self dislodgement is prohibited as usual in circular movement.
+///
+/// Turkey:
+/// F Constantinople - Black Sea
+/// A Bulgaria - Constantinople
+/// A Smyrna Supports A Bulgaria - Constantinople
+///
+/// Russia:
+/// F Black Sea - Bulgaria(ec)
+///
+/// Austria
+/// A Serbia - Bulgaria
+/// None of the units will succeed to move.
+#[test]
+fn test_datc_6_c_8() {}
+
+/// 6.C.9. TEST CASE, NO HELP IN DISLODGEMENT OF OWN UNIT IN DISRUPTED CIRCULAR MOVEMENT
+/// Helping to dislodge your own unit is prohibited as usual in circular movement.
+///
+/// Turkey:
+/// F Constantinople - Black Sea
+/// A Smyrna Supports A Bulgaria - Constantinople
+///
+/// Russia:
+/// F Black Sea - Bulgaria(ec)
+///
+/// Austria
+/// A Serbia - Bulgaria
+/// A Bulgaria - Constantinople
+/// None of the units will succeed to move.
+#[test]
+fn test_datc_6_c_9() {}
