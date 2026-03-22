@@ -915,7 +915,30 @@ fn test_datc_6_c_7() {
 /// A Serbia - Bulgaria
 /// None of the units will succeed to move.
 #[test]
-fn test_datc_6_c_8() {}
+fn test_datc_6_c_8() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_t_1 = Unit::new_fleet(Power::Turkey, p("con"));
+    let unit_t_2 = Unit::new_army(Power::Turkey, p("bul"));
+    let unit_t_3 = Unit::new_army(Power::Turkey, p("smy"));
+    let order_t_1 = unit_t_1.move_to(p("bla"));
+    let order_t_2 = unit_t_2.move_to(p("con"));
+    let order_t_3 = unit_t_3.support_move(unit_t_2, p("con"));
+    phase.data.orders.push(order_t_1);
+    phase.data.orders.push(order_t_2);
+    phase.data.orders.push(order_t_3);
+    let unit_r_1 = Unit::new_fleet(Power::Russia, p("bla"));
+    let order_r_1 = unit_r_1.move_to(p("bul_ec"));
+    phase.data.orders.push(order_r_1);
+    let unit_a_1 = Unit::new_army(Power::Austria, p("ser"));
+    let order_a_1 = unit_a_1.move_to(p("bul"));
+    phase.data.orders.push(order_a_1);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
+}
 
 /// 6.C.9. TEST CASE, NO HELP IN DISLODGEMENT OF OWN UNIT IN DISRUPTED CIRCULAR MOVEMENT
 /// Helping to dislodge your own unit is prohibited as usual in circular movement.
