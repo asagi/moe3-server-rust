@@ -1,6 +1,7 @@
 use super::unit::Unit;
 use super::unit::UnitKind;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Path {
@@ -489,15 +490,11 @@ impl Path {
 
     /// allowed_waters だけを通って origin から dest まで到達可能か判定する
     pub fn is_reachable_by_sea(origin: &str, dest: &str, allowed_waters: &HashSet<&str>) -> bool {
-        use std::collections::VecDeque;
         let mut visited: HashSet<&str> = HashSet::new();
         let mut queue: VecDeque<&str> = VecDeque::new();
 
         // 初期起点を集める
         for p in PATHS.iter().filter(|p| p.fleet && &p.origin[..3] == origin) {
-            if &p.dest[..3] == dest {
-                return true;
-            }
             if allowed_waters.contains(p.dest) {
                 queue.push_back(p.dest);
             }
