@@ -667,9 +667,29 @@ fn test_datc_6_c_1() {
 /// A Constantinople - Smyrna
 /// A Smyrna - Ankara
 /// A Bulgaria Supports F Ankara - Constantinople
-/// Of course, the three units will move, but knowing how programs are written, this can confuse the adjudicator.
+/// Of course, the three units will move, but knowing how programs are written,
+/// this can confuse the adjudicator.
 #[test]
-fn test_datc_6_c_2() {}
+fn test_datc_6_c_2() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_t_1 = Unit::new_fleet(Power::Turkey, p("ank"));
+    let unit_t_2 = Unit::new_army(Power::Turkey, p("con"));
+    let unit_t_3 = Unit::new_army(Power::Turkey, p("smy"));
+    let unit_t_4 = Unit::new_army(Power::Turkey, p("bul"));
+    let order_t_1 = unit_t_1.move_to(p("con"));
+    let order_t_2 = unit_t_2.move_to(p("smy"));
+    let order_t_3 = unit_t_3.move_to(p("ank"));
+    let order_t_4 = unit_t_4.support_move(unit_t_1, p("con"));
+    phase.data.orders.push(order_t_1);
+    phase.data.orders.push(order_t_2);
+    phase.data.orders.push(order_t_3);
+    phase.data.orders.push(order_t_4);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+}
 
 /// 6.C.3. TEST CASE, A DISRUPTED THREE ARMY CIRCULAR MOVEMENT
 /// When one of the units bounces, the whole circular movement will hold.
