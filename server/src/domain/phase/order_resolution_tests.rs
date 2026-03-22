@@ -432,7 +432,30 @@ fn test_datc_6_b_5() {
 /// That means that the French fleet in the Mid Atlantic Ocean will be dislodged
 /// by the English fleet in the North Atlantic Ocean.
 #[test]
-fn test_datc_6_b_6() {}
+fn test_datc_6_b_6() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("nao"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("iri"));
+    let order_e_1 = unit_e_1.move_to(p("mao"));
+    let order_e_2 = unit_e_2.support_move(unit_e_1, p("mao"));
+    phase.data.orders.push(order_e_1);
+    phase.data.orders.push(order_e_2);
+    let unit_f_1 = Unit::new_fleet(Power::France, p("mao"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("spa_nc"));
+    let order_f_1 = unit_f_1.hold();
+    let order_f_2 = unit_f_2.support_hold(unit_f_1);
+    phase.data.orders.push(order_f_1);
+    phase.data.orders.push(order_f_2);
+    let unit_i_1 = Unit::new_fleet(Power::Italy, p("lyo"));
+    let order_i_1 = unit_i_1.move_to(p("spa_sc"));
+    phase.data.orders.push(order_i_1);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Cut);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
+}
 
 /// 6.B.7. TEST CASE, SUPPORTING OWN UNIT WITH UNSPECIFIED COAST
 /// It is a little bit harsh to reject this.
