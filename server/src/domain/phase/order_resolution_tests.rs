@@ -490,8 +490,10 @@ fn test_datc_6_b_7() {
 /// F Western Mediterranean - Spain(sc)
 /// Support of Portugal is successful
 /// and the Italian fleet in the Western Mediterranean bounces with the French fleet from Gascony.
-#[test]
-fn test_datc_6_b_8() {}
+#[allow(unused)]
+fn test_datc_6_b_8() {
+    // 不十分命令の類推に関するテスト（対応予定なし）
+}
 
 /// 6.B.9. TEST CASE, SUPPORTING WITH WRONG COAST
 /// It should be possible to specify a coast and that coast should match.
