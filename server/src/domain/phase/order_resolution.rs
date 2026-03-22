@@ -391,7 +391,10 @@ fn handle_remaining_move_orders(original_orders: &mut [Order], standoff_province
 
         // dest を IndexSet から Vec に変換して snapshot を取得
         if !dest_snapshots.insert(dest_codes.iter().copied().collect::<Vec<&str>>()) {
-            // 全 dest に対する処理が一巡したのでループ終了
+            // 全 dest に対する処理が一巡したので残りの全移動命令を成功判定でループ終了
+            for idx in collect_valid_move_indices(original_orders) {
+                original_orders[idx].set_success();
+            }
             break;
         }
 
@@ -426,7 +429,7 @@ fn handle_remaining_move_orders(original_orders: &mut [Order], standoff_province
                         continue;
                     }
                 }
-                OrderStatus::Unresolved => {
+                OrderStatus::Valid => {
                     // 移動先の駐留軍の移動が未解決のため当地域への移動判定処理を保留
                     dest_codes.insert(target_location_code);
                     continue;
