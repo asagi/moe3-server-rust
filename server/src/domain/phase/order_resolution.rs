@@ -148,7 +148,13 @@ fn handle_cutting_support_orders(original_orders: &mut [Order]) {
         let attack_orders: Vec<&Order> = move_orders
             .iter()
             .filter(|o| o.power != support_order.power)
-            .filter(|o| if let OrderKind::Move(m) = &o.kind { m.dest == support_order.location() } else { false })
+            .filter(|o| {
+                if let OrderKind::Move(m) = &o.kind {
+                    m.dest.code()[..3] == support_order.location().code()[..3]
+                } else {
+                    false
+                }
+            })
             .collect();
 
         // 支援命令をカットし得る移動命令がなければスキップ
