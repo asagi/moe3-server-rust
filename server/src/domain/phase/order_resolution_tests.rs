@@ -642,7 +642,22 @@ fn test_datc_6_b_15() {
 /// A Smyrna - Ankara
 /// All three units will move.
 #[test]
-fn test_datc_6_c_1() {}
+fn test_datc_6_c_1() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_t_1 = Unit::new_army(Power::Turkey, p("ank"));
+    let unit_t_2 = Unit::new_army(Power::Turkey, p("con"));
+    let unit_t_3 = Unit::new_army(Power::Turkey, p("smy"));
+    let order_t_1 = unit_t_1.move_to(p("con"));
+    let order_t_2 = unit_t_2.move_to(p("smy"));
+    let order_t_3 = unit_t_3.move_to(p("ank"));
+    phase.data.orders.push(order_t_1);
+    phase.data.orders.push(order_t_2);
+    phase.data.orders.push(order_t_3);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+}
 
 /// 6.C.2. TEST CASE, THREE ARMY CIRCULAR MOVEMENT WITH SUPPORT
 /// Three units can change place, even when one gets support.
