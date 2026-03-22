@@ -316,7 +316,14 @@ fn test_datc_6_a_12() {
 /// F Portugal - Spain
 /// Move should fail.
 #[test]
-fn test_datc_6_b_1() {}
+fn test_datc_6_b_1() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_f_1 = Unit::new_fleet(Power::France, p("por"));
+    let order_f_1 = unit_f_1.move_to(p("spa"));
+    phase.data.orders.push(order_f_1);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+}
 
 /// 6.B.2. TEST CASE, MOVING WITH UNSPECIFIED COAST WHEN COAST IS NOT NECESSARY
 /// There is only one coast possible in this case:
