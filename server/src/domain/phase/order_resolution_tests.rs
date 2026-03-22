@@ -584,7 +584,18 @@ fn test_datc_6_b_12() {
 /// F Constantinople - Bulgaria(ec)
 /// Both moves fail.
 #[test]
-fn test_datc_6_b_13() {}
+fn test_datc_6_b_13() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_t_1 = Unit::new_fleet(Power::Turkey, p("bul_sc"));
+    let unit_t_2 = Unit::new_fleet(Power::Turkey, p("con"));
+    let order_t_1 = unit_t_1.move_to(p("con"));
+    let order_t_2 = unit_t_2.move_to(p("bul_ec"));
+    phase.data.orders.push(order_t_1);
+    phase.data.orders.push(order_t_2);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+}
 
 /// 6.B.14. TEST CASE, BUILDING WITH UNSPECIFIED COAST
 /// Coast must be specified in certain build cases:
