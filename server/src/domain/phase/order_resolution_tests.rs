@@ -334,8 +334,10 @@ fn test_datc_6_b_1() {
 /// it seems logical that a move is attempted to the north coast of Spain. See issue 4.B.2.
 ///
 /// I prefer that an attempt is made to the only possible coast, the north coast of Spain.
-#[test]
-fn test_datc_6_b_2() {}
+#[allow(unused)]
+fn test_datc_6_b_2() {
+    // 不十分命令の類推に関するテスト（対応予定なし）
+}
 
 /// 6.B.3. TEST CASE, MOVING WITH WRONG COAST WHEN COAST IS NOT NECESSARY
 /// If only one coast is possible, but the wrong coast can be specified.
