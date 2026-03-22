@@ -569,8 +569,10 @@ fn test_datc_6_b_11() {
 /// and a move will be attempted (see issue 4.B.6).
 ///
 /// I prefer that a move will be attempted.
-#[test]
-fn test_datc_6_b_12() {}
+#[allow(unused)]
+fn test_datc_6_b_12() {
+    // 不適切命令の救済に関するテスト（対応予定なし）
+}
 
 /// 6.B.13. TEST CASE, COASTAL CRAWL NOT ALLOWED
 /// If a fleet is leaving a sector from a certain coast while in the opposite direction another fleet
