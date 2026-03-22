@@ -841,7 +841,26 @@ fn test_datc_6_c_5() {
 /// A Belgium - London
 /// Both convoys should succeed.
 #[test]
-fn test_datc_6_c_6() {}
+fn test_datc_6_c_6() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_army(Power::England, p("lon"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("nth"));
+    let order_e_1 = unit_e_1.move_to(p("bel"));
+    let order_e_2 = unit_e_2.convoy(unit_e_1, p("bel"));
+    phase.data.orders.push(order_e_1);
+    phase.data.orders.push(order_e_2);
+    let unit_f_1 = Unit::new_army(Power::France, p("bel"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("eng"));
+    let order_f_1 = unit_f_1.move_to(p("lon"));
+    let order_f_2 = unit_f_2.convoy(unit_f_1, p("lon"));
+    phase.data.orders.push(order_f_1);
+    phase.data.orders.push(order_f_2);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+}
 
 /// 6.C.7. TEST CASE, DISRUPTED UNIT SWAP
 /// If in a swap one of the unit bounces, then the swap fails.
