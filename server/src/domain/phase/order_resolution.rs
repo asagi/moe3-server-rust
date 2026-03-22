@@ -696,7 +696,10 @@ fn resolve_no_support_defense(original_orders: &mut [Order], attacker_idx: usize
         original_orders[attacker_idx].set_failure();
         return;
     }
-    if support_orders.iter().any(|o| o.is_matching_target(&original_orders[attacker_idx])) {
+    if support_orders
+        .iter()
+        .any(|o| o.is_matching_target(&original_orders[attacker_idx]) && o.power != original_orders[defender_idx].power)
+    {
         // defender 防衛失敗
         original_orders[attacker_idx].set_success();
         original_orders[defender_idx].set_dislodged_from(&original_orders[attacker_idx].location());
