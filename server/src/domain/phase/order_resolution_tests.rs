@@ -398,7 +398,22 @@ fn test_datc_6_b_4() {
 /// The Gulf of Lyon cannot be reached from the North Coast of Spain.
 /// Therefore, the support of Spain is illegal and the fleet in the Gulf of Lyon is not dislodged.
 #[test]
-fn test_datc_6_b_5() {}
+fn test_datc_6_b_5() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_f_1 = Unit::new_fleet(Power::France, p("mar"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("spa_nc"));
+    let order_f_1 = unit_f_1.move_to(p("lyo"));
+    let order_f_2 = unit_f_2.support_move(unit_f_1, p("lyo"));
+    phase.data.orders.push(order_f_1);
+    phase.data.orders.push(order_f_2);
+    let unit_i_1 = Unit::new_fleet(Power::Italy, p("lyo"));
+    let order_i_1 = unit_i_1.hold();
+    phase.data.orders.push(order_i_1);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+}
 
 /// 6.B.6. TEST CASE, SUPPORT CAN BE CUT WITH OTHER COAST
 /// Support can be cut from the other coast.
