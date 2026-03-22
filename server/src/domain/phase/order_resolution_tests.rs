@@ -701,7 +701,26 @@ fn test_datc_6_c_2() {
 /// A Bulgaria - Constantinople
 /// Every unit will keep its place.
 #[test]
-fn test_datc_6_c_3() {}
+fn test_datc_6_c_3() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_t_1 = Unit::new_fleet(Power::Turkey, p("ank"));
+    let unit_t_2 = Unit::new_army(Power::Turkey, p("con"));
+    let unit_t_3 = Unit::new_army(Power::Turkey, p("smy"));
+    let unit_t_4 = Unit::new_army(Power::Turkey, p("bul"));
+    let order_t_1 = unit_t_1.move_to(p("con"));
+    let order_t_2 = unit_t_2.move_to(p("smy"));
+    let order_t_3 = unit_t_3.move_to(p("ank"));
+    let order_t_4 = unit_t_4.move_to(p("con"));
+    phase.data.orders.push(order_t_1);
+    phase.data.orders.push(order_t_2);
+    phase.data.orders.push(order_t_3);
+    phase.data.orders.push(order_t_4);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
+}
 
 /// 6.C.4. TEST CASE, A CIRCULAR MOVEMENT WITH ATTACKED CONVOY
 /// When the circular movement contains an attacked convoy, the circular movement succeeds. The adjudication algorithm should handle attack of convoys before calculating circular movement.
