@@ -627,5 +627,7 @@ fn test_datc_6_b_14() {
 /// I prefer that the support succeeds and the Italian fleet in the Western Mediterranean bounces.
 /// However, if orders are checked on submission (such as in webbased play),
 /// support without coast should not be given as an option.
-#[test]
-fn test_datc_6_b_15() {}
+#[allow(unused)]
+fn test_datc_6_b_15() {
+    // 不適切命令の救済に関するテスト（対応予定なし）
+}
