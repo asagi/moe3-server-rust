@@ -541,8 +541,10 @@ fn test_datc_6_b_9() {
 /// it might also be ignored (see issue 4.B.5).
 ///
 /// I prefer that a move will be attempted.
-#[test]
-fn test_datc_6_b_10() {}
+#[allow(unused)]
+fn test_datc_6_b_10() {
+    // 命令対象の誤りに関するテスト（対応予定なし）
+}
 
 /// 6.B.11. TEST CASE, COAST CANNOT BE ORDERED TO CHANGE
 /// The coast cannot change by just ordering the other coast.
