@@ -369,7 +369,22 @@ fn test_datc_6_b_3() {
 /// Although the fleet in Marseilles cannot go to the north coast it can still support targeting the north coast.
 /// So, the support is successful, the move of the fleet in Gascony succeeds and the move of the Italian fleet fails.
 #[test]
-fn test_datc_6_b_4() {}
+fn test_datc_6_b_4() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_f_1 = Unit::new_fleet(Power::France, p("gas"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("mar"));
+    let order_f_1 = unit_f_1.move_to(p("spa_nc"));
+    let order_f_2 = unit_f_2.support_move(unit_f_1, p("spa_nc"));
+    phase.data.orders.push(order_f_1);
+    phase.data.orders.push(order_f_2);
+    let unit_i_1 = Unit::new_fleet(Power::Italy, p("wes"));
+    let order_i_1 = unit_i_1.move_to(p("spa_sc"));
+    phase.data.orders.push(order_i_1);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+}
 
 /// 6.B.5. TEST CASE, SUPPORT FROM UNREACHABLE COAST NOT ALLOWED
 /// A fleet cannot give support to an area that cannot be reached from the current coast of the fleet.
