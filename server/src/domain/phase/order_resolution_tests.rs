@@ -336,7 +336,7 @@ fn test_datc_6_b_1() {
 /// I prefer that an attempt is made to the only possible coast, the north coast of Spain.
 #[allow(unused)]
 fn test_datc_6_b_2() {
-    // 不十分命令の類推に関するテスト（対応予定なし）
+    // 不適切命令の救済に関するテスト（対応予定なし）
 }
 
 /// 6.B.3. TEST CASE, MOVING WITH WRONG COAST WHEN COAST IS NOT NECESSARY
@@ -474,7 +474,7 @@ fn test_datc_6_b_6() {
 /// support without coast should not be given as an option.
 #[allow(unused)]
 fn test_datc_6_b_7() {
-    // 不十分命令の類推に関するテスト（対応予定なし）
+    // 不適切命令の救済に関するテスト（対応予定なし）
 }
 
 /// 6.B.8. TEST CASE, SUPPORTING WITH UNSPECIFIED COAST WHEN ONLY ONE COAST IS POSSIBLE
@@ -492,7 +492,7 @@ fn test_datc_6_b_7() {
 /// and the Italian fleet in the Western Mediterranean bounces with the French fleet from Gascony.
 #[allow(unused)]
 fn test_datc_6_b_8() {
-    // 不十分命令の類推に関するテスト（対応予定なし）
+    // 不適切命令の救済に関するテスト（対応予定なし）
 }
 
 /// 6.B.9. TEST CASE, SUPPORTING WITH WRONG COAST
@@ -543,7 +543,7 @@ fn test_datc_6_b_9() {
 /// I prefer that a move will be attempted.
 #[allow(unused)]
 fn test_datc_6_b_10() {
-    // 命令対象の誤りに関するテスト（対応予定なし）
+    // 不適切命令の救済に関するテスト（対応予定なし）
 }
 
 /// 6.B.11. TEST CASE, COAST CANNOT BE ORDERED TO CHANGE
@@ -556,7 +556,7 @@ fn test_datc_6_b_10() {
 /// The move fails.
 #[allow(unused)]
 fn test_datc_6_b_11() {
-    // 命令対象の誤りに関するテスト（対応予定なし）
+    // 不適切命令の救済に関するテスト（対応予定なし）
 }
 
 /// 6.B.12. TEST CASE, ARMY MOVEMENT WITH COASTAL SPECIFICATION
