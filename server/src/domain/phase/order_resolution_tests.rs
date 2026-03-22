@@ -472,8 +472,10 @@ fn test_datc_6_b_6() {
 /// I prefer that the support succeeds and the Italian fleet in the Western Mediterranean bounces.
 /// However, if orders are checked on submission (such as in webbased play),
 /// support without coast should not be given as an option.
-#[test]
-fn test_datc_6_b_7() {}
+#[allow(unused)]
+fn test_datc_6_b_7() {
+    // 不十分命令の類推に関するテスト（対応予定なし）
+}
 
 /// 6.B.8. TEST CASE, SUPPORTING WITH UNSPECIFIED COAST WHEN ONLY ONE COAST IS POSSIBLE
 /// If coast is omitted while only coast is possible,
