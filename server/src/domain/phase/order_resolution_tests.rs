@@ -792,7 +792,42 @@ fn test_datc_6_c_4() {
 /// F Tunis Supports F Naples - Ionian Sea
 /// Due to the dislodged convoying fleet, all Austrian and Turkish armies will not move.
 #[test]
-fn test_datc_6_c_5() {}
+fn test_datc_6_c_5() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_a_1 = Unit::new_army(Power::Austria, p("tri"));
+    let unit_a_2 = Unit::new_army(Power::Austria, p("ser"));
+    let order_a_1 = unit_a_1.move_to(p("ser"));
+    let order_a_2 = unit_a_2.move_to(p("bul"));
+    phase.data.orders.push(order_a_1);
+    phase.data.orders.push(order_a_2);
+    let unit_t_1 = Unit::new_army(Power::Turkey, p("bul"));
+    let unit_t_2 = Unit::new_fleet(Power::Turkey, p("aeg"));
+    let unit_t_3 = Unit::new_fleet(Power::Turkey, p("ion"));
+    let unit_t_4 = Unit::new_fleet(Power::Turkey, p("adr"));
+    let order_t_1 = unit_t_1.move_to(p("tri"));
+    let order_t_2 = unit_t_2.convoy(unit_t_1, p("tri"));
+    let order_t_3 = unit_t_3.convoy(unit_t_1, p("tri"));
+    let order_t_4 = unit_t_4.convoy(unit_t_1, p("tri"));
+    phase.data.orders.push(order_t_1);
+    phase.data.orders.push(order_t_2);
+    phase.data.orders.push(order_t_3);
+    phase.data.orders.push(order_t_4);
+    let unit_i_1 = Unit::new_fleet(Power::Italy, p("nap"));
+    let unit_i_2 = Unit::new_fleet(Power::Italy, p("tun"));
+    let order_i_1 = unit_i_1.move_to(p("ion"));
+    let order_i_2 = unit_i_2.support_move(unit_i_1, p("ion"));
+    phase.data.orders.push(order_i_1);
+    phase.data.orders.push(order_i_2);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[7].status, OrderStatus::Valid);
+}
 
 /// 6.C.6. TEST CASE, TWO ARMIES WITH TWO CONVOYS
 /// Two armies can swap places even when they are not adjacent.
