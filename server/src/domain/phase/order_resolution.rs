@@ -280,7 +280,7 @@ fn handle_switch_orders(original_orders: &mut [Order], standoff_province_codes: 
     for idx in move_order_indices {
         // 過去のループで対向の判定時に同時に処理済みであればスキップ
         // - 以下 original_orders[idx] を甲軍とする
-        if !original_orders[idx].is_unresolved() {
+        if !original_orders[idx].is_valid() {
             continue;
         }
         let OrderKind::Move(m) = &original_orders[idx].kind else {
@@ -292,7 +292,7 @@ fn handle_switch_orders(original_orders: &mut [Order], standoff_province_codes: 
         let opposite_move_order_idx = original_orders.iter().position(|o| {
             o != &original_orders[idx]
                 && if let OrderKind::Move(om) = &o.kind {
-                    o.location() == m.dest && original_orders[idx].location() == om.dest
+                    o.location().code()[..3] == m.dest.code()[..3] && original_orders[idx].location().code()[..3] == om.dest.code()[..3]
                 } else {
                     false
                 }
@@ -717,8 +717,13 @@ fn resolve_no_support_defense(original_orders: &mut [Order], attacker_idx: usize
 
 /// `original_orders[idx]` の移動先に対して、既存の有効な輸送命令群で海路到達可能か判定する。
 fn can_reach_via_convoy(original_orders: &[Order], idx: usize) -> bool {
-    let convoy_orders = collect_valid_convoy_orders(original_orders);
     let move_order = original_orders[idx];
+    if move_order.unit.is_fleet() {
+        // 陸軍以外は海路迂回不可
+        return false;
+    }
+
+    let convoy_orders = collect_valid_convoy_orders(original_orders);
     let OrderKind::Move(m) = move_order.kind else { unreachable!("expected Move") };
     let matched_convoys = collect_matched_convoy_orders(&convoy_orders, &move_order);
 
