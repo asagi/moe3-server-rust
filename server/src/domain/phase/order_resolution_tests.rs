@@ -1029,7 +1029,30 @@ fn test_datc_6_d_1() {
 /// The support of Tyrolia is cut by the army in Vienna.
 /// That means that the army in Venice is dislodged by the army from Trieste.
 #[test]
-fn test_datc_6_d_2() {}
+fn test_datc_6_d_2() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_a_1 = Unit::new_army(Power::Austria, p("tri"));
+    let unit_a_2 = Unit::new_fleet(Power::Austria, p("adr"));
+    let unit_a_3 = Unit::new_army(Power::Austria, p("vie"));
+    let order_a_1 = unit_a_1.move_to(p("ven"));
+    let order_a_2 = unit_a_2.support_move(unit_a_1, p("ven"));
+    let order_a_3 = unit_a_3.move_to(p("tyr"));
+    phase.data.orders.push(order_a_1);
+    phase.data.orders.push(order_a_2);
+    phase.data.orders.push(order_a_3);
+    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
+    let unit_i_2 = Unit::new_army(Power::Italy, p("tyr"));
+    let order_i_1 = unit_i_1.hold();
+    let order_i_2 = unit_i_2.support_hold(unit_i_1);
+    phase.data.orders.push(order_i_1);
+    phase.data.orders.push(order_i_2);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Cut);
+}
 
 /// 6.D.3. TEST CASE, A MOVE CUTS SUPPORT ON MOVE
 /// The simplest support on move cut.
