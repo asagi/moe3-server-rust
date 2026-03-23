@@ -1291,7 +1291,26 @@ fn test_datc_6_d_8() {
 /// A Trieste Hold
 /// The support of the army in Albania fails and the army in Trieste is dislodged by the army from Venice.
 #[test]
-fn test_datc_6_d_9() {}
+fn test_datc_6_d_9() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_a_1 = Unit::new_army(Power::Italy, p("ven"));
+    let unit_a_2 = Unit::new_army(Power::Italy, p("tyr"));
+    let order_a_1 = unit_a_1.move_to(p("tri"));
+    let order_a_2 = unit_a_2.support_move(unit_a_1, p("tri"));
+    phase.data.orders.push(order_a_1);
+    phase.data.orders.push(order_a_2);
+    let unit_t_1 = Unit::new_army(Power::Austria, p("alb"));
+    let unit_t_2 = Unit::new_army(Power::Austria, p("tri"));
+    let order_t_1 = unit_t_1.support_move(unit_t_2, p("ser"));
+    let order_t_2 = unit_t_2.hold();
+    phase.data.orders.push(order_t_1);
+    phase.data.orders.push(order_t_2);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
+}
 
 /// 6.D.10. TEST CASE, SELF DISLODGMENT PROHIBITED
 /// A unit may not dislodge a unit of the same great power.
