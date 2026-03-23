@@ -1952,8 +1952,10 @@ fn test_datc_6_d_28() {
 /// See issue 4.E.1. Illegal orders are ignored. Without an order,
 /// Rumania holds and receives support.
 /// The fleet in Rumania is not dislodged.
-#[test]
-fn test_datc_6_d_29() {}
+#[allow(unused)]
+fn test_datc_6_d_29() {
+    // 不適切命令の救済に関するテスト（対応予定なし）
+}
 
 /// 6.D.30. TEST CASE, MOVE WITHOUT COAST AND SUPPORT
 /// Similar to the previous test case, but now the move is "illegal" due to missing coast.
