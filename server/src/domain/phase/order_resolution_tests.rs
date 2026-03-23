@@ -1763,7 +1763,22 @@ fn test_datc_6_d_22() {
 /// The French move from Spain North Coast to Gulf of Lyon is illegal (wrong coast).
 /// Therefore, the support from Marseilles fails and the fleet in Spain is dislodged.
 #[test]
-fn test_datc_6_d_23() {}
+fn test_datc_6_d_23() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_i_1 = Unit::new_fleet(Power::Italy, p("lyo"));
+    let unit_i_2 = Unit::new_fleet(Power::Italy, p("wes"));
+    let unit_f_1 = Unit::new_fleet(Power::France, p("spa_nc"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("mar"));
+    phase.data.orders.push(unit_i_1.move_to(p("spa_sc")));
+    phase.data.orders.push(unit_i_2.support_move(unit_i_1, p("spa_sc")));
+    phase.data.orders.push(unit_f_1.move_to(p("lyo")));
+    phase.data.orders.push(unit_f_2.support_move(unit_f_1, p("lyo")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Invalid);
+}
 
 /// 6.D.24. TEST CASE, IMPOSSIBLE ARMY MOVE CANNOT BE SUPPORTED
 /// Comparable with the previous test case,
