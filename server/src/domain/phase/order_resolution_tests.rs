@@ -1484,7 +1484,22 @@ fn test_datc_6_d_14() {
 /// The support of Constantinople is not cut
 /// and the fleet in Ankara is dislodged by the fleet in the Black Sea.
 #[test]
-fn test_datc_6_d_15() {}
+fn test_datc_6_d_15() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_r_1 = Unit::new_fleet(Power::Russia, p("con"));
+    let unit_r_2 = Unit::new_fleet(Power::Russia, p("bla"));
+    let unit_t_1 = Unit::new_fleet(Power::Turkey, p("ank"));
+    let order_r_1 = unit_r_1.support_move(unit_r_2, p("ank"));
+    let order_r_2 = unit_r_2.move_to(p("ank"));
+    let order_t_1 = unit_t_1.move_to(p("con"));
+    phase.data.orders.push(order_r_1);
+    phase.data.orders.push(order_r_2);
+    phase.data.orders.push(order_t_1);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Dislodged);
+}
 
 /// 6.D.16. TEST CASE, CONVOYING A UNIT DISLODGING A UNIT OF SAME POWER IS ALLOWED
 /// It is allowed to convoy a foreign unit that dislodges your own unit is allowed.
