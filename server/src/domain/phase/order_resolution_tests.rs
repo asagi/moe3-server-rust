@@ -1411,7 +1411,26 @@ fn test_datc_6_d_12() {
 /// F Apulia - Adriatic Sea
 /// No dislodgment of fleet in Trieste.
 #[test]
-fn test_datc_6_d_13() {}
+fn test_datc_6_d_13() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_a_1 = Unit::new_fleet(Power::Austria, p("tri"));
+    let unit_a_2 = Unit::new_army(Power::Austria, p("vie"));
+    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
+    let unit_i_2 = Unit::new_fleet(Power::Italy, p("apu"));
+    let order_a_1 = unit_a_1.move_to(p("adr"));
+    let order_a_2 = unit_a_2.support_move(unit_i_1, p("tri"));
+    let order_i_1 = unit_i_1.move_to(p("tri"));
+    let order_i_2 = unit_i_2.move_to(p("adr"));
+    phase.data.orders.push(order_a_1);
+    phase.data.orders.push(order_a_2);
+    phase.data.orders.push(order_i_1);
+    phase.data.orders.push(order_i_2);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
+}
 
 /// 6.D.14. TEST CASE, SUPPORTING A FOREIGN UNIT IS NOT ENOUGH TO PREVENT DISLODGEMENT
 /// If a foreign unit has enough support to dislodge your unit,
