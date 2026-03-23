@@ -2094,4 +2094,25 @@ fn test_datc_6_d_33() {
 /// Even if it would be legal, the German move from Berlin would still succeed,
 /// because the support of Prussia is cut by Livonia and Berlin.
 #[test]
-fn test_datc_6_d_34() {}
+fn test_datc_6_d_34() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_2 = Unit::new_army(Power::Germany, p("sil"));
+    let unit_g_3 = Unit::new_fleet(Power::Germany, p("bal"));
+    let unit_i_1 = Unit::new_army(Power::Italy, p("pru"));
+    let unit_r_1 = Unit::new_army(Power::Russia, p("war"));
+    let unit_r_2 = Unit::new_army(Power::Russia, p("lvn"));
+    phase.data.orders.push(unit_g_1.move_to(p("pru")));
+    phase.data.orders.push(unit_g_2.support_move(unit_g_1, p("pru")));
+    phase.data.orders.push(unit_g_3.support_move(unit_g_1, p("pru")));
+    phase.data.orders.push(unit_i_1.support_move(unit_i_1, p("pru")));
+    phase.data.orders.push(unit_r_1.support_move(unit_r_2, p("pru")));
+    phase.data.orders.push(unit_r_2.move_to(p("pru")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Failure);
+}
