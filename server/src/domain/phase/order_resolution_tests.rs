@@ -1100,7 +1100,26 @@ fn test_datc_6_d_3() {
 /// A Prussia - Berlin
 /// The Russian move from Prussia to Berlin fails.
 #[test]
-fn test_datc_6_d_4() {}
+fn test_datc_6_d_4() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("kie"));
+    let order_g_1 = unit_g_1.support_hold(unit_g_2);
+    let order_g_2 = unit_g_2.support_hold(unit_g_1);
+    phase.data.orders.push(order_g_1);
+    phase.data.orders.push(order_g_2);
+    let unit_r_1 = Unit::new_fleet(Power::Russia, p("bal"));
+    let unit_r_2 = Unit::new_army(Power::Russia, p("pru"));
+    let order_r_1 = unit_r_1.support_move(unit_r_2, p("ber"));
+    let order_r_2 = unit_r_2.move_to(p("ber"));
+    phase.data.orders.push(order_r_1);
+    phase.data.orders.push(order_r_2);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Cut);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
+}
 
 /// 6.D.5. TEST CASE, SUPPORT TO HOLD ON UNIT SUPPORTING A MOVE ALLOWED
 /// A unit that is supporting a move, can receive a hold support.
