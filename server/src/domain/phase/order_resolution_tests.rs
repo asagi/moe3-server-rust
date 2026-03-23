@@ -1446,7 +1446,30 @@ fn test_datc_6_d_13() {
 /// F Adriatic Sea Supports A Venice - Trieste
 /// The fleet in Trieste is dislodged.
 #[test]
-fn test_datc_6_d_14() {}
+fn test_datc_6_d_14() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_a_1 = Unit::new_fleet(Power::Austria, p("tri"));
+    let unit_a_2 = Unit::new_army(Power::Austria, p("vie"));
+    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
+    let unit_i_2 = Unit::new_army(Power::Italy, p("tyr"));
+    let unit_i_3 = Unit::new_fleet(Power::Italy, p("adr"));
+    let order_a_1 = unit_a_1.hold();
+    let order_a_2 = unit_a_2.support_move(unit_i_1, p("tri"));
+    let order_i_1 = unit_i_1.move_to(p("tri"));
+    let order_i_2 = unit_i_2.support_move(unit_i_1, p("tri"));
+    let order_i_3 = unit_i_3.support_move(unit_i_1, p("tri"));
+    phase.data.orders.push(order_a_1);
+    phase.data.orders.push(order_a_2);
+    phase.data.orders.push(order_i_1);
+    phase.data.orders.push(order_i_2);
+    phase.data.orders.push(order_i_3);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+}
 
 /// 6.D.15. TEST CASE, DEFENDER CANNOT CUT SUPPORT FOR ATTACK ON ITSELF
 /// A unit that is attacked by a supported unit cannot prevent dislodgement
