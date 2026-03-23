@@ -1652,7 +1652,26 @@ fn test_datc_6_d_19() {
 /// The army in York does not cut support.
 /// This means that the fleet in the English Channel is dislodged by the fleet in the North Sea.
 #[test]
-fn test_datc_6_d_20() {}
+fn test_datc_6_d_20() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("lon"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("nth"));
+    let unit_e_3 = Unit::new_army(Power::England, p("yor"));
+    let unit_f_1 = Unit::new_fleet(Power::France, p("eng"));
+    let order_e_1 = unit_e_1.support_move(unit_e_2, p("eng"));
+    let order_e_2 = unit_e_2.move_to(p("eng"));
+    let order_e_3 = unit_e_3.move_to(p("lon"));
+    let order_f_1 = unit_f_1.hold();
+    phase.data.orders.push(order_e_1);
+    phase.data.orders.push(order_e_2);
+    phase.data.orders.push(order_e_3);
+    phase.data.orders.push(order_f_1);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
+}
 
 /// 6.D.21. TEST CASE, DISLODGING DOES NOT CANCEL A SUPPORT CUT
 /// Sometimes there is the question whether a dislodged moving unit does not cut support
