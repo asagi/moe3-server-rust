@@ -1134,7 +1134,30 @@ fn test_datc_6_d_4() {
 /// A Prussia - Berlin
 /// The Russian move from Prussia to Berlin fails.
 #[test]
-fn test_datc_6_d_5() {}
+fn test_datc_6_d_5() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("kie"));
+    let unit_g_3 = Unit::new_army(Power::Germany, p("mun"));
+    let order_g_1 = unit_g_1.support_move(unit_g_3, p("sil"));
+    let order_g_2 = unit_g_2.support_hold(unit_g_1);
+    let order_g_3 = unit_g_3.move_to(p("sil"));
+    phase.data.orders.push(order_g_1);
+    phase.data.orders.push(order_g_2);
+    phase.data.orders.push(order_g_3);
+    let unit_r_1 = Unit::new_fleet(Power::Russia, p("bal"));
+    let unit_r_2 = Unit::new_army(Power::Russia, p("pru"));
+    let order_r_1 = unit_r_1.support_move(unit_r_2, p("ber"));
+    let order_r_2 = unit_r_2.move_to(p("ber"));
+    phase.data.orders.push(order_r_1);
+    phase.data.orders.push(order_r_2);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Cut);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
+}
 
 /// 6.D.6. TEST CASE, SUPPORT TO HOLD ON CONVOYING UNIT ALLOWED
 /// A unit that is convoying, can receive a hold support.
