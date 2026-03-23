@@ -296,7 +296,7 @@ fn test_datc_6_a_12() {
     let unit_a_1 = Unit::new_army(Power::Austria, p("vie"));
     let order_a_1 = unit_a_1.move_to(p("tyr"));
     phase.data.orders.push(order_a_1);
-    let unit_g_1 = Unit::new_army(Power::Italy, p("mun"));
+    let unit_g_1 = Unit::new_army(Power::Germany, p("mun"));
     let order_g_1 = unit_g_1.move_to(p("tyr"));
     phase.data.orders.push(order_g_1);
     let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
@@ -1323,9 +1323,9 @@ fn test_datc_6_d_9() {
 #[test]
 fn test_datc_6_d_10() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_g_1 = Unit::new_army(Power::Italy, p("ber"));
-    let unit_g_2 = Unit::new_army(Power::Italy, p("kie"));
-    let unit_g_3 = Unit::new_army(Power::Italy, p("mun"));
+    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_2 = Unit::new_army(Power::Germany, p("kie"));
+    let unit_g_3 = Unit::new_army(Power::Germany, p("mun"));
     let order_g_1 = unit_g_1.hold();
     let order_g_2 = unit_g_2.move_to(p("ber"));
     let order_g_3 = unit_g_3.support_move(unit_g_2, p("ber"));
@@ -1352,16 +1352,16 @@ fn test_datc_6_d_10() {
 #[test]
 fn test_datc_6_d_11() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_g_1 = Unit::new_army(Power::Italy, p("ber"));
-    let unit_g_2 = Unit::new_fleet(Power::Italy, p("kie"));
-    let unit_g_3 = Unit::new_army(Power::Italy, p("mun"));
+    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("kie"));
+    let unit_g_3 = Unit::new_army(Power::Germany, p("mun"));
     let order_g_1 = unit_g_1.move_to(p("pru"));
     let order_g_2 = unit_g_2.move_to(p("ber"));
     let order_g_3 = unit_g_3.support_move(unit_g_2, p("ber"));
     phase.data.orders.push(order_g_1);
     phase.data.orders.push(order_g_2);
     phase.data.orders.push(order_g_3);
-    let unit_r_1 = Unit::new_army(Power::Austria, p("war"));
+    let unit_r_1 = Unit::new_army(Power::Russia, p("war"));
     let order_r_1 = unit_r_1.move_to(p("pru"));
     phase.data.orders.push(order_r_1);
     resolve_orders_for_order_phase(&mut phase);
