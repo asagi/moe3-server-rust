@@ -1583,7 +1583,28 @@ fn test_datc_6_d_17() {
 /// A Armenia - Ankara
 /// The Russian fleet in the Black Sea will dislodge the Turkish fleet in Ankara.
 #[test]
-fn test_datc_6_d_18() {}
+fn test_datc_6_d_18() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_r_1 = Unit::new_fleet(Power::Russia, p("con"));
+    let unit_r_2 = Unit::new_fleet(Power::Russia, p("bla"));
+    let unit_r_3 = Unit::new_army(Power::Russia, p("bul"));
+    let unit_t_1 = Unit::new_fleet(Power::Turkey, p("ank"));
+    let unit_t_2 = Unit::new_army(Power::Turkey, p("smy"));
+    let unit_t_3 = Unit::new_army(Power::Turkey, p("arm"));
+    phase.data.orders.push(unit_r_1.support_move(unit_r_2, p("ank")));
+    phase.data.orders.push(unit_r_2.move_to(p("ank")));
+    phase.data.orders.push(unit_r_3.support_hold(unit_r_1));
+    phase.data.orders.push(unit_t_1.move_to(p("con")));
+    phase.data.orders.push(unit_t_2.support_move(unit_t_1, p("con")));
+    phase.data.orders.push(unit_t_3.move_to(p("ank")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Failure);
+}
 
 /// 6.D.19. TEST CASE, EVEN WHEN SURVIVING IS IN ALTERNATIVE WAY
 /// Now, the dislodgement is prevented because the support comes from a Russian army:
