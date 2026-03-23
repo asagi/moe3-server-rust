@@ -994,7 +994,26 @@ fn test_datc_6_c_9() {
 /// The support of Tyrolia prevents the army in Venice from being dislodged.
 /// The army in Trieste will not move.
 #[test]
-fn test_datc_6_d_1() {}
+fn test_datc_6_d_1() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_a_1 = Unit::new_army(Power::Austria, p("tri"));
+    let unit_a_2 = Unit::new_fleet(Power::Austria, p("adr"));
+    let order_a_1 = unit_a_1.move_to(p("ven"));
+    let order_a_2 = unit_a_2.support_move(unit_a_1, p("ven"));
+    phase.data.orders.push(order_a_1);
+    phase.data.orders.push(order_a_2);
+    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
+    let unit_i_2 = Unit::new_army(Power::Italy, p("tyr"));
+    let order_i_1 = unit_i_1.hold();
+    let order_i_2 = unit_i_2.support_hold(unit_i_1);
+    phase.data.orders.push(order_i_1);
+    phase.data.orders.push(order_i_2);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+}
 
 /// 6.D.2. TEST CASE, A MOVE CUTS SUPPORT ON HOLD
 /// The simplest support on hold cut.
