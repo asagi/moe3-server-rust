@@ -1795,10 +1795,28 @@ fn test_datc_6_d_23() {
 /// F Tyrrhenian Sea Supports F Western Mediterranean - Gulf of Lyon
 /// F Western Mediterranean - Gulf of Lyon
 /// The French move from Marseilles to Gulf of Lyon is illegal (an army cannot go to sea).
-/// Therefore,/// the support from Spain fails and there is no beleaguered garrison.
+/// Therefore, the support from Spain fails and there is no beleaguered garrison.
 /// The fleet in the Gulf of Lyon is dislodged by the Turkish fleet in the Western Mediterranean.
 #[test]
-fn test_datc_6_d_24() {}
+fn test_datc_6_d_24() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_f_1 = Unit::new_army(Power::France, p("mar"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("spa_sc"));
+    let unit_i_1 = Unit::new_fleet(Power::Italy, p("lyo"));
+    let unit_t_1 = Unit::new_fleet(Power::Turkey, p("tys"));
+    let unit_t_2 = Unit::new_fleet(Power::Turkey, p("wes"));
+    phase.data.orders.push(unit_f_1.move_to(p("lyo")));
+    phase.data.orders.push(unit_f_2.support_move(unit_f_1, p("lyo")));
+    phase.data.orders.push(unit_i_1.hold());
+    phase.data.orders.push(unit_t_1.support_move(unit_t_2, p("lyo")));
+    phase.data.orders.push(unit_t_2.move_to(p("lyo")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Success);
+}
 
 /// 6.D.25. TEST CASE, FAILING HOLD SUPPORT CAN BE SUPPORTED
 /// If an adjudicator fails on one of the previous three test cases,
