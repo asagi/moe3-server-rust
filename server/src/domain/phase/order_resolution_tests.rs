@@ -1321,7 +1321,22 @@ fn test_datc_6_d_9() {
 /// A Munich Supports F Kiel - Berlin
 /// Move to Berlin fails.
 #[test]
-fn test_datc_6_d_10() {}
+fn test_datc_6_d_10() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_g_1 = Unit::new_army(Power::Italy, p("ber"));
+    let unit_g_2 = Unit::new_army(Power::Italy, p("kie"));
+    let unit_g_3 = Unit::new_army(Power::Italy, p("mun"));
+    let order_g_1 = unit_g_1.hold();
+    let order_g_2 = unit_g_2.move_to(p("ber"));
+    let order_g_3 = unit_g_3.support_move(unit_g_2, p("ber"));
+    phase.data.orders.push(order_g_1);
+    phase.data.orders.push(order_g_2);
+    phase.data.orders.push(order_g_3);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+}
 
 /// 6.D.11. TEST CASE, NO SELF DISLODGMENT OF RETURNING UNIT
 /// Idem.
