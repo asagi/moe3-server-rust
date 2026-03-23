@@ -1863,7 +1863,22 @@ fn test_datc_6_d_25() {
 /// A Prussia - Berlin
 /// Again, Berlin will not be dislodged.
 #[test]
-fn test_datc_6_d_26() {}
+fn test_datc_6_d_26() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("kie"));
+    let unit_r_1 = Unit::new_fleet(Power::Russia, p("bal"));
+    let unit_r_2 = Unit::new_army(Power::Russia, p("pru"));
+    phase.data.orders.push(unit_g_1.support_move(unit_r_2, p("sil")));
+    phase.data.orders.push(unit_g_2.support_hold(unit_g_1));
+    phase.data.orders.push(unit_r_1.support_move(unit_r_2, p("ber")));
+    phase.data.orders.push(unit_r_2.move_to(p("ber")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
+}
 
 /// 6.D.27. TEST CASE, FAILING CONVOY CAN BE SUPPORTED
 /// Similar as the previous test case, but now with an unmatched convoy.
