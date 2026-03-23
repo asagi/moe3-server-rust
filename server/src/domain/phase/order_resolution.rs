@@ -779,7 +779,10 @@ fn resolve_attack_against_non_move(original_orders: &mut [Order], attacker_idx: 
     }
 
     let support_orders = collect_valid_support_orders(original_orders);
-    let attacker_supports = support_orders.iter().filter(|s| s.is_matching_target(&original_orders[attacker_idx])).count();
+    let attacker_supports = support_orders
+        .iter()
+        .filter(|s| s.is_matching_target(&original_orders[attacker_idx]) && s.power != original_orders[defender_idx].power)
+        .count();
     let defender_supports = support_orders.iter().filter(|s| s.is_matching_target(&original_orders[defender_idx])).count();
 
     if attacker_supports > defender_supports {
