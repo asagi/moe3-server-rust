@@ -34,13 +34,16 @@ pub fn resolve_orders_for_order_phase(current_phase: &mut Phase) {
     // # 06. 交換移動命令解決
     handle_switch_orders(orders, standoff_province_codes);
 
-    // # 07. 未解決移動命令解決
+    // # 07. 支援命令撃退の優先解決
+    handle_dislodging_support_orders(orders, standoff_province_codes);
+
+    // # 08. 未解決移動命令解決
     handle_remaining_move_orders(orders, standoff_province_codes);
 
-    // # 08. 未処理の命令を全て成功判定
+    // # 09. 未処理の命令を全て成功判定
     succeed_remaining_orders(orders);
 
-    // # 09. 命令解決後のユニット配置情報をフェイズに反映
+    // # 10. 命令解決後のユニット配置情報をフェイズに反映
     apply_resolved_unit_locations(orders, resolved_units);
 }
 
@@ -385,6 +388,20 @@ fn handle_switch_orders(original_orders: &mut [Order], standoff_province_codes: 
                 continue;
             }
         }
+    }
+}
+
+/// 支援命令撃退の優先解決
+fn handle_dislodging_support_orders(original_orders: &mut [Order], standoff_province_codes: &mut Vec<String>) {
+    for idx in collect_valid_support_indices(original_orders) {
+        // 支援命令に対する攻撃競争の勝者を取得
+        let Some(attacker_idx) = handle_conflicting(original_orders, original_orders[idx].location().code(), standoff_province_codes) else {
+            // 勝者がいなければスキップ
+            continue;
+        };
+
+        // 支援命令に対する排除の成否判定を実施する
+        resolve_attack_against_non_move(original_orders, attacker_idx, idx);
     }
 }
 
