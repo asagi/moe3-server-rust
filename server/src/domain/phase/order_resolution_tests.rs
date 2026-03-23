@@ -2030,8 +2030,10 @@ fn test_datc_6_d_31() {
 /// This is considered "illegal" (see issue 4.E.1).
 /// The order should be ignored and the support of the French fleet in London succeeds.
 /// This means that the army in Yorkshire is not dislodged.
-#[test]
-fn test_datc_6_d_32() {}
+#[allow(unused)]
+fn test_datc_6_d_32() {
+    // 不適切命令の救済に関するテスト（対応予定なし）
+}
 
 /// 6.D.33. TEST CASE, UNWANTED SUPPORT ALLOWED
 /// A self standoff can be broken by an unwanted support.
