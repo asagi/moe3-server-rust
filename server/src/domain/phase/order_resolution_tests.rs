@@ -1733,7 +1733,22 @@ fn test_datc_6_d_21() {
 /// Illegal orders are fully ignored which makes the support from Burgundy also illegal.
 /// The Russian army in Munich will dislodge the fleet in Kiel.
 #[test]
-fn test_datc_6_d_22() {}
+fn test_datc_6_d_22() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_g_1 = Unit::new_fleet(Power::Germany, p("kie"));
+    let unit_g_2 = Unit::new_army(Power::Germany, p("bur"));
+    let unit_r_1 = Unit::new_army(Power::Russia, p("mun"));
+    let unit_r_2 = Unit::new_army(Power::Russia, p("ber"));
+    phase.data.orders.push(unit_g_1.move_to(p("mun")));
+    phase.data.orders.push(unit_g_2.support_move(unit_g_1, p("mun")));
+    phase.data.orders.push(unit_r_1.move_to(p("kie")));
+    phase.data.orders.push(unit_r_2.support_move(unit_r_1, p("kie")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+}
 
 /// 6.D.23. TEST CASE, IMPOSSIBLE COAST MOVE CANNOT BE SUPPORTED
 /// Comparable with the previous test case, but now the fleet move is impossible for coastal reasons.
