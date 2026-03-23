@@ -1694,7 +1694,28 @@ fn test_datc_6_d_20() {
 /// Although the German army is dislodged, it still cuts the Italian support.
 /// That means that the Austrian Fleet is not dislodged.
 #[test]
-fn test_datc_6_d_21() {}
+fn test_datc_6_d_21() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_a_1 = Unit::new_fleet(Power::Austria, p("tri"));
+    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
+    let unit_i_2 = Unit::new_army(Power::Italy, p("tyr"));
+    let unit_g_1 = Unit::new_army(Power::Germany, p("mun"));
+    let unit_r_1 = Unit::new_army(Power::Russia, p("sil"));
+    let unit_r_2 = Unit::new_army(Power::Russia, p("ber"));
+    phase.data.orders.push(unit_a_1.hold());
+    phase.data.orders.push(unit_i_1.move_to(p("tri")));
+    phase.data.orders.push(unit_i_2.support_move(unit_i_1, p("tri")));
+    phase.data.orders.push(unit_g_1.move_to(p("tyr")));
+    phase.data.orders.push(unit_r_1.move_to(p("mun")));
+    phase.data.orders.push(unit_r_2.support_move(unit_r_1, p("mun")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Cut);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
+}
 
 /// 6.D.22. TEST CASE, IMPOSSIBLE FLEET MOVE CANNOT BE SUPPORTED
 /// If a fleet tries moves to a land area it seems pointless to support the fleet,
