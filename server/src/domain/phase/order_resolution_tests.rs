@@ -1549,7 +1549,25 @@ fn test_datc_6_d_16() {
 /// This cuts the support to from Black Sea to Ankara.
 /// Black Sea will bounce with the army from Armenia.
 #[test]
-fn test_datc_6_d_17() {}
+fn test_datc_6_d_17() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_r_1 = Unit::new_fleet(Power::Russia, p("con"));
+    let unit_r_2 = Unit::new_fleet(Power::Russia, p("bla"));
+    let unit_t_1 = Unit::new_fleet(Power::Turkey, p("ank"));
+    let unit_t_2 = Unit::new_army(Power::Turkey, p("smy"));
+    let unit_t_3 = Unit::new_army(Power::Turkey, p("arm"));
+    phase.data.orders.push(unit_r_1.support_move(unit_r_2, p("ank")));
+    phase.data.orders.push(unit_r_2.move_to(p("ank")));
+    phase.data.orders.push(unit_t_1.move_to(p("con")));
+    phase.data.orders.push(unit_t_2.support_move(unit_t_1, p("con")));
+    phase.data.orders.push(unit_t_3.move_to(p("ank")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
+}
 
 /// 6.D.18. TEST CASE, A SURVIVING UNIT WILL SUSTAIN SUPPORT
 /// Idem. But now with an additional hold that prevents dislodgement.
