@@ -1212,7 +1212,30 @@ fn test_datc_6_d_6() {
 /// The fleet in Baltic Sea will bounce on the Russian army in Finland
 /// and will be dislodged by the Russian fleet from Livonia when it returns to the Baltic Sea.
 #[test]
-fn test_datc_6_d_7() {}
+fn test_datc_6_d_7() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_g_1 = Unit::new_fleet(Power::Germany, p("bal"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("pru"));
+    let order_g_1 = unit_g_1.move_to(p("swe"));
+    let order_g_2 = unit_g_2.support_hold(unit_g_1);
+    phase.data.orders.push(order_g_1);
+    phase.data.orders.push(order_g_2);
+    let unit_r_1 = Unit::new_fleet(Power::Russia, p("lvn"));
+    let unit_r_2 = Unit::new_fleet(Power::Russia, p("bot"));
+    let unit_r_3 = Unit::new_army(Power::Russia, p("fin"));
+    let order_r_1 = unit_r_1.move_to(p("bal"));
+    let order_r_2 = unit_r_2.support_move(unit_r_1, p("bal"));
+    let order_r_3 = unit_r_3.move_to(p("swe"));
+    phase.data.orders.push(order_r_1);
+    phase.data.orders.push(order_r_2);
+    phase.data.orders.push(order_r_3);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
+}
 
 /// 6.D.8. TEST CASE, FAILED CONVOY CANNOT RECEIVE HOLD SUPPORT
 /// If a convoy fails because of disruption of the convoy or when the right convoy orders are not given,
