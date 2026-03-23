@@ -1254,7 +1254,30 @@ fn test_datc_6_d_7() {
 /// and be changed in a hold order able to receive hold support (see also issue 4.E.1).
 /// Therefore, the support in Bulgaria fails and the army in Greece is dislodged by the army in Albania.
 #[test]
-fn test_datc_6_d_8() {}
+fn test_datc_6_d_8() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_a_1 = Unit::new_fleet(Power::Austria, p("ion"));
+    let unit_a_2 = Unit::new_army(Power::Austria, p("ser"));
+    let unit_a_3 = Unit::new_army(Power::Austria, p("alb"));
+    let order_a_1 = unit_a_1.hold();
+    let order_a_2 = unit_a_2.support_move(unit_a_3, p("gre"));
+    let order_a_3 = unit_a_3.move_to(p("gre"));
+    phase.data.orders.push(order_a_1);
+    phase.data.orders.push(order_a_2);
+    phase.data.orders.push(order_a_3);
+    let unit_t_1 = Unit::new_army(Power::Turkey, p("gre"));
+    let unit_t_2 = Unit::new_army(Power::Turkey, p("bul"));
+    let order_t_1 = unit_t_1.move_to(p("nap"));
+    let order_t_2 = unit_t_2.support_hold(unit_t_1);
+    phase.data.orders.push(order_t_1);
+    phase.data.orders.push(order_t_2);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Invalid);
+}
 
 /// 6.D.9. TEST CASE, SUPPORT TO MOVE ON HOLDING UNIT NOT ALLOWED
 /// A unit that is holding cannot receive a support in moving.
