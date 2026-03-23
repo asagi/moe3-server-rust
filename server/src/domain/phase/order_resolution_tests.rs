@@ -1972,8 +1972,10 @@ fn test_datc_6_d_29() {
 /// See issue 4.E.1. Illegal orders are ignored. Without an order,
 /// Constantinople holds and receives support.
 /// The fleet in Constantinople is not dislodged.
-#[test]
-fn test_datc_6_d_30() {}
+#[allow(unused)]
+fn test_datc_6_d_30() {
+    // 不適切命令の救済に関するテスト（対応予定なし）
+}
 
 /// 6.D.31. TEST CASE, A TRICKY IMPOSSIBLE SUPPORT
 /// A support order can be impossible for complex reasons.
@@ -1996,7 +1998,16 @@ fn test_datc_6_d_30() {}
 /// meaning that it is completely ignored.
 /// If there is a second order for the Black Sea, that order should be executed (see issue 4.E.1).
 #[test]
-fn test_datc_6_d_31() {}
+fn test_datc_6_d_31() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_a_1 = Unit::new_army(Power::Austria, p("rum"));
+    let unit_t_1 = Unit::new_fleet(Power::Turkey, p("bla"));
+    phase.data.orders.push(unit_a_1.move_to(p("arm")));
+    phase.data.orders.push(unit_t_1.support_move(unit_a_1, p("arm")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+}
 
 /// 6.D.32. TEST CASE, A MISSING FLEET
 /// The previous test cases contained an order that was impossible
