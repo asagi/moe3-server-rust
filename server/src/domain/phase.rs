@@ -1,8 +1,5 @@
 mod order_resolution;
 
-#[cfg(test)]
-mod order_resolution_tests;
-
 use super::PhaseId;
 use super::TableId;
 use super::order::Order;
@@ -377,3 +374,12 @@ mod tests {
         assert!(matches!(p.phase_type(), PhaseKind::SpringOrder(_)));
     }
 }
+
+#[cfg(test)]
+mod order_resolution_tests_a;
+#[cfg(test)]
+mod order_resolution_tests_b;
+#[cfg(test)]
+mod order_resolution_tests_c;
+#[cfg(test)]
+mod order_resolution_tests_d;
