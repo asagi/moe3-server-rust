@@ -1172,7 +1172,30 @@ fn test_datc_6_d_5() {
 /// F Gulf of Bothnia Supports F Livonia - Baltic Sea
 /// The Russian move from Livonia to the Baltic Sea fails. The convoy from Berlin to Sweden succeeds.
 #[test]
-fn test_datc_6_d_6() {}
+fn test_datc_6_d_6() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("bal"));
+    let unit_g_3 = Unit::new_fleet(Power::Germany, p("pru"));
+    let order_g_1 = unit_g_1.move_to(p("swe"));
+    let order_g_2 = unit_g_2.convoy(unit_g_1, p("swe"));
+    let order_g_3 = unit_g_3.support_hold(unit_g_2);
+    phase.data.orders.push(order_g_1);
+    phase.data.orders.push(order_g_2);
+    phase.data.orders.push(order_g_3);
+    let unit_r_1 = Unit::new_fleet(Power::Russia, p("lvn"));
+    let unit_r_2 = Unit::new_fleet(Power::Russia, p("bot"));
+    let order_r_1 = unit_r_1.move_to(p("bal"));
+    let order_r_2 = unit_r_2.support_move(unit_r_1, p("bal"));
+    phase.data.orders.push(order_r_1);
+    phase.data.orders.push(order_r_2);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+}
 
 /// 6.D.7. TEST CASE, SUPPORT TO HOLD ON MOVING UNIT NOT ALLOWED
 /// A unit that is moving, cannot receive a hold support for the situation that the move fails.
