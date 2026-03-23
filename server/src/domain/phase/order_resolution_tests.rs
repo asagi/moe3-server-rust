@@ -1350,7 +1350,26 @@ fn test_datc_6_d_10() {
 /// A Warsaw - Prussia
 /// Army in Berlin bounces, but is not dislodged by own unit.
 #[test]
-fn test_datc_6_d_11() {}
+fn test_datc_6_d_11() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_g_1 = Unit::new_army(Power::Italy, p("ber"));
+    let unit_g_2 = Unit::new_fleet(Power::Italy, p("kie"));
+    let unit_g_3 = Unit::new_army(Power::Italy, p("mun"));
+    let order_g_1 = unit_g_1.move_to(p("pru"));
+    let order_g_2 = unit_g_2.move_to(p("ber"));
+    let order_g_3 = unit_g_3.support_move(unit_g_2, p("ber"));
+    phase.data.orders.push(order_g_1);
+    phase.data.orders.push(order_g_2);
+    phase.data.orders.push(order_g_3);
+    let unit_r_1 = Unit::new_army(Power::Austria, p("war"));
+    let order_r_1 = unit_r_1.move_to(p("pru"));
+    phase.data.orders.push(order_r_1);
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
+}
 
 /// 6.D.12. TEST CASE, SUPPORTING A FOREIGN UNIT TO DISLODGE OWN UNIT PROHIBITED
 /// You may not help another power in dislodging your own unit.
