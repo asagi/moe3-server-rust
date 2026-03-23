@@ -1893,11 +1893,29 @@ fn test_datc_6_d_26() {
 /// Russia:
 /// F Baltic Sea Convoys A Berlin - Livonia
 /// F Prussia Supports F Baltic Sea
-/// The convoy order in the Baltic Sea is unmatched and fails. However,
-/// the support of Prussia on the Baltic Sea is still valid
+/// The convoy order in the Baltic Sea is unmatched and fails.
+/// However, the support of Prussia on the Baltic Sea is still valid
 /// and the fleet in the Baltic Sea is not dislodged.
 #[test]
-fn test_datc_6_d_27() {}
+fn test_datc_6_d_27() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("swe"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("den"));
+    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
+    let unit_r_1 = Unit::new_fleet(Power::Russia, p("bal"));
+    let unit_r_2 = Unit::new_fleet(Power::Russia, p("pru"));
+    phase.data.orders.push(unit_e_1.move_to(p("bal")));
+    phase.data.orders.push(unit_e_2.support_move(unit_e_1, p("bal")));
+    phase.data.orders.push(unit_g_1.hold());
+    phase.data.orders.push(unit_r_1.convoy(unit_g_1, p("lvn")));
+    phase.data.orders.push(unit_r_2.support_hold(unit_r_1));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+}
 
 /// 6.D.28. TEST CASE, IMPOSSIBLE MOVE AND SUPPORT
 /// An impossible move is "illegal" and should be ignored.
