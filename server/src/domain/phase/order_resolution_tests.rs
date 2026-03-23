@@ -2050,7 +2050,22 @@ fn test_datc_6_d_32() {
 /// Due to the Russian support, the army in Serbia advances to Budapest.
 /// This enables Turkey to capture Serbia with the army in Bulgaria.
 #[test]
-fn test_datc_6_d_33() {}
+fn test_datc_6_d_33() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_a_1 = Unit::new_army(Power::Austria, p("ser"));
+    let unit_a_2 = Unit::new_army(Power::Austria, p("vie"));
+    let unit_r_1 = Unit::new_army(Power::Russia, p("gal"));
+    let unit_t_1 = Unit::new_army(Power::Turkey, p("bul"));
+    phase.data.orders.push(unit_a_1.move_to(p("bud")));
+    phase.data.orders.push(unit_a_2.move_to(p("bud")));
+    phase.data.orders.push(unit_r_1.support_move(unit_a_1, p("bud")));
+    phase.data.orders.push(unit_t_1.move_to(p("ser")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
+}
 
 /// 6.D.34. TEST CASE, SUPPORT TARGETING OWN AREA NOT ALLOWED
 /// Support targeting the area where the supporting unit is standing, is illegal.
