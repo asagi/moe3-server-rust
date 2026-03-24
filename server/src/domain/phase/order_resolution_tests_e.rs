@@ -80,7 +80,19 @@ fn test_datc_6_e_2() {
 /// F Kiel - Berlin
 /// No unit will move.
 #[test]
-fn test_datc_6_e_3() {}
+fn test_datc_6_e_3() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_2 = Unit::new_army(Power::Germany, p("mun"));
+    let unit_e_1 = Unit::new_fleet(Power::England, p("kie"));
+    phase.data.orders.push(unit_g_1.move_to(p("kie")));
+    phase.data.orders.push(unit_g_2.support_move(unit_e_1, p("ber")));
+    phase.data.orders.push(unit_e_1.move_to(p("ber")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+}
 
 /// 6.E.4. TEST CASE, NON-DISLODGED LOSER STILL HAS EFFECT
 /// If in an unbalanced head-to-head battle the loser is not dislodged, it still has an effect on the area of the attacker.
