@@ -218,7 +218,9 @@ fn test_datc_6_e_5() {
 }
 
 /// 6.E.6. TEST CASE, NOT DISLODGE BECAUSE OF OWN SUPPORT STILL HAS EFFECT
-/// If in an unbalanced head-to-head battle the loser is not dislodged because the winner had help of a unit of the loser, the loser still has an effect on the area of the winner.
+/// If in an unbalanced head-to-head battle the loser is not dislodged
+/// because the winner had help of a unit of the loser,
+/// the loser still has an effect on the area of the winner.
 ///
 /// Germany:
 /// F Holland - North Sea
@@ -232,9 +234,37 @@ fn test_datc_6_e_5() {
 /// Austria:
 /// A Kiel Supports A Ruhr - Holland
 /// A Ruhr - Holland
-/// Although the German force from Holland to North Sea is one larger than the French force from North Sea to Holland, the French fleet in the North Sea is not dislodged, because one of the supports on the German movement is French. Therefore, the Austrian army in Ruhr will not move to Holland.
+/// Although the German force from Holland to North Sea is one larger
+/// than the French force from North Sea to Holland,
+/// the French fleet in the North Sea is not dislodged,
+/// because one of the supports on the German movement is French.
+/// Therefore, the Austrian army in Ruhr will not move to Holland.
 #[test]
-fn test_datc_6_e_6() {}
+fn test_datc_6_e_6() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_g_1 = Unit::new_fleet(Power::Germany, p("hol"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("hel"));
+    let unit_f_1 = Unit::new_fleet(Power::France, p("nth"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("bel"));
+    let unit_f_3 = Unit::new_fleet(Power::France, p("eng"));
+    let unit_a_1 = Unit::new_army(Power::Austria, p("kie"));
+    let unit_a_2 = Unit::new_army(Power::Austria, p("ruh"));
+    phase.data.orders.push(unit_g_1.move_to(p("nth")));
+    phase.data.orders.push(unit_g_2.support_move(unit_g_1, p("nth")));
+    phase.data.orders.push(unit_f_1.move_to(p("hol")));
+    phase.data.orders.push(unit_f_2.support_move(unit_f_1, p("hol")));
+    phase.data.orders.push(unit_f_3.support_move(unit_g_1, p("nth")));
+    phase.data.orders.push(unit_a_1.support_move(unit_a_2, p("hol")));
+    phase.data.orders.push(unit_a_2.move_to(p("hol")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Failure);
+}
 
 /// 6.E.7. TEST CASE, NO SELF DISLODGEMENT WITH BELEAGUERED GARRISON
 /// An attempt at self dislodgement can be combined with a beleaguered garrison. Such self dislodgment is still not possible.
