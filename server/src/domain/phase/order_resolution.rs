@@ -754,26 +754,26 @@ fn resolve_no_support_defense(original_orders: &mut [Order], attacker_idx: usize
     }
 }
 
-/// defender が dislodge された場合は attacker の元所在地へのスタンドオフによる移動失敗をすべてリセット
+/// 撃退された命令が攻撃側の元所在地に発生させたスタンドオフを無効化する。
 fn reset_standoff_failures_to_attacker_origin(original_orders: &mut [Order], attacker_idx: usize, defender_idx: usize, standoff_province_codes: &mut Vec<String>) {
     // 防御側が撃退されていなければ処理は不要
     if !original_orders[defender_idx].is_dislodged() {
         return;
     }
 
-    let origin_prefix = &original_orders[attacker_idx].location().code()[..3];
-    for (_i, order) in original_orders.iter_mut().enumerate() {
+    let origin_code = &original_orders[attacker_idx].location().code()[..3];
+    for order in original_orders.iter_mut() {
         if order.is_assumed() || !order.is_failure() {
             continue;
         }
         if let OrderKind::Move(m) = &order.kind
-            && &m.dest.code()[..3] == origin_prefix
+            && &m.dest.code()[..3] == origin_code
         {
             order.set_valid();
         }
     }
 
-    standoff_province_codes.retain(|code| code != origin_prefix);
+    standoff_province_codes.retain(|code| code != origin_code);
 }
 
 /// `original_orders[idx]` の移動先に対して、既存の有効な輸送命令群で海路到達可能か判定する。
