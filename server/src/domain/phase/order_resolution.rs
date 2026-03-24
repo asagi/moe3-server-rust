@@ -323,49 +323,36 @@ fn handle_switch_orders(original_orders: &mut [Order], standoff_province_codes: 
             // 両地域スタンドオフで関連する全軍移動失敗
             continue;
         }
-
-        if conflict_winner_idx == Some(idx) && opposite_conflict_winner_idx != Some(opposite_idx) {
-            // 甲軍進軍成功かつ乙軍進軍失敗からの乙軍の防衛成否判定
-            resolve_no_support_defense(original_orders, idx, opposite_idx, opposite_conflict_winner_idx);
-            // 乙軍が dislodge された場合は甲軍の元所在地へのスタンドオフによる移動失敗をすべてリセット
-            reset_standoff_failures_to_attacker_origin(original_orders, idx, opposite_idx, standoff_province_codes);
-            continue;
-        } else if conflict_winner_idx != Some(idx) && opposite_conflict_winner_idx == Some(opposite_idx) {
-            // 甲軍進軍失敗かつ乙軍進軍成功からの甲軍の防衛成否判定
-            resolve_no_support_defense(original_orders, opposite_idx, idx, conflict_winner_idx);
-            // 甲軍が dislodge された場合は乙軍の元所在地へのスタンドオフによる移動失敗をすべてリセット
-            reset_standoff_failures_to_attacker_origin(original_orders, opposite_idx, idx, standoff_province_codes);
-            continue;
-        } else if conflict_winner_idx != Some(idx) && opposite_conflict_winner_idx != Some(opposite_idx) {
-            // 甲乙両軍移動失敗
+        if original_orders[idx].is_failure() && original_orders[opposite_idx].is_failure() {
+            // 両者移動失敗であればスキップ
             continue;
         }
 
-        debug_assert!(conflict_winner_idx == Some(idx) && opposite_conflict_winner_idx == Some(opposite_idx));
-
-        // 海路迂回交換移動判定
-        let a_can = can_reach_via_convoy(original_orders, idx);
-        let b_can = can_reach_via_convoy(original_orders, opposite_idx);
-        if a_can || b_can {
-            // どちらか一方が海路迂回移動可能なら双方移動成功
-            original_orders[idx].set_success();
-            original_orders[opposite_idx].set_success();
-            continue;
+        if !original_orders[idx].is_failure() && !original_orders[opposite_idx].is_failure() {
+            // どちらも移動可能であれば海路迂回交換移動判定
+            let a_can = can_reach_via_convoy(original_orders, idx);
+            let b_can = can_reach_via_convoy(original_orders, opposite_idx);
+            if a_can || b_can {
+                // どちらか一方が海路迂回移動可能なら双方移動成功
+                original_orders[idx].set_success();
+                original_orders[opposite_idx].set_success();
+                continue;
+            }
         }
 
         // 直接対決
-        match decide_move_conflict_winner(original_orders, idx, opposite_idx) {
-            Some(winner_idx) => {
-                let loser_idx = if winner_idx == idx { opposite_idx } else { idx };
-                original_orders[winner_idx].set_success();
-                original_orders[loser_idx].set_dislodged_from(&original_orders[winner_idx].location());
-                continue;
-            }
-            None => {
-                original_orders[idx].set_failure();
-                original_orders[opposite_idx].set_failure();
-                continue;
-            }
+        if let Some(winner_idx) = decide_move_conflict_winner(original_orders, idx, opposite_idx) {
+            let loser_idx = if winner_idx == idx { opposite_idx } else { idx };
+            original_orders[winner_idx].set_success();
+            original_orders[loser_idx].set_dislodged_from(&original_orders[winner_idx].location());
+
+            // 撃退された軍の元所在地に発生させたスタンドオフを無効化
+            reset_standoff_failures_to_attacker_origin(original_orders, winner_idx, loser_idx, standoff_province_codes);
+            continue;
+        } else {
+            original_orders[idx].set_failure();
+            original_orders[opposite_idx].set_failure();
+            continue;
         }
     }
 }
