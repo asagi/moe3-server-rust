@@ -3,6 +3,7 @@ use crate::domain::order::OrderKind;
 use crate::domain::order::OrderStatus;
 use crate::domain::path::Path;
 use crate::domain::phase::Phase;
+use crate::domain::power::Power;
 use crate::domain::province::Province;
 use crate::domain::unit::Unit;
 use crate::domain::unit::UnitKind;
@@ -636,12 +637,28 @@ fn handle_conflicting(original_orders: &mut [Order], target_location_code: &str,
         return Some(winner_idx);
     }
 
+    // 指定地点に非移動命令か失敗した移動命令があればその勢力を取得
+    let target_power = occupant_power_for_target(original_orders, target_location_code);
+
     // 支援数集計
     // - support_counts: (move_order の index, 支援数) の配列
     // - support_counts は 支援数降順（戦力順）にソートする
+    // - 移動先の非移動命令または失敗した移動命令があれば同勢力の支援はカウントしない
     let mut support_counts: Vec<(usize, usize)> = conflicting_move_indicies
         .iter()
-        .map(|&idx| (idx, support_orders.iter().filter(|s| s.is_matching_target(&original_orders[idx])).count()))
+        .map(|&idx| {
+            let count = support_orders
+                .iter()
+                .filter(|s| {
+                    s.is_matching_target(&original_orders[idx])
+                        && match target_power {
+                            Some(p) => s.power != p,
+                            None => true,
+                        }
+                })
+                .count();
+            (idx, count)
+        })
         .collect();
     support_counts.sort_by(|a, b| b.1.cmp(&a.1));
 
@@ -666,6 +683,14 @@ fn handle_conflicting(original_orders: &mut [Order], target_location_code: &str,
         original_orders[idx].set_failure();
     }
     Some(winner_idx)
+}
+
+/// 指定地点に非移動命令または失敗した移動命令があればその勢力を返す
+fn occupant_power_for_target(original_orders: &[Order], target_code: &str) -> Option<Power> {
+    original_orders
+        .iter()
+        .find(|o| !o.is_assumed() && o.location().code()[..3] == target_code[..3] && !(matches!(o.kind, OrderKind::Move(_)) && o.is_success()))
+        .map(|o| o.power)
 }
 
 /// attacker 進軍成功かつ defender 進軍失敗からの defender の防衛成否判定
