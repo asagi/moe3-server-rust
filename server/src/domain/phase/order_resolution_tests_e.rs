@@ -55,7 +55,19 @@ fn test_datc_6_e_1() {
 /// A Munich Supports A Berlin - Kiel
 /// No unit will move.
 #[test]
-fn test_datc_6_e_2() {}
+fn test_datc_6_e_2() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("kie"));
+    let unit_g_3 = Unit::new_army(Power::Germany, p("mun"));
+    phase.data.orders.push(unit_g_1.move_to(p("kie")));
+    phase.data.orders.push(unit_g_2.move_to(p("ber")));
+    phase.data.orders.push(unit_g_3.support_move(unit_g_1, p("kie")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+}
 
 /// 6.E.3. TEST CASE, NO HELP IN DISLODGING OWN UNIT
 /// It is not possible to help a foreign power dislodge own unit in a head-to-head battle.
