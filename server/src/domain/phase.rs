@@ -383,3 +383,5 @@ mod order_resolution_tests_b;
 mod order_resolution_tests_c;
 #[cfg(test)]
 mod order_resolution_tests_d;
+#[cfg(test)]
+mod order_resolution_tests_e;
