@@ -775,8 +775,14 @@ fn decide_move_conflict_winner(original_orders: &[Order], a_idx: usize, b_idx: u
     }
 
     let support_orders = collect_valid_support_orders(original_orders);
-    let a_supports = support_orders.iter().filter(|s| s.is_matching_target(&original_orders[a_idx])).count();
-    let b_supports = support_orders.iter().filter(|s| s.is_matching_target(&original_orders[b_idx])).count();
+    let a_supports = support_orders
+        .iter()
+        .filter(|s| s.is_matching_target(&original_orders[a_idx]) && s.power != original_orders[b_idx].power)
+        .count();
+    let b_supports = support_orders
+        .iter()
+        .filter(|s| s.is_matching_target(&original_orders[b_idx]) && s.power != original_orders[a_idx].power)
+        .count();
 
     match a_supports.cmp(&b_supports) {
         Ordering::Greater => Some(a_idx),
