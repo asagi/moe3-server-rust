@@ -360,7 +360,7 @@ fn handle_switch_orders(original_orders: &mut [Order], standoff_province_codes: 
             continue;
         }
         if a_can && b_can {
-            // 双方とも海路迂回移動不可なら双方移動成功
+            // 双方とも海路迂回移動可なら双方移動成功
             original_orders[idx].set_success();
             original_orders[opposite_idx].set_success();
             continue;
