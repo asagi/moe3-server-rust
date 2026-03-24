@@ -327,10 +327,14 @@ fn handle_switch_orders(original_orders: &mut [Order], standoff_province_codes: 
         if conflict_winner_idx == Some(idx) && opposite_conflict_winner_idx != Some(opposite_idx) {
             // 甲軍進軍成功かつ乙軍進軍失敗からの乙軍の防衛成否判定
             resolve_no_support_defense(original_orders, idx, opposite_idx, opposite_conflict_winner_idx);
+            // 乙軍が dislodge された場合は甲軍の元所在地へのスタンドオフによる移動失敗をすべてリセット
+            reset_standoff_failures_to_attacker_origin(original_orders, idx, opposite_idx, standoff_province_codes);
             continue;
         } else if conflict_winner_idx != Some(idx) && opposite_conflict_winner_idx == Some(opposite_idx) {
             // 甲軍進軍失敗かつ乙軍進軍成功からの甲軍の防衛成否判定
             resolve_no_support_defense(original_orders, opposite_idx, idx, conflict_winner_idx);
+            // 甲軍が dislodge された場合は乙軍の元所在地へのスタンドオフによる移動失敗をすべてリセット
+            reset_standoff_failures_to_attacker_origin(original_orders, opposite_idx, idx, standoff_province_codes);
             continue;
         } else if conflict_winner_idx != Some(idx) && opposite_conflict_winner_idx != Some(opposite_idx) {
             if let Some(conflict_winner_idx) = conflict_winner_idx {
@@ -748,6 +752,28 @@ fn resolve_no_support_defense(original_orders: &mut [Order], attacker_idx: usize
         original_orders[attacker_idx].set_failure();
         original_orders[flanker_idx].set_failure();
     }
+}
+
+/// defender が dislodge された場合は attacker の元所在地へのスタンドオフによる移動失敗をすべてリセット
+fn reset_standoff_failures_to_attacker_origin(original_orders: &mut [Order], attacker_idx: usize, defender_idx: usize, standoff_province_codes: &mut Vec<String>) {
+    // 防御側が撃退されていなければ処理は不要
+    if !original_orders[defender_idx].is_dislodged() {
+        return;
+    }
+
+    let origin_prefix = &original_orders[attacker_idx].location().code()[..3];
+    for (_i, order) in original_orders.iter_mut().enumerate() {
+        if order.is_assumed() || !order.is_failure() {
+            continue;
+        }
+        if let OrderKind::Move(m) = &order.kind
+            && &m.dest.code()[..3] == origin_prefix
+        {
+            order.set_valid();
+        }
+    }
+
+    standoff_province_codes.retain(|code| code != origin_prefix);
 }
 
 /// `original_orders[idx]` の移動先に対して、既存の有効な輸送命令群で海路到達可能か判定する。
