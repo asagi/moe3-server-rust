@@ -154,7 +154,8 @@ fn test_datc_6_e_4() {
 }
 
 /// 6.E.5. TEST CASE, LOSER DISLODGED BY ANOTHER ARMY STILL HAS EFFECT
-/// If in an unbalanced head-to-head battle the loser is dislodged by a unit not part of the head-to-head battle, the loser still has an effect on the area of the winner of the head-to-head battle.
+/// If in an unbalanced head-to-head battle the loser is dislodged by a unit not part of the head-to-head battle,
+/// the loser still has an effect on the area of the winner of the head-to-head battle.
 ///
 /// Germany:
 /// F Holland - North Sea
@@ -174,9 +175,47 @@ fn test_datc_6_e_4() {
 /// Austria:
 /// A Kiel Supports A Ruhr - Holland
 /// A Ruhr - Holland
-/// The French fleet in the North Sea is dislodged but not by the German fleet in Holland. Therefore, the French fleet can still prevent that the Austrian army in Ruhr will move to Holland. So, the Austrian move in Ruhr fails and the German fleet in Holland is not dislodged.
+/// The French fleet in the North Sea is dislodged but not by the German fleet in Holland.
+/// Therefore, the French fleet can still prevent that the Austrian army in Ruhr will move to Holland.
+/// So, the Austrian move in Ruhr fails and the German fleet in Holland is not dislodged.
 #[test]
-fn test_datc_6_e_5() {}
+fn test_datc_6_e_5() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_g_1 = Unit::new_fleet(Power::Germany, p("hol"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("hel"));
+    let unit_g_3 = Unit::new_fleet(Power::Germany, p("ska"));
+    let unit_f_1 = Unit::new_fleet(Power::France, p("nth"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("bel"));
+    let unit_e_1 = Unit::new_fleet(Power::England, p("edi"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("yor"));
+    let unit_e_3 = Unit::new_fleet(Power::England, p("nwg"));
+    let unit_e_4 = Unit::new_fleet(Power::England, p("lon"));
+    let unit_a_1 = Unit::new_army(Power::Austria, p("kie"));
+    let unit_a_2 = Unit::new_army(Power::Austria, p("ruh"));
+    phase.data.orders.push(unit_g_1.move_to(p("nth")));
+    phase.data.orders.push(unit_g_2.support_move(unit_g_1, p("nth")));
+    phase.data.orders.push(unit_g_3.support_move(unit_g_1, p("nth")));
+    phase.data.orders.push(unit_f_1.move_to(p("hol")));
+    phase.data.orders.push(unit_f_2.support_move(unit_f_1, p("hol")));
+    phase.data.orders.push(unit_e_1.support_move(unit_e_3, p("nth")));
+    phase.data.orders.push(unit_e_2.support_move(unit_e_3, p("nth")));
+    phase.data.orders.push(unit_e_3.move_to(p("nth")));
+    phase.data.orders.push(unit_e_4.support_move(unit_e_3, p("nth")));
+    phase.data.orders.push(unit_a_1.support_move(unit_a_2, p("hol")));
+    phase.data.orders.push(unit_a_2.move_to(p("hol")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[7].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[8].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[9].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[10].status, OrderStatus::Failure);
+}
 
 /// 6.E.6. TEST CASE, NOT DISLODGE BECAUSE OF OWN SUPPORT STILL HAS EFFECT
 /// If in an unbalanced head-to-head battle the loser is not dislodged because the winner had help of a unit of the loser, the loser still has an effect on the area of the winner.
