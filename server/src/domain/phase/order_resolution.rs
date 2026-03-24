@@ -337,14 +337,7 @@ fn handle_switch_orders(original_orders: &mut [Order], standoff_province_codes: 
             reset_standoff_failures_to_attacker_origin(original_orders, opposite_idx, idx, standoff_province_codes);
             continue;
         } else if conflict_winner_idx != Some(idx) && opposite_conflict_winner_idx != Some(opposite_idx) {
-            if let Some(conflict_winner_idx) = conflict_winner_idx {
-                // 甲乙両軍進軍失敗からの乙軍の防衛成否判定
-                resolve_no_support_defense(original_orders, conflict_winner_idx, opposite_idx, None);
-            }
-            if let Some(opposite_conflict_winner_idx) = opposite_conflict_winner_idx {
-                // 甲乙両軍進軍失敗からの甲軍の防衛成否判定
-                resolve_no_support_defense(original_orders, opposite_conflict_winner_idx, idx, None);
-            }
+            // 甲乙両軍移動失敗
             continue;
         }
 
@@ -353,29 +346,11 @@ fn handle_switch_orders(original_orders: &mut [Order], standoff_province_codes: 
         // 海路迂回交換移動判定
         let a_can = can_reach_via_convoy(original_orders, idx);
         let b_can = can_reach_via_convoy(original_orders, opposite_idx);
-        if !a_can && !b_can {
-            // 双方とも海路迂回移動不可なら双方移動失敗
-            original_orders[idx].set_failure();
-            original_orders[opposite_idx].set_failure();
-            continue;
-        }
-        if a_can && b_can {
-            // 双方とも海路迂回移動可なら双方移動成功
+        if a_can || b_can {
+            // どちらか一方が海路迂回移動可能なら双方移動成功
             original_orders[idx].set_success();
             original_orders[opposite_idx].set_success();
             continue;
-        }
-        if a_can || b_can {
-            // 隣接地に限りどちらか一方が海路迂回移動可能なら双方移動成功
-            if Path::is_adjacent(original_orders[idx].location().code(), original_orders[opposite_idx].location().code()) {
-                original_orders[idx].set_success();
-                original_orders[opposite_idx].set_success();
-                continue;
-            } else {
-                original_orders[idx].set_failure();
-                original_orders[opposite_idx].set_failure();
-                continue;
-            }
         }
 
         // 直接対決
