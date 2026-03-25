@@ -329,7 +329,28 @@ fn test_datc_6_e_7() {
 /// F Norway - North Sea
 /// Again, none of the fleets move.
 #[test]
-fn test_datc_6_e_8() {}
+fn test_datc_6_e_8() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("nth"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("yor"));
+    let unit_g_1 = Unit::new_fleet(Power::Germany, p("hol"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("hel"));
+    let unit_r_1 = Unit::new_fleet(Power::Russia, p("ska"));
+    let unit_r_2 = Unit::new_fleet(Power::Russia, p("nwy"));
+    phase.data.orders.push(unit_e_1.move_to(p("nwy")));
+    phase.data.orders.push(unit_e_2.support_move(unit_r_2, p("nth")));
+    phase.data.orders.push(unit_g_1.support_move(unit_g_2, p("nth")));
+    phase.data.orders.push(unit_g_2.move_to(p("nth")));
+    phase.data.orders.push(unit_r_1.support_move(unit_r_2, p("nth")));
+    phase.data.orders.push(unit_r_2.move_to(p("nth")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Failure);
+}
 
 /// 6.E.9. TEST CASE, ALMOST SELF DISLODGEMENT WITH BELEAGUERED GARRISON
 /// Similar to the previous test case, but now the beleaguered fleet is moving away.
