@@ -696,7 +696,14 @@ fn handle_conflicting(original_orders: &mut [Order], target_location_code: &str,
 fn occupant_power_for_target(original_orders: &[Order], target_code: &str) -> Option<Power> {
     original_orders
         .iter()
-        .find(|o| !o.is_assumed() && o.location().code()[..3] == target_code[..3] && !(matches!(o.kind, OrderKind::Move(_)) && o.is_success()))
+        .find(|o| {
+            !o.is_assumed()
+                && o.location().code()[..3] == target_code[..3]
+                && match o.kind {
+                    OrderKind::Move(_) => o.is_failure(),
+                    _ => true,
+                }
+        })
         .map(|o| o.power)
 }
 
