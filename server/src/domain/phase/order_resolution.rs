@@ -344,12 +344,19 @@ fn handle_switch_orders(original_orders: &mut [Order], standoff_province_codes: 
         // 直接対決
         if let Some(winner_idx) = decide_move_conflict_winner(original_orders, idx, opposite_idx) {
             let loser_idx = if winner_idx == idx { opposite_idx } else { idx };
-            original_orders[winner_idx].set_success();
-            original_orders[loser_idx].set_dislodged_from(&original_orders[winner_idx].location());
+            if original_orders[winner_idx].is_valid() {
+                // 勝者の進軍可否が未解決の場合
+                original_orders[winner_idx].set_success();
+                original_orders[loser_idx].set_dislodged_from(&original_orders[winner_idx].location());
 
-            // 撃退された軍の元所在地に発生させたスタンドオフを無効化
-            reset_standoff_failures_to_attacker_origin(original_orders, winner_idx, loser_idx, standoff_province_codes);
-            continue;
+                // 撃退された軍の元所在地に発生させたスタンドオフを無効化
+                reset_standoff_failures_to_attacker_origin(original_orders, winner_idx, loser_idx, standoff_province_codes);
+                continue;
+            } else {
+                // 勝者のスタンドオフによる移動失敗が事前に確定している場合
+                original_orders[loser_idx].set_failure();
+                continue;
+            }
         } else {
             original_orders[idx].set_failure();
             original_orders[opposite_idx].set_failure();
