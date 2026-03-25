@@ -435,8 +435,12 @@ fn test_datc_6_e_10() {
     assert_eq!(phase.data.orders[6].status, OrderStatus::Failure);
 }
 
-/// 6.E.11. TEST CASE, NO SELF DISLODGEMENT WITH BELEAGUERED GARRISON, UNIT SWAP WITH ADJACENT CONVOYING AND TWO COASTS
-/// Similar to the previous test case, but now the beleaguered fleet is in a unit swap with the stronger attacker. So, the unit swap succeeds. To make the situation more complex, the swap is on an area with two coasts.
+/// 6.E.11. TEST CASE, NO SELF DISLODGEMENT WITH BELEAGUERED GARRISON,
+/// UNIT SWAP WITH ADJACENT CONVOYING AND TWO COASTS
+/// Similar to the previous test case, but now the beleaguered fleet is
+/// in a unit swap with the stronger attacker.
+/// So, the unit swap succeeds. To make the situation more complex,
+/// the swap is on an area with two coasts.
 ///
 /// France:
 /// A Spain - Portugal via convoy
@@ -450,9 +454,34 @@ fn test_datc_6_e_10() {
 /// Italy:
 /// F Portugal - Spain(nc)
 /// F Western Mediterranean Supports F Portugal - Spain(nc)
-/// The unit swap succeeds. Note that due to the success of the swap, there is no beleaguered garrison anymore.
+/// The unit swap succeeds. Note that due to the success of the swap,
+/// there is no beleaguered garrison anymore.
 #[test]
-fn test_datc_6_e_11() {}
+fn test_datc_6_e_11() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_f_1 = Unit::new_army(Power::France, p("spa"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("mao"));
+    let unit_f_3 = Unit::new_fleet(Power::France, p("lyo"));
+    let unit_g_1 = Unit::new_army(Power::Germany, p("mar"));
+    let unit_g_2 = Unit::new_army(Power::Germany, p("gas"));
+    let unit_i_1 = Unit::new_fleet(Power::Italy, p("por"));
+    let unit_i_2 = Unit::new_fleet(Power::Italy, p("wes"));
+    phase.data.orders.push(unit_f_1.move_to(p("por")));
+    phase.data.orders.push(unit_f_2.convoy(unit_f_1, p("por")));
+    phase.data.orders.push(unit_f_3.support_move(unit_i_1, p("spa_nc")));
+    phase.data.orders.push(unit_g_1.support_move(unit_g_2, p("spa")));
+    phase.data.orders.push(unit_g_2.move_to(p("spa")));
+    phase.data.orders.push(unit_i_1.move_to(p("spa_nc")));
+    phase.data.orders.push(unit_i_2.support_move(unit_i_1, p("spa_nc")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Valid);
+}
 
 /// 6.E.12. TEST CASE, SUPPORT ON ATTACK ON OWN UNIT CAN BE USED FOR OTHER MEANS
 /// A support on an attack on your own unit still has an effect. It can prevent that another army will dislodge the unit.
