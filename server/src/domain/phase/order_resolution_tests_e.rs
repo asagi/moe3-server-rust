@@ -392,7 +392,8 @@ fn test_datc_6_e_9() {
 }
 
 /// 6.E.10. TEST CASE, ALMOST CIRCULAR MOVEMENT WITH NO SELF DISLODGEMENT WITH BELEAGUERED GARRISON
-/// Similar to the previous test case, but now the beleaguered fleet is in circular movement with the weaker attacker. So, the circular movement fails.
+/// Similar to the previous test case, but now the beleaguered fleet is in circular movement with the weaker attacker.
+/// So, the circular movement fails.
 ///
 /// England:
 /// F North Sea - Denmark
@@ -408,7 +409,31 @@ fn test_datc_6_e_9() {
 /// F Norway - North Sea
 /// There is no movement of fleets.
 #[test]
-fn test_datc_6_e_10() {}
+fn test_datc_6_e_10() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("nth"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("yor"));
+    let unit_g_1 = Unit::new_fleet(Power::Germany, p("hol"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("hel"));
+    let unit_g_3 = Unit::new_fleet(Power::Germany, p("den"));
+    let unit_r_1 = Unit::new_fleet(Power::Russia, p("ska"));
+    let unit_r_2 = Unit::new_fleet(Power::Russia, p("nwy"));
+    phase.data.orders.push(unit_e_1.move_to(p("den")));
+    phase.data.orders.push(unit_e_2.support_move(unit_r_2, p("nth")));
+    phase.data.orders.push(unit_g_1.support_move(unit_g_2, p("nth")));
+    phase.data.orders.push(unit_g_2.move_to(p("nth")));
+    phase.data.orders.push(unit_g_3.move_to(p("hel")));
+    phase.data.orders.push(unit_r_1.support_move(unit_r_2, p("nth")));
+    phase.data.orders.push(unit_r_2.move_to(p("nth")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Failure);
+}
 
 /// 6.E.11. TEST CASE, NO SELF DISLODGEMENT WITH BELEAGUERED GARRISON, UNIT SWAP WITH ADJACENT CONVOYING AND TWO COASTS
 /// Similar to the previous test case, but now the beleaguered fleet is in a unit swap with the stronger attacker. So, the unit swap succeeds. To make the situation more complex, the swap is on an area with two coasts.
