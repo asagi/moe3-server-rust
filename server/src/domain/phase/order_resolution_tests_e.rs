@@ -567,16 +567,28 @@ fn test_datc_6_e_13() {
 }
 
 /// 6.E.14. TEST CASE, ILLEGAL HEAD-TO-HEAD BATTLE CAN STILL DEFEND
-/// If in a head-to-head battle, one of the units makes an illegal move, then that unit still has the possibility to defend against attacks with strength of one.
+/// If in a head-to-head battle, one of the units makes an illegal move,
+/// then that unit still has the possibility to defend against attacks with strength of one.
 ///
 /// England:
 /// A Liverpool - Edinburgh
 ///
 /// Russia:
 /// F Edinburgh - Liverpool
-/// The move of the Russian fleet is illegal, but can still prevent the English army from entering Edinburgh. So, none of the units move.
+/// The move of the Russian fleet is illegal,
+/// but can still prevent the English army from entering Edinburgh.
+/// So, none of the units move.
 #[test]
-fn test_datc_6_e_14() {}
+fn test_datc_6_e_14() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_army(Power::England, p("lvp"));
+    let unit_r_1 = Unit::new_fleet(Power::Russia, p("edi"));
+    phase.data.orders.push(unit_e_1.move_to(p("edi")));
+    phase.data.orders.push(unit_r_1.move_to(p("lvp")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+}
 
 /// 6.E.15. TEST CASE, THE FRIENDLY HEAD-TO-HEAD BATTLE
 /// In this case each unit in the head-to-head battle prevents that the other unit from being dislodged.
