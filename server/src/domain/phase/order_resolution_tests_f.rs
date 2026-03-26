@@ -100,7 +100,8 @@ fn test_datc_6_f_3() {
 }
 
 /// 6.F.4. TEST CASE, AN ATTACKED CONVOY IS NOT DISRUPTED
-/// A convoy can only be disrupted by dislodging the fleets. Attacking is not sufficient.
+/// A convoy can only be disrupted by dislodging the fleets.
+/// Attacking is not sufficient.
 ///
 /// England:
 /// F North Sea Convoys A London - Holland
@@ -110,7 +111,19 @@ fn test_datc_6_f_3() {
 /// F Skagerrak - North Sea
 /// The army in London will successfully convoy and end in Holland.
 #[test]
-fn test_datc_6_f_4() {}
+fn test_datc_6_f_4() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("nth"));
+    let unit_e_2 = Unit::new_army(Power::England, p("lon"));
+    let unit_g_1 = Unit::new_fleet(Power::Germany, p("ska"));
+    phase.data.orders.push(unit_e_1.convoy(unit_e_2, p("hol")));
+    phase.data.orders.push(unit_e_2.move_to(p("hol")));
+    phase.data.orders.push(unit_g_1.move_to(p("nth")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+}
 
 /// 6.F.5. TEST CASE, A BELEAGUERED CONVOY IS NOT DISRUPTED
 /// Even when a convoy is in a beleaguered garrison it is not disrupted.
@@ -128,7 +141,28 @@ fn test_datc_6_f_4() {}
 /// F Denmark Supports F Skagerrak - North Sea
 /// The army in London will successfully convoy and end in Holland.
 #[test]
-fn test_datc_6_f_5() {}
+fn test_datc_6_f_5() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("nth"));
+    let unit_e_2 = Unit::new_army(Power::England, p("lon"));
+    let unit_f_1 = Unit::new_fleet(Power::France, p("eng"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("bel"));
+    let unit_g_1 = Unit::new_fleet(Power::Germany, p("ska"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("den"));
+    phase.data.orders.push(unit_e_1.convoy(unit_e_2, p("hol")));
+    phase.data.orders.push(unit_e_2.move_to(p("hol")));
+    phase.data.orders.push(unit_f_1.move_to(p("nth")));
+    phase.data.orders.push(unit_f_2.support_move(unit_f_1, p("nth")));
+    phase.data.orders.push(unit_g_1.move_to(p("nth")));
+    phase.data.orders.push(unit_g_2.support_move(unit_g_1, p("nth")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
+}
 
 /// 6.F.6. TEST CASE, DISLODGED CONVOY DOES NOT CUT SUPPORT
 /// When a fleet of a convoy is dislodged, the convoy is completely cancelled. So, no support is cut.
