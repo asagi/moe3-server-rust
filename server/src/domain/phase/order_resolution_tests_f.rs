@@ -79,9 +79,25 @@ fn test_datc_6_f_2() {
 ///
 /// France:
 /// A Paris - Brest
-/// The army in London receives support and beats the army in Paris. This means that the army London will end in Brest and the French army in Paris stays in Paris.
+/// The army in London receives support and beats the army in Paris.
+/// This means that the army London will end in Brest and the French army in Paris stays in Paris.
 #[test]
-fn test_datc_6_f_3() {}
+fn test_datc_6_f_3() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("eng"));
+    let unit_e_2 = Unit::new_army(Power::England, p("lon"));
+    let unit_e_3 = Unit::new_fleet(Power::England, p("mao"));
+    let unit_f_1 = Unit::new_army(Power::France, p("par"));
+    phase.data.orders.push(unit_e_1.convoy(unit_e_2, p("bre")));
+    phase.data.orders.push(unit_e_2.move_to(p("bre")));
+    phase.data.orders.push(unit_e_3.support_move(unit_e_2, p("bre")));
+    phase.data.orders.push(unit_f_1.move_to(p("bre")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
+}
 
 /// 6.F.4. TEST CASE, AN ATTACKED CONVOY IS NOT DISRUPTED
 /// A convoy can only be disrupted by dislodging the fleets. Attacking is not sufficient.
