@@ -521,7 +521,8 @@ fn test_datc_6_e_12() {
 }
 
 /// 6.E.13. TEST CASE, THREE WAY BELEAGUERED GARRISON
-/// In a beleaguered garrison from three sides, the adjudicator may not let two attacks fail and then let the third succeed.
+/// In a beleaguered garrison from three sides,
+/// the adjudicator may not let two attacks fail and then let the third succeed.
 ///
 /// England:
 /// F Edinburgh Supports F Yorkshire - North Sea
@@ -539,7 +540,31 @@ fn test_datc_6_e_12() {
 /// F Norway Supports F Norwegian Sea - North Sea
 /// None of the fleets move. The German fleet in the North Sea is not dislodged.
 #[test]
-fn test_datc_6_e_13() {}
+fn test_datc_6_e_13() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("edi"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("yor"));
+    let unit_f_1 = Unit::new_fleet(Power::France, p("bel"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("eng"));
+    let unit_g_1 = Unit::new_fleet(Power::Germany, p("nth"));
+    let unit_r_1 = Unit::new_fleet(Power::Russia, p("nwg"));
+    let unit_r_2 = Unit::new_fleet(Power::Russia, p("nwy"));
+    phase.data.orders.push(unit_e_1.support_move(unit_e_2, p("nth")));
+    phase.data.orders.push(unit_e_2.move_to(p("nth")));
+    phase.data.orders.push(unit_f_1.move_to(p("nth")));
+    phase.data.orders.push(unit_f_2.support_move(unit_f_1, p("nth")));
+    phase.data.orders.push(unit_g_1.hold());
+    phase.data.orders.push(unit_r_1.move_to(p("nth")));
+    phase.data.orders.push(unit_r_2.support_move(unit_r_1, p("nth")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Valid);
+}
 
 /// 6.E.14. TEST CASE, ILLEGAL HEAD-TO-HEAD BATTLE CAN STILL DEFEND
 /// If in a head-to-head battle, one of the units makes an illegal move, then that unit still has the possibility to defend against attacks with strength of one.
