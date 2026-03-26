@@ -6,16 +6,16 @@
 //!
 //! [DATC_6F]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.F
 
-// use super::super::order::*;
-// use super::super::phase::order_resolution::*;
-// use super::super::phase::*;
-// use super::super::power::*;
-// use super::super::province::*;
-// use super::super::unit::*;
-//
-// fn p(code: &str) -> Province {
-//     Province::from_code(code).expect("valid province code")
-// }
+use super::super::order::*;
+use super::super::phase::order_resolution::*;
+use super::super::phase::*;
+use super::super::power::*;
+use super::super::province::*;
+use super::super::unit::*;
+
+fn p(code: &str) -> Province {
+    Province::from_code(code).expect("valid province code")
+}
 
 /// 6.F.1. TEST CASE, NO CONVOY IN COASTAL AREAS
 /// A fleet in a coastal area may not convoy.
@@ -27,7 +27,22 @@
 /// F Black Sea Convoys A Greece - Sevastopol
 /// The convoy in Constantinople is not possible. So, the army in Greece will not move to Sevastopol.
 #[test]
-fn test_datc_6_f_1() {}
+fn test_datc_6_f_1() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_t_1 = Unit::new_army(Power::Turkey, p("gre"));
+    let unit_t_2 = Unit::new_fleet(Power::Turkey, p("aeg"));
+    let unit_t_3 = Unit::new_fleet(Power::Turkey, p("con"));
+    let unit_t_4 = Unit::new_fleet(Power::Turkey, p("bla"));
+    phase.data.orders.push(unit_t_1.move_to(p("sev")));
+    phase.data.orders.push(unit_t_2.convoy(unit_t_1, p("sev")));
+    phase.data.orders.push(unit_t_3.convoy(unit_t_1, p("sev")));
+    phase.data.orders.push(unit_t_4.convoy(unit_t_1, p("sev")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Invalid);
+}
 
 /// 6.F.2. TEST CASE, AN ARMY BEING CONVOYED CAN BOUNCE AS NORMAL
 /// Armies being convoyed bounce on other units just as armies that are not being convoyed.
