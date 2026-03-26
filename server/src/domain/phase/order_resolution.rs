@@ -690,6 +690,10 @@ fn handle_conflicting(original_orders: &mut [Order], target_location_code: &str,
 
     // 自己撃退支援有効で計算して、勝者なしならそれが正解。
     let winner1 = handle_conflicting_core(original_orders, &conflicting_move_indicies, target_location_code, standoff_province_codes, target_power)?;
+    if target_power.is_none() {
+        // 指定地点に駐留軍がいないなら自己撃退支援の有効無効は関係ないので winner1 が勝者で確定
+        return Some(winner1);
+    }
 
     // 自己撃退支援有効で計算して、勝者が出てもその勝者に有効な支援がなければそれも正解（自己撃退含めて支援がなかったということ）。
     // 自己撃退支援有効で計算して、一つ以上の支援の付いた勝者が出た場合は自己撃退支援を無効にして計算しなおす必要がある（撃退回避の可能性を探すため）。
