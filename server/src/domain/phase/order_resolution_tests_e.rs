@@ -2,7 +2,7 @@
 //!
 //! 参照先: [DATC v3.0 Section 6][DATC_6E]
 //!
-//! * 6.A. 6.E. TEST CASES, HEAD-TO-HEAD BATTLES AND BELEAGUERED GARRISON
+//! * 6.E. TEST CASES, HEAD-TO-HEAD BATTLES AND BELEAGUERED GARRISON
 //!
 //! [DATC_6E]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.E
 
