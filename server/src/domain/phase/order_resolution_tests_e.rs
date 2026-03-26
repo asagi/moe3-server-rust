@@ -484,7 +484,8 @@ fn test_datc_6_e_11() {
 }
 
 /// 6.E.12. TEST CASE, SUPPORT ON ATTACK ON OWN UNIT CAN BE USED FOR OTHER MEANS
-/// A support on an attack on your own unit still has an effect. It can prevent that another army will dislodge the unit.
+/// A support on an attack on your own unit still has an effect.
+/// It can prevent that another army will dislodge the unit.
 ///
 /// Austria:
 /// A Budapest - Rumania
@@ -496,9 +497,28 @@ fn test_datc_6_e_11() {
 /// Russia:
 /// A Galicia - Budapest
 /// A Rumania Supports A Galicia - Budapest
-/// The support of Serbia on the Italian army prevents that the Russian army in Galicia will advance. No army will move.
+/// The support of Serbia on the Italian army prevents that the Russian army in Galicia will advance.
+/// No army will move.
 #[test]
-fn test_datc_6_e_12() {}
+fn test_datc_6_e_12() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_a_1 = Unit::new_army(Power::Austria, p("bud"));
+    let unit_a_2 = Unit::new_army(Power::Austria, p("ser"));
+    let unit_i_1 = Unit::new_army(Power::Italy, p("vie"));
+    let unit_r_1 = Unit::new_army(Power::Russia, p("gal"));
+    let unit_r_2 = Unit::new_army(Power::Russia, p("rum"));
+    phase.data.orders.push(unit_a_1.move_to(p("rum")));
+    phase.data.orders.push(unit_a_2.support_move(unit_i_1, p("bud")));
+    phase.data.orders.push(unit_i_1.move_to(p("bud")));
+    phase.data.orders.push(unit_r_1.move_to(p("bud")));
+    phase.data.orders.push(unit_r_2.support_move(unit_r_1, p("bud")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+}
 
 /// 6.E.13. TEST CASE, THREE WAY BELEAGUERED GARRISON
 /// In a beleaguered garrison from three sides, the adjudicator may not let two attacks fail and then let the third succeed.
