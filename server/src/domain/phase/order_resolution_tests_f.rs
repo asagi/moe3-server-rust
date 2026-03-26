@@ -55,7 +55,19 @@ fn test_datc_6_f_1() {
 /// A Paris - Brest
 /// The English army in London bounces on the French army in Paris. Both units do not move.
 #[test]
-fn test_datc_6_f_2() {}
+fn test_datc_6_f_2() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("eng"));
+    let unit_e_2 = Unit::new_army(Power::England, p("lon"));
+    let unit_f_1 = Unit::new_army(Power::France, p("par"));
+    phase.data.orders.push(unit_e_1.convoy(unit_e_2, p("bre")));
+    phase.data.orders.push(unit_e_2.move_to(p("bre")));
+    phase.data.orders.push(unit_f_1.move_to(p("bre")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+}
 
 /// 6.F.3. TEST CASE, AN ARMY BEING CONVOYED CAN RECEIVE SUPPORT
 /// Armies being convoyed can receive support as in any other move.
