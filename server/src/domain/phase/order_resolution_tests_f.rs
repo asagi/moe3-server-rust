@@ -165,7 +165,8 @@ fn test_datc_6_f_5() {
 }
 
 /// 6.F.6. TEST CASE, DISLODGED CONVOY DOES NOT CUT SUPPORT
-/// When a fleet of a convoy is dislodged, the convoy is completely cancelled. So, no support is cut.
+/// When a fleet of a convoy is dislodged, the convoy is completely cancelled.
+/// So, no support is cut.
 ///
 /// England:
 /// F North Sea Convoys A London - Holland
@@ -180,9 +181,37 @@ fn test_datc_6_f_5() {
 /// France:
 /// A Picardy - Belgium
 /// A Burgundy Supports A Picardy - Belgium
-/// The hold order of Holland on Belgium will sustain and Belgium will not be dislodged by the French in Picardy.
+/// The hold order of Holland on Belgium will sustain and Belgium will not be dislodged
+/// by the French in Picardy.
 #[test]
-fn test_datc_6_f_6() {}
+fn test_datc_6_f_6() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("nth"));
+    let unit_e_2 = Unit::new_army(Power::England, p("lon"));
+    let unit_g_1 = Unit::new_army(Power::Germany, p("hol"));
+    let unit_g_2 = Unit::new_army(Power::Germany, p("bel"));
+    let unit_g_3 = Unit::new_fleet(Power::Germany, p("hel"));
+    let unit_g_4 = Unit::new_fleet(Power::Germany, p("ska"));
+    let unit_f_1 = Unit::new_army(Power::France, p("pic"));
+    let unit_f_2 = Unit::new_army(Power::France, p("bur"));
+    phase.data.orders.push(unit_e_1.convoy(unit_e_2, p("hol")));
+    phase.data.orders.push(unit_e_2.move_to(p("hol")));
+    phase.data.orders.push(unit_g_1.support_hold(unit_g_2));
+    phase.data.orders.push(unit_g_2.support_hold(unit_g_1));
+    phase.data.orders.push(unit_g_3.support_move(unit_g_4, p("nth")));
+    phase.data.orders.push(unit_g_4.move_to(p("nth")));
+    phase.data.orders.push(unit_f_1.move_to(p("bel")));
+    phase.data.orders.push(unit_f_2.support_move(unit_f_1, p("bel")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Cut);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[7].status, OrderStatus::Valid);
+}
 
 /// 6.F.7. TEST CASE, DISLODGED CONVOY DOES NOT CAUSE CONTESTED AREA
 /// When a fleet of a convoy is dislodged, the landing area is not contested, so other units can retreat to that area.
