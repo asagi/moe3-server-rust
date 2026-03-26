@@ -76,7 +76,7 @@ fn validate_move_orders(original_orders: &mut [Order]) {
                 continue;
             }
 
-            let matched_convoy_orders: Vec<&Order> = convoy_orders.iter().filter(|o| o.is_matching_target(move_order)).collect();
+            let matched_convoy_orders: Vec<&Order> = convoy_orders.iter().filter(|o| o.is_matching_target(move_order) && o.location().is_water()).collect();
             if can_move_via_convoy(move_order, m.dest.code(), &matched_convoy_orders) {
                 move_order.set_valid();
                 continue;
