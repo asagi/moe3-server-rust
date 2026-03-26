@@ -275,12 +275,21 @@ fn handle_disruption_convoy_order(original_orders: &mut [Order], standoff_provin
         let Some(move_order_idx) = original_orders.iter().position(|o| original_orders[convoy_order_idx].is_matching_target(o)) else {
             unreachable!("move order matching convoy order should exist");
         };
-        let OrderKind::Move(m) = &original_orders[move_order_idx].kind else {
+        let OrderKind::Move(m) = &original_orders[move_order_idx].kind.clone() else {
             unreachable!("expected Move")
         };
         let matched_convoy_orders = collect_matched_convoy_orders(&convoy_orders, &original_orders[move_order_idx]);
         if !can_move_via_convoy(&original_orders[move_order_idx], m.dest.code(), &matched_convoy_orders) {
+            // 輸送経路切断による移動失敗
             original_orders[move_order_idx].set_failure();
+
+            // 輸送先にカットされた支援命令があればカットを取り消す
+            for idx in collect_cut_support_indices(original_orders) {
+                let support_order = &mut original_orders[idx];
+                if support_order.location().code()[..3] == m.dest.code()[..3] {
+                    support_order.set_valid();
+                }
+            }
             continue;
         }
     }
@@ -567,6 +576,16 @@ fn collect_valid_support_indices(orders: &[Order]) -> Vec<usize> {
         .iter()
         .enumerate()
         .filter(|(_, o)| !o.is_assumed() && o.is_valid() && matches!(o.kind, OrderKind::Support(_)))
+        .map(|(i, _)| i)
+        .collect()
+}
+
+/// カットされた支援命令のインデックスコレクションを作成
+fn collect_cut_support_indices(orders: &[Order]) -> Vec<usize> {
+    orders
+        .iter()
+        .enumerate()
+        .filter(|(_, o)| !o.is_assumed() && o.is_cut() && matches!(o.kind, OrderKind::Support(_)))
         .map(|(i, _)| i)
         .collect()
 }
