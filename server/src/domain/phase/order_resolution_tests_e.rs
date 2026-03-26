@@ -591,7 +591,8 @@ fn test_datc_6_e_14() {
 }
 
 /// 6.E.15. TEST CASE, THE FRIENDLY HEAD-TO-HEAD BATTLE
-/// In this case each unit in the head-to-head battle prevents that the other unit from being dislodged.
+/// In this case each unit in the head-to-head battle prevents that
+/// the other unit from being dislodged.
 ///
 /// England:
 /// F Holland Supports A Ruhr - Kiel
@@ -610,6 +611,43 @@ fn test_datc_6_e_14() {
 /// Russia:
 /// F Baltic Sea Supports A Prussia - Berlin
 /// A Prussia - Berlin
-/// None of the moves succeeds. This case is especially difficult for sequence based adjudicators. They will start adjudicating the head-to-head battle and continue to adjudicate the attack on one of the units which is part of the head-to-head battle. In this process, one of the sides of the head-to-head battle might be cancelled out.
+/// None of the moves succeeds.
+/// This case is especially difficult for sequence based adjudicators.
+/// They will start adjudicating the head-to-head battle and continue to adjudicate
+/// the attack on one of the units which is part of the head-to-head battle.
+/// In this process, one of the sides of the head-to-head battle might be cancelled out.
 #[test]
-fn test_datc_6_e_15() {}
+fn test_datc_6_e_15() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("hol"));
+    let unit_e_2 = Unit::new_army(Power::England, p("ruh"));
+    let unit_f_1 = Unit::new_army(Power::France, p("kie"));
+    let unit_f_2 = Unit::new_army(Power::France, p("mun"));
+    let unit_f_3 = Unit::new_army(Power::France, p("sil"));
+    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("den"));
+    let unit_g_3 = Unit::new_fleet(Power::Germany, p("hel"));
+    let unit_r_1 = Unit::new_fleet(Power::Russia, p("bal"));
+    let unit_r_2 = Unit::new_army(Power::Russia, p("pru"));
+    phase.data.orders.push(unit_e_1.support_move(unit_e_2, p("kie")));
+    phase.data.orders.push(unit_e_2.move_to(p("kie")));
+    phase.data.orders.push(unit_f_1.move_to(p("ber")));
+    phase.data.orders.push(unit_f_2.support_move(unit_f_1, p("ber")));
+    phase.data.orders.push(unit_f_3.support_move(unit_f_1, p("ber")));
+    phase.data.orders.push(unit_g_1.move_to(p("kie")));
+    phase.data.orders.push(unit_g_2.support_move(unit_g_1, p("kie")));
+    phase.data.orders.push(unit_g_3.support_move(unit_g_1, p("kie")));
+    phase.data.orders.push(unit_r_1.support_move(unit_r_2, p("ber")));
+    phase.data.orders.push(unit_r_2.move_to(p("ber")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[7].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[8].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[9].status, OrderStatus::Failure);
+}
