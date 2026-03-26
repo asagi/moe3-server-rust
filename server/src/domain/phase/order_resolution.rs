@@ -642,7 +642,7 @@ fn collect_valid_move_destination_set(orders: &[Order]) -> IndexSet<Province> {
 
 /// 戦闘解決
 fn handle_conflicting(original_orders: &mut [Order], target_location_code: &str, standoff_province_codes: &mut Vec<String>, enable_bg: bool) -> Option<usize> {
-    // BELEAGUERED GARRISON が有効な場合は失敗判定された移動命令も conflicting_move_indicies 追加する
+    // BELEAGUERED GARRISON が有効な場合は失敗判定された移動命令も conflicting_move_indicies に追加する
     let conflicting_move_indicies: Vec<usize> = if enable_bg {
         collect_not_invalid_order_indices(original_orders)
             .into_iter()
@@ -685,17 +685,14 @@ fn handle_conflicting(original_orders: &mut [Order], target_location_code: &str,
         None
     };
 
-    // DATC の解釈では、自軍撃退支援を有効とすることで逆にスタンドオフが発生して撃退を回避できるなら有効、そうでなければ無効にするという判定が優先される。
-    // つまり target_power.is_some() が true の場合
-    // winner の支援が 1 以上の場合は None が返る計算の方が優先される
-    // - target_power.is_some() == true： target_location に非移動命令か失敗した移動命令がいる
-    // - 自己撃退支援有効で計算して、勝者なしならそれが正解。
-    // - 自己撃退支援有効で計算して、勝者が出てもその勝者に有効な支援がなければそれも正解（自己撃退含めて支援がなかったということ）
-    // - 自己撃退支援有効で計算して、一つ以上の支援の付いた勝者が出た場合は自己撃退支援を無効にして計算しなおす必要がある（撃退回避の可能性を探すため）。
-    // - 自己撃退支援無効で計算したらどんな結果が出ようとそれが正解。
+    // DATC の解釈では、自軍撃退支援を有効とすることで逆にスタンドオフが発生して撃退を回避できるなら有効、
+    // そうでなければ無効にするという判定が優先される。
 
+    // 自己撃退支援有効で計算して、勝者なしならそれが正解。
     let winner1 = handle_conflicting_core(original_orders, &conflicting_move_indicies, target_location_code, standoff_province_codes, target_power)?;
 
+    // 自己撃退支援有効で計算して、勝者が出てもその勝者に有効な支援がなければそれも正解（自己撃退含めて支援がなかったということ）。
+    // 自己撃退支援有効で計算して、一つ以上の支援の付いた勝者が出た場合は自己撃退支援を無効にして計算しなおす必要がある（撃退回避の可能性を探すため）。
     let support_orders = collect_valid_support_orders(original_orders);
     if target_power.is_some()
         && !support_orders
@@ -706,6 +703,7 @@ fn handle_conflicting(original_orders: &mut [Order], target_location_code: &str,
         return Some(winner1);
     }
 
+    // 自己撃退支援無効で計算したらどんな結果が出ようとそれが正解。
     handle_conflicting_core(original_orders, &conflicting_move_indicies, target_location_code, standoff_province_codes, None)
 }
 
@@ -771,11 +769,7 @@ fn occupant_power_on_target(original_orders: &[Order], target_code: &str) -> Opt
     }
 
     if occupant_order.is_valid() {
-        // 未処理の移動命令の扱いで 6e8、6e10 と 6e11が対立する
-
-        // 移動に失敗した occupant_order を排除できるかどうか
-        // - できる： Some(occupant_order.unit.power)
-        // - できない： None
+        // 未処理の移動命令が存在すればその勢力を返す
         return Some(occupant_order.unit.power);
     }
 
