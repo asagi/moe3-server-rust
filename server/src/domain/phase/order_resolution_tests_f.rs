@@ -568,9 +568,32 @@ fn test_datc_6_f_15() {
 /// F Belgium - English Channel
 /// See issue 4.A.2
 ///
-/// According to all rulebooks (including the Szykman rule which I prefer), the support of London is not cut. That means that the fleet in the English Channel is not dislodged and none of the units succeed to move.
+/// According to all rulebooks (including the Szykman rule which I prefer),
+/// the support of London is not cut.
+/// That means that the fleet in the English Channel is not dislodged and none of the units succeed to move.
 #[test]
-fn test_datc_6_f_16() {}
+fn test_datc_6_f_16() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("lon"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("wal"));
+    let unit_f_1 = Unit::new_army(Power::France, p("bre"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("eng"));
+    let unit_g_1 = Unit::new_fleet(Power::Germany, p("nth"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("bel"));
+    phase.data.orders.push(unit_e_1.support_move(unit_e_2, p("eng")));
+    phase.data.orders.push(unit_e_2.move_to(p("eng")));
+    phase.data.orders.push(unit_f_1.move_to(p("lon")));
+    phase.data.orders.push(unit_f_2.convoy(unit_f_1, p("lon")));
+    phase.data.orders.push(unit_g_1.support_move(unit_g_2, p("eng")));
+    phase.data.orders.push(unit_g_2.move_to(p("eng")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Failure);
+}
 
 /// 6.F.17. TEST CASE, PANDIN'S EXTENDED PARADOX
 /// In Pandin's extended paradox, the attacked unit protects the convoying fleet by a beleaguered garrison and the attacked unit can dislodge the unit that gives the protection.
