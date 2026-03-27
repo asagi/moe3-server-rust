@@ -214,7 +214,8 @@ fn test_datc_6_f_6() {
 }
 
 /// 6.F.7. TEST CASE, DISLODGED CONVOY DOES NOT CAUSE CONTESTED AREA
-/// When a fleet of a convoy is dislodged, the landing area is not contested, so other units can retreat to that area.
+/// When a fleet of a convoy is dislodged, the landing area is not contested,
+/// so other units can retreat to that area.
 ///
 /// England:
 /// F North Sea Convoys A London - Holland
@@ -225,7 +226,24 @@ fn test_datc_6_f_6() {
 /// F Skagerrak - North Sea
 /// The dislodged English fleet can retreat to Holland.
 #[test]
-fn test_datc_6_f_7() {}
+fn test_datc_6_f_7() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("nth"));
+    let unit_e_2 = Unit::new_army(Power::England, p("lon"));
+    let unit_g_1 = Unit::new_fleet(Power::Germany, p("hel"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("ska"));
+    phase.data.orders.push(unit_e_1.convoy(unit_e_2, p("hol")));
+    phase.data.orders.push(unit_e_2.move_to(p("hol")));
+    phase.data.orders.push(unit_g_1.support_move(unit_g_2, p("nth")));
+    phase.data.orders.push(unit_g_2.move_to(p("nth")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
+    assert_ne!(phase.data.orders[0].dislodged_from.map(|p| p.code()), Some("hol"));
+    assert!(!phase.data.standoff_province_codes.contains(&"hol".to_string()));
+}
 
 /// 6.F.8. TEST CASE, DISLODGED CONVOY DOES NOT CAUSE A BOUNCE
 /// When a fleet of a convoy is dislodged, then there will be no bounce in the landing area.
