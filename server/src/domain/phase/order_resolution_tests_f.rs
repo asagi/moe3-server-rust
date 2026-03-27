@@ -708,17 +708,39 @@ fn test_datc_6_f_18() {
 /// Italy:
 /// F Naples Supports F Rome - Tyrrhenian Sea
 /// F Rome - Tyrrhenian Sea
-/// Now, two issues play a role. The rule about disruption of multi-route convoys (issue 4.A.1) and the determination of how paradoxes are resolved (issue 4.A.2).
-///
-/// If the 1971 rulebook is used then a multi-route convoy is disrupted when one of the routes is disrupted. That makes this situation paradoxical and the 1971 paradox rule kicks in. The support of the fleet in Naples is not cut and the fleet in Rome dislodges the fleet in the Tyrrhenian Sea.
-///
-/// With the 1982 rulebook, the support of Naples is not cut, because it is supporting an action in a body of water that contains a convoying fleet. This means that the fleet in Rome dislodges the fleet in the Tyrrhenian Sea.
-///
-/// According to the 2000/2023 rules the fleet in the Tyrrhenian Sea is not "necessary" for the convoy and the support of Naples is cut and the fleet in the Tyrrhenian Sea is not dislodged.
-///
-/// If the Szykman rule is used (which I prefer), then there is no paradoxical situation. The support of Naples is cut (the same as in the 2000/2023 ruling) and the fleet in the Tyrrhenian Sea is not dislodged.
+/// Now, two issues play a role. The rule about disruption of multi-route convoys (issue 4.A.1)
+/// and the determination of how paradoxes are resolved (issue 4.A.2).
+/// If the 1971 rulebook is used then a multi-route convoy is disrupted when one of the routes is disrupted.
+/// That makes this situation paradoxical and the 1971 paradox rule kicks in.
+/// The support of the fleet in Naples is not cut and the fleet in Rome dislodges the fleet in the Tyrrhenian Sea.
+/// With the 1982 rulebook, the support of Naples is not cut,
+/// because it is supporting an action in a body of water that contains a convoying fleet.
+/// This means that the fleet in Rome dislodges the fleet in the Tyrrhenian Sea.
+/// According to the 2000/2023 rules the fleet in the Tyrrhenian Sea is not "necessary" for the convoy
+/// and the support of Naples is cut and the fleet in the Tyrrhenian Sea is not dislodged.
+/// If the Szykman rule is used (which I prefer),
+/// then there is no paradoxical situation. The support of Naples is cut (the same as in the 2000/2023 ruling)
+/// and the fleet in the Tyrrhenian Sea is not dislodged.
 #[test]
-fn test_datc_6_f_19() {}
+fn test_datc_6_f_19() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_f_1 = Unit::new_army(Power::France, p("tun"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("tys"));
+    let unit_f_3 = Unit::new_fleet(Power::France, p("ion"));
+    let unit_i_1 = Unit::new_fleet(Power::Italy, p("nap"));
+    let unit_i_2 = Unit::new_fleet(Power::Italy, p("rom"));
+    phase.data.orders.push(unit_f_1.move_to(p("nap")));
+    phase.data.orders.push(unit_f_2.convoy(unit_f_1, p("nap")));
+    phase.data.orders.push(unit_f_3.convoy(unit_f_1, p("nap")));
+    phase.data.orders.push(unit_i_1.support_move(unit_i_2, p("tys")));
+    phase.data.orders.push(unit_i_2.move_to(p("tys")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Cut);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
+}
 
 /// 6.F.20. TEST CASE, UNWANTED MULTI-ROUTE CONVOY PARADOX
 /// The 1982 paradox rule allows some creative defense.
