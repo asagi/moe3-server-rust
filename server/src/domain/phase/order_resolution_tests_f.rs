@@ -399,7 +399,8 @@ fn test_datc_6_f_11() {
 }
 
 /// 6.F.12. TEST CASE, DISLODGED CONVOYING FLEET NOT ON ROUTE
-/// When the rule is used that convoys are disrupted when one of the routes is disrupted (see issue 4.A.1), the convoy is not necessarily disrupted when one of the fleets ordered to convoy is dislodged.
+/// When the rule is used that convoys are disrupted when one of the routes is disrupted (see issue 4.A.1),
+/// the convoy is not necessarily disrupted when one of the fleets ordered to convoy is dislodged.
 ///
 /// England:
 /// F English Channel Convoys A London - Belgium
@@ -409,9 +410,30 @@ fn test_datc_6_f_11() {
 /// France:
 /// F North Atlantic Ocean Supports F Mid-Atlantic Ocean - Irish Sea
 /// F Mid-Atlantic Ocean - Irish Sea
-/// Even when convoys are disrupted when one of the routes is disrupted (see issue 4.A.1), the convoy from London to Belgium will still succeed, since the dislodged fleet in the Irish Sea is not part of any route, although it can be reached from the starting point London.
+/// Even when convoys are disrupted when one of the routes is disrupted (see issue 4.A.1),
+/// the convoy from London to Belgium will still succeed,
+/// since the dislodged fleet in the Irish Sea is not part of any route,
+/// although it can be reached from the starting point London.
 #[test]
-fn test_datc_6_f_12() {}
+fn test_datc_6_f_12() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("eng"));
+    let unit_e_2 = Unit::new_army(Power::England, p("lon"));
+    let unit_e_3 = Unit::new_fleet(Power::England, p("iri"));
+    let unit_f_1 = Unit::new_fleet(Power::France, p("nao"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("mao"));
+    phase.data.orders.push(unit_e_1.convoy(unit_e_2, p("bel")));
+    phase.data.orders.push(unit_e_2.move_to(p("bel")));
+    phase.data.orders.push(unit_e_3.convoy(unit_e_2, p("bel")));
+    phase.data.orders.push(unit_f_1.support_move(unit_f_2, p("iri")));
+    phase.data.orders.push(unit_f_2.move_to(p("iri")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Success);
+}
 
 /// 6.F.13. TEST CASE, THE UNWANTED ALTERNATIVE
 /// This situation is not difficult to adjudicate, but it shows that even if someone wants to convoy, the player might not want an alternative route for the convoy.
