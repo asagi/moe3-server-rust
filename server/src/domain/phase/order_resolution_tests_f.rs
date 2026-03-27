@@ -805,7 +805,8 @@ fn test_datc_6_f_20() {
 }
 
 /// 6.F.21. TEST CASE, DAD'S ARMY CONVOY
-/// The 1982 paradox rule has as side effect that convoying armies do not cut support in some situations that are not paradoxical.
+/// The 1982 paradox rule has as side effect that convoying armies do not cut support
+/// in some situations that are not paradoxical.
 ///
 /// Russia:
 /// A Edinburgh Supports A Norway - Clyde
@@ -820,13 +821,49 @@ fn test_datc_6_f_20() {
 /// A Liverpool - Clyde via convoy
 /// F North Atlantic Ocean Convoys A Liverpool - Clyde
 /// F Clyde Supports F North Atlantic Ocean
-/// In all rules, except the 1982 paradox rule, the support of the fleet in Clyde on the North Atlantic Ocean is cut and the French fleet in the Mid-Atlantic Ocean will dislodge the fleet in the North Atlantic Ocean. This is the preferred way.
-///
-/// However, in the 1982 paradox rule (see issue 4.A.2), the support of the fleet in Clyde is not cut. That means that the English fleet in the North Atlantic Ocean is not dislodged.
-///
-/// As you can see, the 1982 rule allows England to save its fleet in the North Atlantic Ocean in a very strange way. Just the support of Clyde is insufficient (if there is no convoy, the support is cut). Only the convoy to the area occupied by own unit, can do the trick in this situation. The embarking of troops in the fleet deceives the enemy so much that it works as a magic cloak. The enemy is not able to dislodge the fleet in the North Atlantic Ocean any more. Of course, this will only work in comedies. I prefer the Szykman rule as one of the rules that does not allow this trick. According to this rule (and all other paradox rules), the fleet in the North Atlantic is just dislodged.
+/// In all rules, except the 1982 paradox rule,
+/// the support of the fleet in Clyde on the North Atlantic Ocean is cut
+/// and the French fleet in the Mid-Atlantic Ocean will dislodge the fleet in the North Atlantic Ocean.
+/// This is the preferred way.
+/// However, in the 1982 paradox rule (see issue 4.A.2), the support of the fleet in Clyde is not cut.
+/// That means that the English fleet in the North Atlantic Ocean is not dislodged.
+/// As you can see, the 1982 rule allows England to save its fleet in the North Atlantic Ocean in a very strange way.
+/// Just the support of Clyde is insufficient (if there is no convoy, the support is cut).
+/// Only the convoy to the area occupied by own unit, can do the trick in this situation.
+/// The embarking of troops in the fleet deceives the enemy so much that it works as a magic cloak.
+/// The enemy is not able to dislodge the fleet in the North Atlantic Ocean any more.
+/// Of course, this will only work in comedies.
+/// I prefer the Szykman rule as one of the rules that does not allow this trick.
+/// According to this rule (and all other paradox rules), the fleet in the North Atlantic is just dislodged.
 #[test]
-fn test_datc_6_f_21() {}
+fn test_datc_6_f_21() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_r_1 = Unit::new_army(Power::Russia, p("edi"));
+    let unit_r_2 = Unit::new_fleet(Power::Russia, p("nwg"));
+    let unit_r_3 = Unit::new_army(Power::Russia, p("nwy"));
+    let unit_f_1 = Unit::new_fleet(Power::France, p("iri"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("mao"));
+    let unit_e_1 = Unit::new_army(Power::England, p("lvp"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("nao"));
+    let unit_e_3 = Unit::new_fleet(Power::England, p("cly"));
+    phase.data.orders.push(unit_r_1.support_move(unit_r_3, p("cly")));
+    phase.data.orders.push(unit_r_2.convoy(unit_r_3, p("cly")));
+    phase.data.orders.push(unit_r_3.move_to(p("cly")));
+    phase.data.orders.push(unit_f_1.support_move(unit_f_2, p("nao")));
+    phase.data.orders.push(unit_f_2.move_to(p("nao")));
+    phase.data.orders.push(unit_e_1.move_to(p("cly")));
+    phase.data.orders.push(unit_e_2.convoy(unit_e_1, p("cly")));
+    phase.data.orders.push(unit_e_3.support_hold(unit_e_2));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Unreachable);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[7].status, OrderStatus::Dislodged);
+}
 
 /// 6.F.22. TEST CASE, SECOND ORDER PARADOX WITH TWO RESOLUTIONS
 /// Two convoys are involved in a second order paradox.
