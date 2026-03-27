@@ -358,7 +358,8 @@ fn test_datc_6_f_10() {
 }
 
 /// 6.F.11. TEST CASE, DISLODGE OF MULTI-ROUTE CONVOY WITH ONLY FOREIGN FLEETS
-/// With the 1971 rulebook one could adopt a rule (DPTG) that foreign fleets are not used when not necessary, but this doesn't prevent an "unwanted" convoy when all convoying fleets are foreign.
+/// With the 1971 rulebook one could adopt a rule (DPTG) that foreign fleets are not used when not necessary,
+/// but this doesn't prevent an "unwanted" convoy when all convoying fleets are foreign.
 ///
 /// England:
 /// A London - Belgium
@@ -373,12 +374,29 @@ fn test_datc_6_f_10() {
 /// F Brest Supports F Mid-Atlantic Ocean - English Channel
 /// F Mid-Atlantic Ocean - English Channel
 /// Again, the French fleet in Mid Atlantic Ocean will dislodge the convoying fleet in the English Channel.
-///
 /// If the 1971 rules are used (see issue 4.A.1), this will disrupt the convoy and the army will stay in London.
-///
-/// When later rulebooks are used (which I prefer) the army can still go via the North Sea and the convoy succeeds and the London army will end in Belgium.
+/// When later rulebooks are used (which I prefer) the army can still go via the North Sea and the convoy succeeds
+/// and the London army will end in Belgium.
 #[test]
-fn test_datc_6_f_11() {}
+fn test_datc_6_f_11() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_army(Power::England, p("lon"));
+    let unit_g_1 = Unit::new_fleet(Power::Germany, p("eng"));
+    let unit_r_1 = Unit::new_fleet(Power::Russia, p("nth"));
+    let unit_f_1 = Unit::new_fleet(Power::France, p("bre"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("mao"));
+    phase.data.orders.push(unit_e_1.move_to(p("bel")));
+    phase.data.orders.push(unit_g_1.convoy(unit_e_1, p("bel")));
+    phase.data.orders.push(unit_r_1.convoy(unit_e_1, p("bel")));
+    phase.data.orders.push(unit_f_1.support_move(unit_f_2, p("eng")));
+    phase.data.orders.push(unit_f_2.move_to(p("eng")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Success);
+}
 
 /// 6.F.12. TEST CASE, DISLODGED CONVOYING FLEET NOT ON ROUTE
 /// When the rule is used that convoys are disrupted when one of the routes is disrupted (see issue 4.A.1), the convoy is not necessarily disrupted when one of the fleets ordered to convoy is dislodged.
