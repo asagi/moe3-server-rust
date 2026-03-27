@@ -281,7 +281,7 @@ fn handle_disruption_convoy_order(original_orders: &mut [Order], standoff_provin
         let matched_convoy_orders = collect_matched_convoy_orders(&convoy_orders, &original_orders[move_order_idx]);
         if !can_move_via_convoy(&original_orders[move_order_idx], m.dest.code(), &matched_convoy_orders) {
             // 輸送経路切断による移動失敗
-            original_orders[move_order_idx].set_failure();
+            original_orders[move_order_idx].set_unreachable();
 
             // 輸送先にカットされた支援命令があればカットを取り消す
             for idx in collect_cut_support_indices(original_orders) {
@@ -512,7 +512,7 @@ fn collect_not_invalid_order_indices(orders: &[Order]) -> Vec<usize> {
     orders
         .iter()
         .enumerate()
-        .filter(|(_, o)| !o.is_assumed() && !o.is_invalid() && !o.is_dislodged())
+        .filter(|(_, o)| !o.is_assumed() && !o.is_invalid() && !o.is_dislodged() && !o.is_unreachable())
         .map(|(i, _)| i)
         .collect()
 }

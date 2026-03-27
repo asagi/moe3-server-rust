@@ -205,7 +205,7 @@ fn test_datc_6_c_5() {
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
-    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Unreachable);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[4].status, OrderStatus::Dislodged);
     assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);

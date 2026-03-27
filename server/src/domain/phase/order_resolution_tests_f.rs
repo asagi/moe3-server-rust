@@ -204,7 +204,7 @@ fn test_datc_6_f_6() {
     phase.data.orders.push(unit_f_2.support_move(unit_f_1, p("bel")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Unreachable);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Cut);
     assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
@@ -238,7 +238,7 @@ fn test_datc_6_f_7() {
     phase.data.orders.push(unit_g_2.move_to(p("nth")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Unreachable);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
     assert_ne!(phase.data.orders[0].dislodged_from.map(|p| p.code()), Some("hol"));

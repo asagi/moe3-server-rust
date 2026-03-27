@@ -28,6 +28,7 @@ pub enum OrderStatus {
     Cut,
     Valid,
     Invalid,
+    Unreachable,
 }
 
 /// 命令の種類
@@ -175,6 +176,11 @@ impl Order {
         self.status = OrderStatus::Invalid;
     }
 
+    /// ステータスを Unreachable に変更
+    pub fn set_unreachable(&mut self) {
+        self.status = OrderStatus::Unreachable;
+    }
+
     /// ステータスが `Unresolved` かどうか
     pub fn is_unresolved(&self) -> bool {
         self.status == OrderStatus::Unresolved
@@ -208,6 +214,11 @@ impl Order {
     /// ステータスが `Failure` かどうか
     pub fn is_failure(&self) -> bool {
         self.status == OrderStatus::Failure
+    }
+
+    /// ステータスが `Unreachable` かどうか
+    pub fn is_unreachable(&self) -> bool {
+        self.status == OrderStatus::Unreachable
     }
 
     /// 命令が他の勢力のユニットに対するもの（仮定命令）であるかどうか
