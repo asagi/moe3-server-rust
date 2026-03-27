@@ -454,7 +454,7 @@ const PATHS: &[Path] = &[
 impl Path {
     /// 2つの地名コードが隣接しているか判定する（origin→dest方向のみ）
     pub fn is_adjacent(origin: &str, dest: &str) -> bool {
-        PATHS.iter().any(|p| p.origin == origin && p.dest == dest)
+        PATHS.iter().any(|p| p.origin == origin && p.dest[..3] == dest[..3])
     }
 
     /// Check if a direct path exists between two provinces
