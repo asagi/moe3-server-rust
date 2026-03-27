@@ -522,9 +522,35 @@ fn test_datc_6_f_14() {
 /// F Irish Sea Convoys A North Africa - Wales
 /// F Mid-Atlantic Ocean Convoys A North Africa - Wales
 /// A North Africa - Wales
-/// The adjudication of the paradox in the English Channel should not interfere with the adjudication of the Italian convoy. Both the fleet in Wales as the army in North Africa succeed in moving.
+/// The adjudication of the paradox in the English Channel should not interfere
+/// with the adjudication of the Italian convoy.
+/// Both the fleet in Wales as the army in North Africa succeed in moving.
 #[test]
-fn test_datc_6_f_15() {}
+fn test_datc_6_f_15() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("lon"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("wal"));
+    let unit_f_1 = Unit::new_army(Power::France, p("bre"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("eng"));
+    let unit_i_1 = Unit::new_fleet(Power::Italy, p("iri"));
+    let unit_i_2 = Unit::new_fleet(Power::Italy, p("mao"));
+    let unit_i_3 = Unit::new_army(Power::Italy, p("naf"));
+    phase.data.orders.push(unit_e_1.support_move(unit_e_2, p("eng")));
+    phase.data.orders.push(unit_e_2.move_to(p("eng")));
+    phase.data.orders.push(unit_f_1.move_to(p("lon")));
+    phase.data.orders.push(unit_f_2.convoy(unit_f_1, p("lon")));
+    phase.data.orders.push(unit_i_1.convoy(unit_i_3, p("wal")));
+    phase.data.orders.push(unit_i_2.convoy(unit_i_3, p("wal")));
+    phase.data.orders.push(unit_i_3.move_to(p("wal")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Unreachable);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Success);
+}
 
 /// 6.F.16. TEST CASE, PANDIN'S PARADOX
 /// In Pandin's paradox, the attacked unit protects the convoying fleet by a beleaguered garrison.
