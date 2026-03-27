@@ -436,7 +436,9 @@ fn test_datc_6_f_12() {
 }
 
 /// 6.F.13. TEST CASE, THE UNWANTED ALTERNATIVE
-/// This situation is not difficult to adjudicate, but it shows that even if someone wants to convoy, the player might not want an alternative route for the convoy.
+/// This situation is not difficult to adjudicate,
+/// but it shows that even if someone wants to convoy,
+/// the player might not want an alternative route for the convoy.
 ///
 /// England:
 /// A London - Belgium
@@ -448,11 +450,30 @@ fn test_datc_6_f_12() {
 /// Germany:
 /// F Holland Supports F Denmark - North Sea
 /// F Denmark - North Sea
-/// If France and German are allies, England want to keep its army in London, to defend the island. An army in Belgium could easily be destroyed by an alliance of France and Germany. England tries to be friends with Germany, however France and Germany trick England.
-///
+/// If France and German are allies, England want to keep its army in London,
+/// to defend the island. An army in Belgium could easily be destroyed by an alliance of France and Germany.
+/// England tries to be friends with Germany, however France and Germany trick England.
 /// The convoy of the army in London succeeds and the fleet in Denmark dislodges the fleet in the North Sea.
 #[test]
-fn test_datc_6_f_13() {}
+fn test_datc_6_f_13() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_army(Power::England, p("lon"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("nth"));
+    let unit_f_1 = Unit::new_fleet(Power::France, p("eng"));
+    let unit_g_1 = Unit::new_fleet(Power::Germany, p("hol"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("den"));
+    phase.data.orders.push(unit_e_1.move_to(p("bel")));
+    phase.data.orders.push(unit_e_2.convoy(unit_e_1, p("bel")));
+    phase.data.orders.push(unit_f_1.convoy(unit_e_1, p("bel")));
+    phase.data.orders.push(unit_g_1.support_move(unit_g_2, p("nth")));
+    phase.data.orders.push(unit_g_2.move_to(p("nth")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Success);
+}
 
 /// 6.F.14. TEST CASE, SIMPLE CONVOY PARADOX
 /// The most common paradox is when the attacked unit supports an attack on one of the convoying fleets.
