@@ -486,10 +486,26 @@ fn test_datc_6_f_13() {
 /// A Brest - London
 /// F English Channel Convoys A Brest - London
 /// See issue 4.A.2
-///
-/// According to all rulebooks (including the Szykman rule which I prefer), the support of London is not cut. That means that the fleet in the English Channel is dislodged.
+/// According to all rulebooks (including the Szykman rule which I prefer),
+/// the support of London is not cut.
+/// That means that the fleet in the English Channel is dislodged.
 #[test]
-fn test_datc_6_f_14() {}
+fn test_datc_6_f_14() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("lon"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("wal"));
+    let unit_f_1 = Unit::new_army(Power::France, p("bre"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("eng"));
+    phase.data.orders.push(unit_e_1.support_move(unit_e_2, p("eng")));
+    phase.data.orders.push(unit_e_2.move_to(p("eng")));
+    phase.data.orders.push(unit_f_1.move_to(p("lon")));
+    phase.data.orders.push(unit_f_2.convoy(unit_f_1, p("lon")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Unreachable);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
+}
 
 /// 6.F.15. TEST CASE, SIMPLE CONVOY PARADOX WITH ADDITIONAL CONVOY
 /// Paradox rules only apply on the paradox core.
