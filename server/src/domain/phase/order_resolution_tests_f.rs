@@ -647,7 +647,9 @@ fn test_datc_6_f_17() {
 }
 
 /// 6.F.18. TEST CASE, BETRAYAL PARADOX
-/// The betrayal paradox is comparable to Pandin's paradox, but now the attacked unit directly supports the convoying fleet. Of course, this will only happen when the player of the attacked unit is betrayed.
+/// The betrayal paradox is comparable to Pandin's paradox,
+/// but now the attacked unit directly supports the convoying fleet.
+/// Of course, this will only happen when the player of the attacked unit is betrayed.
 ///
 /// England:
 /// F North Sea Convoys A London - Belgium
@@ -660,15 +662,40 @@ fn test_datc_6_f_17() {
 /// Germany:
 /// F Helgoland Bight Supports F Skagerrak - North Sea
 /// F Skagerrak - North Sea
-/// If the English convoy from London to Belgium is successful, then it cuts the France support necessary to hold the fleet in the North Sea (see issue 4.A.2).
-///
+/// If the English convoy from London to Belgium is successful,
+/// then it cuts the France support necessary to hold the fleet in the North Sea (see issue 4.A.2).
 /// The 1971, 2000 and 2023 rules do not give an answer on this.
-///
-/// According to the 1982 rules the French support on the North Sea will not be cut. So, the fleet in the North Sea will not be dislodged by the Germans and the army in London will dislodge the French army in Belgium.
-///
-/// If the Szykman rule is followed (which I prefer), the convoy in the English Channel fails. Without the convoy, the move of the army in London will fail and the support in Belgium will not be cut. That means that the fleet in the North Sea will not be dislodged.
+/// According to the 1982 rules the French support on the North Sea will not be cut.
+/// So, the fleet in the North Sea will not be dislodged by the Germans and the army in London
+/// will dislodge the French army in Belgium.
+/// If the Szykman rule is followed (which I prefer), the convoy in the English Channel fails.
+/// Without the convoy, the move of the army in London will fail and the support in Belgium will not be cut.
+/// That means that the fleet in the North Sea will not be dislodged.
 #[test]
-fn test_datc_6_f_18() {}
+fn test_datc_6_f_18() {
+    // Szykman ルールを採用する
+    // - F bel からの支援はカットされず F nth は撃退されない
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("nth"));
+    let unit_e_2 = Unit::new_army(Power::England, p("lon"));
+    let unit_e_3 = Unit::new_fleet(Power::England, p("eng"));
+    let unit_f_1 = Unit::new_fleet(Power::France, p("bel"));
+    let unit_g_1 = Unit::new_fleet(Power::Germany, p("hel"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("ska"));
+    phase.data.orders.push(unit_e_1.convoy(unit_e_2, p("bel")));
+    phase.data.orders.push(unit_e_2.move_to(p("bel")));
+    phase.data.orders.push(unit_e_3.support_move(unit_e_2, p("bel")));
+    phase.data.orders.push(unit_f_1.support_hold(unit_e_1));
+    phase.data.orders.push(unit_g_1.support_move(unit_g_2, p("nth")));
+    phase.data.orders.push(unit_g_2.move_to(p("nth")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Unreachable);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Failure);
+}
 
 /// 6.F.19. TEST CASE, MULTI-ROUTE CONVOY DISRUPTION PARADOX
 /// The situation becomes more complex when the convoy has alternative routes.
