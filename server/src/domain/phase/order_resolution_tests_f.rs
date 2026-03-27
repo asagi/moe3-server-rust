@@ -756,19 +756,53 @@ fn test_datc_6_f_19() {
 /// Turkey:
 /// F Aegean Sea Supports F Eastern Mediterranean - Ionian Sea
 /// F Eastern Mediterranean - Ionian Sea
-/// Again, two issues play a role. The rule about disruption of multi-route convoys (issue 4.A.1) and the determination of how paradoxes are resolved (issue 4.A.2).
-///
-/// If the 1971 rulebook is used, then a multi-route convoy is disrupted when one of the routes is disrupted. This makes the situation paradoxical. However, since the fleet in Naples is not supporting an attack on a convoying fleet, the paradox rule does not apply and the 1971 rules do not give answer to this situation.
-///
-/// With the 1982 rules the support in Naples is not cut, because it is supporting an action in a body of water that contains a convoying fleet. That means that the fleet in the Ionian Sea is not dislodged.
-///
-/// The paradox rule of the 2000/2023 rules, does not kick in, because the support is not a support that attacks the convoying fleet. However, with these rules a multi-route convoy is only disrupted when all routes are disrupted, which prevents that this situation is a paradox. So, the support of Naples is cut and the fleet in the Ionian Sea is dislodged by the Turkish fleet in the Eastern Mediterranean.
-///
-/// If the Szykman rule is used, then there is no paradoxical situation. The support of Naples is cut and the fleet in the Ionian Sea is dislodged by the Turkish fleet in the Eastern Mediterranean.
-///
-/// As you can see, the 1982 rules allow the Italian player to save its fleet in the Ionian Sea with a trick. I do not consider this trick as normal tactical play. I prefer the Szykman rule as one of the rules that does not allow this trick. According to this rule the fleet in the Ionian Sea is dislodged.
+/// Again, two issues play a role.
+/// The rule about disruption of multi-route convoys (issue 4.A.1)
+/// and the determination of how paradoxes are resolved (issue 4.A.2).
+/// If the 1971 rulebook is used,
+/// then a multi-route convoy is disrupted when one of the routes is disrupted.
+/// This makes the situation paradoxical.
+/// However, since the fleet in Naples is not supporting an attack on a convoying fleet,
+/// the paradox rule does not apply and the 1971 rules do not give answer to this situation.
+/// With the 1982 rules the support in Naples is not cut,
+/// because it is supporting an action in a body of water that contains a convoying fleet.
+/// That means that the fleet in the Ionian Sea is not dislodged.
+/// The paradox rule of the 2000/2023 rules,
+/// does not kick in, because the support is not a support that attacks the convoying fleet.
+/// However, with these rules a multi-route convoy is only disrupted when all routes are disrupted,
+/// which prevents that this situation is a paradox.
+/// So, the support of Naples is cut and the fleet in the Ionian Sea is dislodged
+/// by the Turkish fleet in the Eastern Mediterranean.
+/// If the Szykman rule is used, then there is no paradoxical situation.
+/// The support of Naples is cut and the fleet in the Ionian Sea is dislodged
+/// by the Turkish fleet in the Eastern Mediterranean.
+/// As you can see, the 1982 rules allow the Italian player to save its fleet in the Ionian Sea with a trick.
+/// I do not consider this trick as normal tactical play.
+/// I prefer the Szykman rule as one of the rules that does not allow this trick.
+/// According to this rule the fleet in the Ionian Sea is dislodged.
 #[test]
-fn test_datc_6_f_20() {}
+fn test_datc_6_f_20() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_f_1 = Unit::new_army(Power::France, p("tun"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("tys"));
+    let unit_i_1 = Unit::new_fleet(Power::Italy, p("nap"));
+    let unit_i_2 = Unit::new_fleet(Power::Italy, p("ion"));
+    let unit_t_1 = Unit::new_fleet(Power::Turkey, p("aeg"));
+    let unit_t_2 = Unit::new_fleet(Power::Turkey, p("eas"));
+    phase.data.orders.push(unit_f_1.move_to(p("nap")));
+    phase.data.orders.push(unit_f_2.convoy(unit_f_1, p("nap")));
+    phase.data.orders.push(unit_i_1.support_hold(unit_i_2));
+    phase.data.orders.push(unit_i_2.convoy(unit_f_1, p("nap")));
+    phase.data.orders.push(unit_t_1.support_move(unit_t_2, p("ion")));
+    phase.data.orders.push(unit_t_2.move_to(p("ion")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Cut);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Success);
+}
 
 /// 6.F.21. TEST CASE, DAD'S ARMY CONVOY
 /// The 1982 paradox rule has as side effect that convoying armies do not cut support in some situations that are not paradoxical.
