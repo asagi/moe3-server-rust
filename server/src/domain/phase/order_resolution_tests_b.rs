@@ -142,26 +142,21 @@ fn test_datc_6_b_5() {
 #[test]
 fn test_datc_6_b_6() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_e_1 = Unit::new_fleet(Power::England, p("nao"));
-    let unit_e_2 = Unit::new_fleet(Power::England, p("iri"));
-    let order_e_1 = unit_e_1.move_to(p("mao"));
-    let order_e_2 = unit_e_2.support_move(unit_e_1, p("mao"));
-    phase.data.orders.push(order_e_1);
-    phase.data.orders.push(order_e_2);
-    let unit_f_1 = Unit::new_fleet(Power::France, p("mao"));
-    let unit_f_2 = Unit::new_fleet(Power::France, p("spa_nc"));
-    let order_f_1 = unit_f_1.hold();
-    let order_f_2 = unit_f_2.support_hold(unit_f_1);
-    phase.data.orders.push(order_f_1);
-    phase.data.orders.push(order_f_2);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("iri"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("nao"));
+    let unit_f_1 = Unit::new_fleet(Power::France, p("spa_nc"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("mao"));
     let unit_i_1 = Unit::new_fleet(Power::Italy, p("lyo"));
-    let order_i_1 = unit_i_1.move_to(p("spa_sc"));
-    phase.data.orders.push(order_i_1);
+    phase.data.orders.push(unit_e_1.support_move(unit_e_2, p("mao")));
+    phase.data.orders.push(unit_e_2.move_to(p("mao")));
+    phase.data.orders.push(unit_f_1.support_hold(unit_f_2));
+    phase.data.orders.push(unit_f_2.hold());
+    phase.data.orders.push(unit_i_1.move_to(p("spa_sc")));
     resolve_orders_for_order_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
-    assert_eq!(phase.data.orders[2].status, OrderStatus::Dislodged);
-    assert_eq!(phase.data.orders[3].status, OrderStatus::Cut);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Cut);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
     assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
 }
 
