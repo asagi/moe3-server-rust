@@ -258,7 +258,25 @@ fn test_datc_6_f_7() {
 /// A Belgium - Holland
 /// The army in Belgium will not bounce and move to Holland.
 #[test]
-fn test_datc_6_f_8() {}
+fn test_datc_6_f_8() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("nth"));
+    let unit_e_2 = Unit::new_army(Power::England, p("lon"));
+    let unit_g_1 = Unit::new_fleet(Power::Germany, p("hel"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("ska"));
+    let unit_g_3 = Unit::new_army(Power::Germany, p("bel"));
+    phase.data.orders.push(unit_e_1.convoy(unit_e_2, p("hol")));
+    phase.data.orders.push(unit_e_2.move_to(p("hol")));
+    phase.data.orders.push(unit_g_1.support_move(unit_g_2, p("nth")));
+    phase.data.orders.push(unit_g_2.move_to(p("nth")));
+    phase.data.orders.push(unit_g_3.move_to(p("hol")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Unreachable);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Success);
+}
 
 /// 6.F.9. TEST CASE, DISLODGE OF MULTI-ROUTE CONVOY
 /// When a fleet of a convoy with multiple routes is dislodged, the result depends on the rulebook that is used.
