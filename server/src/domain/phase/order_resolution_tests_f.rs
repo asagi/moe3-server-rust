@@ -279,7 +279,8 @@ fn test_datc_6_f_8() {
 }
 
 /// 6.F.9. TEST CASE, DISLODGE OF MULTI-ROUTE CONVOY
-/// When a fleet of a convoy with multiple routes is dislodged, the result depends on the rulebook that is used.
+/// When a fleet of a convoy with multiple routes is dislodged,
+/// the result depends on the rulebook that is used.
 ///
 /// England:
 /// F English Channel Convoys A London - Belgium
@@ -292,10 +293,28 @@ fn test_datc_6_f_8() {
 /// The French fleet in Mid Atlantic Ocean will dislodge the convoying fleet in the English Channel.
 ///
 /// If the 1971 rules are used (see issue 4.A.1), this will disrupt the convoy and the army will stay in London.
-///
-/// When later rulebooks are used (which I prefer) the army can still go via the North Sea and the convoy succeeds and the London army will end in Belgium.
+/// When later rulebooks are used (which I prefer) the army can still go via the North Sea and the convoy succeeds
+/// and the London army will end in Belgium.
 #[test]
-fn test_datc_6_f_9() {}
+fn test_datc_6_f_9() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("eng"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("nth"));
+    let unit_e_3 = Unit::new_army(Power::England, p("lon"));
+    let unit_f_1 = Unit::new_fleet(Power::France, p("bre"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("mao"));
+    phase.data.orders.push(unit_e_1.convoy(unit_e_3, p("bel")));
+    phase.data.orders.push(unit_e_2.convoy(unit_e_3, p("bel")));
+    phase.data.orders.push(unit_e_3.move_to(p("bel")));
+    phase.data.orders.push(unit_f_1.support_move(unit_f_2, p("eng")));
+    phase.data.orders.push(unit_f_2.move_to(p("eng")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Success);
+}
 
 /// 6.F.10. TEST CASE, DISLODGE OF MULTI-ROUTE CONVOY WITH FOREIGN FLEET
 /// When the 1971 rulebook is used "unwanted" multi-route convoys are possible.
