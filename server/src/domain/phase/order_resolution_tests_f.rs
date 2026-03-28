@@ -883,15 +883,48 @@ fn test_datc_6_f_21() {
 /// Russia:
 /// A Norway - Belgium
 /// F North Sea Convoys A Norway - Belgium
-/// Without any paradox rule, there are two consistent resolutions. The supports of the English fleet in London and the German fleet in Picardy are not cut. That means that the French fleet in the English Channel and the Russian fleet in the North Sea are dislodged, which makes it impossible to cut the support. The other resolution is that the supports of the English fleet in London the German fleet in Picardy are cut. In that case the French fleet in the English Channel and the Russian fleet in the North Sea will survive and will not be dislodged. This gives the possibility to cut the support.
-///
+/// Without any paradox rule, there are two consistent resolutions.
+/// The supports of the English fleet in London and the German fleet in Picardy are not cut.
+/// That means that the French fleet in the English Channel and the Russian fleet in the North Sea are dislodged,
+/// which makes it impossible to cut the support.
+/// The other resolution is that the supports of the English fleet in London the German fleet in Picardy are cut.
+/// In that case the French fleet in the English Channel and the Russian fleet in the North Sea will survive and will not be dislodged.
+/// This gives the possibility to cut the support.
 /// The 1971, 2000 and 2023 rules (see issue 4.A.2) do not have an answer on this.
-///
-/// According to the 1982 rule, the supports are not cut which means that the French fleet in the English Channel and the Russian fleet in the North Sea are dislodged.
-///
-/// The Szykman (which I prefer), has the same result as the 1982 rule. The supports are not cut, the convoying armies fail to move, the fleet in Picardy dislodges the fleet in English Channel and the fleet in Edinburgh dislodges the fleet in the North Sea.
+/// According to the 1982 rule, the supports are not cut which means that the French fleet in the English Channel
+/// and the Russian fleet in the North Sea are dislodged.
+/// The Szykman (which I prefer), has the same result as the 1982 rule. The supports are not cut,
+/// the convoying armies fail to move, the fleet in Picardy dislodges the fleet in English Channel
+/// and the fleet in Edinburgh dislodges the fleet in the North Sea.
 #[test]
-fn test_datc_6_f_22() {}
+fn test_datc_6_f_22() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("edi"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("lon"));
+    let unit_f_1 = Unit::new_army(Power::France, p("bre"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("eng"));
+    let unit_g_1 = Unit::new_fleet(Power::Germany, p("bel"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("pic"));
+    let unit_r_1 = Unit::new_army(Power::Russia, p("nwy"));
+    let unit_r_2 = Unit::new_fleet(Power::Russia, p("nth"));
+    phase.data.orders.push(unit_e_1.move_to(p("nth")));
+    phase.data.orders.push(unit_e_2.support_move(unit_e_1, p("nth")));
+    phase.data.orders.push(unit_f_1.move_to(p("lon")));
+    phase.data.orders.push(unit_f_2.convoy(unit_f_1, p("lon")));
+    phase.data.orders.push(unit_g_1.support_move(unit_g_2, p("eng")));
+    phase.data.orders.push(unit_g_2.move_to(p("eng")));
+    phase.data.orders.push(unit_r_1.move_to(p("bel")));
+    phase.data.orders.push(unit_r_2.convoy(unit_r_1, p("bel")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Unreachable);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Unreachable);
+    assert_eq!(phase.data.orders[7].status, OrderStatus::Dislodged);
+}
 
 /// 6.F.23. TEST CASE, SECOND ORDER PARADOX WITH TWO EXCLUSIVE CONVOYS
 /// In this paradox there are two consistent resolutions, but where the two convoys do not fail or succeed at the same time.
