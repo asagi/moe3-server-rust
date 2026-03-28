@@ -1029,6 +1029,9 @@ fn should_avoid_cut_due_to_datc_6_f_22(original_orders: &[Order], start_idx: usi
     let Some(target_target_idx) = cloned_orders.iter().position(|o| o.location() == m1.dest) else {
         return false;
     };
+    let OrderKind::Convoy(_) = &cloned_orders[target_target_idx].kind.clone() else {
+        return false;
+    };
 
     // 支援対象の移動先の輸送命令の輸送対象を取得
     let Some(target_target_target) = cloned_orders.iter().find(|o| cloned_orders[target_target_idx].is_matching_target(o)) else {
