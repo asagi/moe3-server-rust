@@ -211,31 +211,12 @@ fn handle_cutting_support_orders(original_orders: &mut [Order]) {
             continue;
         }
 
-        // 支援対象の移動先が輸送海軍でなければ経路寸断見込みなしでカット
-        let Some(convoy_order_support_target_attacking) = &matched_convoy_orders.iter().find(|c| s.target_dest == Some(c.location())) else {
-            original_orders[idx].set_cut();
-            continue;
-        };
-
-        // 支援対象の移動先の輸送海軍の輸送対象が attack_order でなければカット回避とは無関係のためカット
-        let OrderKind::Convoy(c) = &convoy_order_support_target_attacking.kind else {
-            unreachable!("expected Convoy")
-        };
-        if c.target_dest != original_orders[idx].location() {
-            original_orders[idx].set_cut();
+        // Szykman ルールに従ったカット回避
+        if should_avoid_cut_due_to_datc_6_f_22(original_orders, idx, idx) {
             continue;
         }
 
-        // 支援対象の移動先の輸送海軍を除去したと仮定しても輸送経路が寸断されなければカット
-        let matched_convoy_orders_without_support_target: Vec<&Order> = matched_convoy_orders
-            .iter()
-            .filter(|o| o.location() != convoy_order_support_target_attacking.location())
-            .copied()
-            .collect();
-        if can_move_via_convoy(attack_order, original_orders[idx].location().code(), &matched_convoy_orders_without_support_target) {
-            original_orders[idx].set_cut();
-            continue;
-        }
+        original_orders[idx].set_cut();
     }
 }
 
@@ -1030,4 +1011,67 @@ fn should_avoid_cut_due_to_convoy_special_case(
     let attack_order_idx = original_orders.iter().position(|o| o == attack_order).expect("attack_order should be in original_orders");
     original_orders[attack_order_idx].set_unreachable();
     true
+}
+
+// DATC テストケース 6.F.22 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
+fn should_avoid_cut_due_to_datc_6_f_22(original_orders: &[Order], start_idx: usize, end_idx: usize) -> bool {
+    let cloned_orders = &mut original_orders.to_vec();
+
+    // 支援対象が移動命令でなければカット回避失敗
+    let Some(target_idx) = cloned_orders.iter().position(|o| cloned_orders[start_idx].is_matching_target(o)) else {
+        return false;
+    };
+    let OrderKind::Move(m1) = &cloned_orders[target_idx].kind.clone() else {
+        return false;
+    };
+
+    // 支援対象の移動先が輸送命令でなければカット回避失敗
+    let Some(target_target_idx) = cloned_orders.iter().position(|o| o.location() == m1.dest) else {
+        return false;
+    };
+
+    // 支援対象の移動先の輸送命令の輸送対象を取得
+    let Some(target_target_target) = cloned_orders.iter().find(|o| cloned_orders[target_target_idx].is_matching_target(o)) else {
+        return false;
+    };
+
+    // 支援対象の移動先の輸送命令の輸送対象の移動先が支援命令でなければカット回避失敗
+    let OrderKind::Move(m2) = &target_target_target.kind else {
+        return false;
+    };
+    let Some(target_target_target_target) = cloned_orders.iter().find(|o| o.location() == m2.dest) else {
+        return false;
+    };
+    let OrderKind::Support(_) = &target_target_target_target.kind else {
+        return false;
+    };
+    let Some(ttarget_target_target_target_idx) = cloned_orders.iter().position(|o| o == target_target_target_target) else {
+        return false;
+    };
+
+    // target が target_target を撃退しても target_target_target の移動経路が維持されるならカット回避失敗
+    let convoy_orders = collect_valid_convoy_orders(cloned_orders);
+    let matched_convoy_orders = collect_matched_convoy_orders(&convoy_orders, target_target_target);
+    let matched_convoy_orders_without_support_target: Vec<&Order> = matched_convoy_orders
+        .iter()
+        .filter(|o| o.location() != cloned_orders[target_target_idx].location())
+        .copied()
+        .collect();
+    if can_move_via_convoy(
+        target_target_target,
+        cloned_orders[ttarget_target_target_target_idx].location().code(),
+        &matched_convoy_orders_without_support_target,
+    ) {
+        return false;
+    }
+
+    // 支援対象の移動先の輸送命令の輸送対象の移動先の支援命令が最初の支援命令と一致しなければ再帰
+    let Some(target_target_target_target_idx) = cloned_orders.iter().position(|o| o == target_target_target_target) else {
+        return false;
+    };
+    if target_target_target_target_idx == end_idx {
+        return true;
+    }
+
+    should_avoid_cut_due_to_datc_6_f_22(original_orders, target_target_target_target_idx, end_idx)
 }
