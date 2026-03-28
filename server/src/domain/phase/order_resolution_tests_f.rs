@@ -927,7 +927,8 @@ fn test_datc_6_f_22() {
 }
 
 /// 6.F.23. TEST CASE, SECOND ORDER PARADOX WITH TWO EXCLUSIVE CONVOYS
-/// In this paradox there are two consistent resolutions, but where the two convoys do not fail or succeed at the same time.
+/// In this paradox there are two consistent resolutions,
+/// but where the two convoys do not fail or succeed at the same time.
 ///
 /// England:
 /// F Edinburgh - North Sea
@@ -948,15 +949,51 @@ fn test_datc_6_f_22() {
 /// Russia:
 /// A Norway - Belgium
 /// F North Sea Convoys A Norway - Belgium
-/// Without any paradox rule, there are two consistent resolutions. In one resolution, the convoy in the English Channel is dislodged by the fleet in the Mid-Atlantic Ocean, while the convoy in the North Sea succeeds. In the other resolution, it is the other way around. The convoy in the North Sea is dislodged by the fleet in Edinburgh, while the convoy in the English Channel succeeds.
-///
+/// Without any paradox rule, there are two consistent resolutions. In one resolution,
+/// the convoy in the English Channel is dislodged by the fleet in the Mid-Atlantic Ocean,
+/// while the convoy in the North Sea succeeds. In the other resolution, it is the other way around.
+/// The convoy in the North Sea is dislodged by the fleet in Edinburgh,
+/// while the convoy in the English Channel succeeds.
 /// The 1971, 2000 and 2023 rules (see issue 4.A.2) do not have an answer on this.
-///
 /// According to the 1982 rule, the supports are not cut which means that the none of the units move.
-///
-/// The Szykman rule (which I prefer), has the same result as the 1982 rule. The convoying armies fail to move and the supports are not cut. Because of the failure to cut the support, no fleet succeeds to move.
+/// The Szykman rule (which I prefer), has the same result as the 1982 rule.
+/// The convoying armies fail to move and the supports are not cut.
+/// Because of the failure to cut the support, no fleet succeeds to move.
 #[test]
-fn test_datc_6_f_23() {}
+fn test_datc_6_f_23() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("edi"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("yor"));
+    let unit_f_1 = Unit::new_army(Power::France, p("bre"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("eng"));
+    let unit_g_1 = Unit::new_fleet(Power::Germany, p("bel"));
+    let unit_g_2 = Unit::new_fleet(Power::Germany, p("lon"));
+    let unit_i_1 = Unit::new_fleet(Power::Italy, p("mao"));
+    let unit_i_2 = Unit::new_fleet(Power::Italy, p("iri"));
+    let unit_r_1 = Unit::new_army(Power::Russia, p("nwy"));
+    let unit_r_2 = Unit::new_fleet(Power::Russia, p("nth"));
+    phase.data.orders.push(unit_e_1.move_to(p("nth")));
+    phase.data.orders.push(unit_e_2.support_move(unit_e_1, p("nth")));
+    phase.data.orders.push(unit_f_1.move_to(p("lon")));
+    phase.data.orders.push(unit_f_2.convoy(unit_f_1, p("lon")));
+    phase.data.orders.push(unit_g_1.support_hold(unit_f_2));
+    phase.data.orders.push(unit_g_2.support_hold(unit_r_2));
+    phase.data.orders.push(unit_i_1.move_to(p("eng")));
+    phase.data.orders.push(unit_i_2.support_move(unit_i_1, p("eng")));
+    phase.data.orders.push(unit_r_1.move_to(p("bel")));
+    phase.data.orders.push(unit_r_2.convoy(unit_r_1, p("bel")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[7].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[8].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[9].status, OrderStatus::Valid);
+}
 
 /// 6.F.24. TEST CASE, SECOND ORDER PARADOX WITH NO RESOLUTION
 /// As first order paradoxes, second order paradoxes come in two flavors, with two resolutions or no resolution.
