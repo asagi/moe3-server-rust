@@ -1,3 +1,4 @@
+use crate::domain::order::MoveOrder;
 use crate::domain::order::Order;
 use crate::domain::order::OrderKind;
 use crate::domain::order::OrderStatus;
@@ -1015,66 +1016,47 @@ fn should_avoid_cut_due_to_datc_6_f_18(
 fn should_avoid_cut_due_to_datc_6_f_22(original_orders: &[Order], start_idx: usize, end_idx: usize) -> bool {
     let cloned_orders = &mut original_orders.to_vec();
 
-    // 支援対象が移動命令でなければカット回避失敗
-    let Some(target_idx) = cloned_orders.iter().position(|o| cloned_orders[start_idx].is_matching_target(o)) else {
-        return false;
-    };
-    let OrderKind::Move(m1) = &cloned_orders[target_idx].kind.clone() else {
+    // 支援対象が移動命令でなければカット回避失敗（S1 → M2）
+    let Some(m1k) = get_support_target_move_order_kind(cloned_orders, start_idx) else {
         return false;
     };
 
-    // 支援対象の移動先が輸送命令でなければカット回避失敗
-    let Some(target_target_idx) = cloned_orders.iter().position(|o| o.location() == m1.dest) else {
-        return false;
-    };
-    let OrderKind::Convoy(_) = &cloned_orders[target_target_idx].kind.clone() else {
+    // 支援対象の移動先が輸送命令でなければカット回避失敗（S1 → M1 → C）
+    let Some(c_idx) = get_target_convoy_order_idx(cloned_orders, m1k) else {
         return false;
     };
 
-    // 支援対象の移動先の輸送命令の輸送対象を取得
-    let Some(target_target_target) = cloned_orders.iter().find(|o| cloned_orders[target_target_idx].is_matching_target(o)) else {
+    // 支援対象の移動先の輸送命令の輸送対象の移動先が支援命令でなければカット回避失敗（S1 → M1 → C → M2 → S2）
+    let Some(m2k) = get_support_target_move_order_kind(cloned_orders, c_idx) else {
         return false;
     };
 
-    // 支援対象の移動先の輸送命令の輸送対象の移動先が支援命令でなければカット回避失敗
-    let OrderKind::Move(m2) = &target_target_target.kind else {
-        return false;
-    };
-    let Some(target_target_target_target) = cloned_orders.iter().find(|o| o.location() == m2.dest) else {
-        return false;
-    };
-    let OrderKind::Support(_) = &target_target_target_target.kind else {
-        return false;
-    };
-    let Some(ttarget_target_target_target_idx) = cloned_orders.iter().position(|o| o == target_target_target_target) else {
+    // 支援対象の移動先の輸送命令の輸送対象移動命令（m2）を取得
+    let Some(m2) = cloned_orders.iter().find(|o| cloned_orders[c_idx].is_matching_target(o)) else {
         return false;
     };
 
-    // target が target_target を撃退しても target_target_target の移動経路が維持されるならカット回避失敗
+    // 支援対象の移動先の輸送命令の輸送対象移動命令の移動先（s2）のインデックスを取得
+    let Some(s2_idx) = get_target_support_order_idx(cloned_orders, m2k) else {
+        return false;
+    };
+
+    // m1 が c を撃退しても m2 の移動経路が維持されるならカット回避失敗
     let convoy_orders = collect_valid_convoy_orders(cloned_orders);
-    let matched_convoy_orders = collect_matched_convoy_orders(&convoy_orders, target_target_target);
-    let matched_convoy_orders_without_support_target: Vec<&Order> = matched_convoy_orders
+    let matched_convoy_orders: Vec<&Order> = collect_matched_convoy_orders(&convoy_orders, m2)
         .iter()
-        .filter(|o| o.location() != cloned_orders[target_target_idx].location())
+        .filter(|o| o.location() != cloned_orders[c_idx].location())
         .copied()
         .collect();
-    if can_move_via_convoy(
-        target_target_target,
-        cloned_orders[ttarget_target_target_target_idx].location().code(),
-        &matched_convoy_orders_without_support_target,
-    ) {
+    if can_move_via_convoy(m2, cloned_orders[s2_idx].location().code(), &matched_convoy_orders) {
         return false;
     }
 
-    // 支援対象の移動先の輸送命令の輸送対象の移動先の支援命令が最初の支援命令と一致しなければ再帰
-    let Some(target_target_target_target_idx) = cloned_orders.iter().position(|o| o == target_target_target_target) else {
-        return false;
-    };
-    if target_target_target_target_idx == end_idx {
-        return true;
+    // S1 と S2 が一致しなければ S1 と Sn 一致するまで再帰
+    if s2_idx != end_idx {
+        return should_avoid_cut_due_to_datc_6_f_22(original_orders, s2_idx, end_idx);
     }
-
-    should_avoid_cut_due_to_datc_6_f_22(original_orders, target_target_target_target_idx, end_idx)
+    true
 }
 
 // DATC テストケース 6.F.23 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
@@ -1161,4 +1143,28 @@ fn should_avoid_cut_due_to_datc_6_f_23(original_orders: &[Order], start_idx: usi
     }
 
     should_avoid_cut_due_to_datc_6_f_23(original_orders, target_target_idx, end_idx)
+}
+
+// // DATC テストケース 6.F.24 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
+// fn should_avoid_cut_due_to_datc_6_f_24(original_orders: &[Order], start_idx: usize, end_idx: usize) -> bool {
+//     false
+// }
+
+/// 支援対象が移動命令であればその移動命令の MoveOrder オブジェクトを返す
+fn get_support_target_move_order_kind(orders: &[Order], support_order_idx: usize) -> Option<MoveOrder> {
+    let target_order = orders.iter().find(|o| orders[support_order_idx].is_matching_target(o))?;
+    match target_order.kind {
+        OrderKind::Move(m) => Some(m),
+        _ => None,
+    }
+}
+
+/// 移動先に輸送命令があればその輸送命令の index を返す
+fn get_target_convoy_order_idx(orders: &[Order], m: MoveOrder) -> Option<usize> {
+    orders.iter().position(|o| o.location() == m.dest)
+}
+
+/// 移動先に支援命令があればその輸送命令の index を返す
+fn get_target_support_order_idx(orders: &[Order], m: MoveOrder) -> Option<usize> {
+    orders.iter().position(|o| o.location() == m.dest && matches!(o.kind, OrderKind::Support(_)))
 }
