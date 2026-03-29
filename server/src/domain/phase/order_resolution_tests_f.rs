@@ -996,7 +996,8 @@ fn test_datc_6_f_23() {
 }
 
 /// 6.F.24. TEST CASE, SECOND ORDER PARADOX WITH NO RESOLUTION
-/// As first order paradoxes, second order paradoxes come in two flavors, with two resolutions or no resolution.
+/// As first order paradoxes, second order paradoxes come in two flavors, w
+/// ith two resolutions or no resolution.
 ///
 /// England:
 /// F Edinburgh - North Sea
@@ -1012,15 +1013,48 @@ fn test_datc_6_f_23() {
 /// Russia:
 /// A Norway - Belgium
 /// F North Sea Convoys A Norway - Belgium
-/// When no paradox rule is used, there is no consistent resolution. If the French support in Belgium is cut, the French fleet in the English Channel will be dislodged. That means that the support of London will not be cut and the fleet in Edinburgh will dislodge the Russian fleet in the North Sea. In this way the support in Belgium is not cut! But if the support in Belgium is not cut, the Russian fleet in the North Sea will not be dislodged and the army in Norway can cut the support in Belgium.
-///
+/// When no paradox rule is used, there is no consistent resolution.
+/// If the French support in Belgium is cut, the French fleet in the English Channel will be dislodged.
+/// That means that the support of London will not be cut and the fleet in Edinburgh will dislodge the Russian fleet in the North Sea.
+/// In this way the support in Belgium is not cut! But if the support in Belgium is not cut,
+/// the Russian fleet in the North Sea will not be dislodged and the army in Norway can cut the support in Belgium.
 /// The 1971, 2000 and 2023 rules (see issue 4.A.2) do not have an answer on this.
-///
-/// According to the 1982 rule, the supports are not cut which means that the French fleet in the English Channel will survive and but the Russian fleet in the North Sea is dislodged.
-///
-/// If the Szykman alternative is used (which I prefer), the supports are not cut and the convoying armies fail to move, which gives the same result as the 1982 rule.
+/// According to the 1982 rule, the supports are not cut which means that the French fleet in the English Channel will survive
+/// and but the Russian fleet in the North Sea is dislodged.
+/// If the Szykman alternative is used (which I prefer), the supports are not cut and the convoying armies fail to move,
+/// which gives the same result as the 1982 rule.
 #[test]
-fn test_datc_6_f_24() {}
+fn test_datc_6_f_24() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1 = Unit::new_fleet(Power::England, p("edi"));
+    let unit_e_2 = Unit::new_fleet(Power::England, p("lon"));
+    let unit_e_3 = Unit::new_fleet(Power::England, p("iri"));
+    let unit_e_4 = Unit::new_fleet(Power::England, p("mao"));
+    let unit_f_1 = Unit::new_army(Power::France, p("bre"));
+    let unit_f_2 = Unit::new_fleet(Power::France, p("eng"));
+    let unit_f_3 = Unit::new_fleet(Power::France, p("bel"));
+    let unit_r_1 = Unit::new_army(Power::Russia, p("nwy"));
+    let unit_r_2 = Unit::new_fleet(Power::Russia, p("nth"));
+    phase.data.orders.push(unit_e_1.move_to(p("nth")));
+    phase.data.orders.push(unit_e_2.support_move(unit_e_1, p("nth")));
+    phase.data.orders.push(unit_e_3.move_to(p("eng")));
+    phase.data.orders.push(unit_e_4.support_move(unit_e_3, p("eng")));
+    phase.data.orders.push(unit_f_1.move_to(p("lon")));
+    phase.data.orders.push(unit_f_2.convoy(unit_f_1, p("lon")));
+    phase.data.orders.push(unit_f_3.support_hold(unit_f_2));
+    phase.data.orders.push(unit_r_1.move_to(p("bel")));
+    phase.data.orders.push(unit_r_2.convoy(unit_r_1, p("bel")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[7].status, OrderStatus::Unreachable);
+    assert_eq!(phase.data.orders[8].status, OrderStatus::Dislodged);
+}
 
 /// 6.F.25. TEST CASE, CUT SUPPORT LAST
 /// For manual play the rule of thumb is, cut support first. However, in below example the support of Holland is some of the last orders to adjudicated.
