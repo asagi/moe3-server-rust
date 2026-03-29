@@ -1057,7 +1057,8 @@ fn test_datc_6_f_24() {
 }
 
 /// 6.F.25. TEST CASE, CUT SUPPORT LAST
-/// For manual play the rule of thumb is, cut support first. However, in below example the support of Holland is some of the last orders to adjudicated.
+/// For manual play the rule of thumb is, cut support first. However,
+/// in below example the support of Holland is some of the last orders to adjudicated.
 ///
 /// Germany:
 /// A Rhur - Belgium
@@ -1076,6 +1077,49 @@ fn test_datc_6_f_24() {
 /// F Norwegian Sea - North Sea
 /// F Norway Supports Norwegian Sea - North Sea
 /// F Sweden - Skagerrak
-/// The fleet in Sweden fails to disrupt the convoy in Skagerrak. The move from Denmark to Norway succeeds and cuts the support of Norway. The fleet in the Norwegian Sea fails to disrupt the convoy in North Sea. The move from Yorkshire to Holland succeeds and cuts the support of Holland. The move from Rhur fails to dislodge the army in Belgium.
+/// The fleet in Sweden fails to disrupt the convoy in Skagerrak.
+/// The move from Denmark to Norway succeeds and cuts the support of Norway.
+/// The fleet in the Norwegian Sea fails to disrupt the convoy in North Sea.
+/// The move from Yorkshire to Holland succeeds and cuts the support of Holland.
+/// The move from Rhur fails to dislodge the army in Belgium.
 #[test]
-fn test_datc_6_f_25() {}
+fn test_datc_6_f_25() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_g_1_ruh = Unit::new_army(Power::Germany, p("ruh"));
+    let unit_g_2_hol = Unit::new_army(Power::Germany, p("hol"));
+    let unit_g_3_den = Unit::new_army(Power::Germany, p("den"));
+    let unit_g_4_ska = Unit::new_fleet(Power::Germany, p("ska"));
+    let unit_g_5_fin = Unit::new_army(Power::Germany, p("fin"));
+    let unit_e_1_yor = Unit::new_army(Power::England, p("yor"));
+    let unit_e_2_nth = Unit::new_fleet(Power::England, p("nth"));
+    let unit_e_3_hel = Unit::new_fleet(Power::England, p("hel"));
+    let unit_e_4_bel = Unit::new_army(Power::England, p("bel"));
+    let unit_r_1_nwg = Unit::new_fleet(Power::Russia, p("nwg"));
+    let unit_r_2_nwy = Unit::new_fleet(Power::Russia, p("nwy"));
+    let unit_r_3_swe = Unit::new_fleet(Power::Russia, p("swe"));
+    phase.data.orders.push(unit_g_1_ruh.move_to(p("bel")));
+    phase.data.orders.push(unit_g_2_hol.support_move(unit_g_1_ruh, p("bel")));
+    phase.data.orders.push(unit_g_3_den.move_to(p("nwy")));
+    phase.data.orders.push(unit_g_4_ska.convoy(unit_g_3_den, p("nwy")));
+    phase.data.orders.push(unit_g_5_fin.support_move(unit_g_3_den, p("nwy")));
+    phase.data.orders.push(unit_e_1_yor.move_to(p("hol")));
+    phase.data.orders.push(unit_e_2_nth.convoy(unit_e_1_yor, p("hol")));
+    phase.data.orders.push(unit_e_3_hel.support_move(unit_e_1_yor, p("hol")));
+    phase.data.orders.push(unit_e_4_bel.hold());
+    phase.data.orders.push(unit_r_1_nwg.move_to(p("nth")));
+    phase.data.orders.push(unit_r_2_nwy.support_move(unit_r_1_nwg, p("nth")));
+    phase.data.orders.push(unit_r_3_swe.move_to(p("ska")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[7].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[8].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[9].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[10].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[11].status, OrderStatus::Failure);
+}
