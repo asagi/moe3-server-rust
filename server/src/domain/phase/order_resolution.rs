@@ -457,7 +457,7 @@ fn handle_remaining_move_orders(original_orders: &mut [Order], standoff_province
                 }
                 _ => {
                     // 移動先の駐留軍は移動に失敗しているので排除判定を実施する
-                    resolve_no_support_defense(original_orders, attacker_idx, occupant_idx, None);
+                    resolve_no_support_defense(original_orders, attacker_idx, occupant_idx);
                     dest_snapshots.clear();
                     continue;
                 }
@@ -845,7 +845,7 @@ fn occupant_power_on_target(original_orders: &[Order], target_code: &str) -> Opt
 /// attacker 進軍成功かつ defender 進軍失敗からの defender の防衛成否判定
 // - defender は進軍に失敗しているので支援は全て切れている
 // - attacker に有効な支援が残っていれば進軍成功で defender の敗退
-fn resolve_no_support_defense(original_orders: &mut [Order], attacker_idx: usize, defender_idx: usize, flanker_idx: Option<usize>) {
+fn resolve_no_support_defense(original_orders: &mut [Order], attacker_idx: usize, defender_idx: usize) {
     let support_orders = collect_valid_support_orders(original_orders);
 
     if original_orders[attacker_idx].power == original_orders[defender_idx].power {
@@ -863,31 +863,8 @@ fn resolve_no_support_defense(original_orders: &mut [Order], attacker_idx: usize
         return;
     }
 
-    // defender の防衛成功により attacker の進軍失敗からの attacker の防衛成否判定
-    let Some(flanker_idx) = flanker_idx else {
-        // flanker 不在による防衛成否判定不要で attacker の進軍失敗確定で終了
-        original_orders[attacker_idx].set_failure();
-        return;
-    };
-
-    debug_assert!(flanker_idx != attacker_idx && flanker_idx != defender_idx);
-
-    if original_orders[flanker_idx].power == original_orders[attacker_idx].power {
-        // 自国軍同士の衝突は攻撃失敗
-        original_orders[attacker_idx].set_failure();
-        return;
-    }
-
-    // defender との進軍競争に勝ち抜いた flanker からの攻撃に対する attacker の防衛成否判定
-    if support_orders.iter().any(|o| o.is_matching_target(&original_orders[flanker_idx])) {
-        // attacker 防衛失敗
-        original_orders[attacker_idx].set_dislodged_from(&original_orders[flanker_idx].location());
-        original_orders[flanker_idx].set_success();
-    } else {
-        // attacker 防衛成功（進軍は失敗）
-        original_orders[attacker_idx].set_failure();
-        original_orders[flanker_idx].set_failure();
-    }
+    // attacker の進軍失敗確定で終了
+    original_orders[attacker_idx].set_failure();
 }
 
 /// 撃退された命令が攻撃側の元所在地に発生させたスタンドオフを無効化する。
