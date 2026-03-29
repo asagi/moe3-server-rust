@@ -534,6 +534,23 @@ fn collect_valid_move_indices(orders: &[Order]) -> Vec<usize> {
         .collect()
 }
 
+/// 指定したユニットを攻撃する移動命令を収集（自国軍を除く）
+fn collect_attacker_indicies(orders: &[Order], target_idx: usize) -> Vec<usize> {
+    orders
+        .iter()
+        .enumerate()
+        .filter(|(_, o)| !o.is_assumed() && o.is_valid() && o.power != orders[target_idx].power)
+        .filter(|(_, o)| {
+            if let OrderKind::Move(m) = &o.kind {
+                m.dest.code()[..3] == orders[target_idx].location().code()[..3]
+            } else {
+                false
+            }
+        })
+        .map(|(i, _)| i)
+        .collect()
+}
+
 /// 未処理の支援命令のインデックスコレクションを作成
 fn collect_unresolved_support_indices(orders: &[Order]) -> Vec<usize> {
     orders
@@ -1074,32 +1091,20 @@ fn should_avoid_cut_due_to_datc_6_f_23(original_orders: &[Order], start_idx: usi
     };
 
     // 輸送海軍を攻撃する移動命令を収集（自国軍を除く）
-    let move_orders = collect_valid_move_orders(cloned_orders);
-    let convoy_attackers: Vec<&Order> = move_orders
-        .iter()
-        .filter(|o| o.power != cloned_orders[target_idx].power)
-        .filter(|o| {
-            if let OrderKind::Move(m) = &o.kind {
-                m.dest.code()[..3] == cloned_orders[target_idx].location().code()[..3]
-            } else {
-                false
-            }
-        })
-        .collect();
-
-    if convoy_attackers.is_empty() {
+    let attacker_indicies = collect_attacker_indicies(cloned_orders, target_idx);
+    if attacker_indicies.is_empty() {
         return false;
     }
 
     // 支援数の集計
     let support_orders = collect_valid_support_orders(cloned_orders);
-    let convoy_supports_count = support_orders.iter().filter(|s| s.is_matching_target(&cloned_orders[target_idx])).count() - 1; // 自身の支援を除外
-    let max_attacker_supports = convoy_attackers
+    let convoy_supports_count = support_orders.iter().filter(|s| s.is_matching_target(&cloned_orders[target_idx])).count().saturating_sub(1); // 自身の支援を除外
+    let max_attacker_supports = attacker_indicies
         .iter()
-        .map(|att| {
+        .map(|&i| {
             support_orders
                 .iter()
-                .filter(|s| s.is_matching_target(att) && s.power != cloned_orders[target_idx].power)
+                .filter(|s| s.is_matching_target(&cloned_orders[i]) && s.power != cloned_orders[target_idx].power)
                 .count()
         })
         .max()
