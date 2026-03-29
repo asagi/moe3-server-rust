@@ -978,7 +978,6 @@ fn has_confliction(original_orders: &[Order], target_location_code: &str) -> boo
 // DATC テストケース 6.F.18 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
 fn should_avoid_cut_due_to_datc_6_f_18(original_orders: &mut [Order], s1_idx: usize, attacker_idx: usize) -> bool {
     let cloned_orders = &mut original_orders.to_vec();
-    let move_orders = collect_valid_move_orders(cloned_orders);
 
     // 支援対象が輸送命令でなければカット回避失敗（S1 → C）
     let Some(c_idx) = cloned_orders.iter().position(|o| cloned_orders[s1_idx].is_matching_target(o)) else {
@@ -996,34 +995,8 @@ fn should_avoid_cut_due_to_datc_6_f_18(original_orders: &mut [Order], s1_idx: us
         return false;
     };
 
-    // 輸送海軍を攻撃する移動命令を収集（自国軍を除く）
-    let convoy_attackers: Vec<&Order> = move_orders
-        .iter()
-        .filter(|o| o.power != cloned_orders[c_idx].power)
-        .filter(|o| {
-            if let OrderKind::Move(m) = &o.kind {
-                m.dest.code()[..3] == cloned_orders[c_idx].location().code()[..3]
-            } else {
-                false
-            }
-        })
-        .collect();
-
-    if convoy_attackers.is_empty() {
-        return false;
-    }
-
-    // 支援数の集計
-    let support_orders = collect_valid_support_orders(cloned_orders);
-    let convoy_supports_count = support_orders.iter().filter(|s| s.is_matching_target(&cloned_orders[c_idx])).count() - 1; // 自身の支援を除外
-    let max_attacker_supports = convoy_attackers
-        .iter()
-        .map(|att| support_orders.iter().filter(|s| s.is_matching_target(att) && s.power != cloned_orders[c_idx].power).count())
-        .max()
-        .unwrap_or(0);
-
     // 自身の支援がなくても輸送海軍が撃退されない見込みなら本ルールによるカット回避不可
-    if max_attacker_supports <= convoy_supports_count {
+    if is_target_safe_without_own_support(cloned_orders, c_idx) {
         return false;
     }
 
@@ -1082,41 +1055,21 @@ fn should_avoid_cut_due_to_datc_6_f_22(original_orders: &[Order], start_idx: usi
 fn should_avoid_cut_due_to_datc_6_f_23(original_orders: &[Order], start_idx: usize, end_idx: usize) -> bool {
     let cloned_orders = &mut original_orders.to_vec();
 
-    // 支援対象が輸送命令でなければカット回避失敗
-    let Some(target_idx) = cloned_orders.iter().position(|o| cloned_orders[start_idx].is_matching_target(o)) else {
+    // 支援対象が輸送命令でなければカット回避失敗（S1 → C）
+    let Some(c_idx) = cloned_orders.iter().position(|o| cloned_orders[start_idx].is_matching_target(o)) else {
         return false;
     };
-    let OrderKind::Convoy(c1) = &cloned_orders[target_idx].kind.clone() else {
+    let OrderKind::Convoy(ck) = &cloned_orders[c_idx].kind.clone() else {
         return false;
     };
-
-    // 輸送海軍を攻撃する移動命令を収集（自国軍を除く）
-    let attacker_indicies = collect_attacker_indicies(cloned_orders, target_idx);
-    if attacker_indicies.is_empty() {
-        return false;
-    }
-
-    // 支援数の集計
-    let support_orders = collect_valid_support_orders(cloned_orders);
-    let convoy_supports_count = support_orders.iter().filter(|s| s.is_matching_target(&cloned_orders[target_idx])).count().saturating_sub(1); // 自身の支援を除外
-    let max_attacker_supports = attacker_indicies
-        .iter()
-        .map(|&i| {
-            support_orders
-                .iter()
-                .filter(|s| s.is_matching_target(&cloned_orders[i]) && s.power != cloned_orders[target_idx].power)
-                .count()
-        })
-        .max()
-        .unwrap_or(0);
 
     // 自身の支援がなくても輸送海軍が撃退されない見込みなら本ルールによるカット回避不可
-    if max_attacker_supports <= convoy_supports_count {
+    if is_target_safe_without_own_support(cloned_orders, c_idx) {
         return false;
     }
 
     // 輸送対象の移動先が支援命令でなければカット回避失敗
-    let Some(target_target_idx) = cloned_orders.iter().position(|o| o.location() == c1.target_dest) else {
+    let Some(target_target_idx) = cloned_orders.iter().position(|o| o.location() == ck.target_dest) else {
         return false;
     };
     let OrderKind::Support(_) = &cloned_orders[target_target_idx].kind.clone() else {
@@ -1124,12 +1077,12 @@ fn should_avoid_cut_due_to_datc_6_f_23(original_orders: &[Order], start_idx: usi
     };
 
     // 支援対象の輸送対象を取得
-    let Some(attack_order_idx) = cloned_orders.iter().position(|o| cloned_orders[target_idx].is_matching_target(o)) else {
+    let Some(attack_order_idx) = cloned_orders.iter().position(|o| cloned_orders[c_idx].is_matching_target(o)) else {
         return false;
     };
 
     // 該当の輸送海軍を除いても輸送経路が維持されるのであれば本ルールによるカット回避不可
-    if can_move_via_valid_convoy(cloned_orders, attack_order_idx, Some(cloned_orders[target_idx].location())) {
+    if can_move_via_valid_convoy(cloned_orders, attack_order_idx, Some(cloned_orders[c_idx].location())) {
         return false;
     }
 
@@ -1163,4 +1116,41 @@ fn get_target_convoy_order_idx(orders: &[Order], m: MoveOrder) -> Option<usize> 
 /// 移動先に支援命令があればその輸送命令の index を返す
 fn get_target_support_order_idx(orders: &[Order], m: MoveOrder) -> Option<usize> {
     orders.iter().position(|o| o.location() == m.dest && matches!(o.kind, OrderKind::Support(_)))
+}
+
+/// 対象への攻撃命令が支援を一つ減らした状態で撃退されない見込みかどうかを判定する
+fn is_target_safe_without_own_support(orders: &[Order], target_idx: usize) -> bool {
+    // 輸送海軍を攻撃する移動命令を収集（自国軍を除く）
+    let attacker_indicies = collect_attacker_indicies(orders, target_idx);
+    if attacker_indicies.is_empty() {
+        return true;
+    }
+
+    // 自身の支援がなくても輸送海軍が撃退されない見込みなら本ルールによるカット回避不可
+    let convoy_supports_count = count_supports(orders, target_idx).saturating_sub(1);
+    let max_attacker_supports = count_supports_for_attackers(orders, &attacker_indicies, target_idx);
+    if max_attacker_supports <= convoy_supports_count {
+        return true;
+    }
+    false
+}
+
+/// 対象へのサポート数を数える
+fn count_supports(orders: &[Order], target_idx: usize) -> usize {
+    let support_orders = collect_valid_support_orders(orders);
+    support_orders.iter().filter(|s| s.is_matching_target(&orders[target_idx])).count()
+}
+
+fn count_supports_for_attackers(orders: &[Order], attacker_indicies: &[usize], target_idx: usize) -> usize {
+    let support_orders = collect_valid_support_orders(orders);
+    attacker_indicies
+        .iter()
+        .map(|&i| {
+            support_orders
+                .iter()
+                .filter(|s| s.is_matching_target(&orders[i]) && s.power != orders[target_idx].power)
+                .count()
+        })
+        .max()
+        .unwrap_or(0)
 }
