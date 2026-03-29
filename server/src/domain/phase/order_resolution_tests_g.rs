@@ -6,16 +6,16 @@
 //!
 //! [DATC_6G]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.G
 
-// use super::super::order::*;
-// use super::super::phase::order_resolution::*;
-// use super::super::phase::*;
-// use super::super::power::*;
-// use super::super::province::*;
-// use super::super::unit::*;
+use super::super::order::*;
+use super::super::phase::order_resolution::*;
+use super::super::phase::*;
+use super::super::power::*;
+use super::super::province::*;
+use super::super::unit::*;
 
-// fn p(code: &str) -> Province {
-//     Province::from_code(code).expect("valid province code")
-// }
+fn p(code: &str) -> Province {
+    Province::from_code(code).expect("valid province code")
+}
 
 /// 6.G.1. TEST CASE, TWO UNITS CAN SWAP PROVINCES BY CONVOY
 /// The only way to swap two units, is by convoy.
@@ -26,9 +26,23 @@
 ///
 /// Russia:
 /// A Sweden - Norway
-/// If explicit adjacent convoying is used (DPTG, see issue 4.A.3), then it is just a head-to-head battle. However, all rulebooks (which I prefer) allow that convoy intent is given by a convoying fleet of same country. So, swap should happen.
+/// If explicit adjacent convoying is used (DPTG, see issue 4.A.3), then it is just a head-to-head battle.
+/// However, all rulebooks (which I prefer) allow that convoy intent is given by a convoying fleet of same country.
+/// So, swap should happen.
 #[test]
-fn test_datc_6_g_1() {}
+fn test_datc_6_g_1() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_1_nor = Unit::new_army(Power::Germany, p("nwy"));
+    let unit_e_2_ska = Unit::new_fleet(Power::Germany, p("ska"));
+    let unit_r_1_nor = Unit::new_army(Power::England, p("swe"));
+    phase.data.orders.push(unit_e_1_nor.move_to(p("swe")));
+    phase.data.orders.push(unit_e_2_ska.convoy(unit_e_1_nor, p("swe")));
+    phase.data.orders.push(unit_r_1_nor.move_to(p("nwy")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+}
 
 /// 6.G.2. TEST CASE, KIDNAPPING AN ARMY
 /// Germany promised England to support to dislodge the Russian fleet in Sweden and it promised Russia to support to dislodge the English army in Norway. Instead, the joking German orders a convoy.
