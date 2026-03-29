@@ -151,7 +151,6 @@ fn validate_convoy_orders(original_orders: &mut [Order]) {
 
 /// 支援命令のカット
 fn handle_cutting_support_orders(original_orders: &mut [Order]) {
-    let convoy_orders = collect_valid_convoy_orders(original_orders);
     let move_orders = collect_valid_move_orders(original_orders);
 
     // 支援命令をカットし得る移動命令がなければ終了
@@ -208,8 +207,7 @@ fn handle_cutting_support_orders(original_orders: &mut [Order]) {
         }
 
         // Szykman ルールに従ったカット回避
-        let matched_convoy_orders = collect_matched_convoy_orders(&convoy_orders, attack_order);
-        if should_avoid_cut_due_to_datc_6_f_18(original_orders, idx, attack_order, &matched_convoy_orders, &move_orders) {
+        if should_avoid_cut_due_to_datc_6_f_18(original_orders, idx, attack_order_idx) {
             continue;
         }
         if should_avoid_cut_due_to_datc_6_f_22(original_orders, idx, idx) {
@@ -960,33 +958,32 @@ fn has_confliction(original_orders: &[Order], target_location_code: &str) -> boo
 }
 
 // DATC テストケース 6.F.18 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
-fn should_avoid_cut_due_to_datc_6_f_18(
-    original_orders: &mut [Order],
-    support_order_idx: usize,
-    attack_order: &Order,
-    matched_convoy_orders: &Vec<&Order>,
-    move_orders: &[Order],
-) -> bool {
-    // 支援対象が輸送海軍でなければ本ルールによるカット回避不可
-    let Some(support_target_order) = matched_convoy_orders.iter().find(|c| original_orders[support_order_idx].is_matching_target(c)) else {
+fn should_avoid_cut_due_to_datc_6_f_18(original_orders: &mut [Order], support_order_idx: usize, attacker_idx: usize) -> bool {
+    let move_orders = collect_valid_move_orders(original_orders);
+
+    // 支援対象が輸送命令でなければカット回避失敗（S1 → C）
+    let Some(target_idx) = original_orders.iter().position(|o| original_orders[support_order_idx].is_matching_target(o)) else {
+        return false;
+    };
+    let OrderKind::Convoy(c1) = &original_orders[target_idx].kind.clone() else {
         return false;
     };
 
-    // その輸送命令のターゲットが support_order の現在地でなければ本ルールによるカット回避不可
-    let OrderKind::Convoy(c) = &support_target_order.kind else {
+    // 輸送対象の移動先が支援命令でなければカット回避失敗（S1 → C → S2）
+    let Some(target_target_idx) = original_orders.iter().position(|o| o.location() == c1.target_dest) else {
         return false;
     };
-    if c.target_dest != original_orders[support_order_idx].location() {
+    let OrderKind::Support(_) = &original_orders[target_target_idx].kind.clone() else {
         return false;
-    }
+    };
 
     // 輸送海軍を攻撃する移動命令を収集（自国軍を除く）
     let convoy_attackers: Vec<&Order> = move_orders
         .iter()
-        .filter(|o| o.power != support_target_order.power)
+        .filter(|o| o.power != original_orders[target_idx].power)
         .filter(|o| {
             if let OrderKind::Move(m) = &o.kind {
-                m.dest.code()[..3] == support_target_order.location().code()[..3]
+                m.dest.code()[..3] == original_orders[target_idx].location().code()[..3]
             } else {
                 false
             }
@@ -999,11 +996,15 @@ fn should_avoid_cut_due_to_datc_6_f_18(
 
     // 支援数の集計
     let support_orders = collect_valid_support_orders(original_orders);
-    let convoy_supports_count = support_orders.iter().filter(|s| s.is_matching_target(support_target_order)).count() - 1; // 自身の支援を除外
-
+    let convoy_supports_count = support_orders.iter().filter(|s| s.is_matching_target(&original_orders[target_idx])).count() - 1; // 自身の支援を除外
     let max_attacker_supports = convoy_attackers
         .iter()
-        .map(|att| support_orders.iter().filter(|s| s.is_matching_target(att) && s.power != support_target_order.power).count())
+        .map(|att| {
+            support_orders
+                .iter()
+                .filter(|s| s.is_matching_target(att) && s.power != original_orders[target_idx].power)
+                .count()
+        })
         .max()
         .unwrap_or(0);
 
@@ -1013,17 +1014,12 @@ fn should_avoid_cut_due_to_datc_6_f_18(
     }
 
     // 該当の輸送海軍を除いても輸送経路が維持されるのであれば本ルールによるカット回避不可
-    if can_move_via_valid_convoy(
-        original_orders,
-        original_orders.iter().position(|o| o == attack_order).expect("attack_order should be in original_orders"),
-        Some(support_target_order.location()),
-    ) {
+    if can_move_via_valid_convoy(original_orders, attacker_idx, Some(original_orders[target_idx].location())) {
         return false;
     }
 
     // 上記の条件を全て回避できる場合はカット回避成立
-    let attack_order_idx = original_orders.iter().position(|o| o == attack_order).expect("attack_order should be in original_orders");
-    original_orders[attack_order_idx].set_unreachable();
+    original_orders[attacker_idx].set_unreachable();
     true
 }
 
