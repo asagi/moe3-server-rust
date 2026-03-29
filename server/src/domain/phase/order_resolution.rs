@@ -54,39 +54,43 @@ fn validate_move_orders(original_orders: &mut [Order]) {
     let convoy_orders = collect_unresolved_convoy_orders(original_orders);
 
     for idx in collect_unresolved_move_indices(original_orders) {
-        let move_order = &mut original_orders[idx];
-        let OrderKind::Move(m) = &move_order.kind else { unreachable!("expected Move") };
+        let OrderKind::Move(m) = &original_orders[idx].kind else {
+            unreachable!("expected Move")
+        };
 
         // 隣接経路が成立していれば有効
-        if Path::can_unit_move_to(&move_order.unit, move_order.location().code(), m.dest.code()) {
-            move_order.set_valid();
+        if Path::can_unit_move_to(&original_orders[idx].unit, original_orders[idx].location().code(), m.dest.code()) {
+            original_orders[idx].set_valid();
             continue;
         }
 
         // 陸軍の遠隔移動は輸送経路が成立している場合のみ有効
-        if let UnitKind::Army(_) = &move_order.unit.kind {
+        if let UnitKind::Army(_) = &original_orders[idx].unit.kind {
             // 目的地が海岸でなければ無効
             if !m.dest.is_coast() {
-                move_order.set_invalid();
+                original_orders[idx].set_invalid();
                 continue;
             }
 
             // 現在地と目的地が同一の場合は無効
-            if move_order.location().code() == m.dest.code() {
-                move_order.set_invalid();
+            if original_orders[idx].location().code() == m.dest.code() {
+                original_orders[idx].set_invalid();
                 continue;
             }
 
-            let matched_convoy_orders: Vec<&Order> = convoy_orders.iter().filter(|o| o.is_matching_target(move_order) && o.location().is_water()).collect();
-            if can_move_via_convoy(move_order, m.dest.code(), &matched_convoy_orders) {
-                move_order.set_valid();
+            let matched_convoy_orders: Vec<&Order> = convoy_orders
+                .iter()
+                .filter(|o| o.is_matching_target(&original_orders[idx]) && o.location().is_water())
+                .collect();
+            if can_move_via_convoy(original_orders, idx, &matched_convoy_orders) {
+                original_orders[idx].set_valid();
                 continue;
             } else {
-                move_order.set_invalid();
+                original_orders[idx].set_invalid();
                 continue;
             }
         } else {
-            move_order.set_invalid();
+            original_orders[idx].set_invalid();
             continue;
         }
     }
@@ -200,7 +204,10 @@ fn handle_cutting_support_orders(original_orders: &mut [Order]) {
 
         // 輸送経路が成立していなければ経路不成立でカット回避
         let matched_convoy_orders = collect_matched_convoy_orders(&convoy_orders, attack_order);
-        if !can_move_via_convoy(attack_order, original_orders[idx].location().code(), &matched_convoy_orders) {
+        let Some(attack_order_idx) = original_orders.iter().position(|o| o == attack_order) else {
+            unreachable!("attack order should exist in original orders")
+        };
+        if !can_move_via_convoy(original_orders, attack_order_idx, &matched_convoy_orders) {
             continue;
         }
 
@@ -261,7 +268,7 @@ fn handle_disruption_convoy_order(original_orders: &mut [Order], standoff_provin
             unreachable!("expected Move")
         };
         let matched_convoy_orders = collect_matched_convoy_orders(&convoy_orders, &original_orders[move_order_idx]);
-        if !can_move_via_convoy(&original_orders[move_order_idx], m.dest.code(), &matched_convoy_orders) {
+        if !can_move_via_convoy(original_orders, move_order_idx, &matched_convoy_orders) {
             // 輸送経路切断による移動失敗
             original_orders[move_order_idx].set_unreachable();
 
@@ -627,9 +634,12 @@ fn find_occupant_order_index(orders: &[Order], target_location_code: &str) -> Op
 }
 
 /// 輸送経路が成立しているかどうかを判定
-fn can_move_via_convoy(move_order: &Order, dest_code: &str, matched_convoy_orders: &Vec<&Order>) -> bool {
+fn can_move_via_convoy(orders: &[Order], move_order_idx: usize, matched_convoy_orders: &Vec<&Order>) -> bool {
     let allowed_waters: HashSet<&str> = matched_convoy_orders.iter().map(|order| order.location().code()).collect();
-    Path::is_reachable_by_sea(&move_order.location().code()[..3], &dest_code[..3], &allowed_waters)
+    let OrderKind::Move(m) = &orders[move_order_idx].kind else {
+        unreachable!("expected Move")
+    };
+    Path::is_reachable_by_sea(&orders[move_order_idx].location().code()[..3], &m.dest.code()[..3], &allowed_waters)
 }
 
 /// 未解決の有効な移動命令の移動先を重複なしで収集取する
@@ -870,10 +880,9 @@ fn can_reach_via_convoy(original_orders: &[Order], idx: usize) -> bool {
     }
 
     let convoy_orders = collect_valid_convoy_orders(original_orders);
-    let OrderKind::Move(m) = move_order.kind else { unreachable!("expected Move") };
     let matched_convoys = collect_matched_convoy_orders(&convoy_orders, &move_order);
 
-    can_move_via_convoy(&move_order, m.dest.code(), &matched_convoys)
+    can_move_via_convoy(original_orders, idx, &matched_convoys)
 }
 
 /// 交換移動命令双方の支援が生きている前提で支援数を比較し勝者のインデックスを返す。
@@ -999,8 +1008,8 @@ fn should_avoid_cut_due_to_datc_6_f_18(
     // 該当の輸送海軍を除いても輸送経路が維持されるのであれば本ルールによるカット回避不可
     let matched_convoy_orders_without_support_target: Vec<&Order> = matched_convoy_orders.iter().filter(|o| o.location() != support_target_order.location()).copied().collect();
     if can_move_via_convoy(
-        attack_order,
-        original_orders[support_order_idx].location().code(),
+        original_orders,
+        original_orders.iter().position(|o| o == attack_order).expect("attack_order should be in original_orders"),
         &matched_convoy_orders_without_support_target,
     ) {
         return false;
@@ -1035,6 +1044,9 @@ fn should_avoid_cut_due_to_datc_6_f_22(original_orders: &[Order], start_idx: usi
     let Some(m2) = cloned_orders.iter().find(|o| cloned_orders[c_idx].is_matching_target(o)) else {
         return false;
     };
+    let Some(m2_idx) = cloned_orders.iter().position(|o| o == m2) else {
+        return false;
+    };
 
     // 支援対象の移動先の輸送命令の輸送対象移動命令の移動先（s2）のインデックスを取得
     let Some(s2_idx) = get_target_support_order_idx(cloned_orders, m2k) else {
@@ -1048,7 +1060,7 @@ fn should_avoid_cut_due_to_datc_6_f_22(original_orders: &[Order], start_idx: usi
         .filter(|o| o.location() != cloned_orders[c_idx].location())
         .copied()
         .collect();
-    if can_move_via_convoy(m2, cloned_orders[s2_idx].location().code(), &matched_convoy_orders) {
+    if can_move_via_convoy(cloned_orders, m2_idx, &matched_convoy_orders) {
         return false;
     }
 
@@ -1129,11 +1141,7 @@ fn should_avoid_cut_due_to_datc_6_f_23(original_orders: &[Order], start_idx: usi
         .filter(|o| o.location() != cloned_orders[target_idx].location())
         .copied()
         .collect();
-    if can_move_via_convoy(
-        &cloned_orders[attack_order_idx],
-        original_orders[target_target_idx].location().code(),
-        &matched_convoy_orders_without_support_target,
-    ) {
+    if can_move_via_convoy(cloned_orders, attack_order_idx, &matched_convoy_orders_without_support_target) {
         return false;
     }
 
