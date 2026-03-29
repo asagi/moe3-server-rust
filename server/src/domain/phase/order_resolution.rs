@@ -78,11 +78,8 @@ fn validate_move_orders(original_orders: &mut [Order]) {
                 continue;
             }
 
-            let matched_convoy_orders: Vec<&Order> = convoy_orders
-                .iter()
-                .filter(|o| o.is_matching_target(&original_orders[idx]) && o.location().is_water())
-                .collect();
-            if can_move_via_matched_convoy(original_orders, idx, &matched_convoy_orders) {
+            let matched_convoy_orders: Vec<&Order> = collect_matched_convoy_orders(&convoy_orders, &original_orders[idx]);
+            if can_move_via_unresolved_matched_convoy(original_orders, idx, &matched_convoy_orders) {
                 original_orders[idx].set_valid();
                 continue;
             } else {
@@ -619,7 +616,7 @@ fn collect_valid_convoy_indices(orders: &[Order]) -> Vec<usize> {
 fn collect_matched_convoy_orders<'a>(convoy_orders: &'a [Order], attack_order: &Order) -> Vec<&'a Order> {
     convoy_orders
         .iter()
-        .filter(|o| matches!(o.kind, OrderKind::Convoy(_)) && o.is_matching_target(attack_order))
+        .filter(|o| matches!(o.kind, OrderKind::Convoy(_)) && o.is_matching_target(attack_order) && o.location().is_water())
         .collect()
 }
 
@@ -647,7 +644,7 @@ fn can_move_via_valid_convoy(orders: &[Order], move_order_idx: usize, exclude: O
 }
 
 /// 輸送経路が成立しているかどうかを判定する。
-fn can_move_via_matched_convoy(orders: &[Order], move_order_idx: usize, matched_convoy_orders: &Vec<&Order>) -> bool {
+fn can_move_via_unresolved_matched_convoy(orders: &[Order], move_order_idx: usize, matched_convoy_orders: &Vec<&Order>) -> bool {
     let allowed_waters: HashSet<&str> = matched_convoy_orders.iter().map(|order| order.location().code()).collect();
     let OrderKind::Move(m) = &orders[move_order_idx].kind else {
         unreachable!("expected Move")
@@ -1016,11 +1013,10 @@ fn should_avoid_cut_due_to_datc_6_f_18(
     }
 
     // 該当の輸送海軍を除いても輸送経路が維持されるのであれば本ルールによるカット回避不可
-    let matched_convoy_orders_without_support_target: Vec<&Order> = matched_convoy_orders.iter().filter(|o| o.location() != support_target_order.location()).copied().collect();
-    if can_move_via_matched_convoy(
+    if can_move_via_valid_convoy(
         original_orders,
         original_orders.iter().position(|o| o == attack_order).expect("attack_order should be in original_orders"),
-        &matched_convoy_orders_without_support_target,
+        Some(support_target_order.location()),
     ) {
         return false;
     }
