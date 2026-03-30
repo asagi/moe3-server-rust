@@ -48,19 +48,37 @@ fn test_datc_6_g_1() {
 }
 
 /// 6.G.2. TEST CASE, KIDNAPPING AN ARMY
-/// Germany promised England to support to dislodge the Russian fleet in Sweden and it promised Russia to support to dislodge the English army in Norway. Instead, the joking German orders a convoy.
+/// Germany promised England to support to dislodge the Russian fleet in Sweden
+/// and it promised Russia to support to dislodge the English army in Norway.
+/// Instead, the joking German orders a convoy.
 ///
 /// England:
-/// A Norway - Sweden
+///     A Norway - Sweden
 ///
 /// Russia:
-/// F Sweden - Norway
+///     F Sweden - Norway
 ///
 /// Germany:
-/// F Skagerrak Convoys A Norway - Sweden
-/// See issue 4.A.3. If the 1971 rulebook is used, then the army in Norway is kidnapped and swaps with the army in Sweden. In all other rulebooks (which I prever), kidnapping is prevented and the armies fail to move.
+///     F Skagerrak Convoys A Norway - Sweden
+///
+/// See issue 4.A.3. If the 1971 rulebook is used,
+/// then the army in Norway is kidnapped and swaps with the army in Sweden.
+/// In all other rulebooks (which I prever),
+/// kidnapping is prevented and the armies fail to move.
 #[test]
-fn test_datc_6_g_2() {}
+fn test_datc_6_g_2() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_nwy = Unit::new_army(Power::England, p("nwy"));
+    let unit_r_swe = Unit::new_fleet(Power::Russia, p("swe"));
+    let unit_g_ska = Unit::new_fleet(Power::Germany, p("ska"));
+    phase.data.orders.push(unit_e_nwy.move_to(p("swe")));
+    phase.data.orders.push(unit_r_swe.move_to(p("nwy")));
+    phase.data.orders.push(unit_g_ska.convoy(unit_e_nwy, p("swe")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+}
 
 /// 6.G.3. TEST CASE, AN UNWANTED DISRUPTED CONVOY TO ADJACENT PROVINCE
 /// One can try to convoy an army unwanted with a fleet that is almost certainly dislodged. However, this trick should not work.
