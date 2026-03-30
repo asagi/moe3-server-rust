@@ -49,6 +49,7 @@ pub struct HoldOrder {}
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct MoveOrder {
     pub dest: Province,
+    pub via_convoy: bool,
 }
 
 /// サポート命令
@@ -85,7 +86,7 @@ impl Order {
             unit,
             dislodged_from: None,
             status: OrderStatus::Unresolved,
-            kind: OrderKind::Move(MoveOrder { dest }),
+            kind: OrderKind::Move(MoveOrder { dest, via_convoy: false }),
         }
     }
 
@@ -235,6 +236,19 @@ impl Order {
     /// 命令を仮定命令に変換
     pub fn assumed_by(&mut self, power: Power) -> Self {
         self.power = power;
+        *self
+    }
+
+    /// 移動命令に海路指定フラグを設定する
+    pub fn set_via_convoy(&mut self) -> Self {
+        if self.unit.is_fleet() {
+            unreachable!("expected Army")
+        }
+        if let OrderKind::Move(move_order) = &mut self.kind {
+            move_order.via_convoy = true;
+        } else {
+            unreachable!("expected Move")
+        }
         *self
     }
 }

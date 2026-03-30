@@ -103,7 +103,7 @@ impl Unit {
             unit: *self,
             dislodged_from: None,
             status: OrderStatus::Unresolved,
-            kind: OrderKind::Move(MoveOrder { dest }),
+            kind: OrderKind::Move(MoveOrder { dest, via_convoy: false }),
         }
     }
 

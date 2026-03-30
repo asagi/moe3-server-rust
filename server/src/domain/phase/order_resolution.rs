@@ -662,15 +662,30 @@ fn find_occupant_order_index(orders: &[Order], target_location_code: &str) -> Op
 /// 輸送経路が成立しているかどうかを判定する。
 fn can_move_via_valid_convoy(orders: &[Order], move_order_idx: usize, exclude: Option<Province>) -> bool {
     let convoy_orders = collect_valid_convoy_orders(orders);
+    let OrderKind::Move(m) = &orders[move_order_idx].kind else {
+        unreachable!("expected Move")
+    };
+
+    // 隣接地移動の場合は輸送経路成立には下記いずれかの条件を満たす必要がある
+    // - 移動命令に海路が指定されている
+    // - 自国海軍に該当する輸送命令が出ている
+    // 遠隔地移動の場合は海路指定の明示は必要ない（明示されていても良い）
+    if Path::is_adjacent(orders[move_order_idx].location().code(), m.dest.code())
+        && !m.via_convoy
+        && convoy_orders
+            .iter()
+            .find(|o| o.is_matching_target(&orders[move_order_idx]) && o.power == orders[move_order_idx].power)
+            .is_none()
+    {
+        return false;
+    }
+
     let matched_convoy_orders: Vec<&Order> = collect_matched_convoy_orders(&convoy_orders, &orders[move_order_idx])
         .iter()
         .filter(|o| Some(o.location()) != exclude)
         .copied()
         .collect();
     let allowed_waters: HashSet<&str> = matched_convoy_orders.iter().map(|order| order.location().code()).collect();
-    let OrderKind::Move(m) = &orders[move_order_idx].kind else {
-        unreachable!("expected Move")
-    };
     Path::is_reachable_by_sea(&orders[move_order_idx].location().code()[..3], &m.dest.code()[..3], &allowed_waters)
 }
 
