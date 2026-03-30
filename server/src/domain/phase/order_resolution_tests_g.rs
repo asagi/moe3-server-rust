@@ -21,13 +21,16 @@ fn p(code: &str) -> Province {
 /// The only way to swap two units, is by convoy.
 ///
 /// England:
-/// A Norway - Sweden
-/// F Skagerrak Convoys A Norway - Sweden
+///     A Norway - Sweden
+///     F Skagerrak Convoys A Norway - Sweden
 ///
 /// Russia:
-/// A Sweden - Norway
-/// If explicit adjacent convoying is used (DPTG, see issue 4.A.3), then it is just a head-to-head battle.
-/// However, all rulebooks (which I prefer) allow that convoy intent is given by a convoying fleet of same country.
+///     A Sweden - Norway
+///
+/// If explicit adjacent convoying is used (DPTG, see issue 4.A.3),
+/// then it is just a head-to-head battle.
+/// However, all rulebooks (which I prefer) allow that convoy intent is given
+/// by a convoying fleet of same country.
 /// So, swap should happen.
 #[test]
 fn test_datc_6_g_1() {
