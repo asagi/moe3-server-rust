@@ -24,32 +24,29 @@ fn p(code: &str) -> Province {
 /// The simplest support to hold order.
 ///
 /// Austria:
-/// F Adriatic Sea Supports A Trieste - Venice
-/// A Trieste - Venice
+///     F Adriatic Sea Supports A Trieste - Venice
+///     A Trieste - Venice
 ///
 /// Italy:
-/// A Venice Hold
-/// A Tyrolia Supports A Venice
+///     A Venice Hold
+///     A Tyrolia Supports A Venice
+///
 /// The support of Tyrolia prevents the army in Venice from being dislodged.
 /// The army in Trieste will not move.
 #[test]
 fn test_datc_6_d_1() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_a_1 = Unit::new_army(Power::Austria, p("tri"));
-    let unit_a_2 = Unit::new_fleet(Power::Austria, p("adr"));
-    let order_a_1 = unit_a_1.move_to(p("ven"));
-    let order_a_2 = unit_a_2.support_move(unit_a_1, p("ven"));
-    phase.data.orders.push(order_a_1);
-    phase.data.orders.push(order_a_2);
-    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
-    let unit_i_2 = Unit::new_army(Power::Italy, p("tyr"));
-    let order_i_1 = unit_i_1.hold();
-    let order_i_2 = unit_i_2.support_hold(unit_i_1);
-    phase.data.orders.push(order_i_1);
-    phase.data.orders.push(order_i_2);
+    let unit_a_adr = Unit::new_fleet(Power::Austria, p("adr"));
+    let unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
+    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
+    let unit_i_tyr = Unit::new_army(Power::Italy, p("tyr"));
+    phase.data.orders.push(unit_a_adr.support_move(unit_a_tri, p("ven")));
+    phase.data.orders.push(unit_a_tri.move_to(p("ven")));
+    phase.data.orders.push(unit_i_ven.hold());
+    phase.data.orders.push(unit_i_tyr.support_hold(unit_i_ven));
     resolve_orders_for_order_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
 }
@@ -58,36 +55,32 @@ fn test_datc_6_d_1() {
 /// The simplest support on hold cut.
 ///
 /// Austria:
-/// F Adriatic Sea Supports A Trieste - Venice
-/// A Trieste - Venice
-/// A Vienna - Tyrolia
+///     F Adriatic Sea Supports A Trieste - Venice
+///     A Trieste - Venice
+///     A Vienna - Tyrolia
 ///
 /// Italy:
-/// A Venice Hold
-/// A Tyrolia Supports A Venice
+///     A Venice Hold
+///     A Tyrolia Supports A Venice
+///
 /// The support of Tyrolia is cut by the army in Vienna.
 /// That means that the army in Venice is dislodged by the army from Trieste.
 #[test]
 fn test_datc_6_d_2() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_a_1 = Unit::new_army(Power::Austria, p("tri"));
-    let unit_a_2 = Unit::new_fleet(Power::Austria, p("adr"));
-    let unit_a_3 = Unit::new_army(Power::Austria, p("vie"));
-    let order_a_1 = unit_a_1.move_to(p("ven"));
-    let order_a_2 = unit_a_2.support_move(unit_a_1, p("ven"));
-    let order_a_3 = unit_a_3.move_to(p("tyr"));
-    phase.data.orders.push(order_a_1);
-    phase.data.orders.push(order_a_2);
-    phase.data.orders.push(order_a_3);
-    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
-    let unit_i_2 = Unit::new_army(Power::Italy, p("tyr"));
-    let order_i_1 = unit_i_1.hold();
-    let order_i_2 = unit_i_2.support_hold(unit_i_1);
-    phase.data.orders.push(order_i_1);
-    phase.data.orders.push(order_i_2);
+    let unit_a_adr = Unit::new_fleet(Power::Austria, p("adr"));
+    let unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
+    let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
+    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
+    let unit_i_tyr = Unit::new_army(Power::Italy, p("tyr"));
+    phase.data.orders.push(unit_a_adr.support_move(unit_a_tri, p("ven")));
+    phase.data.orders.push(unit_a_tri.move_to(p("ven")));
+    phase.data.orders.push(unit_a_vie.move_to(p("tyr")));
+    phase.data.orders.push(unit_i_ven.hold());
+    phase.data.orders.push(unit_i_tyr.support_hold(unit_i_ven));
     resolve_orders_for_order_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
     assert_eq!(phase.data.orders[4].status, OrderStatus::Cut);
@@ -97,32 +90,29 @@ fn test_datc_6_d_2() {
 /// The simplest support on move cut.
 ///
 /// Austria:
-/// F Adriatic Sea Supports A Trieste - Venice
-/// A Trieste - Venice
+///     F Adriatic Sea Supports A Trieste - Venice
+///     A Trieste - Venice
 ///
 /// Italy:
-/// A Venice Hold
-/// F Ionian Sea - Adriatic Sea
+///     A Venice Hold
+///     F Ionian Sea - Adriatic Sea
+///
 /// The support of the fleet in the Adriatic Sea is cut.
 /// That means that the army in Venice will not be dislodged and the army in Trieste stays in Trieste.
 #[test]
 fn test_datc_6_d_3() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_a_1 = Unit::new_army(Power::Austria, p("tri"));
-    let unit_a_2 = Unit::new_fleet(Power::Austria, p("adr"));
-    let order_a_1 = unit_a_1.move_to(p("ven"));
-    let order_a_2 = unit_a_2.support_move(unit_a_1, p("ven"));
-    phase.data.orders.push(order_a_1);
-    phase.data.orders.push(order_a_2);
-    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
-    let unit_i_2 = Unit::new_fleet(Power::Italy, p("ion"));
-    let order_i_1 = unit_i_1.hold();
-    let order_i_2 = unit_i_2.move_to(p("adr"));
-    phase.data.orders.push(order_i_1);
-    phase.data.orders.push(order_i_2);
+    let unit_a_adr = Unit::new_fleet(Power::Austria, p("adr"));
+    let unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
+    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
+    let unit_i_ion = Unit::new_fleet(Power::Italy, p("ion"));
+    phase.data.orders.push(unit_a_adr.support_move(unit_a_tri, p("ven")));
+    phase.data.orders.push(unit_a_tri.move_to(p("ven")));
+    phase.data.orders.push(unit_i_ven.hold());
+    phase.data.orders.push(unit_i_ion.move_to(p("adr")));
     resolve_orders_for_order_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Cut);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Cut);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
 }
@@ -131,28 +121,25 @@ fn test_datc_6_d_3() {
 /// A unit that is supporting a hold, can receive a hold support.
 ///
 /// Germany:
-/// A Berlin Supports F Kiel
-/// F Kiel Supports A Berlin
+///     A Berlin Supports F Kiel
+///     F Kiel Supports A Berlin
 ///
 /// Russia:
-/// F Baltic Sea Supports A Prussia - Berlin
-/// A Prussia - Berlin
+///     F Baltic Sea Supports A Prussia - Berlin
+///     A Prussia - Berlin
+///
 /// The Russian move from Prussia to Berlin fails.
 #[test]
 fn test_datc_6_d_4() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
-    let unit_g_2 = Unit::new_fleet(Power::Germany, p("kie"));
-    let order_g_1 = unit_g_1.support_hold(unit_g_2);
-    let order_g_2 = unit_g_2.support_hold(unit_g_1);
-    phase.data.orders.push(order_g_1);
-    phase.data.orders.push(order_g_2);
-    let unit_r_1 = Unit::new_fleet(Power::Russia, p("bal"));
-    let unit_r_2 = Unit::new_army(Power::Russia, p("pru"));
-    let order_r_1 = unit_r_1.support_move(unit_r_2, p("ber"));
-    let order_r_2 = unit_r_2.move_to(p("ber"));
-    phase.data.orders.push(order_r_1);
-    phase.data.orders.push(order_r_2);
+    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
+    let unit_r_bal = Unit::new_fleet(Power::Russia, p("bal"));
+    let unit_r_pru = Unit::new_army(Power::Russia, p("pru"));
+    phase.data.orders.push(unit_g_ber.support_hold(unit_g_kie));
+    phase.data.orders.push(unit_g_kie.support_hold(unit_g_ber));
+    phase.data.orders.push(unit_r_bal.support_move(unit_r_pru, p("ber")));
+    phase.data.orders.push(unit_r_pru.move_to(p("ber")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Cut);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
@@ -164,32 +151,28 @@ fn test_datc_6_d_4() {
 /// A unit that is supporting a move, can receive a hold support.
 ///
 /// Germany:
-/// A Berlin Supports A Munich - Silesia
-/// F Kiel Supports A Berlin
-/// A Munich - Silesia
+///     A Berlin Supports A Munich - Silesia
+///     F Kiel Supports A Berlin
+///     A Munich - Silesia
 ///
 /// Russia:
-/// F Baltic Sea Supports A Prussia - Berlin
-/// A Prussia - Berlin
+///     F Baltic Sea Supports A Prussia - Berlin
+///     A Prussia - Berlin
+///
 /// The Russian move from Prussia to Berlin fails.
 #[test]
 fn test_datc_6_d_5() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
-    let unit_g_2 = Unit::new_fleet(Power::Germany, p("kie"));
-    let unit_g_3 = Unit::new_army(Power::Germany, p("mun"));
-    let order_g_1 = unit_g_1.support_move(unit_g_3, p("sil"));
-    let order_g_2 = unit_g_2.support_hold(unit_g_1);
-    let order_g_3 = unit_g_3.move_to(p("sil"));
-    phase.data.orders.push(order_g_1);
-    phase.data.orders.push(order_g_2);
-    phase.data.orders.push(order_g_3);
-    let unit_r_1 = Unit::new_fleet(Power::Russia, p("bal"));
-    let unit_r_2 = Unit::new_army(Power::Russia, p("pru"));
-    let order_r_1 = unit_r_1.support_move(unit_r_2, p("ber"));
-    let order_r_2 = unit_r_2.move_to(p("ber"));
-    phase.data.orders.push(order_r_1);
-    phase.data.orders.push(order_r_2);
+    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
+    let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
+    let unit_r_bal = Unit::new_fleet(Power::Russia, p("bal"));
+    let unit_r_pru = Unit::new_army(Power::Russia, p("pru"));
+    phase.data.orders.push(unit_g_ber.support_move(unit_g_mun, p("sil")));
+    phase.data.orders.push(unit_g_kie.support_hold(unit_g_ber));
+    phase.data.orders.push(unit_g_mun.move_to(p("sil")));
+    phase.data.orders.push(unit_r_bal.support_move(unit_r_pru, p("ber")));
+    phase.data.orders.push(unit_r_pru.move_to(p("ber")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Cut);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
@@ -202,32 +185,28 @@ fn test_datc_6_d_5() {
 /// A unit that is convoying, can receive a hold support.
 ///
 /// Germany:
-/// A Berlin - Sweden
-/// F Baltic Sea Convoys A Berlin - Sweden
-/// F Prussia Supports F Baltic Sea
+///     A Berlin - Sweden
+///     F Baltic Sea Convoys A Berlin - Sweden
+///     F Prussia Supports F Baltic Sea
 ///
 /// Russia:
-/// F Livonia - Baltic Sea
-/// F Gulf of Bothnia Supports F Livonia - Baltic Sea
+///     F Livonia - Baltic Sea
+///     F Gulf of Bothnia Supports F Livonia - Baltic Sea
+///
 /// The Russian move from Livonia to the Baltic Sea fails. The convoy from Berlin to Sweden succeeds.
 #[test]
 fn test_datc_6_d_6() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
-    let unit_g_2 = Unit::new_fleet(Power::Germany, p("bal"));
-    let unit_g_3 = Unit::new_fleet(Power::Germany, p("pru"));
-    let order_g_1 = unit_g_1.move_to(p("swe"));
-    let order_g_2 = unit_g_2.convoy(unit_g_1, p("swe"));
-    let order_g_3 = unit_g_3.support_hold(unit_g_2);
-    phase.data.orders.push(order_g_1);
-    phase.data.orders.push(order_g_2);
-    phase.data.orders.push(order_g_3);
-    let unit_r_1 = Unit::new_fleet(Power::Russia, p("lvn"));
-    let unit_r_2 = Unit::new_fleet(Power::Russia, p("bot"));
-    let order_r_1 = unit_r_1.move_to(p("bal"));
-    let order_r_2 = unit_r_2.support_move(unit_r_1, p("bal"));
-    phase.data.orders.push(order_r_1);
-    phase.data.orders.push(order_r_2);
+    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_bal = Unit::new_fleet(Power::Germany, p("bal"));
+    let unit_g_pru = Unit::new_fleet(Power::Germany, p("pru"));
+    let unit_r_lvn = Unit::new_fleet(Power::Russia, p("lvn"));
+    let unit_r_bot = Unit::new_fleet(Power::Russia, p("bot"));
+    phase.data.orders.push(unit_g_ber.move_to(p("swe")));
+    phase.data.orders.push(unit_g_bal.convoy(unit_g_ber, p("swe")));
+    phase.data.orders.push(unit_g_pru.support_hold(unit_g_bal));
+    phase.data.orders.push(unit_r_lvn.move_to(p("bal")));
+    phase.data.orders.push(unit_r_bot.support_move(unit_r_lvn, p("bal")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
@@ -240,34 +219,30 @@ fn test_datc_6_d_6() {
 /// A unit that is moving, cannot receive a hold support for the situation that the move fails.
 ///
 /// Germany:
-/// F Baltic Sea - Sweden
-/// F Prussia Supports F Baltic Sea
+///     F Baltic Sea - Sweden
+///     F Prussia Supports F Baltic Sea
 ///
 /// Russia:
-/// F Livonia - Baltic Sea
-/// F Gulf of Bothnia Supports F Livonia - Baltic Sea
-/// A Finland - Sweden
+///     F Livonia - Baltic Sea
+///     F Gulf of Bothnia Supports F Livonia - Baltic Sea
+///     A Finland - Sweden
+///
 /// The support of the fleet in Prussia fails.
 /// The fleet in Baltic Sea will bounce on the Russian army in Finland
 /// and will be dislodged by the Russian fleet from Livonia when it returns to the Baltic Sea.
 #[test]
 fn test_datc_6_d_7() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_g_1 = Unit::new_fleet(Power::Germany, p("bal"));
-    let unit_g_2 = Unit::new_fleet(Power::Germany, p("pru"));
-    let order_g_1 = unit_g_1.move_to(p("swe"));
-    let order_g_2 = unit_g_2.support_hold(unit_g_1);
-    phase.data.orders.push(order_g_1);
-    phase.data.orders.push(order_g_2);
-    let unit_r_1 = Unit::new_fleet(Power::Russia, p("lvn"));
-    let unit_r_2 = Unit::new_fleet(Power::Russia, p("bot"));
-    let unit_r_3 = Unit::new_army(Power::Russia, p("fin"));
-    let order_r_1 = unit_r_1.move_to(p("bal"));
-    let order_r_2 = unit_r_2.support_move(unit_r_1, p("bal"));
-    let order_r_3 = unit_r_3.move_to(p("swe"));
-    phase.data.orders.push(order_r_1);
-    phase.data.orders.push(order_r_2);
-    phase.data.orders.push(order_r_3);
+    let unit_g_bal = Unit::new_fleet(Power::Germany, p("bal"));
+    let unit_g_pru = Unit::new_fleet(Power::Germany, p("pru"));
+    let unit_r_lvn = Unit::new_fleet(Power::Russia, p("lvn"));
+    let unit_r_bot = Unit::new_fleet(Power::Russia, p("bot"));
+    let unit_r_fin = Unit::new_army(Power::Russia, p("fin"));
+    phase.data.orders.push(unit_g_bal.move_to(p("swe")));
+    phase.data.orders.push(unit_g_pru.support_hold(unit_g_bal));
+    phase.data.orders.push(unit_r_lvn.move_to(p("bal")));
+    phase.data.orders.push(unit_r_bot.support_move(unit_r_lvn, p("bal")));
+    phase.data.orders.push(unit_r_fin.move_to(p("swe")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
@@ -281,13 +256,14 @@ fn test_datc_6_d_7() {
 /// then the army to be convoyed cannot receive support in hold, since it still tried to move.
 ///
 /// Austria:
-/// F Ionian Sea Hold
-/// A Serbia Supports A Albania - Greece
-/// A Albania - Greece
+///     F Ionian Sea Hold
+///     A Serbia Supports A Albania - Greece
+///     A Albania - Greece
 ///
 /// Turkey:
-/// A Greece - Naples
-/// A Bulgaria Supports A Greece
+///     A Greece - Naples
+///     A Bulgaria Supports A Greece
+///
 /// There was a possible convoy from Greece to Naples, before the orders were made public (via the Ionian Sea).
 /// This means that the order of Greece to Naples should never be treated as illegal order
 /// and be changed in a hold order able to receive hold support (see also issue 4.E.1).
@@ -295,21 +271,16 @@ fn test_datc_6_d_7() {
 #[test]
 fn test_datc_6_d_8() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_a_1 = Unit::new_fleet(Power::Austria, p("ion"));
-    let unit_a_2 = Unit::new_army(Power::Austria, p("ser"));
-    let unit_a_3 = Unit::new_army(Power::Austria, p("alb"));
-    let order_a_1 = unit_a_1.hold();
-    let order_a_2 = unit_a_2.support_move(unit_a_3, p("gre"));
-    let order_a_3 = unit_a_3.move_to(p("gre"));
-    phase.data.orders.push(order_a_1);
-    phase.data.orders.push(order_a_2);
-    phase.data.orders.push(order_a_3);
-    let unit_t_1 = Unit::new_army(Power::Turkey, p("gre"));
-    let unit_t_2 = Unit::new_army(Power::Turkey, p("bul"));
-    let order_t_1 = unit_t_1.move_to(p("nap"));
-    let order_t_2 = unit_t_2.support_hold(unit_t_1);
-    phase.data.orders.push(order_t_1);
-    phase.data.orders.push(order_t_2);
+    let unit_a_ion = Unit::new_fleet(Power::Austria, p("ion"));
+    let unit_a_ser = Unit::new_army(Power::Austria, p("ser"));
+    let unit_a_alb = Unit::new_army(Power::Austria, p("alb"));
+    let unit_t_gre = Unit::new_army(Power::Turkey, p("gre"));
+    let unit_t_bul = Unit::new_army(Power::Turkey, p("bul"));
+    phase.data.orders.push(unit_a_ion.hold());
+    phase.data.orders.push(unit_a_ser.support_move(unit_a_alb, p("gre")));
+    phase.data.orders.push(unit_a_alb.move_to(p("gre")));
+    phase.data.orders.push(unit_t_gre.move_to(p("nap")));
+    phase.data.orders.push(unit_t_bul.support_hold(unit_t_gre));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
@@ -322,28 +293,25 @@ fn test_datc_6_d_8() {
 /// A unit that is holding cannot receive a support in moving.
 ///
 /// Italy:
-/// A Venice - Trieste
-/// A Tyrolia Supports A Venice - Trieste
+///     A Venice - Trieste
+///     A Tyrolia Supports A Venice - Trieste
 ///
 /// Austria:
-/// A Albania Supports A Trieste - Serbia
-/// A Trieste Hold
+///     A Albania Supports A Trieste - Serbia
+///     A Trieste Hold
+///
 /// The support of the army in Albania fails and the army in Trieste is dislodged by the army from Venice.
 #[test]
 fn test_datc_6_d_9() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
-    let unit_i_2 = Unit::new_army(Power::Italy, p("tyr"));
-    let order_i_1 = unit_i_1.move_to(p("tri"));
-    let order_i_2 = unit_i_2.support_move(unit_i_1, p("tri"));
-    phase.data.orders.push(order_i_1);
-    phase.data.orders.push(order_i_2);
-    let unit_a_1 = Unit::new_army(Power::Austria, p("alb"));
-    let unit_a_2 = Unit::new_army(Power::Austria, p("tri"));
-    let order_a_1 = unit_a_1.support_move(unit_a_2, p("ser"));
-    let order_a_2 = unit_a_2.hold();
-    phase.data.orders.push(order_a_1);
-    phase.data.orders.push(order_a_2);
+    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
+    let unit_i_tyr = Unit::new_army(Power::Italy, p("tyr"));
+    let unit_a_alb = Unit::new_army(Power::Austria, p("alb"));
+    let unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
+    phase.data.orders.push(unit_i_ven.move_to(p("tri")));
+    phase.data.orders.push(unit_i_tyr.support_move(unit_i_ven, p("tri")));
+    phase.data.orders.push(unit_a_alb.support_move(unit_a_tri, p("ser")));
+    phase.data.orders.push(unit_a_tri.hold());
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
@@ -355,22 +323,20 @@ fn test_datc_6_d_9() {
 /// A unit may not dislodge a unit of the same great power.
 ///
 /// Germany:
-/// A Berlin Hold
-/// F Kiel - Berlin
-/// A Munich Supports F Kiel - Berlin
+///     A Berlin Hold
+///     F Kiel - Berlin
+///     A Munich Supports F Kiel - Berlin
+///
 /// Move to Berlin fails.
 #[test]
 fn test_datc_6_d_10() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
-    let unit_g_2 = Unit::new_army(Power::Germany, p("kie"));
-    let unit_g_3 = Unit::new_army(Power::Germany, p("mun"));
-    let order_g_1 = unit_g_1.hold();
-    let order_g_2 = unit_g_2.move_to(p("ber"));
-    let order_g_3 = unit_g_3.support_move(unit_g_2, p("ber"));
-    phase.data.orders.push(order_g_1);
-    phase.data.orders.push(order_g_2);
-    phase.data.orders.push(order_g_3);
+    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_kie = Unit::new_army(Power::Germany, p("kie"));
+    let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
+    phase.data.orders.push(unit_g_ber.hold());
+    phase.data.orders.push(unit_g_kie.move_to(p("ber")));
+    phase.data.orders.push(unit_g_mun.support_move(unit_g_kie, p("ber")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
@@ -381,28 +347,25 @@ fn test_datc_6_d_10() {
 /// Idem.
 ///
 /// Germany:
-/// A Berlin - Prussia
-/// F Kiel - Berlin
-/// A Munich Supports F Kiel - Berlin
+///     A Berlin - Prussia
+///     F Kiel - Berlin
+///     A Munich Supports F Kiel - Berlin
 ///
 /// Russia:
-/// A Warsaw - Prussia
+///     A Warsaw - Prussia
+///
 /// Army in Berlin bounces, but is not dislodged by own unit.
 #[test]
 fn test_datc_6_d_11() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
-    let unit_g_2 = Unit::new_fleet(Power::Germany, p("kie"));
-    let unit_g_3 = Unit::new_army(Power::Germany, p("mun"));
-    let order_g_1 = unit_g_1.move_to(p("pru"));
-    let order_g_2 = unit_g_2.move_to(p("ber"));
-    let order_g_3 = unit_g_3.support_move(unit_g_2, p("ber"));
-    phase.data.orders.push(order_g_1);
-    phase.data.orders.push(order_g_2);
-    phase.data.orders.push(order_g_3);
-    let unit_r_1 = Unit::new_army(Power::Russia, p("war"));
-    let order_r_1 = unit_r_1.move_to(p("pru"));
-    phase.data.orders.push(order_r_1);
+    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
+    let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
+    let unit_r_war = Unit::new_army(Power::Russia, p("war"));
+    phase.data.orders.push(unit_g_ber.move_to(p("pru")));
+    phase.data.orders.push(unit_g_kie.move_to(p("ber")));
+    phase.data.orders.push(unit_g_mun.support_move(unit_g_kie, p("ber")));
+    phase.data.orders.push(unit_r_war.move_to(p("pru")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
@@ -414,24 +377,22 @@ fn test_datc_6_d_11() {
 /// You may not help another power in dislodging your own unit.
 ///
 /// Austria:
-/// F Trieste Hold
-/// A Vienna Supports A Venice - Trieste
+///     F Trieste Hold
+///     A Vienna Supports A Venice - Trieste
 ///
 /// Italy:
-/// A Venice - Trieste
+///     A Venice - Trieste
+///
 /// No dislodgment of fleet in Trieste.
 #[test]
 fn test_datc_6_d_12() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_a_1 = Unit::new_fleet(Power::Austria, p("tri"));
-    let unit_a_2 = Unit::new_army(Power::Austria, p("vie"));
-    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
-    let order_a_1 = unit_a_1.hold();
-    let order_a_2 = unit_a_2.support_move(unit_i_1, p("tri"));
-    let order_i_1 = unit_i_1.move_to(p("tri"));
-    phase.data.orders.push(order_a_1);
-    phase.data.orders.push(order_a_2);
-    phase.data.orders.push(order_i_1);
+    let unit_a_tri = Unit::new_fleet(Power::Austria, p("tri"));
+    let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
+    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
+    phase.data.orders.push(unit_a_tri.hold());
+    phase.data.orders.push(unit_a_vie.support_move(unit_i_ven, p("tri")));
+    phase.data.orders.push(unit_i_ven.move_to(p("tri")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
@@ -442,28 +403,25 @@ fn test_datc_6_d_12() {
 /// Idem.
 ///
 /// Austria:
-/// F Trieste - Adriatic Sea
-/// A Vienna Supports A Venice - Trieste
+///     F Trieste - Adriatic Sea
+///     A Vienna Supports A Venice - Trieste
 ///
 /// Italy:
-/// A Venice - Trieste
-/// F Apulia - Adriatic Sea
+///     A Venice - Trieste
+///     F Apulia - Adriatic Sea
+///
 /// No dislodgment of fleet in Trieste.
 #[test]
 fn test_datc_6_d_13() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_a_1 = Unit::new_fleet(Power::Austria, p("tri"));
-    let unit_a_2 = Unit::new_army(Power::Austria, p("vie"));
-    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
-    let unit_i_2 = Unit::new_fleet(Power::Italy, p("apu"));
-    let order_a_1 = unit_a_1.move_to(p("adr"));
-    let order_a_2 = unit_a_2.support_move(unit_i_1, p("tri"));
-    let order_i_1 = unit_i_1.move_to(p("tri"));
-    let order_i_2 = unit_i_2.move_to(p("adr"));
-    phase.data.orders.push(order_a_1);
-    phase.data.orders.push(order_a_2);
-    phase.data.orders.push(order_i_1);
-    phase.data.orders.push(order_i_2);
+    let unit_a_tri = Unit::new_fleet(Power::Austria, p("tri"));
+    let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
+    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
+    let unit_i_apu = Unit::new_fleet(Power::Italy, p("apu"));
+    phase.data.orders.push(unit_a_tri.move_to(p("adr")));
+    phase.data.orders.push(unit_a_vie.support_move(unit_i_ven, p("tri")));
+    phase.data.orders.push(unit_i_ven.move_to(p("tri")));
+    phase.data.orders.push(unit_i_apu.move_to(p("adr")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
@@ -476,32 +434,28 @@ fn test_datc_6_d_13() {
 /// you may not prevent that dislodgement by supporting the attack.
 ///
 /// Austria:
-/// F Trieste Hold
-/// A Vienna Supports A Venice - Trieste
+///     F Trieste Hold
+///     A Vienna Supports A Venice - Trieste
 ///
 /// Italy:
-/// A Venice - Trieste
-/// A Tyrolia Supports A Venice - Trieste
-/// F Adriatic Sea Supports A Venice - Trieste
+///     A Venice - Trieste
+///     A Tyrolia Supports A Venice - Trieste
+///     F Adriatic Sea Supports A Venice - Trieste
+///
 /// The fleet in Trieste is dislodged.
 #[test]
 fn test_datc_6_d_14() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_a_1 = Unit::new_fleet(Power::Austria, p("tri"));
-    let unit_a_2 = Unit::new_army(Power::Austria, p("vie"));
-    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
-    let unit_i_2 = Unit::new_army(Power::Italy, p("tyr"));
-    let unit_i_3 = Unit::new_fleet(Power::Italy, p("adr"));
-    let order_a_1 = unit_a_1.hold();
-    let order_a_2 = unit_a_2.support_move(unit_i_1, p("tri"));
-    let order_i_1 = unit_i_1.move_to(p("tri"));
-    let order_i_2 = unit_i_2.support_move(unit_i_1, p("tri"));
-    let order_i_3 = unit_i_3.support_move(unit_i_1, p("tri"));
-    phase.data.orders.push(order_a_1);
-    phase.data.orders.push(order_a_2);
-    phase.data.orders.push(order_i_1);
-    phase.data.orders.push(order_i_2);
-    phase.data.orders.push(order_i_3);
+    let unit_a_tri = Unit::new_fleet(Power::Austria, p("tri"));
+    let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
+    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
+    let unit_i_tyr = Unit::new_army(Power::Italy, p("tyr"));
+    let unit_i_adr = Unit::new_fleet(Power::Italy, p("adr"));
+    phase.data.orders.push(unit_a_tri.hold());
+    phase.data.orders.push(unit_a_vie.support_move(unit_i_ven, p("tri")));
+    phase.data.orders.push(unit_i_ven.move_to(p("tri")));
+    phase.data.orders.push(unit_i_tyr.support_move(unit_i_ven, p("tri")));
+    phase.data.orders.push(unit_i_adr.support_move(unit_i_ven, p("tri")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
@@ -515,25 +469,23 @@ fn test_datc_6_d_14() {
 /// by guessing which of the units will do the support.
 ///
 /// Russia:
-/// F Constantinople Supports F Black Sea - Ankara
-/// F Black Sea - Ankara
+///     F Constantinople Supports F Black Sea - Ankara
+///     F Black Sea - Ankara
 ///
 /// Turkey:
-/// F Ankara - Constantinople
+///     F Ankara - Constantinople
+///
 /// The support of Constantinople is not cut
 /// and the fleet in Ankara is dislodged by the fleet in the Black Sea.
 #[test]
 fn test_datc_6_d_15() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_r_1 = Unit::new_fleet(Power::Russia, p("con"));
-    let unit_r_2 = Unit::new_fleet(Power::Russia, p("bla"));
-    let unit_t_1 = Unit::new_fleet(Power::Turkey, p("ank"));
-    let order_r_1 = unit_r_1.support_move(unit_r_2, p("ank"));
-    let order_r_2 = unit_r_2.move_to(p("ank"));
-    let order_t_1 = unit_t_1.move_to(p("con"));
-    phase.data.orders.push(order_r_1);
-    phase.data.orders.push(order_r_2);
-    phase.data.orders.push(order_t_1);
+    let unit_r_con = Unit::new_fleet(Power::Russia, p("con"));
+    let unit_r_bla = Unit::new_fleet(Power::Russia, p("bla"));
+    let unit_t_ank = Unit::new_fleet(Power::Turkey, p("ank"));
+    phase.data.orders.push(unit_r_con.support_move(unit_r_bla, p("ank")));
+    phase.data.orders.push(unit_r_bla.move_to(p("ank")));
+    phase.data.orders.push(unit_t_ank.move_to(p("con")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
@@ -544,28 +496,25 @@ fn test_datc_6_d_15() {
 /// It is allowed to convoy a foreign unit that dislodges your own unit is allowed.
 ///
 /// England:
-/// A London Hold
-/// F North Sea Convoys A Belgium - London
+///     A London Hold
+///     F North Sea Convoys A Belgium - London
 ///
 /// France:
-/// F English Channel Supports A Belgium - London
-/// A Belgium - London
+///     F English Channel Supports A Belgium - London
+///     A Belgium - London
+///
 /// The English army in London is dislodged by the French army coming from Belgium.
 #[test]
 fn test_datc_6_d_16() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_e_1 = Unit::new_army(Power::England, p("lon"));
-    let unit_e_2 = Unit::new_fleet(Power::England, p("nth"));
-    let unit_f_1 = Unit::new_fleet(Power::France, p("eng"));
-    let unit_f_2 = Unit::new_army(Power::France, p("bel"));
-    let order_e_1 = unit_e_1.hold();
-    let order_e_2 = unit_e_2.convoy(unit_f_2, p("lon"));
-    let order_f_1 = unit_f_1.support_move(unit_f_2, p("lon"));
-    let order_f_2 = unit_f_2.move_to(p("lon"));
-    phase.data.orders.push(order_e_1);
-    phase.data.orders.push(order_e_2);
-    phase.data.orders.push(order_f_1);
-    phase.data.orders.push(order_f_2);
+    let unit_e_lon = Unit::new_army(Power::England, p("lon"));
+    let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
+    let unit_f_eng = Unit::new_fleet(Power::France, p("eng"));
+    let unit_f_bel = Unit::new_army(Power::France, p("bel"));
+    phase.data.orders.push(unit_e_lon.hold());
+    phase.data.orders.push(unit_e_nth.convoy(unit_f_bel, p("lon")));
+    phase.data.orders.push(unit_f_eng.support_move(unit_f_bel, p("lon")));
+    phase.data.orders.push(unit_f_bel.move_to(p("lon")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
@@ -577,29 +526,30 @@ fn test_datc_6_d_16() {
 /// The famous dislodge rule.
 ///
 /// Russia:
-/// F Constantinople Supports F Black Sea - Ankara
-/// F Black Sea - Ankara
+///     F Constantinople Supports F Black Sea - Ankara
+///     F Black Sea - Ankara
 ///
 /// Turkey:
-/// F Ankara - Constantinople
-/// A Smyrna Supports F Ankara - Constantinople
-/// A Armenia - Ankara
+///     F Ankara - Constantinople
+///     A Smyrna Supports F Ankara - Constantinople
+///     A Armenia - Ankara
+///
 /// The Russian fleet in Constantinople is dislodged.
 /// This cuts the support to from Black Sea to Ankara.
 /// Black Sea will bounce with the army from Armenia.
 #[test]
 fn test_datc_6_d_17() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_r_1 = Unit::new_fleet(Power::Russia, p("con"));
-    let unit_r_2 = Unit::new_fleet(Power::Russia, p("bla"));
-    let unit_t_1 = Unit::new_fleet(Power::Turkey, p("ank"));
-    let unit_t_2 = Unit::new_army(Power::Turkey, p("smy"));
-    let unit_t_3 = Unit::new_army(Power::Turkey, p("arm"));
-    phase.data.orders.push(unit_r_1.support_move(unit_r_2, p("ank")));
-    phase.data.orders.push(unit_r_2.move_to(p("ank")));
-    phase.data.orders.push(unit_t_1.move_to(p("con")));
-    phase.data.orders.push(unit_t_2.support_move(unit_t_1, p("con")));
-    phase.data.orders.push(unit_t_3.move_to(p("ank")));
+    let unit_r_con = Unit::new_fleet(Power::Russia, p("con"));
+    let unit_r_bla = Unit::new_fleet(Power::Russia, p("bla"));
+    let unit_t_ank = Unit::new_fleet(Power::Turkey, p("ank"));
+    let unit_t_smy = Unit::new_army(Power::Turkey, p("smy"));
+    let unit_t_arm = Unit::new_army(Power::Turkey, p("arm"));
+    phase.data.orders.push(unit_r_con.support_move(unit_r_bla, p("ank")));
+    phase.data.orders.push(unit_r_bla.move_to(p("ank")));
+    phase.data.orders.push(unit_t_ank.move_to(p("con")));
+    phase.data.orders.push(unit_t_smy.support_move(unit_t_ank, p("con")));
+    phase.data.orders.push(unit_t_arm.move_to(p("ank")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
@@ -612,30 +562,31 @@ fn test_datc_6_d_17() {
 /// Idem. But now with an additional hold that prevents dislodgement.
 ///
 /// Russia:
-/// F Constantinople Supports F Black Sea - Ankara
-/// F Black Sea - Ankara
-/// A Bulgaria Supports F Constantinople
+///     F Constantinople Supports F Black Sea - Ankara
+///     F Black Sea - Ankara
+///     A Bulgaria Supports F Constantinople
 ///
 /// Turkey:
-/// F Ankara - Constantinople
-/// A Smyrna Supports F Ankara - Constantinople
-/// A Armenia - Ankara
+///     F Ankara - Constantinople
+///     A Smyrna Supports F Ankara - Constantinople
+///     A Armenia - Ankara
+///
 /// The Russian fleet in the Black Sea will dislodge the Turkish fleet in Ankara.
 #[test]
 fn test_datc_6_d_18() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_r_1 = Unit::new_fleet(Power::Russia, p("con"));
-    let unit_r_2 = Unit::new_fleet(Power::Russia, p("bla"));
-    let unit_r_3 = Unit::new_army(Power::Russia, p("bul"));
-    let unit_t_1 = Unit::new_fleet(Power::Turkey, p("ank"));
-    let unit_t_2 = Unit::new_army(Power::Turkey, p("smy"));
-    let unit_t_3 = Unit::new_army(Power::Turkey, p("arm"));
-    phase.data.orders.push(unit_r_1.support_move(unit_r_2, p("ank")));
-    phase.data.orders.push(unit_r_2.move_to(p("ank")));
-    phase.data.orders.push(unit_r_3.support_hold(unit_r_1));
-    phase.data.orders.push(unit_t_1.move_to(p("con")));
-    phase.data.orders.push(unit_t_2.support_move(unit_t_1, p("con")));
-    phase.data.orders.push(unit_t_3.move_to(p("ank")));
+    let unit_r_con = Unit::new_fleet(Power::Russia, p("con"));
+    let unit_r_bla = Unit::new_fleet(Power::Russia, p("bla"));
+    let unit_r_bul = Unit::new_army(Power::Russia, p("bul"));
+    let unit_t_ank = Unit::new_fleet(Power::Turkey, p("ank"));
+    let unit_t_smy = Unit::new_army(Power::Turkey, p("smy"));
+    let unit_t_arm = Unit::new_army(Power::Turkey, p("arm"));
+    phase.data.orders.push(unit_r_con.support_move(unit_r_bla, p("ank")));
+    phase.data.orders.push(unit_r_bla.move_to(p("ank")));
+    phase.data.orders.push(unit_r_bul.support_hold(unit_r_con));
+    phase.data.orders.push(unit_t_ank.move_to(p("con")));
+    phase.data.orders.push(unit_t_smy.support_move(unit_t_ank, p("con")));
+    phase.data.orders.push(unit_t_arm.move_to(p("ank")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
@@ -649,26 +600,27 @@ fn test_datc_6_d_18() {
 /// Now, the dislodgement is prevented because the support comes from a Russian army:
 ///
 /// Russia:
-/// F Constantinople Supports F Black Sea - Ankara
-/// F Black Sea - Ankara
-/// A Smyrna Supports F Ankara - Constantinople
+///     F Constantinople Supports F Black Sea - Ankara
+///     F Black Sea - Ankara
+///     A Smyrna Supports F Ankara - Constantinople
 ///
 /// Turkey:
-/// F Ankara - Constantinople
+///     F Ankara - Constantinople
+///
 /// The Russian fleet in Constantinople is not dislodged,
 /// because one of the supports is of Russian origin.
 /// The support from Black Sea to Ankara will sustain and the fleet in Ankara will be dislodged.
 #[test]
 fn test_datc_6_d_19() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_r_1 = Unit::new_fleet(Power::Russia, p("con"));
-    let unit_r_2 = Unit::new_fleet(Power::Russia, p("bla"));
-    let unit_r_3 = Unit::new_army(Power::Russia, p("smy"));
-    let unit_t_1 = Unit::new_fleet(Power::Turkey, p("ank"));
-    phase.data.orders.push(unit_r_1.support_move(unit_r_2, p("ank")));
-    phase.data.orders.push(unit_r_2.move_to(p("ank")));
-    phase.data.orders.push(unit_r_3.support_move(unit_t_1, p("con")));
-    phase.data.orders.push(unit_t_1.move_to(p("con")));
+    let unit_r_con = Unit::new_fleet(Power::Russia, p("con"));
+    let unit_r_bla = Unit::new_fleet(Power::Russia, p("bla"));
+    let unit_r_smy = Unit::new_army(Power::Russia, p("smy"));
+    let unit_t_ank = Unit::new_fleet(Power::Turkey, p("ank"));
+    phase.data.orders.push(unit_r_con.support_move(unit_r_bla, p("ank")));
+    phase.data.orders.push(unit_r_bla.move_to(p("ank")));
+    phase.data.orders.push(unit_r_smy.support_move(unit_t_ank, p("con")));
+    phase.data.orders.push(unit_t_ank.move_to(p("con")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
@@ -682,29 +634,26 @@ fn test_datc_6_d_19() {
 /// it will not cut support.
 ///
 /// England:
-/// F London Supports F North Sea - English Channel
-/// F North Sea - English Channel
-/// A Yorkshire - London
+///     F London Supports F North Sea - English Channel
+///     F North Sea - English Channel
+///     A Yorkshire - London
 ///
 /// France:
-/// F English Channel Hold
+///     F English Channel Hold
+///
 /// The army in York does not cut support.
 /// This means that the fleet in the English Channel is dislodged by the fleet in the North Sea.
 #[test]
 fn test_datc_6_d_20() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_e_1 = Unit::new_fleet(Power::England, p("lon"));
-    let unit_e_2 = Unit::new_fleet(Power::England, p("nth"));
-    let unit_e_3 = Unit::new_army(Power::England, p("yor"));
-    let unit_f_1 = Unit::new_fleet(Power::France, p("eng"));
-    let order_e_1 = unit_e_1.support_move(unit_e_2, p("eng"));
-    let order_e_2 = unit_e_2.move_to(p("eng"));
-    let order_e_3 = unit_e_3.move_to(p("lon"));
-    let order_f_1 = unit_f_1.hold();
-    phase.data.orders.push(order_e_1);
-    phase.data.orders.push(order_e_2);
-    phase.data.orders.push(order_e_3);
-    phase.data.orders.push(order_f_1);
+    let unit_e_lon = Unit::new_fleet(Power::England, p("lon"));
+    let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
+    let unit_e_yor = Unit::new_army(Power::England, p("yor"));
+    let unit_f_eng = Unit::new_fleet(Power::France, p("eng"));
+    phase.data.orders.push(unit_e_lon.support_move(unit_e_nth, p("eng")));
+    phase.data.orders.push(unit_e_nth.move_to(p("eng")));
+    phase.data.orders.push(unit_e_yor.move_to(p("lon")));
+    phase.data.orders.push(unit_f_eng.hold());
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
@@ -718,35 +667,36 @@ fn test_datc_6_d_20() {
 /// This is not the case.
 ///
 /// Austria:
-/// F Trieste Hold
+///     F Trieste Hold
 ///
 /// Italy:
-/// A Venice - Trieste
-/// A Tyrolia Supports A Venice - Trieste
+///     A Venice - Trieste
+///     A Tyrolia Supports A Venice - Trieste
 ///
 /// Germany:
-/// A Munich - Tyrolia
+///     A Munich - Tyrolia
 ///
 /// Russia:
-/// A Silesia - Munich
-/// A Berlin Supports A Silesia - Munich
+///     A Silesia - Munich
+///     A Berlin Supports A Silesia - Munich
+///
 /// Although the German army is dislodged, it still cuts the Italian support.
 /// That means that the Austrian Fleet is not dislodged.
 #[test]
 fn test_datc_6_d_21() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_a_1 = Unit::new_fleet(Power::Austria, p("tri"));
-    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
-    let unit_i_2 = Unit::new_army(Power::Italy, p("tyr"));
-    let unit_g_1 = Unit::new_army(Power::Germany, p("mun"));
-    let unit_r_1 = Unit::new_army(Power::Russia, p("sil"));
-    let unit_r_2 = Unit::new_army(Power::Russia, p("ber"));
-    phase.data.orders.push(unit_a_1.hold());
-    phase.data.orders.push(unit_i_1.move_to(p("tri")));
-    phase.data.orders.push(unit_i_2.support_move(unit_i_1, p("tri")));
-    phase.data.orders.push(unit_g_1.move_to(p("tyr")));
-    phase.data.orders.push(unit_r_1.move_to(p("mun")));
-    phase.data.orders.push(unit_r_2.support_move(unit_r_1, p("mun")));
+    let unit_a_tri = Unit::new_fleet(Power::Austria, p("tri"));
+    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
+    let unit_i_tyr = Unit::new_army(Power::Italy, p("tyr"));
+    let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
+    let unit_r_sil = Unit::new_army(Power::Russia, p("sil"));
+    let unit_r_ber = Unit::new_army(Power::Russia, p("ber"));
+    phase.data.orders.push(unit_a_tri.hold());
+    phase.data.orders.push(unit_i_ven.move_to(p("tri")));
+    phase.data.orders.push(unit_i_tyr.support_move(unit_i_ven, p("tri")));
+    phase.data.orders.push(unit_g_mun.move_to(p("tyr")));
+    phase.data.orders.push(unit_r_sil.move_to(p("mun")));
+    phase.data.orders.push(unit_r_ber.support_move(unit_r_sil, p("mun")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
@@ -762,26 +712,27 @@ fn test_datc_6_d_21() {
 /// the support is also invalid for defense purposes.
 ///
 /// Germany:
-/// F Kiel - Munich
-/// A Burgundy Supports F Kiel - Munich
+///     F Kiel - Munich
+///     A Burgundy Supports F Kiel - Munich
 ///
 /// Russia:
-/// A Munich - Kiel
-/// A Berlin Supports A Munich - Kiel
+///     A Munich - Kiel
+///     A Berlin Supports A Munich - Kiel
+///
 /// The German move from Kiel to Munich is illegal (fleets cannot go to Munich).
 /// Illegal orders are fully ignored which makes the support from Burgundy also illegal.
 /// The Russian army in Munich will dislodge the fleet in Kiel.
 #[test]
 fn test_datc_6_d_22() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_g_1 = Unit::new_fleet(Power::Germany, p("kie"));
-    let unit_g_2 = Unit::new_army(Power::Germany, p("bur"));
-    let unit_r_1 = Unit::new_army(Power::Russia, p("mun"));
-    let unit_r_2 = Unit::new_army(Power::Russia, p("ber"));
-    phase.data.orders.push(unit_g_1.move_to(p("mun")));
-    phase.data.orders.push(unit_g_2.support_move(unit_g_1, p("mun")));
-    phase.data.orders.push(unit_r_1.move_to(p("kie")));
-    phase.data.orders.push(unit_r_2.support_move(unit_r_1, p("kie")));
+    let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
+    let unit_g_bur = Unit::new_army(Power::Germany, p("bur"));
+    let unit_r_mun = Unit::new_army(Power::Russia, p("mun"));
+    let unit_r_ber = Unit::new_army(Power::Russia, p("ber"));
+    phase.data.orders.push(unit_g_kie.move_to(p("mun")));
+    phase.data.orders.push(unit_g_bur.support_move(unit_g_kie, p("mun")));
+    phase.data.orders.push(unit_r_mun.move_to(p("kie")));
+    phase.data.orders.push(unit_r_ber.support_move(unit_r_mun, p("kie")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
@@ -793,25 +744,26 @@ fn test_datc_6_d_22() {
 /// Comparable with the previous test case, but now the fleet move is impossible for coastal reasons.
 ///
 /// Italy:
-/// F Gulf of Lyon - Spain(sc)
-/// F Western Mediterranean Supports F Gulf of Lyon - Spain(sc)
+///     F Gulf of Lyon - Spain(sc)
+///     F Western Mediterranean Supports F Gulf of Lyon - Spain(sc)
 ///
 /// France:
-/// F Spain(nc) - Gulf of Lyon
-/// F Marseilles Supports F Spain(nc) - Gulf of Lyon
+///     F Spain(nc) - Gulf of Lyon
+///     F Marseilles Supports F Spain(nc) - Gulf of Lyon
+///
 /// The French move from Spain North Coast to Gulf of Lyon is illegal (wrong coast).
 /// Therefore, the support from Marseilles fails and the fleet in Spain is dislodged.
 #[test]
 fn test_datc_6_d_23() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_i_1 = Unit::new_fleet(Power::Italy, p("lyo"));
-    let unit_i_2 = Unit::new_fleet(Power::Italy, p("wes"));
-    let unit_f_1 = Unit::new_fleet(Power::France, p("spa_nc"));
-    let unit_f_2 = Unit::new_fleet(Power::France, p("mar"));
-    phase.data.orders.push(unit_i_1.move_to(p("spa_sc")));
-    phase.data.orders.push(unit_i_2.support_move(unit_i_1, p("spa_sc")));
-    phase.data.orders.push(unit_f_1.move_to(p("lyo")));
-    phase.data.orders.push(unit_f_2.support_move(unit_f_1, p("lyo")));
+    let unit_i_lyo = Unit::new_fleet(Power::Italy, p("lyo"));
+    let unit_i_wes = Unit::new_fleet(Power::Italy, p("wes"));
+    let unit_f_spa_nc = Unit::new_fleet(Power::France, p("spa_nc"));
+    let unit_f_mar = Unit::new_fleet(Power::France, p("mar"));
+    phase.data.orders.push(unit_i_lyo.move_to(p("spa_sc")));
+    phase.data.orders.push(unit_i_wes.support_move(unit_i_lyo, p("spa_sc")));
+    phase.data.orders.push(unit_f_spa_nc.move_to(p("lyo")));
+    phase.data.orders.push(unit_f_mar.support_move(unit_f_spa_nc, p("lyo")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
@@ -824,31 +776,32 @@ fn test_datc_6_d_23() {
 /// but now an army tries to move into sea and the support is used in a beleaguered garrison.
 ///
 /// France:
-/// A Marseilles - Gulf of Lyon
-/// F Spain(sc) Supports A Marseilles - Gulf of Lyon
+///     A Marseilles - Gulf of Lyon
+///     F Spain(sc) Supports A Marseilles - Gulf of Lyon
 ///
 /// Italy:
-/// F Gulf of Lyon Hold
+///     F Gulf of Lyon Hold
 ///
 /// Turkey:
-/// F Tyrrhenian Sea Supports F Western Mediterranean - Gulf of Lyon
-/// F Western Mediterranean - Gulf of Lyon
+///     F Tyrrhenian Sea Supports F Western Mediterranean - Gulf of Lyon
+///     F Western Mediterranean - Gulf of Lyon
+///
 /// The French move from Marseilles to Gulf of Lyon is illegal (an army cannot go to sea).
 /// Therefore, the support from Spain fails and there is no beleaguered garrison.
 /// The fleet in the Gulf of Lyon is dislodged by the Turkish fleet in the Western Mediterranean.
 #[test]
 fn test_datc_6_d_24() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_f_1 = Unit::new_army(Power::France, p("mar"));
-    let unit_f_2 = Unit::new_fleet(Power::France, p("spa_sc"));
-    let unit_i_1 = Unit::new_fleet(Power::Italy, p("lyo"));
-    let unit_t_1 = Unit::new_fleet(Power::Turkey, p("tys"));
-    let unit_t_2 = Unit::new_fleet(Power::Turkey, p("wes"));
-    phase.data.orders.push(unit_f_1.move_to(p("lyo")));
-    phase.data.orders.push(unit_f_2.support_move(unit_f_1, p("lyo")));
-    phase.data.orders.push(unit_i_1.hold());
-    phase.data.orders.push(unit_t_1.support_move(unit_t_2, p("lyo")));
-    phase.data.orders.push(unit_t_2.move_to(p("lyo")));
+    let unit_f_mar = Unit::new_army(Power::France, p("mar"));
+    let unit_f_spa_sc = Unit::new_fleet(Power::France, p("spa_sc"));
+    let unit_i_lyo = Unit::new_fleet(Power::Italy, p("lyo"));
+    let unit_t_tyr = Unit::new_fleet(Power::Turkey, p("tys"));
+    let unit_t_wes = Unit::new_fleet(Power::Turkey, p("wes"));
+    phase.data.orders.push(unit_f_mar.move_to(p("lyo")));
+    phase.data.orders.push(unit_f_spa_sc.support_move(unit_f_mar, p("lyo")));
+    phase.data.orders.push(unit_i_lyo.hold());
+    phase.data.orders.push(unit_t_tyr.support_move(unit_t_wes, p("lyo")));
+    phase.data.orders.push(unit_t_wes.move_to(p("lyo")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
@@ -864,25 +817,26 @@ fn test_datc_6_d_24() {
 /// because of some preconditions (unmatching order) can still be supported.
 ///
 /// Germany:
-/// A Berlin Supports A Prussia
-/// F Kiel Supports A Berlin
+///     A Berlin Supports A Prussia
+///     F Kiel Supports A Berlin
 ///
 /// Russia:
-/// F Baltic Sea Supports A Prussia - Berlin
-/// A Prussia - Berlin
+///     F Baltic Sea Supports A Prussia - Berlin
+///     A Prussia - Berlin
+///
 /// Although the support of Berlin on Prussia fails (because of unmatching orders),
 /// the support of Kiel on Berlin is still valid. So, Berlin will not be dislodged.
 #[test]
 fn test_datc_6_d_25() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
-    let unit_g_2 = Unit::new_fleet(Power::Germany, p("kie"));
-    let unit_r_1 = Unit::new_fleet(Power::Russia, p("bal"));
-    let unit_r_2 = Unit::new_army(Power::Russia, p("pru"));
-    phase.data.orders.push(unit_g_1.support_hold(unit_r_2));
-    phase.data.orders.push(unit_g_2.support_hold(unit_g_1));
-    phase.data.orders.push(unit_r_1.support_move(unit_r_2, p("ber")));
-    phase.data.orders.push(unit_r_2.move_to(p("ber")));
+    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
+    let unit_r_bal = Unit::new_fleet(Power::Russia, p("bal"));
+    let unit_r_pru = Unit::new_army(Power::Russia, p("pru"));
+    phase.data.orders.push(unit_g_ber.support_hold(unit_r_pru));
+    phase.data.orders.push(unit_g_kie.support_hold(unit_g_ber));
+    phase.data.orders.push(unit_r_bal.support_move(unit_r_pru, p("ber")));
+    phase.data.orders.push(unit_r_pru.move_to(p("ber")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
@@ -894,24 +848,25 @@ fn test_datc_6_d_25() {
 /// Similar as the previous test case, but now with an unmatched support to move.
 ///
 /// Germany:
-/// A Berlin Supports A Prussia - Silesia
-/// F Kiel Supports A Berlin
+///     A Berlin Supports A Prussia - Silesia
+///     F Kiel Supports A Berlin
 ///
 /// Russia:
-/// F Baltic Sea Supports A Prussia - Berlin
-/// A Prussia - Berlin
+///     F Baltic Sea Supports A Prussia - Berlin
+///     A Prussia - Berlin
+///
 /// Again, Berlin will not be dislodged.
 #[test]
 fn test_datc_6_d_26() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
-    let unit_g_2 = Unit::new_fleet(Power::Germany, p("kie"));
-    let unit_r_1 = Unit::new_fleet(Power::Russia, p("bal"));
-    let unit_r_2 = Unit::new_army(Power::Russia, p("pru"));
-    phase.data.orders.push(unit_g_1.support_move(unit_r_2, p("sil")));
-    phase.data.orders.push(unit_g_2.support_hold(unit_g_1));
-    phase.data.orders.push(unit_r_1.support_move(unit_r_2, p("ber")));
-    phase.data.orders.push(unit_r_2.move_to(p("ber")));
+    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
+    let unit_r_bal = Unit::new_fleet(Power::Russia, p("bal"));
+    let unit_r_pru = Unit::new_army(Power::Russia, p("pru"));
+    phase.data.orders.push(unit_g_ber.support_move(unit_r_pru, p("sil")));
+    phase.data.orders.push(unit_g_kie.support_hold(unit_g_ber));
+    phase.data.orders.push(unit_r_bal.support_move(unit_r_pru, p("ber")));
+    phase.data.orders.push(unit_r_pru.move_to(p("ber")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
@@ -923,31 +878,32 @@ fn test_datc_6_d_26() {
 /// Similar as the previous test case, but now with an unmatched convoy.
 ///
 /// England:
-/// F Sweden - Baltic Sea
-/// F Denmark Supports F Sweden - Baltic Sea
+///     F Sweden - Baltic Sea
+///     F Denmark Supports F Sweden - Baltic Sea
 ///
 /// Germany:
-/// A Berlin Hold
+///     A Berlin Hold
 ///
 /// Russia:
-/// F Baltic Sea Convoys A Berlin - Livonia
-/// F Prussia Supports F Baltic Sea
+///     F Baltic Sea Convoys A Berlin - Livonia
+///     F Prussia Supports F Baltic Sea
+///
 /// The convoy order in the Baltic Sea is unmatched and fails.
 /// However, the support of Prussia on the Baltic Sea is still valid
 /// and the fleet in the Baltic Sea is not dislodged.
 #[test]
 fn test_datc_6_d_27() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_e_1 = Unit::new_fleet(Power::England, p("swe"));
-    let unit_e_2 = Unit::new_fleet(Power::England, p("den"));
-    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
-    let unit_r_1 = Unit::new_fleet(Power::Russia, p("bal"));
-    let unit_r_2 = Unit::new_fleet(Power::Russia, p("pru"));
-    phase.data.orders.push(unit_e_1.move_to(p("bal")));
-    phase.data.orders.push(unit_e_2.support_move(unit_e_1, p("bal")));
-    phase.data.orders.push(unit_g_1.hold());
-    phase.data.orders.push(unit_r_1.convoy(unit_g_1, p("lvn")));
-    phase.data.orders.push(unit_r_2.support_hold(unit_r_1));
+    let unit_e_swe = Unit::new_fleet(Power::England, p("swe"));
+    let unit_e_den = Unit::new_fleet(Power::England, p("den"));
+    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
+    let unit_r_bal = Unit::new_fleet(Power::Russia, p("bal"));
+    let unit_r_pru = Unit::new_fleet(Power::Russia, p("pru"));
+    phase.data.orders.push(unit_e_swe.move_to(p("bal")));
+    phase.data.orders.push(unit_e_den.support_move(unit_e_swe, p("bal")));
+    phase.data.orders.push(unit_g_ber.hold());
+    phase.data.orders.push(unit_r_bal.convoy(unit_g_ber, p("lvn")));
+    phase.data.orders.push(unit_r_pru.support_hold(unit_r_bal));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
@@ -960,14 +916,15 @@ fn test_datc_6_d_27() {
 /// An impossible move is "illegal" and should be ignored.
 ///
 /// Austria:
-/// A Budapest Supports F Rumania
+///     A Budapest Supports F Rumania
 ///
 /// Russia:
-/// F Rumania - Holland
+///     F Rumania - Holland
 ///
 /// Turkey:
-/// F Black Sea - Rumania
-/// A Bulgaria Supports F Black Sea - Rumania
+///     F Black Sea - Rumania
+///     A Bulgaria Supports F Black Sea - Rumania
+///
 /// See issue 4.E.1. Illegal orders are ignored. Without an order,
 /// Rumania holds and receives support.
 /// The fleet in Rumania is not dislodged.
@@ -980,14 +937,15 @@ fn test_datc_6_d_28() {
 /// Similar to the previous test case, but now the move "illegal" due the wrong coast.
 ///
 /// Austria:
-/// A Budapest Supports F Rumania
+///     A Budapest Supports F Rumania
 ///
 /// Russia:
-/// F Rumania - Bulgaria(sc)
+///     F Rumania - Bulgaria(sc)
 ///
 /// Turkey:
-/// F Black Sea - Rumania
-/// A Bulgaria Supports F Black Sea - Rumania
+///     F Black Sea - Rumania
+///     A Bulgaria Supports F Black Sea - Rumania
+///
 /// See issue 4.E.1. Illegal orders are ignored. Without an order,
 /// Rumania holds and receives support.
 /// The fleet in Rumania is not dislodged.
@@ -1000,14 +958,15 @@ fn test_datc_6_d_29() {
 /// Similar to the previous test case, but now the move is "illegal" due to missing coast.
 ///
 /// Italy:
-/// F Aegean Sea Supports F Constantinople
+///     F Aegean Sea Supports F Constantinople
 ///
 /// Russia:
-/// F Constantinople - Bulgaria
+///     F Constantinople - Bulgaria
 ///
 /// Turkey:
-/// F Black Sea - Constantinople
-/// A Bulgaria Supports F Black Sea - Constantinople
+///     F Black Sea - Constantinople
+///     A Bulgaria Supports F Black Sea - Constantinople
+///
 /// See issue 4.E.1. Illegal orders are ignored. Without an order,
 /// Constantinople holds and receives support.
 /// The fleet in Constantinople is not dislodged.
@@ -1020,29 +979,28 @@ fn test_datc_6_d_30() {
 /// A support order can be impossible for complex reasons.
 ///
 /// Austria:
-/// A Rumania - Armenia
+///     A Rumania - Armenia
 ///
 /// Turkey:
-/// F Black Sea Supports A Rumania - Armenia
+///     F Black Sea Supports A Rumania - Armenia
+///
 /// Although the army in Rumania can move to Armenia
 /// and the fleet in the Black Sea can also go to Armenia, the support is still not possible.
 /// The reason is that the only possible convoy is through the Black Sea
 /// and a fleet cannot convoy and support at the same time.
-///
 /// This is relevant for computer programs that show only the possible orders.
 /// In the list of possible orders,
 /// the support as given to the fleet in the Black Sea, should not be listed.
-///
 /// Furthermore, the support order should be judged to be illegal,
 /// meaning that it is completely ignored.
 /// If there is a second order for the Black Sea, that order should be executed (see issue 4.E.1).
 #[test]
 fn test_datc_6_d_31() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_a_1 = Unit::new_army(Power::Austria, p("rum"));
-    let unit_t_1 = Unit::new_fleet(Power::Turkey, p("bla"));
-    phase.data.orders.push(unit_a_1.move_to(p("arm")));
-    phase.data.orders.push(unit_t_1.support_move(unit_a_1, p("arm")));
+    let unit_a_rum = Unit::new_army(Power::Austria, p("rum"));
+    let unit_t_bla = Unit::new_fleet(Power::Turkey, p("bla"));
+    phase.data.orders.push(unit_a_rum.move_to(p("arm")));
+    phase.data.orders.push(unit_t_bla.support_move(unit_a_rum, p("arm")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
@@ -1054,14 +1012,15 @@ fn test_datc_6_d_31() {
 /// In this test case, the order is impossible, but only for that situation.
 ///
 /// England:
-/// F Edinburgh Supports A Liverpool - Yorkshire
-/// A Liverpool - Yorkshire
+///     F Edinburgh Supports A Liverpool - Yorkshire
+///     A Liverpool - Yorkshire
 ///
 /// France:
-/// F London Supports A Yorkshire
+///     F London Supports A Yorkshire
 ///
 /// Germany:
-/// A Yorkshire - Holland
+///     A Yorkshire - Holland
+///
 /// The German order to Yorkshire cannot be executed,
 /// because there is no fleet in the North Sea.
 /// In other situations (where there is a fleet in the North Sea),
@@ -1078,27 +1037,28 @@ fn test_datc_6_d_32() {
 /// A self standoff can be broken by an unwanted support.
 ///
 /// Austria:
-/// A Serbia - Budapest
-/// A Vienna - Budapest
+///     A Serbia - Budapest
+///     A Vienna - Budapest
 ///
 /// Russia:
-/// A Galicia Supports A Serbia - Budapest
+///     A Galicia Supports A Serbia - Budapest
 ///
 /// Turkey:
-/// A Bulgaria - Serbia
+///     A Bulgaria - Serbia
+///
 /// Due to the Russian support, the army in Serbia advances to Budapest.
 /// This enables Turkey to capture Serbia with the army in Bulgaria.
 #[test]
 fn test_datc_6_d_33() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_a_1 = Unit::new_army(Power::Austria, p("ser"));
-    let unit_a_2 = Unit::new_army(Power::Austria, p("vie"));
-    let unit_r_1 = Unit::new_army(Power::Russia, p("gal"));
-    let unit_t_1 = Unit::new_army(Power::Turkey, p("bul"));
-    phase.data.orders.push(unit_a_1.move_to(p("bud")));
-    phase.data.orders.push(unit_a_2.move_to(p("bud")));
-    phase.data.orders.push(unit_r_1.support_move(unit_a_1, p("bud")));
-    phase.data.orders.push(unit_t_1.move_to(p("ser")));
+    let unit_a_ser = Unit::new_army(Power::Austria, p("ser"));
+    let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
+    let unit_r_gal = Unit::new_army(Power::Russia, p("gal"));
+    let unit_t_bul = Unit::new_army(Power::Turkey, p("bul"));
+    phase.data.orders.push(unit_a_ser.move_to(p("bud")));
+    phase.data.orders.push(unit_a_vie.move_to(p("bud")));
+    phase.data.orders.push(unit_r_gal.support_move(unit_a_ser, p("bud")));
+    phase.data.orders.push(unit_t_bul.move_to(p("ser")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
@@ -1110,16 +1070,17 @@ fn test_datc_6_d_33() {
 /// Support targeting the area where the supporting unit is standing, is illegal.
 ///
 /// Germany:
-/// A Berlin - Prussia
-/// A Silesia Supports A Berlin - Prussia
-/// F Baltic Sea Supports A Berlin - Prussia
+///     A Berlin - Prussia
+///     A Silesia Supports A Berlin - Prussia
+///     F Baltic Sea Supports A Berlin - Prussia
 ///
 /// Italy:
-/// A Prussia Supports Livonia - Prussia
+///     A Prussia Supports Livonia - Prussia
 ///
 /// Russia:
-/// A Warsaw Supports A Livonia - Prussia
-/// A Livonia - Prussia
+///     A Warsaw Supports A Livonia - Prussia
+///     A Livonia - Prussia
+///
 /// Russia and Italy wanted to get rid of the Italian army in Prussia
 /// (to build an Italian fleet somewhere else).
 /// However, they didn't want a possible German attack on Prussia to succeed.
@@ -1135,18 +1096,18 @@ fn test_datc_6_d_33() {
 #[test]
 fn test_datc_6_d_34() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_g_1 = Unit::new_army(Power::Germany, p("ber"));
-    let unit_g_2 = Unit::new_army(Power::Germany, p("sil"));
-    let unit_g_3 = Unit::new_fleet(Power::Germany, p("bal"));
-    let unit_i_1 = Unit::new_army(Power::Italy, p("pru"));
-    let unit_r_1 = Unit::new_army(Power::Russia, p("war"));
-    let unit_r_2 = Unit::new_army(Power::Russia, p("lvn"));
-    phase.data.orders.push(unit_g_1.move_to(p("pru")));
-    phase.data.orders.push(unit_g_2.support_move(unit_g_1, p("pru")));
-    phase.data.orders.push(unit_g_3.support_move(unit_g_1, p("pru")));
-    phase.data.orders.push(unit_i_1.support_move(unit_i_1, p("pru")));
-    phase.data.orders.push(unit_r_1.support_move(unit_r_2, p("pru")));
-    phase.data.orders.push(unit_r_2.move_to(p("pru")));
+    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_sil = Unit::new_army(Power::Germany, p("sil"));
+    let unit_g_bal = Unit::new_fleet(Power::Germany, p("bal"));
+    let unit_i_pru = Unit::new_army(Power::Italy, p("pru"));
+    let unit_r_war = Unit::new_army(Power::Russia, p("war"));
+    let unit_r_lvn = Unit::new_army(Power::Russia, p("lvn"));
+    phase.data.orders.push(unit_g_ber.move_to(p("pru")));
+    phase.data.orders.push(unit_g_sil.support_move(unit_g_ber, p("pru")));
+    phase.data.orders.push(unit_g_bal.support_move(unit_g_ber, p("pru")));
+    phase.data.orders.push(unit_i_pru.support_move(unit_i_pru, p("pru")));
+    phase.data.orders.push(unit_r_war.support_move(unit_r_lvn, p("pru")));
+    phase.data.orders.push(unit_r_lvn.move_to(p("pru")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
