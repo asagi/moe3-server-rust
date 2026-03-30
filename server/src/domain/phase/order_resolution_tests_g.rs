@@ -35,12 +35,12 @@ fn p(code: &str) -> Province {
 #[test]
 fn test_datc_6_g_1() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_e_1_nor = Unit::new_army(Power::Germany, p("nwy"));
-    let unit_e_2_ska = Unit::new_fleet(Power::Germany, p("ska"));
-    let unit_r_1_nor = Unit::new_army(Power::England, p("swe"));
-    phase.data.orders.push(unit_e_1_nor.move_to(p("swe")));
-    phase.data.orders.push(unit_e_2_ska.convoy(unit_e_1_nor, p("swe")));
-    phase.data.orders.push(unit_r_1_nor.move_to(p("nwy")));
+    let unit_e_1_nwy = Unit::new_army(Power::England, p("nwy"));
+    let unit_e_2_ska = Unit::new_fleet(Power::England, p("ska"));
+    let unit_r_1_swe = Unit::new_army(Power::Russia, p("swe"));
+    phase.data.orders.push(unit_e_1_nwy.move_to(p("swe")));
+    phase.data.orders.push(unit_e_2_ska.convoy(unit_e_1_nwy, p("swe")));
+    phase.data.orders.push(unit_r_1_swe.move_to(p("nwy")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);

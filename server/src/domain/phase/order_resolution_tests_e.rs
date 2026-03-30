@@ -477,7 +477,7 @@ fn test_datc_6_e_11() {
     let unit_g_gas = Unit::new_army(Power::Germany, p("gas"));
     let unit_i_por = Unit::new_fleet(Power::Italy, p("por"));
     let unit_i_wes = Unit::new_fleet(Power::Italy, p("wes"));
-    phase.data.orders.push(unit_f_spa.move_to(p("por")));
+    phase.data.orders.push(unit_f_spa.move_to(p("por")).set_via_convoy());
     phase.data.orders.push(unit_f_mao.convoy(unit_f_spa, p("por")));
     phase.data.orders.push(unit_f_lyo.support_move(unit_i_por, p("spa_nc")));
     phase.data.orders.push(unit_g_mar.support_move(unit_g_gas, p("spa")));
