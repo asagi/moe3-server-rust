@@ -21,14 +21,14 @@ fn p(code: &str) -> Province {
 ///  Check if an illegal move (without convoy) will fail.
 ///
 ///  England:
-///  F North Sea - Picardy
+///     F North Sea - Picardy
+///
 ///  Order should fail.
 #[test]
 fn test_datc_6_a_1() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit = Unit::new_fleet(Power::England, p("nth"));
-    let order = unit.move_to(p("pic"));
-    phase.data.orders.push(order);
+    let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
+    phase.data.orders.push(unit_e_nth.move_to(p("pic")));
     resolve_orders_for_order_phase(&mut phase);
     assert!(phase.data.orders[0].is_invalid());
 }
@@ -37,14 +37,14 @@ fn test_datc_6_a_1() {
 /// Check if an army could not be moved to open sea.
 ///
 /// England:
-/// A Liverpool - Irish Sea
+///     A Liverpool - Irish Sea
+///
 /// Order should fail.
 #[test]
 fn test_datc_6_a_2() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit = Unit::new_army(Power::England, p("lvp"));
-    let order = unit.move_to(p("iri"));
-    phase.data.orders.push(order);
+    let unit_e_lvp = Unit::new_army(Power::England, p("lvp"));
+    phase.data.orders.push(unit_e_lvp.move_to(p("iri")));
     resolve_orders_for_order_phase(&mut phase);
     assert!(phase.data.orders[0].is_invalid());
 }
@@ -53,14 +53,14 @@ fn test_datc_6_a_2() {
 /// Check whether a fleet cannot move to land.
 ///
 /// Germany:
-/// F Kiel - Munich
+///     F Kiel - Munich
+///
 /// Order should fail.
 #[test]
 fn test_datc_6_a_3() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit = Unit::new_fleet(Power::Germany, p("kie"));
-    let order = unit.move_to(p("mun"));
-    phase.data.orders.push(order);
+    let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
+    phase.data.orders.push(unit_g_kie.move_to(p("mun")));
     resolve_orders_for_order_phase(&mut phase);
     assert!(phase.data.orders[0].is_invalid());
 }
@@ -70,14 +70,14 @@ fn test_datc_6_a_3() {
 /// "An Army can be ordered to move into an adjacent inland or coastal province.").
 ///
 /// Germany:
-/// F Kiel - Kiel
+///     F Kiel - Kiel
+///
 /// Program should not crash.
 #[test]
 fn test_datc_6_a_4() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit = Unit::new_fleet(Power::Germany, p("kie"));
-    let order = unit.move_to(p("kie"));
-    phase.data.orders.push(order);
+    let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
+    phase.data.orders.push(unit_g_kie.move_to(p("kie")));
     resolve_orders_for_order_phase(&mut phase);
     assert!(phase.data.orders[0].is_invalid());
 }
@@ -87,12 +87,13 @@ fn test_datc_6_a_4() {
 /// "Note: An Army can move across water provinces from one coastal province to another...").
 ///
 /// England:
-/// F North Sea Convoys A Yorkshire - Yorkshire
-/// A Yorkshire - Yorkshire
-/// A Liverpool Supports A Yorkshire - Yorkshire
+///     F North Sea Convoys A Yorkshire - Yorkshire
+///     A Yorkshire - Yorkshire
+///     A Liverpool Supports A Yorkshire - Yorkshire
 ///
 /// Germany:
-/// F London - Yorkshire
+///     F London - Yorkshire
+///
 /// A Wales Supports F London - Yorkshire
 /// The move of the army in Yorkshire is illegal.
 /// This makes the support of Liverpool also illegal and without the support,
@@ -100,48 +101,37 @@ fn test_datc_6_a_4() {
 #[test]
 fn test_datc_6_a_5() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_e_1 = Unit::new_army(Power::England, p("yor"));
-    let unit_e_2 = Unit::new_fleet(Power::England, p("nth"));
-    let unit_e_3 = Unit::new_army(Power::England, p("lvp"));
-    let order_e_1 = unit_e_1.move_to(p("yor"));
-    let order_e_2 = unit_e_2.convoy(unit_e_1, p("yor"));
-    let order_e_3 = unit_e_3.support_move(unit_e_1, p("yor"));
-    phase.data.orders.push(order_e_1);
-    phase.data.orders.push(order_e_2);
-    phase.data.orders.push(order_e_3);
-    let unit_g_1 = Unit::new_fleet(Power::Germany, p("lon"));
-    let unit_g_2 = Unit::new_army(Power::Germany, p("wal"));
-    let order_g_1 = unit_g_1.move_to(p("yor"));
-    let order_g_2 = unit_g_2.support_move(unit_g_1, p("yor"));
-    phase.data.orders.push(order_g_1);
-    phase.data.orders.push(order_g_2);
+    let unit_e_yor = Unit::new_army(Power::England, p("yor"));
+    let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
+    let unit_e_lvp = Unit::new_army(Power::England, p("lvp"));
+    let unit_g_lon = Unit::new_fleet(Power::Germany, p("lon"));
+    let unit_g_wal = Unit::new_army(Power::Germany, p("wal"));
+    phase.data.orders.push(unit_e_yor.move_to(p("yor")));
+    phase.data.orders.push(unit_e_nth.convoy(unit_e_yor, p("yor")));
+    phase.data.orders.push(unit_e_lvp.support_move(unit_e_yor, p("yor")));
+    phase.data.orders.push(unit_g_lon.move_to(p("yor")));
+    phase.data.orders.push(unit_g_wal.support_move(unit_g_lon, p("yor")));
     resolve_orders_for_order_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].unit, order_e_1.unit);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
-    assert_eq!(phase.data.orders[1].unit, order_e_2.unit);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.orders[2].unit, order_e_3.unit);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.orders[3].unit, order_g_1.unit);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
-    assert_eq!(phase.data.orders[4].unit, order_g_2.unit);
     assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
 }
 
 /// 6.A.6. TEST CASE, ORDERING A UNIT OF ANOTHER COUNTRY
 /// Check whether someone cannot order a unit that is not his own unit.
-///
 /// England has a fleet in London.
 ///
 /// Germany:
-/// F London - North Sea
+///     F London - North Sea
+///
 /// Order should fail.
 #[test]
 fn test_datc_6_a_6() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit = Unit::new_fleet(Power::England, p("lon"));
-    let order = unit.move_to(p("nth")).assumed_by(Power::Germany);
-    phase.data.orders.push(order);
+    let unit_e_lon = Unit::new_fleet(Power::England, p("lon"));
+    phase.data.orders.push(unit_e_lon.move_to(p("nth")).assumed_by(Power::Germany));
     resolve_orders_for_order_phase(&mut phase);
     assert!(phase.data.orders[0].is_unresolved());
 }
@@ -150,22 +140,19 @@ fn test_datc_6_a_6() {
 /// A fleet cannot be convoyed.
 ///
 /// England:
-/// F London - Belgium
-/// F North Sea Convoys A London - Belgium
+///     F London - Belgium
+///     F North Sea Convoys A London - Belgium
+///
 /// Move from London to Belgium should fail.
 #[test]
 fn test_datc_6_a_7() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_e_1 = Unit::new_fleet(Power::England, p("lon"));
-    let unit_e_2 = Unit::new_fleet(Power::England, p("nth"));
-    let order_e_1 = unit_e_1.move_to(p("bel"));
-    let order_e_2 = unit_e_2.convoy(unit_e_1, p("bel"));
-    phase.data.orders.push(order_e_1);
-    phase.data.orders.push(order_e_2);
+    let unit_e_lon = Unit::new_fleet(Power::England, p("lon"));
+    let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
+    phase.data.orders.push(unit_e_lon.move_to(p("bel")));
+    phase.data.orders.push(unit_e_nth.convoy(unit_e_lon, p("bel")));
     resolve_orders_for_order_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].unit, order_e_1.unit);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.orders[1].unit, order_e_2.unit);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
 }
 
@@ -173,30 +160,25 @@ fn test_datc_6_a_7() {
 /// An army cannot get an additional hold power by supporting itself.
 ///
 /// Italy:
-/// A Venice - Trieste
-/// A Tyrolia Supports A Venice - Trieste
+///     A Venice - Trieste
+///     A Tyrolia Supports A Venice - Trieste
 ///
 /// Austria:
-/// F Trieste Supports F Trieste
+///     F Trieste Supports F Trieste
+///
 /// The army in Trieste should be dislodged.
 #[test]
 fn test_datc_6_a_8() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
-    let unit_i_2 = Unit::new_army(Power::Italy, p("tyr"));
-    let order_i_1 = unit_i_1.move_to(p("tri"));
-    let order_i_2 = unit_i_2.support_move(unit_i_1, p("tri"));
-    phase.data.orders.push(order_i_1);
-    phase.data.orders.push(order_i_2);
-    let unit_a_1 = Unit::new_fleet(Power::Austria, p("tri"));
-    let order_a_1 = unit_a_1.support_hold(unit_a_1);
-    phase.data.orders.push(order_a_1);
+    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
+    let unit_i_tyr = Unit::new_army(Power::Italy, p("tyr"));
+    let unit_a_tri = Unit::new_fleet(Power::Austria, p("tri"));
+    phase.data.orders.push(unit_i_ven.move_to(p("tri")));
+    phase.data.orders.push(unit_i_tyr.support_move(unit_i_ven, p("tri")));
+    phase.data.orders.push(unit_a_tri.support_hold(unit_a_tri));
     resolve_orders_for_order_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].unit, order_i_1.unit);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
-    assert_eq!(phase.data.orders[1].unit, order_i_2.unit);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
-    assert_eq!(phase.data.orders[2].unit, order_a_1.unit);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Dislodged);
 }
 
@@ -205,14 +187,14 @@ fn test_datc_6_a_8() {
 /// An implementation that only holds one list of adjacent provinces for each province is incorrect.
 ///
 /// Italy:
-/// F Rome - Venice
+///     F Rome - Venice
+///
 /// Move fails. An army can go from Rome to Venice, but a fleet cannot.
 #[test]
 fn test_datc_6_a_9() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_i_1 = Unit::new_fleet(Power::Italy, p("rom"));
-    let order_i_1 = unit_i_1.move_to(p("ven"));
-    phase.data.orders.push(order_i_1);
+    let unit_i_rom = Unit::new_fleet(Power::Italy, p("rom"));
+    phase.data.orders.push(unit_i_rom.move_to(p("ven")));
     resolve_orders_for_order_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
 }
@@ -221,56 +203,48 @@ fn test_datc_6_a_9() {
 /// The destination of the move that is supported must be reachable by the supporting unit.
 ///
 /// Austria:
-/// A Venice Hold
+///     A Venice Hold
 ///
 /// Italy:
-/// F Rome Supports A Apulia - Venice
-/// A Apulia - Venice
+///     F Rome Supports A Apulia - Venice
+///     A Apulia - Venice
+///
 /// The support of Rome is illegal, because Venice cannot be reached from Rome by a fleet.
 /// Venice is not dislodged.
 #[test]
 fn test_datc_6_a_10() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_a_1 = Unit::new_army(Power::Austria, p("ven"));
-    let order_a_1 = unit_a_1.hold();
-    phase.data.orders.push(order_a_1);
-    let unit_i_1 = Unit::new_army(Power::Italy, p("apu"));
-    let order_i_1 = unit_i_1.move_to(p("ven"));
-    let unit_i_2 = Unit::new_fleet(Power::Italy, p("rom"));
-    let order_i_2 = unit_i_2.support_move(unit_i_1, p("ven"));
-    phase.data.orders.push(order_i_1);
-    phase.data.orders.push(order_i_2);
+    let unit_a_ven = Unit::new_army(Power::Austria, p("ven"));
+    let unit_i_rom = Unit::new_fleet(Power::Italy, p("rom"));
+    let unit_i_apu = Unit::new_army(Power::Italy, p("apu"));
+    phase.data.orders.push(unit_a_ven.hold());
+    phase.data.orders.push(unit_i_rom.support_move(unit_i_apu, p("ven")));
+    phase.data.orders.push(unit_i_apu.move_to(p("ven")));
     resolve_orders_for_order_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].unit, order_a_1.unit);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
-    assert_eq!(phase.data.orders[1].unit, order_i_1.unit);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
-    assert_eq!(phase.data.orders[2].unit, order_i_2.unit);
-    assert_eq!(phase.data.orders[2].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
 }
 
 /// 6.A.11. TEST CASE, SIMPLE BOUNCE
 /// Two armies bouncing on each other.
 ///
 /// Austria:
-/// A Vienna - Tyrolia
+///     A Vienna - Tyrolia
 ///
 /// Italy:
-/// A Venice - Tyrolia
+///     A Venice - Tyrolia
+///
 /// The two units bounce.
 #[test]
 fn test_datc_6_a_11() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_a_1 = Unit::new_army(Power::Austria, p("vie"));
-    let order_a_1 = unit_a_1.move_to(p("tyr"));
-    phase.data.orders.push(order_a_1);
-    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
-    let order_i_1 = unit_i_1.move_to(p("tyr"));
-    phase.data.orders.push(order_i_1);
+    let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
+    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
+    phase.data.orders.push(unit_a_vie.move_to(p("tyr")));
+    phase.data.orders.push(unit_i_ven.move_to(p("tyr")));
     resolve_orders_for_order_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].unit, order_a_1.unit);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
-    assert_eq!(phase.data.orders[1].unit, order_i_1.unit);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
 }
 
@@ -279,31 +253,26 @@ fn test_datc_6_a_11() {
 /// the adjudicator should not bounce the first two units and then let the third unit go to the now open area.
 ///
 /// Austria:
-/// A Vienna - Tyrolia
+///     A Vienna - Tyrolia
 ///
 /// Germany:
-/// A Munich - Tyrolia
+///     A Munich - Tyrolia
 ///
 /// Italy:
-/// A Venice - Tyrolia
+///     A Venice - Tyrolia
+///
 /// The three units bounce.
 #[test]
 fn test_datc_6_a_12() {
     let mut phase = Phase::new_spring_order(1900, 1);
-    let unit_a_1 = Unit::new_army(Power::Austria, p("vie"));
-    let order_a_1 = unit_a_1.move_to(p("tyr"));
-    phase.data.orders.push(order_a_1);
-    let unit_g_1 = Unit::new_army(Power::Germany, p("mun"));
-    let order_g_1 = unit_g_1.move_to(p("tyr"));
-    phase.data.orders.push(order_g_1);
-    let unit_i_1 = Unit::new_army(Power::Italy, p("ven"));
-    let order_i_1 = unit_i_1.move_to(p("tyr"));
-    phase.data.orders.push(order_i_1);
+    let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
+    let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
+    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
+    phase.data.orders.push(unit_a_vie.move_to(p("tyr")));
+    phase.data.orders.push(unit_g_mun.move_to(p("tyr")));
+    phase.data.orders.push(unit_i_ven.move_to(p("tyr")));
     resolve_orders_for_order_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].unit, order_a_1.unit);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
-    assert_eq!(phase.data.orders[1].unit, order_g_1.unit);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
-    assert_eq!(phase.data.orders[2].unit, order_i_1.unit);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
 }
