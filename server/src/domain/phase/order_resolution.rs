@@ -433,6 +433,13 @@ fn handle_switch_orders(original_orders: &mut [Order], standoff_province_codes: 
                     original_orders[winner_idx].set_success();
                     original_orders[loser_idx].set_dislodged_from(&original_orders[winner_idx].location());
 
+                    // 海路迂回移動が絡む場合はスタンドオフの無効化はしない
+                    let a_can = can_reach_via_convoy(original_orders, winner_idx);
+                    let b_can = can_reach_via_convoy(original_orders, loser_idx);
+                    if a_can || b_can {
+                        continue;
+                    }
+
                     // 撃退された軍の元所在地に発生させたスタンドオフを無効化
                     reset_standoff_failures_to_attacker_origin(original_orders, winner_idx, loser_idx, standoff_province_codes);
                     continue;
