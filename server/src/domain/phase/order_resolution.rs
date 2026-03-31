@@ -60,11 +60,14 @@ fn validate_move_orders(original_orders: &mut [Order]) {
         };
 
         // 隣接経路が成立していれば有効
-        if Path::can_unit_move_to(
-            &original_orders[idx].unit,
-            original_orders[idx].location().code(),
-            m.dest.code(),
-        ) {
+        // - ただし海路利用を明示している陸軍を除く
+        if !m.via_convoy
+            && Path::can_unit_move_to(
+                &original_orders[idx].unit,
+                original_orders[idx].location().code(),
+                m.dest.code(),
+            )
+        {
             original_orders[idx].set_valid();
             continue;
         }
