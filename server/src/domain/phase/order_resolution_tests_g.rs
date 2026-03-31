@@ -121,22 +121,50 @@ fn test_datc_6_g_3() {
 }
 
 /// 6.G.4. TEST CASE, AN UNWANTED DISRUPTED CONVOY TO ADJACENT PROVINCE AND OPPOSITE MOVE
-/// In the situation of the previous test case, it was rather clear that the army didn't want to take the convoy. But what if there is an army moving in opposite direction?
+/// In the situation of the previous test case,
+/// it was rather clear that the army didn't want to take the convoy.
+/// But what if there is an army moving in opposite direction?
 ///
 /// France:
-/// F Brest - English Channel
-/// A Picardy - Belgium
-/// A Burgundy Supports A Picardy - Belgium
-/// F Mid-Atlantic Ocean Supports F Brest - English Channel
+///     F Brest - English Channel
+///     A Picardy - Belgium
+///     A Burgundy Supports A Picardy - Belgium
+///     F Mid-Atlantic Ocean Supports F Brest - English Channel
 ///
 /// England:
-/// F English Channel Convoys A Picardy - Belgium
-/// A Belgium - Picardy
-/// See issue 4.A.3. In case of the 1971 rules, it is not directly clear whether the French army in Picardy will take the land route. However, if unwanted convoys are prevented as much as possible, it will not take the convoy if it is disrupted. So, the move of the army in Picardy will succeed.
+///     F English Channel Convoys A Picardy - Belgium
+///     A Belgium - Picardy
 ///
-/// With the 1982/2000/2023 rulebooks (which I prefer) and with explicit adjacent convoying, kidnapping is prevented and the French army will successfully move.
+/// See issue 4.A.3. In case of the 1971 rules,
+/// it is not directly clear whether the French army in Picardy will take the land route.
+/// However, if unwanted convoys are prevented as much as possible,
+/// it will not take the convoy if it is disrupted.
+/// So, the move of the army in Picardy will succeed.
+/// With the 1982/2000/2023 rulebooks (which I prefer) and with explicit adjacent convoying,
+/// kidnapping is prevented and the French army will successfully move.
 #[test]
-fn test_datc_6_g_4() {}
+fn test_datc_6_g_4() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_f_bre = Unit::new_fleet(Power::France, p("bre"));
+    let unit_f_pic = Unit::new_army(Power::France, p("pic"));
+    let unit_f_bur = Unit::new_army(Power::France, p("bur"));
+    let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
+    let unit_e_eng = Unit::new_fleet(Power::England, p("eng"));
+    let unit_e_bel = Unit::new_army(Power::England, p("bel"));
+    phase.data.orders.push(unit_f_bre.move_to(p("eng")));
+    phase.data.orders.push(unit_f_pic.move_to(p("bel")));
+    phase.data.orders.push(unit_f_bur.support_move(unit_f_pic, p("bel")));
+    phase.data.orders.push(unit_f_mao.support_move(unit_f_bre, p("eng")));
+    phase.data.orders.push(unit_e_eng.convoy(unit_f_pic, p("bel")));
+    phase.data.orders.push(unit_e_bel.move_to(p("pic")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Dislodged);
+}
 
 /// 6.G.5. TEST CASE, SWAPPING WITH MULTIPLE FLEETS WITH ONE OWN FLEET
 /// One fleet is sufficient to show the intent to convoy.
