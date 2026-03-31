@@ -204,30 +204,58 @@ fn test_datc_6_g_5() {
 /// The intent is questionable.
 ///
 /// England:
-/// A Liverpool - Edinburgh
-/// F English Channel Convoys A Liverpool - Edinburgh
+///     A Liverpool - Edinburgh
+///     F English Channel Convoys A Liverpool - Edinburgh
 ///
 /// Germany:
-/// A Edinburgh - Liverpool
+///     A Edinburgh - Liverpool
 ///
 /// France:
-/// F Irish Sea Hold
-/// F North Sea Hold
+///     F Irish Sea Hold
+///     F North Sea Hold
 ///
 /// Russia:
-/// F Norwegian Sea Convoys A Liverpool - Edinburgh
-/// F North Atlantic Ocean Convoys A Liverpool - Edinburgh
-/// Here England intended to convoy via the French fleets in the Irish Sea and the North Sea. However, the French did not order the convoy. The alternative route with the Russian fleets was unintended. The English fleet in the English Channel (with the convoy order) is not part of this alternative route with the Russian fleets.
+///     F Norwegian Sea Convoys A Liverpool - Edinburgh
+///     F North Atlantic Ocean Convoys A Liverpool - Edinburgh
 ///
+/// Here England intended to convoy via the French fleets in the Irish Sea and the North Sea.
+/// However, the French did not order the convoy.
+/// The alternative route with the Russian fleets was unintended.
+/// The English fleet in the English Channel (with the convoy order)
+/// is not part of this alternative route with the Russian fleets.
 /// See issue 4.A.3.
-///
 /// If the 1971 rules are used, the intent is not important and the units are swapped.
-///
-/// In case of the 1982/2000/2023 rulebooks (which I prefer) England still intents to convoy and the armies should swap.
-///
-/// When explicit adjacent convoying is used (DPTG), then the English army did not receive an order to move by convoy. So, it is just a head-to-head battle and both the army in Edinburgh and Liverpool will not move.
+/// In case of the 1982/2000/2023 rulebooks (which I prefer) England still intents to convoy
+/// and the armies should swap.
+/// When explicit adjacent convoying is used (DPTG),
+/// then the English army did not receive an order to move by convoy.
+/// So, it is just a head-to-head battle and both the army in Edinburgh and Liverpool will not move.
 #[test]
-fn test_datc_6_g_6() {}
+fn test_datc_6_g_6() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_lvp = Unit::new_army(Power::England, p("lvp"));
+    let unit_e_eng = Unit::new_fleet(Power::England, p("eng"));
+    let unit_g_edi = Unit::new_army(Power::Germany, p("edi"));
+    let unit_f_iri = Unit::new_fleet(Power::France, p("iri"));
+    let unit_f_nth = Unit::new_fleet(Power::France, p("nth"));
+    let unit_r_nwg = Unit::new_fleet(Power::Russia, p("nwg"));
+    let unit_r_nao = Unit::new_fleet(Power::Russia, p("nao"));
+    phase.data.orders.push(unit_e_lvp.move_to(p("edi")));
+    phase.data.orders.push(unit_e_eng.convoy(unit_e_lvp, p("edi")));
+    phase.data.orders.push(unit_g_edi.move_to(p("lvp")));
+    phase.data.orders.push(unit_f_iri.hold());
+    phase.data.orders.push(unit_f_nth.hold());
+    phase.data.orders.push(unit_r_nwg.convoy(unit_e_lvp, p("edi")));
+    phase.data.orders.push(unit_r_nao.convoy(unit_e_lvp, p("edi")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Valid);
+}
 
 /// 6.G.7. TEST CASE, SWAPPING WITH ILLEGAL INTENT
 /// Can the intent be made clear with an impossible order?
