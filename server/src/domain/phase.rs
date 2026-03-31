@@ -104,7 +104,11 @@ impl Phase {
     /// - 春命令は「次年の開始フェイズ」なので、必ず `year = prev_year + 1`。
     /// - このルールは Ready -> SpringOrder / Adjustment -> SpringOrder の両方で共通。
     pub fn new_spring_order(current_year: i32, current_index: i32) -> Self {
-        Self::new(current_year + 1, current_index + 1, PhaseKind::SpringOrder(SpringOrderPhase {}))
+        Self::new(
+            current_year + 1,
+            current_index + 1,
+            PhaseKind::SpringOrder(SpringOrderPhase {}),
+        )
     }
 
     /// 春撤退フェイズを生成する。

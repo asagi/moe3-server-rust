@@ -60,7 +60,11 @@ fn validate_move_orders(original_orders: &mut [Order]) {
         };
 
         // 隣接経路が成立していれば有効
-        if Path::can_unit_move_to(&original_orders[idx].unit, original_orders[idx].location().code(), m.dest.code()) {
+        if Path::can_unit_move_to(
+            &original_orders[idx].unit,
+            original_orders[idx].location().code(),
+            m.dest.code(),
+        ) {
             original_orders[idx].set_valid();
             continue;
         }
@@ -243,7 +247,12 @@ fn handle_disruption_convoy_order(original_orders: &mut [Order], standoff_provin
 
     for convoy_order_idx in collect_valid_convoy_indices(original_orders) {
         // 輸送命令に対する攻撃競争の勝者を取得
-        let Some(winner_idx) = handle_conflicting(original_orders, original_orders[convoy_order_idx].location().code(), standoff_province_codes, true) else {
+        let Some(winner_idx) = handle_conflicting(
+            original_orders,
+            original_orders[convoy_order_idx].location().code(),
+            standoff_province_codes,
+            true,
+        ) else {
             // 勝者がいなければスキップ
             continue;
         };
@@ -254,7 +263,10 @@ fn handle_disruption_convoy_order(original_orders: &mut [Order], standoff_provin
         }
 
         // 戦闘解決
-        let convoy_supports_count = support_orders.iter().filter(|o| o.is_matching_target(&original_orders[convoy_order_idx])).count();
+        let convoy_supports_count = support_orders
+            .iter()
+            .filter(|o| o.is_matching_target(&original_orders[convoy_order_idx]))
+            .count();
         let winner_supports_count = support_orders
             .iter()
             .filter(|o| o.is_matching_target(&original_orders[winner_idx]) && o.power != original_orders[convoy_order_idx].power)
@@ -270,7 +282,10 @@ fn handle_disruption_convoy_order(original_orders: &mut [Order], standoff_provin
         original_orders[convoy_order_idx].set_dislodged_from(&original_orders[winner_idx].location());
 
         // 敗退した輸送命令の対象である移動命令の成否を検証
-        let Some(move_order_idx) = original_orders.iter().position(|o| original_orders[convoy_order_idx].is_matching_target(o)) else {
+        let Some(move_order_idx) = original_orders
+            .iter()
+            .position(|o| original_orders[convoy_order_idx].is_matching_target(o))
+        else {
             unreachable!("move order matching convoy order should exist");
         };
         let OrderKind::Move(m) = &original_orders[move_order_idx].kind.clone() else {
@@ -280,7 +295,9 @@ fn handle_disruption_convoy_order(original_orders: &mut [Order], standoff_provin
             && !m.via_convoy
             && collect_valid_convoy_orders(original_orders)
                 .iter()
-                .find(|o| o.is_matching_target(&original_orders[move_order_idx]) && o.power == original_orders[move_order_idx].power)
+                .find(|o| {
+                    o.is_matching_target(&original_orders[move_order_idx]) && o.power == original_orders[move_order_idx].power
+                })
                 .is_none()
         {
             // 敗退した輸送命令の対象である移動命令が陸路移動可能かつ海路利用の明示がなければ輸送路切断判定は不要
@@ -324,7 +341,8 @@ fn handle_switch_orders(original_orders: &mut [Order], standoff_province_codes: 
         let opposite_move_order_idx = original_orders.iter().position(|o| {
             o != &original_orders[idx]
                 && if let OrderKind::Move(om) = &o.kind {
-                    o.location().code()[..3] == m.dest.code()[..3] && original_orders[idx].location().code()[..3] == om.dest.code()[..3]
+                    o.location().code()[..3] == m.dest.code()[..3]
+                        && original_orders[idx].location().code()[..3] == om.dest.code()[..3]
                 } else {
                     false
                 }
@@ -334,8 +352,18 @@ fn handle_switch_orders(original_orders: &mut [Order], standoff_province_codes: 
         };
 
         // スタンドオフ判定
-        let conflict_winner_idx = handle_conflicting(original_orders, original_orders[opposite_idx].location().code(), standoff_province_codes, false);
-        let opposite_conflict_winner_idx = handle_conflicting(original_orders, original_orders[idx].location().code(), standoff_province_codes, false);
+        let conflict_winner_idx = handle_conflicting(
+            original_orders,
+            original_orders[opposite_idx].location().code(),
+            standoff_province_codes,
+            false,
+        );
+        let opposite_conflict_winner_idx = handle_conflicting(
+            original_orders,
+            original_orders[idx].location().code(),
+            standoff_province_codes,
+            false,
+        );
         if conflict_winner_idx.is_none() && opposite_conflict_winner_idx.is_none() {
             // 両地域スタンドオフで関連する全軍移動失敗
             continue;
@@ -361,9 +389,14 @@ fn handle_switch_orders(original_orders: &mut [Order], standoff_province_codes: 
         if let Some(winner_idx) = decide_move_conflict_winner(original_orders, idx, opposite_idx) {
             let loser_idx = if winner_idx == idx { opposite_idx } else { idx };
             if original_orders[winner_idx].is_valid() {
-                let redecided_winner_idx = handle_conflicting(original_orders, original_orders[loser_idx].location().code(), standoff_province_codes, true);
+                let redecided_winner_idx = handle_conflicting(
+                    original_orders,
+                    original_orders[loser_idx].location().code(),
+                    standoff_province_codes,
+                    true,
+                );
                 if redecided_winner_idx == Some(winner_idx) {
-                    // BELEAGUERED GARRISON を適用しても winner が勝利できるなら winner の移動成功、loser の撃退で処理を続行
+                    // BELEAGUERED GARRISON を適用しても winner が勝利できるなら winner の移動成功で処理を続行
                     original_orders[winner_idx].set_success();
                     original_orders[loser_idx].set_dislodged_from(&original_orders[winner_idx].location());
 
@@ -389,7 +422,12 @@ fn handle_switch_orders(original_orders: &mut [Order], standoff_province_codes: 
 fn handle_dislodging_support_orders(original_orders: &mut [Order], standoff_province_codes: &mut Vec<String>) {
     for idx in collect_valid_support_indices(original_orders) {
         // 支援命令に対する攻撃競争の勝者を取得
-        let Some(attacker_idx) = handle_conflicting(original_orders, original_orders[idx].location().code(), standoff_province_codes, true) else {
+        let Some(attacker_idx) = handle_conflicting(
+            original_orders,
+            original_orders[idx].location().code(),
+            standoff_province_codes,
+            true,
+        ) else {
             // 勝者がいなければスキップ
             continue;
         };
@@ -402,7 +440,10 @@ fn handle_dislodging_support_orders(original_orders: &mut [Order], standoff_prov
 /// 未解決移動命令解決
 fn handle_remaining_move_orders(original_orders: &mut [Order], standoff_province_codes: &mut Vec<String>) {
     let move_orders = collect_valid_move_orders(original_orders);
-    let mut dest_codes: IndexSet<&str> = collect_valid_move_destination_set(&move_orders).iter().map(|&p| &p.code()[..3]).collect();
+    let mut dest_codes: IndexSet<&str> = collect_valid_move_destination_set(&move_orders)
+        .iter()
+        .map(|&p| &p.code()[..3])
+        .collect();
 
     let mut dest_snapshots: HashSet<Vec<&str>> = HashSet::new();
 
@@ -491,14 +532,19 @@ fn apply_resolved_unit_locations(orders: &[Order], resolved_units: &mut Vec<Unit
         if let OrderKind::Move(m) = &order.kind
             && order.is_success()
         {
-            resolved_units.push(Unit { province: m.dest, ..order.unit });
+            resolved_units.push(Unit {
+                province: m.dest,
+                ..order.unit
+            });
             continue;
         }
 
         // 撃退された軍の保存
         if order.is_dislodged() {
             resolved_units.push(Unit {
-                province: order.dislodged_from.expect("dislodged_from should be set if is_dislodged is true"),
+                province: order
+                    .dislodged_from
+                    .expect("dislodged_from should be set if is_dislodged is true"),
                 ..order.unit
             });
             continue;
@@ -511,7 +557,11 @@ fn apply_resolved_unit_locations(orders: &[Order], resolved_units: &mut Vec<Unit
 
 /// 全ての命令のコレクションを作成
 fn collect_not_invalid_orders(orders: &[Order]) -> Vec<Order> {
-    orders.iter().filter(|o| !o.is_assumed() && !o.is_invalid()).copied().collect()
+    orders
+        .iter()
+        .filter(|o| !o.is_assumed() && !o.is_invalid())
+        .copied()
+        .collect()
 }
 
 /// 全ての命令のインデックスコレクションを作成
@@ -526,7 +576,12 @@ fn collect_not_invalid_order_indices(orders: &[Order]) -> Vec<usize> {
 
 /// 未処理の命令のインデックスコレクションを作成
 fn collect_unresolved_indices(orders: &[Order]) -> Vec<usize> {
-    orders.iter().enumerate().filter(|(_, o)| !o.is_assumed() && o.is_unresolved()).map(|(i, _)| i).collect()
+    orders
+        .iter()
+        .enumerate()
+        .filter(|(_, o)| !o.is_assumed() && o.is_unresolved())
+        .map(|(i, _)| i)
+        .collect()
 }
 
 /// 未処理の移動命令のインデックスコレクションを作成
@@ -662,10 +717,11 @@ fn collect_matched_convoy_orders<'a>(convoy_orders: &'a [Order], attack_order: &
 
 /// 指定地域に非移動命令または失敗した移動命令があればその命令のインデックスを返す
 fn find_occupant_order_index(orders: &[Order], target_location_code: &str) -> Option<usize> {
-    orders
-        .iter()
-        .enumerate()
-        .position(|(_, o)| !o.is_assumed() && o.location().code()[..3] == target_location_code[..3] && !(matches!(o.kind, OrderKind::Move(_)) && o.is_success()))
+    orders.iter().enumerate().position(|(_, o)| {
+        !o.is_assumed()
+            && o.location().code()[..3] == target_location_code[..3]
+            && !(matches!(o.kind, OrderKind::Move(_)) && o.is_success())
+    })
 }
 
 /// 輸送経路が成立しているかどうかを判定する。
@@ -695,7 +751,11 @@ fn can_move_via_valid_convoy(orders: &[Order], move_order_idx: usize, exclude: O
         .copied()
         .collect();
     let allowed_waters: HashSet<&str> = matched_convoy_orders.iter().map(|order| order.location().code()).collect();
-    Path::is_reachable_by_sea(&orders[move_order_idx].location().code()[..3], &m.dest.code()[..3], &allowed_waters)
+    Path::is_reachable_by_sea(
+        &orders[move_order_idx].location().code()[..3],
+        &m.dest.code()[..3],
+        &allowed_waters,
+    )
 }
 
 /// 輸送経路が成立しているかどうかを判定する。
@@ -704,7 +764,11 @@ fn can_move_via_unresolved_matched_convoy(orders: &[Order], move_order_idx: usiz
     let OrderKind::Move(m) = &orders[move_order_idx].kind else {
         unreachable!("expected Move")
     };
-    Path::is_reachable_by_sea(&orders[move_order_idx].location().code()[..3], &m.dest.code()[..3], &allowed_waters)
+    Path::is_reachable_by_sea(
+        &orders[move_order_idx].location().code()[..3],
+        &m.dest.code()[..3],
+        &allowed_waters,
+    )
 }
 
 /// 未解決の有効な移動命令の移動先を重複なしで収集取する
@@ -717,7 +781,12 @@ fn collect_valid_move_destination_set(orders: &[Order]) -> IndexSet<Province> {
 }
 
 /// 戦闘解決
-fn handle_conflicting(original_orders: &mut [Order], target_location_code: &str, standoff_province_codes: &mut Vec<String>, enable_bg: bool) -> Option<usize> {
+fn handle_conflicting(
+    original_orders: &mut [Order],
+    target_location_code: &str,
+    standoff_province_codes: &mut Vec<String>,
+    enable_bg: bool,
+) -> Option<usize> {
     // BELEAGUERED GARRISON が有効な場合は失敗判定された移動命令も conflicting_move_indicies に追加する
     let conflicting_move_indicies: Vec<usize> = if enable_bg {
         collect_not_invalid_order_indices(original_orders)
@@ -765,14 +834,22 @@ fn handle_conflicting(original_orders: &mut [Order], target_location_code: &str,
     // そうでなければ無効にするという判定が優先される。
 
     // 自己撃退支援有効で計算して、勝者なしならそれが正解。
-    let winner1 = handle_conflicting_core(original_orders, &conflicting_move_indicies, target_location_code, standoff_province_codes, target_power)?;
+    let winner1 = handle_conflicting_core(
+        original_orders,
+        &conflicting_move_indicies,
+        target_location_code,
+        standoff_province_codes,
+        target_power,
+    )?;
     if target_power.is_none() {
         // 指定地点に駐留軍がいないなら自己撃退支援の有効無効は関係ないので winner1 が勝者で確定
         return Some(winner1);
     }
 
-    // 自己撃退支援有効で計算して、勝者が出てもその勝者に有効な支援がなければそれも正解（自己撃退含めて支援がなかったということ）。
-    // 自己撃退支援有効で計算して、一つ以上の支援の付いた勝者が出た場合は自己撃退支援を無効にして計算しなおす必要がある（撃退回避の可能性を探すため）。
+    // 自己撃退支援有効で計算して、勝者が出てもその勝者に有効な支援がなければ
+    // 自己撃退含めて支援がなかったということでそれも正解。
+    // 一方で一つ以上の支援の付いた勝者が出た場合、撃退回避の可能性を探すために
+    // 自己撃退支援を無効にして計算しなおす必要がある。
     let support_orders = collect_valid_support_orders(original_orders);
     if target_power.is_some()
         && !support_orders
@@ -784,7 +861,13 @@ fn handle_conflicting(original_orders: &mut [Order], target_location_code: &str,
     }
 
     // 自己撃退支援無効で計算したらどんな結果が出ようとそれが正解。
-    handle_conflicting_core(original_orders, &conflicting_move_indicies, target_location_code, standoff_province_codes, None)
+    handle_conflicting_core(
+        original_orders,
+        &conflicting_move_indicies,
+        target_location_code,
+        standoff_province_codes,
+        None,
+    )
 }
 
 // 支援数集計
@@ -817,7 +900,12 @@ fn handle_conflicting_core(
     support_counts.sort_by(|a, b| b.1.cmp(&a.1));
 
     // 戦闘解決： 単独勝利以外は移動失敗
-    if support_counts.iter().filter(|(_, count)| *count == support_counts[0].1).count() > 1 {
+    if support_counts
+        .iter()
+        .filter(|(_, count)| *count == support_counts[0].1)
+        .count()
+        > 1
+    {
         // 戦力トップが複数なら勝者なしで終了
         for (idx, _) in support_counts {
             original_orders[idx].set_failure();
@@ -841,7 +929,9 @@ fn handle_conflicting_core(
 
 /// 指定地点に非移動命令または失敗が予想される移動命令があればその勢力を返す
 fn occupant_power_on_target(original_orders: &[Order], target_code: &str) -> Option<Power> {
-    let occupant_order = original_orders.iter().find(|o| !o.is_assumed() && o.location().code()[..3] == target_code[..3])?;
+    let occupant_order = original_orders
+        .iter()
+        .find(|o| !o.is_assumed() && o.location().code()[..3] == target_code[..3])?;
 
     if !matches!(occupant_order.kind, OrderKind::Move(_)) {
         // 非移動命令が存在すればその勢力を返す
@@ -892,7 +982,12 @@ fn resolve_no_support_defense(original_orders: &mut [Order], attacker_idx: usize
 }
 
 /// 撃退された命令が攻撃側の元所在地に発生させたスタンドオフを無効化する。
-fn reset_standoff_failures_to_attacker_origin(original_orders: &mut [Order], attacker_idx: usize, defender_idx: usize, standoff_province_codes: &mut Vec<String>) {
+fn reset_standoff_failures_to_attacker_origin(
+    original_orders: &mut [Order],
+    attacker_idx: usize,
+    defender_idx: usize,
+    standoff_province_codes: &mut Vec<String>,
+) {
     // 防御側が撃退されていなければ処理は不要
     if !original_orders[defender_idx].is_dislodged() {
         return;
@@ -965,7 +1060,10 @@ fn resolve_attack_against_non_move(original_orders: &mut [Order], attacker_idx: 
         .iter()
         .filter(|s| s.is_matching_target(&original_orders[attacker_idx]) && s.power != original_orders[defender_idx].power)
         .count();
-    let defender_supports = support_orders.iter().filter(|s| s.is_matching_target(&original_orders[defender_idx])).count();
+    let defender_supports = support_orders
+        .iter()
+        .filter(|s| s.is_matching_target(&original_orders[defender_idx]))
+        .count();
 
     if attacker_supports > defender_supports {
         original_orders[attacker_idx].set_success();
@@ -1166,7 +1264,9 @@ fn get_target_convoy_order_idx(orders: &[Order], m: MoveOrder) -> Option<usize> 
 
 /// 移動先に支援命令があればその輸送命令の index を返す
 fn get_target_support_order_idx(orders: &[Order], m: MoveOrder) -> Option<usize> {
-    orders.iter().position(|o| o.location() == m.dest && matches!(o.kind, OrderKind::Support(_)))
+    orders
+        .iter()
+        .position(|o| o.location() == m.dest && matches!(o.kind, OrderKind::Support(_)))
 }
 
 /// 対象への攻撃命令が支援を一つ減らした状態で撃退されない見込みかどうかを判定する
@@ -1189,7 +1289,10 @@ fn is_target_safe_without_own_support(orders: &[Order], target_idx: usize) -> bo
 /// 対象へのサポート数を数える
 fn count_supports(orders: &[Order], target_idx: usize) -> usize {
     let support_orders = collect_valid_support_orders(orders);
-    support_orders.iter().filter(|s| s.is_matching_target(&orders[target_idx])).count()
+    support_orders
+        .iter()
+        .filter(|s| s.is_matching_target(&orders[target_idx]))
+        .count()
 }
 
 fn count_supports_for_attackers(orders: &[Order], attacker_indicies: &[usize], target_idx: usize) -> usize {

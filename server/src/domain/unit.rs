@@ -125,7 +125,10 @@ impl Unit {
             unit: *self,
             dislodged_from: None,
             status: OrderStatus::Unresolved,
-            kind: OrderKind::Support(SupportOrder { target_unit, target_dest }),
+            kind: OrderKind::Support(SupportOrder {
+                target_unit,
+                target_dest,
+            }),
         }
     }
 
@@ -141,7 +144,10 @@ impl Unit {
             unit: *self,
             dislodged_from: None,
             status: OrderStatus::Unresolved,
-            kind: OrderKind::Convoy(ConvoyOrder { target_unit, target_dest }),
+            kind: OrderKind::Convoy(ConvoyOrder {
+                target_unit,
+                target_dest,
+            }),
         }
     }
 }

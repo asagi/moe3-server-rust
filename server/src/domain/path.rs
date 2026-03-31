@@ -474,7 +474,9 @@ impl Path {
     pub fn can_unit_support_to(unit: &Unit, origin: &str, dest: &str) -> bool {
         match unit.kind {
             UnitKind::Army(_) => PATHS.iter().any(|p| p.origin == origin && p.dest == dest && p.army),
-            UnitKind::Fleet(_) => PATHS.iter().any(|p| p.origin == origin && p.dest[..3] == dest[..3] && p.fleet),
+            UnitKind::Fleet(_) => PATHS
+                .iter()
+                .any(|p| p.origin == origin && p.dest[..3] == dest[..3] && p.fleet),
         }
     }
 
