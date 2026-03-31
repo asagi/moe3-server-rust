@@ -327,20 +327,41 @@ fn test_datc_6_g_8() {
 }
 
 /// 6.G.9. TEST CASE, SWAPPED OR DISLODGED?
-/// In the following situation the English army in Norway will end in all cases in Sweden. But whether it is convoyed or not has effect on the Russian army. In case of convoy the Russian army ends in Norway and in case of a land route the Russian army is dislodged (see issue 4.A.3).
+/// In the following situation the English army in Norway will end in all cases in Sweden.
+/// But whether it is convoyed or not has effect on the Russian army.
+/// In case of convoy the Russian army ends in Norway
+/// and in case of a land route the Russian army is dislodged (see issue 4.A.3).
 ///
 /// England:
-/// A Norway - Sweden
-/// F Skagerrak Convoys A Norway - Sweden
-/// F Finland Supports A Norway - Sweden
+///     A Norway - Sweden
+///     F Skagerrak Convoys A Norway - Sweden
+///     F Finland Supports A Norway - Sweden
 ///
 /// Russia:
-/// A Sweden - Norway
-/// If played according to the DPTG, then an army is only convoyed to an adjacent province if it is tagged with "via convoy". This means that the Russian army in Sweden is dislodged by the army from Norway.
+///     A Sweden - Norway
 ///
-/// If played according to any of the rulebooks (which I prefer) then the move of Norway is via convoy and the armies swap.
+/// If played according to the DPTG,
+/// then an army is only convoyed to an adjacent province if it is tagged with "via convoy".
+/// This means that the Russian army in Sweden is dislodged by the army from Norway.
+/// If played according to any of the rulebooks (which I prefer)
+/// then the move of Norway is via convoy and the armies swap.
 #[test]
-fn test_datc_6_g_9() {}
+fn test_datc_6_g_9() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_nwy = Unit::new_army(Power::England, p("nwy"));
+    let unit_e_ska = Unit::new_fleet(Power::England, p("ska"));
+    let unit_e_fin = Unit::new_fleet(Power::England, p("fin"));
+    let unit_r_swe = Unit::new_army(Power::Russia, p("swe"));
+    phase.data.orders.push(unit_e_nwy.move_to(p("swe")));
+    phase.data.orders.push(unit_e_ska.convoy(unit_e_nwy, p("swe")));
+    phase.data.orders.push(unit_e_fin.support_move(unit_e_nwy, p("swe")));
+    phase.data.orders.push(unit_r_swe.move_to(p("nwy")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
+}
 
 /// 6.G.10. TEST CASE, SWAPPED OR AN HEAD-TO-HEAD BATTLE?
 /// Can a dislodged unit have effect on the attacker's area, when the attacker moved by convoy?
