@@ -247,7 +247,6 @@ fn handle_disruption_convoy_order(original_orders: &mut [Order], standoff_provin
             // 勝者がいなければスキップ
             continue;
         };
-
         if original_orders[winner_idx].power == original_orders[convoy_order_idx].power {
             // 勝者が自国軍であればその移動は無条件失敗となりスキップ
             original_orders[winner_idx].set_failure();
@@ -270,13 +269,23 @@ fn handle_disruption_convoy_order(original_orders: &mut [Order], standoff_provin
         original_orders[winner_idx].set_success();
         original_orders[convoy_order_idx].set_dislodged_from(&original_orders[winner_idx].location());
 
-        // 輸送路切断判定
+        // 敗退した輸送命令の対象である移動命令の成否を検証
         let Some(move_order_idx) = original_orders.iter().position(|o| original_orders[convoy_order_idx].is_matching_target(o)) else {
             unreachable!("move order matching convoy order should exist");
         };
         let OrderKind::Move(m) = &original_orders[move_order_idx].kind.clone() else {
             unreachable!("expected Move")
         };
+        if Path::is_adjacent(original_orders[move_order_idx].location().code(), m.dest.code())
+            && !m.via_convoy
+            && collect_valid_convoy_orders(original_orders)
+                .iter()
+                .find(|o| o.is_matching_target(&original_orders[move_order_idx]) && o.power == original_orders[move_order_idx].power)
+                .is_none()
+        {
+            // 敗退した輸送命令の対象である移動命令が陸路移動可能かつ海路利用の明示がなければ輸送路切断判定は不要
+            continue;
+        }
         if !can_move_via_valid_convoy(original_orders, move_order_idx, None) {
             // 輸送経路切断による移動失敗
             original_orders[move_order_idx].set_unreachable();

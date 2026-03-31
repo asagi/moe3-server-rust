@@ -920,7 +920,7 @@ fn test_datc_6_f_21() {
     assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[4].status, OrderStatus::Success);
-    assert_eq!(phase.data.orders[5].status, OrderStatus::Unreachable);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[6].status, OrderStatus::Dislodged);
     assert_eq!(phase.data.orders[7].status, OrderStatus::Dislodged);
 }
