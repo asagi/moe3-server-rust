@@ -261,21 +261,37 @@ fn test_datc_6_g_6() {
 /// Can the intent be made clear with an impossible order?
 ///
 /// England:
-/// F Skagerrak Convoys A Sweden - Norway
-/// F Norway - Sweden
+///     F Skagerrak Convoys A Sweden - Norway
+///     F Norway - Sweden
 ///
 /// Russia:
-/// A Sweden - Norway
-/// F Gulf of Bothnia Convoys A Sweden - Norway
+///     A Sweden - Norway
+///     F Gulf of Bothnia Convoys A Sweden - Norway
+///
 /// See issue 4.A.3 and 4.E.1.
-///
-/// In case the 1971 rules are used, the intent is not important and the units in Norway and Sweden swap.
-///
-/// With the 2023 rules (which I prefer) impossible orders are ignored. Also, with modern webbased adjudicators, impossible orders cannot be given at all. With this, there is no intent to convoy and the units in Norway and Sweden fail to move.
-///
+/// In case the 1971 rules are used,
+/// the intent is not important and the units in Norway and Sweden swap.
+/// With the 2023 rules (which I prefer) impossible orders are ignored.
+/// Also, with modern webbased adjudicators, impossible orders cannot be given at all.
+/// With this, there is no intent to convoy and the units in Norway and Sweden fail to move.
 /// If explicit adjacent convoying is used (DPTG) there is also no convoy and none of the units move.
 #[test]
-fn test_datc_6_g_7() {}
+fn test_datc_6_g_7() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_ska = Unit::new_fleet(Power::England, p("ska"));
+    let unit_e_nwy = Unit::new_army(Power::England, p("nwy"));
+    let unit_r_swe = Unit::new_army(Power::Russia, p("swe"));
+    let unit_r_bot = Unit::new_fleet(Power::Russia, p("bot"));
+    phase.data.orders.push(unit_e_ska.convoy(unit_r_swe, p("nwy")));
+    phase.data.orders.push(unit_e_nwy.move_to(p("swe")));
+    phase.data.orders.push(unit_r_swe.move_to(p("nwy")));
+    phase.data.orders.push(unit_r_bot.convoy(unit_r_swe, p("nwy")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Invalid);
+}
 
 /// 6.G.8. TEST CASE, EXPLICIT CONVOY THAT ISN'T THERE
 /// What to do when a unit is explicitly ordered to move via convoy and the convoy is not there?
