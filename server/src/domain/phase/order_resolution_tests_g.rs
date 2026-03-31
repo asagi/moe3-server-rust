@@ -297,22 +297,34 @@ fn test_datc_6_g_7() {
 /// What to do when a unit is explicitly ordered to move via convoy and the convoy is not there?
 ///
 /// France:
-/// A Belgium - Holland via convoy
+///     A Belgium - Holland via convoy
 ///
 /// England:
-/// F North Sea - Helgoland Bight
-/// A Holland - Kiel
-/// The French army in Belgium intended to move convoyed with the English fleet in the North Sea. But England changed its plans.
+///     F North Sea - Helgoland Bight
+///     A Holland - Kiel
 ///
+/// The French army in Belgium intended to move convoyed with the English fleet in the North Sea.
+/// But England changed its plans.
 /// See issue 4.A.3.
-///
-/// In case of 1971 or 1982 rulebook, this test case not applicable, because they don't have the notion of 'via convoy'.
-///
-/// For the 2000/2023 rulebook and the DPTG, the question is whether the land route should be used as "fallback".
-///
+/// In case of 1971 or 1982 rulebook, this test case not applicable,
+/// because they don't have the notion of 'via convoy'.
+/// For the 2000/2023 rulebook and the DPTG,
+/// the question is whether the land route should be used as "fallback".
 /// As discussed in the issue, I don't prefer fallback anymore.
 #[test]
-fn test_datc_6_g_8() {}
+fn test_datc_6_g_8() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_f_bel = Unit::new_army(Power::France, p("bel"));
+    let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
+    let unit_e_hol = Unit::new_army(Power::England, p("hol"));
+    phase.data.orders.push(unit_f_bel.move_to(p("hol")).set_via_convoy());
+    phase.data.orders.push(unit_e_nth.move_to(p("hel")));
+    phase.data.orders.push(unit_e_hol.move_to(p("kie")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+}
 
 /// 6.G.9. TEST CASE, SWAPPED OR DISLODGED?
 /// In the following situation the English army in Norway will end in all cases in Sweden. But whether it is convoyed or not has effect on the Russian army. In case of convoy the Russian army ends in Norway and in case of a land route the Russian army is dislodged (see issue 4.A.3).
