@@ -170,15 +170,35 @@ fn test_datc_6_g_4() {
 /// One fleet is sufficient to show the intent to convoy.
 ///
 /// Italy:
-/// A Rome - Apulia
-/// F Tyrrhenian Sea Convoys A Apulia - Rome
+///     A Rome - Apulia
+///     F Tyrrhenian Sea Convoys A Apulia - Rome
 ///
 /// Turkey:
-/// A Apulia - Rome
-/// F Ionian Sea Convoys A Apulia - Rome
-/// If explicit adjacent convoying is used (DPTG, see issue 4.A.3), then it is just a head-to-head battle. However, all rulebooks (which I prefer) allow that convoy intent is given by a convoying fleet of same country. So, the swap should happen.
+///     A Apulia - Rome
+///     F Ionian Sea Convoys A Apulia - Rome
+///
+/// If explicit adjacent convoying is used (DPTG, see issue 4.A.3),
+/// then it is just a head-to-head battle.
+/// However, all rulebooks (which I prefer) allow that convoy intent is given
+/// by a convoying fleet of same country.
+/// So, the swap should happen.
 #[test]
-fn test_datc_6_g_5() {}
+fn test_datc_6_g_5() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_i_rom = Unit::new_army(Power::Italy, p("rom"));
+    let unit_i_tyr = Unit::new_fleet(Power::Italy, p("tys"));
+    let unit_t_apu = Unit::new_army(Power::Turkey, p("apu"));
+    let unit_t_ion = Unit::new_fleet(Power::Turkey, p("ion"));
+    phase.data.orders.push(unit_i_rom.move_to(p("apu")));
+    phase.data.orders.push(unit_i_tyr.convoy(unit_t_apu, p("rom")));
+    phase.data.orders.push(unit_t_apu.move_to(p("rom")));
+    phase.data.orders.push(unit_t_ion.convoy(unit_t_apu, p("rom")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+}
 
 /// 6.G.6. TEST CASE, SWAPPING WITH UNINTENDED INTENT
 /// The intent is questionable.
