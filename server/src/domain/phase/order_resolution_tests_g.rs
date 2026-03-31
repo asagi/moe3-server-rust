@@ -364,30 +364,70 @@ fn test_datc_6_g_9() {
 }
 
 /// 6.G.10. TEST CASE, SWAPPED OR AN HEAD-TO-HEAD BATTLE?
-/// Can a dislodged unit have effect on the attacker's area, when the attacker moved by convoy?
+/// Can a dislodged unit have effect on the attacker's area,
+/// when the attacker moved by convoy?
 ///
 /// England:
-/// A Norway - Sweden via convoy
-/// F Denmark Supports A Norway - Sweden
-/// F Finland Supports A Norway - Sweden
+///     A Norway - Sweden via convoy
+///     F Denmark Supports A Norway - Sweden
+///     F Finland Supports A Norway - Sweden
 ///
 /// Germany:
-/// F Skagerrak Convoys A Norway - Sweden
+///     F Skagerrak Convoys A Norway - Sweden
 ///
 /// Russia:
-/// A Sweden - Norway
-/// F Barents Sea Supports A Sweden - Norway
+///     A Sweden - Norway
+///     F Barents Sea Supports A Sweden - Norway
 ///
 /// France:
-/// F Norwegian Sea - Norway
-/// F North Sea Supports F Norwegian Sea - Norway
-/// Since England ordered the army in Norway to move explicitly via convoy and the army in Sweden is moving in opposite direction, there is no head-to-head battle. It is clear that the army in Norway will dislodge the Russian army in Sweden. Since the strength of three is in all cases the strongest force.
+///     F Norwegian Sea - Norway
+///     F North Sea Supports F Norwegian Sea - Norway
 ///
-/// The army in Sweden will not advance to Norway, because it cannot beat the force in the Norwegian Sea. It will be dislodged by the army from Norway.
-///
-/// The more interesting question is whether the French fleet in the Norwegian Sea is bounced by the Russian army from Sweden. This depends on the interpretation of issue 4.A.7. If the rulebook is taken literally (choice a), then a dislodged unit cannot bounce a unit in the area where the attacker came from. This would mean that the move of the fleet in the Norwegian Sea succeeds. However, if choice b is taken (which I prefer), then a bounce is still possible, when there is no head-to-head battle. So, the fleet in the Norwegian Sea will fail to move.
+/// Since England ordered the army in Norway to move explicitly via convoy
+/// and the army in Sweden is moving in opposite direction,
+/// there is no head-to-head battle.
+/// It is clear that the army in Norway will dislodge the Russian army in Sweden.
+/// Since the strength of three is in all cases the strongest force.
+/// The army in Sweden will not advance to Norway,
+/// because it cannot beat the force in the Norwegian Sea.
+/// It will be dislodged by the army from Norway.
+/// The more interesting question is whether the French fleet in the Norwegian Sea is bounced
+/// by the Russian army from Sweden.
+/// This depends on the interpretation of issue 4.A.7.
+/// If the rulebook is taken literally (choice a),
+/// then a dislodged unit cannot bounce a unit in the area where the attacker came from.
+/// This would mean that the move of the fleet in the Norwegian Sea succeeds.
+/// However, if choice b is taken (which I prefer), then a bounce is still possible,
+/// when there is no head-to-head battle. So, the fleet in the Norwegian Sea will fail to move.
 #[test]
-fn test_datc_6_g_10() {}
+fn test_datc_6_g_10() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_nwy = Unit::new_army(Power::England, p("nwy"));
+    let unit_e_den = Unit::new_fleet(Power::England, p("den"));
+    let unit_e_fin = Unit::new_fleet(Power::England, p("fin"));
+    let unit_g_ska = Unit::new_fleet(Power::Germany, p("ska"));
+    let unit_r_swe = Unit::new_army(Power::Russia, p("swe"));
+    let unit_r_bar = Unit::new_fleet(Power::Russia, p("bar"));
+    let unit_f_nwg = Unit::new_fleet(Power::France, p("nwg"));
+    let unit_f_nth = Unit::new_fleet(Power::France, p("nth"));
+    phase.data.orders.push(unit_e_nwy.move_to(p("swe")).set_via_convoy());
+    phase.data.orders.push(unit_e_den.support_move(unit_e_nwy, p("swe")));
+    phase.data.orders.push(unit_e_fin.support_move(unit_e_nwy, p("swe")));
+    phase.data.orders.push(unit_g_ska.convoy(unit_e_nwy, p("swe")));
+    phase.data.orders.push(unit_r_swe.move_to(p("nwy")));
+    phase.data.orders.push(unit_r_bar.support_move(unit_r_swe, p("nwy")));
+    phase.data.orders.push(unit_f_nwg.move_to(p("nwy")));
+    phase.data.orders.push(unit_f_nth.support_move(unit_f_nwg, p("nwy")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[7].status, OrderStatus::Valid);
+}
 
 /// 6.G.11. TEST CASE, A CONVOY TO AN ADJACENT PROVINCE WITH A PARADOX
 /// In this case the convoy route is available when the land route is chosen and the convoy route is not available when the convoy route is chosen.
