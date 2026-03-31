@@ -81,19 +81,44 @@ fn test_datc_6_g_2() {
 }
 
 /// 6.G.3. TEST CASE, AN UNWANTED DISRUPTED CONVOY TO ADJACENT PROVINCE
-/// One can try to convoy an army unwanted with a fleet that is almost certainly dislodged. However, this trick should not work.
+/// One can try to convoy an army unwanted with a fleet that is almost certainly dislodged.
+/// However, this trick should not work.
 ///
 /// France:
-/// F Brest - English Channel
-/// A Picardy - Belgium
-/// A Burgundy Supports A Picardy - Belgium
-/// F Mid-Atlantic Ocean Supports F Brest - English Channel
+///     F Brest - English Channel
+///     A Picardy - Belgium
+///     A Burgundy Supports A Picardy - Belgium
+///     F Mid-Atlantic Ocean Supports F Brest - English Channel
 ///
 /// England:
-/// F English Channel Convoys A Picardy - Belgium
-/// See issue 4.A.3. The 1982/2000/2023 rulebooks (which I prefer) will only use the convoy route if intent is clear. The army in Picardy will successfully move by land route to Belgium. In case of the 1971 rulebook it is less clear. However, since no unit in Belgium moves in opposite direction the convoy should be ignored, resulting in the same adjudication.
+///     F English Channel Convoys A Picardy - Belgium
+///
+/// See issue 4.A.3.
+/// The 1982/2000/2023 rulebooks (which I prefer) will only use the convoy route if intent is clear.
+/// The army in Picardy will successfully move by land route to Belgium.
+/// In case of the 1971 rulebook it is less clear.
+/// However, since no unit in Belgium moves in opposite direction the convoy should be ignored,
+/// resulting in the same adjudication.
 #[test]
-fn test_datc_6_g_3() {}
+fn test_datc_6_g_3() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_f_bre = Unit::new_fleet(Power::France, p("bre"));
+    let unit_f_pic = Unit::new_army(Power::France, p("pic"));
+    let unit_f_bur = Unit::new_army(Power::France, p("bur"));
+    let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
+    let unit_e_eng = Unit::new_fleet(Power::England, p("eng"));
+    phase.data.orders.push(unit_f_bre.move_to(p("eng")));
+    phase.data.orders.push(unit_f_pic.move_to(p("bel")));
+    phase.data.orders.push(unit_f_bur.support_move(unit_f_pic, p("bel")));
+    phase.data.orders.push(unit_f_mao.support_move(unit_f_bre, p("eng")));
+    phase.data.orders.push(unit_e_eng.convoy(unit_f_pic, p("bel")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Dislodged);
+}
 
 /// 6.G.4. TEST CASE, AN UNWANTED DISRUPTED CONVOY TO ADJACENT PROVINCE AND OPPOSITE MOVE
 /// In the situation of the previous test case, it was rather clear that the army didn't want to take the convoy. But what if there is an army moving in opposite direction?
