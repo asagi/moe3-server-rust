@@ -134,12 +134,42 @@ fn validate_support_orders(original_orders: &mut [Order]) {
 /// 輸送命令検証
 fn validate_convoy_orders(original_orders: &mut [Order]) {
     let move_orders = collect_valid_move_orders(original_orders);
+    let allowed_waters: HashSet<&str> = original_orders
+        .iter()
+        .filter(|o| o.unit.is_fleet() && o.location().is_water())
+        .map(|o| o.location().code())
+        .collect();
 
     for idx in collect_unresolved_convoy_indices(original_orders) {
         let convoy_order = &mut original_orders[idx];
 
         // 水上にない艦への輸送命令は無効
         if !convoy_order.location().is_water() {
+            convoy_order.set_invalid();
+            continue;
+        }
+
+        // 輸送対象の所在地と目的地の両方に海路で接続される可能性がない場合は無効
+        let OrderKind::Convoy(c) = &convoy_order.kind.clone() else {
+            unreachable!("expected Convoy")
+        };
+        if !Path::is_adjacent(convoy_order.location().code(), c.target_unit.location().code())
+            && !Path::is_reachable_by_sea(
+                &convoy_order.location().code()[..3],
+                &c.target_unit.location().code()[..3],
+                &allowed_waters,
+            )
+        {
+            convoy_order.set_invalid();
+            continue;
+        }
+        if !Path::is_adjacent(convoy_order.location().code(), c.target_dest.code())
+            && !Path::is_reachable_by_sea(
+                &convoy_order.location().code()[..3],
+                &c.target_dest.code()[..3],
+                &allowed_waters,
+            )
+        {
             convoy_order.set_invalid();
             continue;
         }
