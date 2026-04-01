@@ -519,22 +519,52 @@ fn test_datc_6_g_12() {
 }
 
 /// 6.G.13. TEST CASE, SUPPORT CUT ON ATTACK ON ITSELF VIA CONVOY
-/// If a unit is attacked by a supported unit, it is not possible to prevent dislodgement by trying to cut the support. But what, if a move is attempted via a convoy?
+/// If a unit is attacked by a supported unit,
+/// it is not possible to prevent dislodgement by trying to cut the support.
+/// But what, if a move is attempted via a convoy?
 ///
 /// Austria:
-/// F Adriatic Sea Convoys A Trieste - Venice
-/// A Trieste - Venice via convoy
+///     F Adriatic Sea Convoys A Trieste - Venice
+///     A Trieste - Venice via convoy
 ///
 /// Italy:
-/// A Venice Supports F Albania - Trieste
-/// F Albania - Trieste
-/// First it should be mentioned that if for issue 4.A.3 the 1971 rulebook is chosen, the move from Trieste to Venice is just a move over land (because Venice does not move in opposite direction). In that case, the support of Venice will not be cut as normal.
+///     A Venice Supports F Albania - Trieste
+///     F Albania - Trieste
 ///
-/// For the 1982/2000/2023 rulebooks the attack is via convoy and it should be decided whether the Austrian attack is considered to be coming from Trieste or from the Adriatic Sea. If it comes from Trieste, the support in Venice is not cut and the army in Trieste is dislodged by the fleet in Albania. If the Austrian attack is considered to be coming from the Adriatic Sea, then the support is cut and the army in Trieste will not be dislodged. See also issue 4.A.4.
-///
-/// First of all, I prefer the 2023 rules for adjacent convoying, meaning that the move from Trieste uses the convoy. Furthermore, I think that the two Italian units are still stronger than the army in Trieste. Therefore, I prefer that the support in Venice is not cut and that the army in Trieste is dislodged by the fleet in Albania.
+/// First it should be mentioned that if for issue 4.A.3 the 1971 rulebook is chosen,
+/// the move from Trieste to Venice is just a move over land
+/// (because Venice does not move in opposite direction).
+/// In that case, the support of Venice will not be cut as normal.
+/// For the 1982/2000/2023 rulebooks the attack is via convoy
+/// and it should be decided whether the Austrian attack is considered
+/// to be coming from Trieste or from the Adriatic Sea.
+/// If it comes from Trieste, the support in Venice is not cut
+/// and the army in Trieste is dislodged by the fleet in Albania.
+/// If the Austrian attack is considered to be coming from the Adriatic Sea,
+/// then the support is cut and the army in Trieste will not be dislodged.
+/// See also issue 4.A.4.
+/// First of all, I prefer the 2023 rules for adjacent convoying,
+/// meaning that the move from Trieste uses the convoy.
+/// Furthermore, I think that the two Italian units are still stronger than the army in Trieste.
+/// Therefore, I prefer that the support in Venice is not cut
+/// and that the army in Trieste is dislodged by the fleet in Albania.
 #[test]
-fn test_datc_6_g_13() {}
+fn test_datc_6_g_13() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_a_adr = Unit::new_fleet(Power::Austria, p("adr"));
+    let unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
+    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
+    let unit_i_alb = Unit::new_fleet(Power::Italy, p("alb"));
+    phase.data.orders.push(unit_a_adr.convoy(unit_a_tri, p("ven")));
+    phase.data.orders.push(unit_a_tri.move_to(p("ven")).set_via_convoy());
+    phase.data.orders.push(unit_i_ven.support_move(unit_i_alb, p("tri")));
+    phase.data.orders.push(unit_i_alb.move_to(p("tri")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
+}
 
 /// 6.G.14. TEST CASE, BOUNCE BY CONVOY TO ADJACENT PROVINCE
 /// Similar to test case 6.G.10, but now the other unit is taking the convoy.
