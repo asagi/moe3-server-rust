@@ -719,18 +719,43 @@ fn test_datc_6_g_16() {
 /// Similar to the previous test case, but now the other unit moves by convoy.
 ///
 /// England:
-/// A Norway - Sweden via convoy
-/// A Denmark Supports A Norway - Sweden
-/// F Baltic Sea Supports A Norway - Sweden
-/// F Skagerrak Convoys A Norway - Sweden
-/// F North Sea - Norway
+///     A Norway - Sweden via convoy
+///     A Denmark Supports A Norway - Sweden
+///     F Baltic Sea Supports A Norway - Sweden
+///     F Skagerrak Convoys A Norway - Sweden
+///     F North Sea - Norway
 ///
 /// Russia:
-/// A Sweden - Norway
-/// F Norwegian Sea Supports A Sweden - Norway
+///     A Sweden - Norway
+///     F Norwegian Sea Supports A Sweden - Norway
+///
 /// Sweden and Norway are swapped, while the fleet in the North Sea will bounce.
 #[test]
-fn test_datc_6_g_17() {}
+fn test_datc_6_g_17() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_nwy = Unit::new_army(Power::England, p("nwy"));
+    let unit_e_den = Unit::new_fleet(Power::England, p("den"));
+    let unit_e_bal = Unit::new_fleet(Power::England, p("bal"));
+    let unit_e_ska = Unit::new_fleet(Power::England, p("ska"));
+    let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
+    let unit_r_swe = Unit::new_army(Power::Russia, p("swe"));
+    let unit_r_nwg = Unit::new_fleet(Power::Russia, p("nwg"));
+    phase.data.orders.push(unit_e_nwy.move_to(p("swe")).set_via_convoy());
+    phase.data.orders.push(unit_e_den.support_move(unit_e_nwy, p("swe")));
+    phase.data.orders.push(unit_e_bal.support_move(unit_e_nwy, p("swe")));
+    phase.data.orders.push(unit_e_ska.convoy(unit_e_nwy, p("swe")));
+    phase.data.orders.push(unit_e_nth.move_to(p("nwy")));
+    phase.data.orders.push(unit_r_swe.move_to(p("nwy")));
+    phase.data.orders.push(unit_r_nwg.support_move(unit_r_swe, p("nwy")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Valid);
+}
 
 /// 6.G.18. TEST CASE, THE TWO UNIT IN ONE AREA BUG, WITH DOUBLE CONVOY
 /// Similar to the previous test case, but now both units move by convoy.
