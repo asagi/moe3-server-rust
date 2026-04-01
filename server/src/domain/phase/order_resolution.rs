@@ -143,46 +143,60 @@ fn validate_convoy_orders(original_orders: &mut [Order]) {
         .map(|o| o.location().code())
         .collect();
 
-    for idx in collect_unresolved_convoy_indices(original_orders) {
-        let convoy_order = &mut original_orders[idx];
-
+    for convoy_order_idx in collect_unresolved_convoy_indices(original_orders) {
         // 水上にない艦への輸送命令は無効
-        if !convoy_order.location().is_water() {
-            convoy_order.set_invalid();
+        if !original_orders[convoy_order_idx].location().is_water() {
+            original_orders[convoy_order_idx].set_invalid();
             continue;
         }
 
         // 輸送対象の所在地と目的地の両方に海路で接続される可能性がない場合は無効
-        let OrderKind::Convoy(c) = &convoy_order.kind.clone() else {
+        let OrderKind::Convoy(c) = &original_orders[convoy_order_idx].kind.clone() else {
             unreachable!("expected Convoy")
         };
-        if !Path::is_adjacent(convoy_order.location().code(), c.target_unit.location().code())
-            && !Path::is_reachable_by_sea(
-                &convoy_order.location().code()[..3],
-                &c.target_unit.location().code()[..3],
-                &allowed_waters,
-            )
-        {
-            convoy_order.set_invalid();
+        if !Path::is_adjacent(
+            original_orders[convoy_order_idx].location().code(),
+            c.target_unit.location().code(),
+        ) && !Path::is_reachable_by_sea(
+            &original_orders[convoy_order_idx].location().code()[..3],
+            &c.target_unit.location().code()[..3],
+            &allowed_waters,
+        ) {
+            original_orders[convoy_order_idx].set_invalid();
             continue;
         }
-        if !Path::is_adjacent(convoy_order.location().code(), c.target_dest.code())
+        if !Path::is_adjacent(original_orders[convoy_order_idx].location().code(), c.target_dest.code())
             && !Path::is_reachable_by_sea(
-                &convoy_order.location().code()[..3],
+                &original_orders[convoy_order_idx].location().code()[..3],
                 &c.target_dest.code()[..3],
                 &allowed_waters,
             )
         {
-            convoy_order.set_invalid();
+            original_orders[convoy_order_idx].set_invalid();
             continue;
         }
 
         // 輸送対象移動命令が存在すれば有効、なければ無効
-        if move_orders.iter().any(|m| convoy_order.is_matching_target(m)) {
-            convoy_order.set_valid();
+        if move_orders
+            .iter()
+            .any(|m| original_orders[convoy_order_idx].is_matching_target(m))
+        {
+            original_orders[convoy_order_idx].set_valid();
+
+            // convoy_order の対象移動命令を取得
+            let Some(move_order_idx) = original_orders
+                .iter()
+                .position(|m| original_orders[convoy_order_idx].is_matching_target(m))
+            else {
+                unreachable!("matching move order should exist")
+            };
+            if original_orders[convoy_order_idx].power == original_orders[move_order_idx].power {
+                // 輸送対象移動命令が自国軍のものであれば海路利用の明示とみなす
+                original_orders[move_order_idx].set_via_convoy();
+            }
             continue;
         }
-        convoy_order.set_invalid();
+        original_orders[convoy_order_idx].set_invalid();
         continue;
     }
 }
@@ -221,6 +235,12 @@ fn handle_cutting_support_orders(original_orders: &mut [Order]) {
             continue;
         }
         let attack_order = attack_orders[0];
+        let Some(attack_order_idx) = original_orders.iter().position(|o| o == attack_order) else {
+            unreachable!("attack order should exist in original orders")
+        };
+        let OrderKind::Move(m) = &attack_order.kind else {
+            unreachable!("expected Move")
+        };
 
         // support_order の支援対象の移動先が attack_order ならカット回避
         let OrderKind::Support(s) = &original_orders[idx].kind.clone() else {
@@ -231,15 +251,12 @@ fn handle_cutting_support_orders(original_orders: &mut [Order]) {
         }
 
         // attack_order が隣接地域からの場合はカット（遠隔攻撃の場合はさらに経路判定が必要）
-        if Path::is_adjacent(attack_order.location().code(), original_orders[idx].location().code()) {
+        if !m.via_convoy && Path::is_adjacent(attack_order.location().code(), original_orders[idx].location().code()) {
             original_orders[idx].set_cut();
             continue;
         }
 
         // 輸送経路が成立していなければ経路不成立でカット回避
-        let Some(attack_order_idx) = original_orders.iter().position(|o| o == attack_order) else {
-            unreachable!("attack order should exist in original orders")
-        };
         if !can_move_via_valid_convoy(original_orders, attack_order_idx, None) {
             continue;
         }
