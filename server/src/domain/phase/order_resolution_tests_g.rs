@@ -846,20 +846,41 @@ fn test_datc_6_g_19() {
 }
 
 /// 6.G.20. TEST CASE, EXPLICIT CONVOY TO ADJACENT PROVINCE DISRUPTED
-/// If a move to adjacent province was explicit via convoy, and the convoy is disrupted, should it fall back to the land route?
+/// If a move to adjacent province was explicit via convoy,
+/// and the convoy is disrupted, should it fall back to the land route?
 ///
 /// France:
-/// F Brest - English Channel
-/// A Picardy - Belgium via Convoy
-/// A Burgundy Supports A Picardy - Belgium
-/// F Mid-Atlantic Ocean Supports F Brest - English Channel
+///     F Brest - English Channel
+///     A Picardy - Belgium via Convoy
+///     A Burgundy Supports A Picardy - Belgium
+///     F Mid-Atlantic Ocean Supports F Brest - English Channel
 ///
 /// England:
-/// F English Channel Convoys A Picardy - Belgium
-/// This situation is not applicable for the 1971 and 1982 rulebooks, because they don't have the notion of 'via convoy'.
+///     F English Channel Convoys A Picardy - Belgium
 ///
-/// For the 2000/2023 rulebook the question arises whether the army in Picardy will fall back to the land route, since the convoy route is disrupted. See issue 4.A.3.
-///
+/// This situation is not applicable for the 1971 and 1982 rulebooks,
+/// because they don't have the notion of 'via convoy'.
+/// For the 2000/2023 rulebook
+/// the question arises whether the army in Picardy will fall back to the land route,
+/// since the convoy route is disrupted. See issue 4.A.3.
 /// I don't prefer the fallback anymore. So, the move of Picardy fails.
 #[test]
-fn test_datc_6_g_20() {}
+fn test_datc_6_g_20() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_f_bre = Unit::new_fleet(Power::France, p("bre"));
+    let unit_f_pic = Unit::new_army(Power::France, p("pic"));
+    let unit_f_bur = Unit::new_army(Power::France, p("bur"));
+    let unit_a_mao = Unit::new_fleet(Power::France, p("mao"));
+    let unit_a_eng = Unit::new_fleet(Power::England, p("eng"));
+    phase.data.orders.push(unit_f_bre.move_to(p("eng")));
+    phase.data.orders.push(unit_f_pic.move_to(p("bel")).set_via_convoy());
+    phase.data.orders.push(unit_f_bur.support_move(unit_f_pic, p("bel")));
+    phase.data.orders.push(unit_a_mao.support_move(unit_f_bre, p("eng")));
+    phase.data.orders.push(unit_a_eng.convoy(unit_f_pic, p("bel")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Unreachable);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Dislodged);
+}
