@@ -28,6 +28,7 @@ pub enum OrderStatus {
     Cut,
     Valid,
     Invalid,
+    Unreachable,
 }
 
 /// 命令の種類
@@ -42,21 +43,18 @@ pub enum OrderKind {
 
 /// ホールド命令
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
-pub struct HoldOrder {
-    pub power: Power,
-}
+pub struct HoldOrder {}
 
 /// 移動命令
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct MoveOrder {
-    pub power: Power,
     pub dest: Province,
+    pub via_convoy: bool,
 }
 
 /// サポート命令
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct SupportOrder {
-    pub power: Power,
     pub target_unit: Unit,
     pub target_dest: Option<Province>,
 }
@@ -64,7 +62,6 @@ pub struct SupportOrder {
 /// 輸送命令
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct ConvoyOrder {
-    pub power: Power,
     pub target_unit: Unit,
     pub target_dest: Province,
 }
@@ -78,7 +75,7 @@ impl Order {
             unit,
             dislodged_from: None,
             status: OrderStatus::Unresolved,
-            kind: OrderKind::Hold(HoldOrder { power }),
+            kind: OrderKind::Hold(HoldOrder {}),
         }
     }
 
@@ -89,7 +86,7 @@ impl Order {
             unit,
             dislodged_from: None,
             status: OrderStatus::Unresolved,
-            kind: OrderKind::Move(MoveOrder { power, dest }),
+            kind: OrderKind::Move(MoveOrder { dest, via_convoy: false }),
         }
     }
 
@@ -100,7 +97,10 @@ impl Order {
             unit,
             dislodged_from: None,
             status: OrderStatus::Unresolved,
-            kind: OrderKind::Support(SupportOrder { power, target_unit, target_dest }),
+            kind: OrderKind::Support(SupportOrder {
+                target_unit,
+                target_dest,
+            }),
         }
     }
 
@@ -111,7 +111,10 @@ impl Order {
             unit,
             dislodged_from: None,
             status: OrderStatus::Unresolved,
-            kind: OrderKind::Convoy(ConvoyOrder { power, target_unit, target_dest }),
+            kind: OrderKind::Convoy(ConvoyOrder {
+                target_unit,
+                target_dest,
+            }),
         }
     }
 
@@ -180,6 +183,11 @@ impl Order {
         self.status = OrderStatus::Invalid;
     }
 
+    /// ステータスを Unreachable に変更
+    pub fn set_unreachable(&mut self) {
+        self.status = OrderStatus::Unreachable;
+    }
+
     /// ステータスが `Unresolved` かどうか
     pub fn is_unresolved(&self) -> bool {
         self.status == OrderStatus::Unresolved
@@ -215,13 +223,39 @@ impl Order {
         self.status == OrderStatus::Failure
     }
 
+    /// ステータスが `Unreachable` かどうか
+    pub fn is_unreachable(&self) -> bool {
+        self.status == OrderStatus::Unreachable
+    }
+
     /// 命令が他の勢力のユニットに対するもの（仮定命令）であるかどうか
     pub fn is_assumed(&self) -> bool {
         self.power != self.unit.power()
     }
 
+    /// ユニットがどこから追い出されたかを記録
     pub(crate) fn set_dislodged_from(&mut self, winner_location: &Province) {
+        self.status = OrderStatus::Dislodged;
         self.dislodged_from = Some(*winner_location);
+    }
+
+    /// 命令を仮定命令に変換
+    pub fn assumed_by(&mut self, power: Power) -> Self {
+        self.power = power;
+        *self
+    }
+
+    /// 移動命令に海路指定フラグを設定する
+    pub fn set_via_convoy(&mut self) -> Self {
+        if self.unit.is_fleet() {
+            unreachable!("expected Army")
+        }
+        if let OrderKind::Move(move_order) = &mut self.kind {
+            move_order.via_convoy = true;
+        } else {
+            unreachable!("expected Move")
+        }
+        *self
     }
 }
 

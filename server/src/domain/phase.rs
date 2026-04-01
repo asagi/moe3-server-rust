@@ -1,8 +1,5 @@
 mod order_resolution;
 
-#[cfg(test)]
-mod order_resolution_tests;
-
 use super::PhaseId;
 use super::TableId;
 use super::order::Order;
@@ -34,7 +31,7 @@ pub struct PhaseData {
     pub kind: PhaseKind,
     pub orders: Vec<Order>,
     pub resolved_units: Vec<Unit>,
-    pub standoff_provinces: Vec<Province>,
+    pub standoff_province_codes: Vec<String>,
 }
 
 /// フェイズの種類
@@ -92,7 +89,7 @@ impl Phase {
                 kind: phase_type,
                 orders: Vec::new(),
                 resolved_units: Vec::new(),
-                standoff_provinces: Vec::new(),
+                standoff_province_codes: Vec::new(),
             },
         }
     }
@@ -107,7 +104,11 @@ impl Phase {
     /// - 春命令は「次年の開始フェイズ」なので、必ず `year = prev_year + 1`。
     /// - このルールは Ready -> SpringOrder / Adjustment -> SpringOrder の両方で共通。
     pub fn new_spring_order(current_year: i32, current_index: i32) -> Self {
-        Self::new(current_year + 1, current_index + 1, PhaseKind::SpringOrder(SpringOrderPhase {}))
+        Self::new(
+            current_year + 1,
+            current_index + 1,
+            PhaseKind::SpringOrder(SpringOrderPhase {}),
+        )
     }
 
     /// 春撤退フェイズを生成する。
@@ -365,46 +366,30 @@ impl PhaseContext {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PhaseCloseResult {}
 
-// #[cfg(test)]
-// mod tests {
-//     use super::order_resolution::test_hook;
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//     #[test]
-//     fn spec_new_spring_order_always_increments_year() {
-//         let p = Phase::new_spring_order(1900, 7);
-//         assert_eq!(p.year(), 1901);
-//         assert_eq!(p.index(), 8);
-//         assert!(matches!(p.phase_type(), PhaseKind::SpringOrder(_)));
-//     }
+    #[test]
+    fn test_new_spring_order_always_increments_year() {
+        let p = Phase::new_spring_order(1900, 7);
+        assert_eq!(p.year(), 1901);
+        assert_eq!(p.index(), 8);
+        assert!(matches!(p.phase_type(), PhaseKind::SpringOrder(_)));
+    }
+}
 
-//     #[test]
-//     fn spring_order_close_calls_common_order_resolution() {
-//         test_hook::reset();
-
-//         let phase = Phase::new_spring_order(1900, 0);
-//         let mut context = PhaseContext {
-//             phases: vec![],
-//             standoff_provinces: vec![],
-//         };
-
-//         let _ = phase.close(&mut context);
-
-//         assert_eq!(test_hook::call_count(), 1);
-//     }
-
-//     #[test]
-//     fn fall_order_close_calls_common_order_resolution() {
-//         test_hook::reset();
-
-//         let phase = Phase::new_fall_order(1901, 1);
-//         let mut context = PhaseContext {
-//             phases: vec![],
-//             standoff_provinces: vec![],
-//         };
-
-//         let _ = phase.close(&mut context);
-
-//         assert_eq!(test_hook::call_count(), 1);
-//     }
-// }
+#[cfg(test)]
+mod order_resolution_tests_a;
+#[cfg(test)]
+mod order_resolution_tests_b;
+#[cfg(test)]
+mod order_resolution_tests_c;
+#[cfg(test)]
+mod order_resolution_tests_d;
+#[cfg(test)]
+mod order_resolution_tests_e;
+#[cfg(test)]
+mod order_resolution_tests_f;
+#[cfg(test)]
+mod order_resolution_tests_g;
