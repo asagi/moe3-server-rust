@@ -480,18 +480,43 @@ fn test_datc_6_g_11() {
 /// Of course, two armies can also swap by when they are both convoyed.
 ///
 /// England:
-/// A Liverpool - Edinburgh via convoy
-/// F North Atlantic Ocean Convoys A Liverpool - Edinburgh
-/// F Norwegian Sea Convoys A Liverpool - Edinburgh
+///     A Liverpool - Edinburgh via convoy
+///     F North Atlantic Ocean Convoys A Liverpool - Edinburgh
+///     F Norwegian Sea Convoys A Liverpool - Edinburgh
 ///
 /// Germany:
-/// A Edinburgh - Liverpool via convoy
-/// F North Sea Convoys A Edinburgh - Liverpool
-/// F English Channel Convoys A Edinburgh - Liverpool
-/// F Irish Sea Convoys A Edinburgh - Liverpool
+///     A Edinburgh - Liverpool via convoy
+///     F North Sea Convoys A Edinburgh - Liverpool
+///     F English Channel Convoys A Edinburgh - Liverpool
+///     F Irish Sea Convoys A Edinburgh - Liverpool
+///
 /// The armies in Liverpool and Edinburgh are swapped.
 #[test]
-fn test_datc_6_g_12() {}
+fn test_datc_6_g_12() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_lvp = Unit::new_army(Power::England, p("lvp"));
+    let unit_e_nao = Unit::new_fleet(Power::England, p("nao"));
+    let unit_e_nwg = Unit::new_fleet(Power::England, p("nwg"));
+    let unit_g_edi = Unit::new_army(Power::Germany, p("edi"));
+    let unit_g_nth = Unit::new_fleet(Power::Germany, p("nth"));
+    let unit_g_eng = Unit::new_fleet(Power::Germany, p("eng"));
+    let unit_g_iri = Unit::new_fleet(Power::Germany, p("iri"));
+    phase.data.orders.push(unit_e_lvp.move_to(p("edi")).set_via_convoy());
+    phase.data.orders.push(unit_e_nao.convoy(unit_e_lvp, p("edi")));
+    phase.data.orders.push(unit_e_nwg.convoy(unit_e_lvp, p("edi")));
+    phase.data.orders.push(unit_g_edi.move_to(p("lvp")).set_via_convoy());
+    phase.data.orders.push(unit_g_nth.convoy(unit_g_edi, p("lvp")));
+    phase.data.orders.push(unit_g_eng.convoy(unit_g_edi, p("lvp")));
+    phase.data.orders.push(unit_g_iri.convoy(unit_g_edi, p("lvp")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Valid);
+}
 
 /// 6.G.13. TEST CASE, SUPPORT CUT ON ATTACK ON ITSELF VIA CONVOY
 /// If a unit is attacked by a supported unit, it is not possible to prevent dislodgement by trying to cut the support. But what, if a move is attempted via a convoy?
