@@ -621,22 +621,47 @@ fn test_datc_6_g_14() {
 }
 
 /// 6.G.15. TEST CASE, BOUNCE AND DISLODGE WITH DOUBLE CONVOY
-/// Similar to test case 6.G.10, but now both units use a convoy and without some support.
+/// Similar to test case 6.G.10,
+/// but now both units use a convoy and without some support.
 ///
 /// England:
-/// F North Sea Convoys A London - Belgium
-/// A Holland Supports A London - Belgium
-/// A Yorkshire - London
-/// A London - Belgium via convoy
+///     F North Sea Convoys A London - Belgium
+///     A Holland Supports A London - Belgium
+///     A Yorkshire - London
+///     A London - Belgium via convoy
 ///
 /// France:
-/// F English Channel Convoys A Belgium - London
-/// A Belgium - London via convoy
-/// The French army in Belgium is bounced by the army from Yorkshire. The army in London move to Belgium, dislodging the unit there.
+///     F English Channel Convoys A Belgium - London
+///     A Belgium - London via convoy
 ///
-/// The final destination of the army in the Yorkshire depends on how issue 4.A.7 is resolved. If choice a is taken, then the army advances to London, but if choice b is taken (which I prefer) the army bounces and stays in Yorkshire.
+/// The French army in Belgium is bounced by the army from Yorkshire.
+/// The army in London move to Belgium, dislodging the unit there.
+/// The final destination of the army in the Yorkshire depends on how issue 4.A.7 is resolved.
+/// If choice a is taken, then the army advances to London,
+/// but if choice b is taken (which I prefer) the army bounces and stays in Yorkshire.
 #[test]
-fn test_datc_6_g_15() {}
+fn test_datc_6_g_15() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
+    let unit_e_hol = Unit::new_army(Power::England, p("hol"));
+    let unit_e_yor = Unit::new_army(Power::England, p("yor"));
+    let unit_e_lon = Unit::new_army(Power::England, p("lon"));
+    let unit_f_eng = Unit::new_fleet(Power::France, p("eng"));
+    let unit_f_bel = Unit::new_army(Power::France, p("bel"));
+    phase.data.orders.push(unit_e_nth.convoy(unit_e_lon, p("bel")));
+    phase.data.orders.push(unit_e_hol.support_move(unit_e_lon, p("bel")));
+    phase.data.orders.push(unit_e_yor.move_to(p("lon")));
+    phase.data.orders.push(unit_e_lon.move_to(p("bel")).set_via_convoy());
+    phase.data.orders.push(unit_f_eng.convoy(unit_f_bel, p("lon")));
+    phase.data.orders.push(unit_f_bel.move_to(p("lon")).set_via_convoy());
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Dislodged);
+}
 
 /// 6.G.16. TEST CASE, THE TWO UNIT IN ONE AREA BUG, MOVING BY CONVOY
 /// If the adjudicator is not correctly implemented, this may lead to a resolution where two units end up in the same area.
