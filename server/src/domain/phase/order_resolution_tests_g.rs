@@ -664,23 +664,56 @@ fn test_datc_6_g_15() {
 }
 
 /// 6.G.16. TEST CASE, THE TWO UNIT IN ONE AREA BUG, MOVING BY CONVOY
-/// If the adjudicator is not correctly implemented, this may lead to a resolution where two units end up in the same area.
+/// If the adjudicator is not correctly implemented,
+/// this may lead to a resolution where two units end up in the same area.
 ///
 /// England:
-/// A Norway - Sweden
-/// A Denmark Supports A Norway - Sweden
-/// F Baltic Sea Supports A Norway - Sweden
-/// F North Sea - Norway
+///     A Norway - Sweden
+///     A Denmark Supports A Norway - Sweden
+///     F Baltic Sea Supports A Norway - Sweden
+///     F North Sea - Norway
 ///
 /// Russia:
-/// A Sweden - Norway via convoy
-/// F Skagerrak Convoys A Sweden - Norway
-/// F Norwegian Sea Supports A Sweden - Norway
-/// See decision details 5.B.6. If the 'PREVENT STRENGTH' is incorrectly implemented, due to the fact that it does not take into account that the 'PREVENT STRENGTH' is only zero when the unit is engaged in a head-to-head battle, then this goes wrong in this test case. The 'PREVENT STRENGTH' of Sweden would be zero, because the opposing unit in Norway successfully moves. Since, this strength would be zero, the fleet in the North Sea would move to Norway. However, although the 'PREVENT STRENGTH' is zero, the army in Sweden would also move to Norway. So, the final result would contain two units that successfully moved to Norway.
+///     A Sweden - Norway via convoy
+///     F Skagerrak Convoys A Sweden - Norway
+///     F Norwegian Sea Supports A Sweden - Norway
 ///
-/// Of course, this is incorrect. Norway will indeed successfully move to Sweden while the army in Sweden ends in Norway, because it is stronger than the fleet in the North Sea. This fleet will stay in the North Sea.
+/// See decision details 5.B.6. If the 'PREVENT STRENGTH' is incorrectly implemented,
+/// due to the fact that it does not take into account that the 'PREVENT STRENGTH' is only zero
+/// when the unit is engaged in a head-to-head battle, then this goes wrong in this test case.
+/// The 'PREVENT STRENGTH' of Sweden would be zero, because the opposing unit in Norway successfully moves.
+/// Since, this strength would be zero, the fleet in the North Sea would move to Norway. However,
+/// although the 'PREVENT STRENGTH' is zero, the army in Sweden would also move to Norway.
+/// So, the final result would contain two units that successfully moved to Norway.
+/// Of course, this is incorrect. Norway will indeed successfully move to Sweden
+/// while the army in Sweden ends in Norway, because it is stronger than the fleet in the North Sea.
+/// This fleet will stay in the North Sea.
 #[test]
-fn test_datc_6_g_16() {}
+fn test_datc_6_g_16() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_nwy = Unit::new_army(Power::England, p("nwy"));
+    let unit_e_den = Unit::new_fleet(Power::England, p("den"));
+    let unit_e_bal = Unit::new_fleet(Power::England, p("bal"));
+    let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
+    let unit_r_swe = Unit::new_army(Power::Russia, p("swe"));
+    let unit_r_ska = Unit::new_fleet(Power::Russia, p("ska"));
+    let unit_r_nwg = Unit::new_fleet(Power::Russia, p("nwg"));
+    phase.data.orders.push(unit_e_nwy.move_to(p("swe")));
+    phase.data.orders.push(unit_e_den.support_move(unit_e_nwy, p("swe")));
+    phase.data.orders.push(unit_e_bal.support_move(unit_e_nwy, p("swe")));
+    phase.data.orders.push(unit_e_nth.move_to(p("nwy")));
+    phase.data.orders.push(unit_r_swe.move_to(p("nwy")).set_via_convoy());
+    phase.data.orders.push(unit_r_ska.convoy(unit_r_swe, p("nwy")));
+    phase.data.orders.push(unit_r_nwg.support_move(unit_r_swe, p("nwy")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Valid);
+}
 
 /// 6.G.17. TEST CASE, THE TWO UNIT IN ONE AREA BUG, MOVING OVER LAND
 /// Similar to the previous test case, but now the other unit moves by convoy.
