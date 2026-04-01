@@ -430,27 +430,51 @@ fn test_datc_6_g_10() {
 }
 
 /// 6.G.11. TEST CASE, A CONVOY TO AN ADJACENT PROVINCE WITH A PARADOX
-/// In this case the convoy route is available when the land route is chosen and the convoy route is not available when the convoy route is chosen.
+/// In this case the convoy route is available when the land route is chosen
+/// and the convoy route is not available when the convoy route is chosen.
 ///
 /// England:
-/// F Norway Supports F North Sea - Skagerrak
-/// F North Sea - Skagerrak
+///     F Norway Supports F North Sea - Skagerrak
+///     F North Sea - Skagerrak
 ///
 /// Russia:
-/// A Sweden - Norway
-/// F Skagerrak Convoys A Sweden - Norway
-/// F Barents Sea Supports A Sweden - Norway
+///     A Sweden - Norway
+///     F Skagerrak Convoys A Sweden - Norway
+///     F Barents Sea Supports A Sweden - Norway
+///
 /// See issue 4.A.2 and 4.A.3.
-///
-/// In case of the 1971 rulebook the move from Sweden to Norway is not a convoy (because Norway is not moving in opposite direction) and the English fleet in Norway is dislodged and the fleet in Skagerrak will not be dislodged.
-///
-/// In case of the 1982/2000/2023 rulebook, the question arises whether the land route is the fallback of the convoy route. If not, then this is just the most simple convoy paradox. The fleet in Skagerrak is dislodged and the army in Sweden will not advance.
-///
-/// In case fallback is possible, then the convoy is available when the land route is taken, but not otherwise.
-///
-/// I prefer no fallback. That means that according to these preferences the fleet in the North Sea will dislodge the Russian fleet in Skagerrak and the army in Sweden will not advance.
+/// In case of the 1971 rulebook the move from Sweden to Norway is not a convoy
+/// (because Norway is not moving in opposite direction)
+/// and the English fleet in Norway is dislodged and the fleet in Skagerrak will not be dislodged.
+/// In case of the 1982/2000/2023 rulebook,
+/// the question arises whether the land route is the fallback of the convoy route.
+/// If not, then this is just the most simple convoy paradox.
+/// The fleet in Skagerrak is dislodged and the army in Sweden will not advance.
+/// In case fallback is possible, then the convoy is available when the land route is taken,
+/// but not otherwise.
+/// I prefer no fallback.
+/// That means that according to these preferences the fleet in the North Sea will dislodge
+/// the Russian fleet in Skagerrak and the army in Sweden will not advance.
 #[test]
-fn test_datc_6_g_11() {}
+fn test_datc_6_g_11() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_nwy = Unit::new_fleet(Power::England, p("nwy"));
+    let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
+    let unit_r_swe = Unit::new_army(Power::Russia, p("swe"));
+    let unit_r_ska = Unit::new_fleet(Power::Russia, p("ska"));
+    let unit_r_bar = Unit::new_fleet(Power::Russia, p("bar"));
+    phase.data.orders.push(unit_e_nwy.support_move(unit_e_nth, p("ska")));
+    phase.data.orders.push(unit_e_nth.move_to(p("ska")));
+    phase.data.orders.push(unit_r_swe.move_to(p("nwy")));
+    phase.data.orders.push(unit_r_ska.convoy(unit_r_swe, p("nwy")));
+    phase.data.orders.push(unit_r_bar.support_move(unit_r_swe, p("nwy")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Unreachable);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+}
 
 /// 6.G.12. TEST CASE, SWAPPING TWO UNITS WITH TWO CONVOYS
 /// Of course, two armies can also swap by when they are both convoyed.
