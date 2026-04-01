@@ -570,25 +570,55 @@ fn test_datc_6_g_13() {
 /// Similar to test case 6.G.10, but now the other unit is taking the convoy.
 ///
 /// England:
-/// A Norway - Sweden
-/// F Denmark Supports A Norway - Sweden
-/// F Finland Supports A Norway - Sweden
+///     A Norway - Sweden
+///     F Denmark Supports A Norway - Sweden
+///     F Finland Supports A Norway - Sweden
 ///
 /// France:
-/// F Norwegian Sea - Norway
-/// F North Sea Supports F Norwegian Sea - Norway
+///     F Norwegian Sea - Norway
+///     F North Sea Supports F Norwegian Sea - Norway
 ///
 /// Germany:
-/// F Skagerrak Convoys A Sweden - Norway
+///     F Skagerrak Convoys A Sweden - Norway
 ///
 /// Russia:
-/// A Sweden - Norway via convoy
-/// F Barents Sea Supports A Sweden - Norway
-/// Again, the army in Sweden is bounced by the fleet in the Norwegian Sea. The army in Norway will move to Sweden and dislodge the Russian army.
+///     A Sweden - Norway via convoy
+///     F Barents Sea Supports A Sweden - Norway
 ///
-/// The final destination of the fleet in the Norwegian Sea depends on how issue 4.A.7 is resolved. If choice a is taken, then the fleet advances to Norway, but if choice b is taken (which I prefer) the fleet bounces and stays in the Norwegian Sea.
+/// Again, the army in Sweden is bounced by the fleet in the Norwegian Sea.
+/// The army in Norway will move to Sweden and dislodge the Russian army.
+/// The final destination of the fleet in the Norwegian Sea depends on how issue 4.A.7 is resolved.
+/// If choice a is taken, then the fleet advances to Norway,
+/// but if choice b is taken (which I prefer) the fleet bounces and stays in the Norwegian Sea.
 #[test]
-fn test_datc_6_g_14() {}
+fn test_datc_6_g_14() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_nwy = Unit::new_army(Power::England, p("nwy"));
+    let unit_e_den = Unit::new_fleet(Power::England, p("den"));
+    let unit_e_fin = Unit::new_fleet(Power::England, p("fin"));
+    let unit_f_nwg = Unit::new_fleet(Power::France, p("nwg"));
+    let unit_f_nth = Unit::new_fleet(Power::France, p("nth"));
+    let unit_g_ska = Unit::new_fleet(Power::Germany, p("ska"));
+    let unit_r_swe = Unit::new_army(Power::Russia, p("swe"));
+    let unit_r_bar = Unit::new_fleet(Power::Russia, p("bar"));
+    phase.data.orders.push(unit_e_nwy.move_to(p("swe")));
+    phase.data.orders.push(unit_e_den.support_move(unit_e_nwy, p("swe")));
+    phase.data.orders.push(unit_e_fin.support_move(unit_e_nwy, p("swe")));
+    phase.data.orders.push(unit_f_nwg.move_to(p("nwy")));
+    phase.data.orders.push(unit_f_nth.support_move(unit_f_nwg, p("nwy")));
+    phase.data.orders.push(unit_g_ska.convoy(unit_r_swe, p("nwy")));
+    phase.data.orders.push(unit_r_swe.move_to(p("nwy")).set_via_convoy());
+    phase.data.orders.push(unit_r_bar.support_move(unit_r_swe, p("nwy")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.orders[7].status, OrderStatus::Valid);
+}
 
 /// 6.G.15. TEST CASE, BOUNCE AND DISLODGE WITH DOUBLE CONVOY
 /// Similar to test case 6.G.10, but now both units use a convoy and without some support.
