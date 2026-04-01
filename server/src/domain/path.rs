@@ -490,6 +490,13 @@ impl Path {
         PATHS.iter().any(|p| p.origin == origin && p.dest == dest && p.fleet)
     }
 
+    /// Check if a convoy can move from origin to dest
+    pub fn can_convoy_move(origin: &str, dest: &str) -> bool {
+        PATHS
+            .iter()
+            .any(|p| p.origin[..3] == origin[..3] && p.dest[..3] == dest[..3] && p.fleet)
+    }
+
     /// allowed_waters だけを通って origin から dest まで到達可能か判定する
     pub fn is_reachable_by_sea(origin: &str, dest: &str, allowed_waters: &HashSet<&str>) -> bool {
         let mut visited: HashSet<&str> = HashSet::new();

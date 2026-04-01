@@ -190,12 +190,14 @@ fn validate_convoy_orders(original_orders: &mut [Order]) {
             else {
                 unreachable!("matching move order should exist")
             };
-            if original_orders[convoy_order_idx].power == original_orders[move_order_idx].power {
-                // 輸送対象移動命令が自国軍のものであれば海路利用の明示とみなす
+
+            if is_convoy_intended(original_orders, convoy_order_idx, move_order_idx) {
+                // 本輸送命令の存在を以て対象の移動命令の海路利用の意思が示されたものとする
                 original_orders[move_order_idx].set_via_convoy();
             }
             continue;
         }
+
         original_orders[convoy_order_idx].set_invalid();
         continue;
     }
@@ -1067,9 +1069,15 @@ fn reset_standoff_failures_to_attacker_origin(
 
 /// `original_orders[idx]` の移動先に対して、既存の有効な輸送命令群で海路到達可能か判定する。
 fn can_reach_via_convoy(original_orders: &[Order], idx: usize) -> bool {
-    let move_order = original_orders[idx];
-    if move_order.unit.is_fleet() {
+    if original_orders[idx].unit.is_fleet() {
         // 陸軍以外は海路迂回不可
+        return false;
+    }
+
+    let OrderKind::Move(m) = &original_orders[idx].kind else {
+        unreachable!("expected Move");
+    };
+    if !m.via_convoy {
         return false;
     }
 
@@ -1364,4 +1372,36 @@ fn count_supports_for_attackers(orders: &[Order], attacker_indicies: &[usize], t
         })
         .max()
         .unwrap_or(0)
+}
+
+/// 輸送命令の存在によって移動命令に海路利用の意図が示されていたかを判定する。
+fn is_convoy_intended(original_orders: &[Order], convoy_order_idx: usize, move_order_idx: usize) -> bool {
+    let OrderKind::Convoy(c) = &original_orders[convoy_order_idx].kind.clone() else {
+        unreachable!("expected Convoy")
+    };
+
+    if original_orders[convoy_order_idx].power != original_orders[move_order_idx].power {
+        return false;
+    }
+
+    if !Path::is_adjacent(original_orders[move_order_idx].location().code(), c.target_dest.code()) {
+        return true;
+    }
+
+    if !Path::can_convoy_move(original_orders[move_order_idx].location().code(), c.target_dest.code()) {
+        return true;
+    }
+
+    if !Path::is_adjacent(
+        original_orders[convoy_order_idx].location().code(),
+        original_orders[move_order_idx].location().code(),
+    ) {
+        return false;
+    }
+
+    if !Path::is_adjacent(original_orders[convoy_order_idx].location().code(), c.target_dest.code()) {
+        return false;
+    }
+
+    true
 }
