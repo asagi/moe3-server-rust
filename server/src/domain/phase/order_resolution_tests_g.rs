@@ -807,23 +807,43 @@ fn test_datc_6_g_18() {
 /// Can the intent made clear by the order of a fleet that is not necessary?
 ///
 /// France:
-/// A Marseilles - Spain
-/// F Western Mediterranean Convoys A Marseilles - Spain
+///     A Marseilles - Spain
+///     F Western Mediterranean Convoys A Marseilles - Spain
 ///
 /// Italy:
-/// F Gulf of Lyon Convoys A Marseilles - Spain
-/// A Spain - Marseilles
+///     F Gulf of Lyon Convoys A Marseilles - Spain
+///     A Spain - Marseilles
+///
 /// See issue 4.A.3 and 4.E.1.
-///
-/// In case the 1971 rules are used, the intent is not important and the units in Marseilles and Spain swap.
-///
-/// The point of interest is that there is a convoy route from Marseilles, Gulf of Lyon, Western Mediterranean to Spain. However, the fleet in Western Mediterranean is not necessary for this convoy and not necessary for any other convoy route. Therefore, this order should be considered illegal. Webbased adjudicators should not give this order as an option.
-///
-/// With the 2023 rules (which I prefer) illegal orders are ignored. The fleet in Gulf of Lyon is foreign and foreign units cannot express intent. With this, there is no intent to convoy and the units in Marseilles and Spain fail to move.
-///
+/// In case the 1971 rules are used,
+/// the intent is not important and the units in Marseilles and Spain swap.
+/// The point of interest is that there is a convoy route from Marseilles,
+/// Gulf of Lyon, Western Mediterranean to Spain.
+/// However, the fleet in Western Mediterranean is not necessary for this convoy
+/// and not necessary for any other convoy route.
+/// Therefore, this order should be considered illegal.
+/// Webbased adjudicators should not give this order as an option.
+/// With the 2023 rules (which I prefer) illegal orders are ignored.
+/// The fleet in Gulf of Lyon is foreign and foreign units cannot express intent.
+/// With this, there is no intent to convoy and the units in Marseilles and Spain fail to move.
 /// If explicit adjacent convoying is used (DPTG) there is also no convoy and none of the units move.
 #[test]
-fn test_datc_6_g_19() {}
+fn test_datc_6_g_19() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_f_mar = Unit::new_army(Power::France, p("mar"));
+    let unit_f_wes = Unit::new_fleet(Power::France, p("wes"));
+    let unit_i_lyo = Unit::new_fleet(Power::Italy, p("lyo"));
+    let unit_i_spa = Unit::new_army(Power::Italy, p("spa"));
+    phase.data.orders.push(unit_f_mar.move_to(p("spa")));
+    phase.data.orders.push(unit_f_wes.convoy(unit_f_mar, p("spa")));
+    phase.data.orders.push(unit_i_lyo.convoy(unit_f_mar, p("spa")));
+    phase.data.orders.push(unit_i_spa.move_to(p("mar")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
+}
 
 /// 6.G.20. TEST CASE, EXPLICIT CONVOY TO ADJACENT PROVINCE DISRUPTED
 /// If a move to adjacent province was explicit via convoy, and the convoy is disrupted, should it fall back to the land route?
