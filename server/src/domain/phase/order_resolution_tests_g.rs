@@ -761,19 +761,47 @@ fn test_datc_6_g_17() {
 /// Similar to the previous test case, but now both units move by convoy.
 ///
 /// England:
-/// F North Sea Convoys A London - Belgium
-/// A Holland Supports A London - Belgium
-/// A Yorkshire - London
-/// A London - Belgium
-/// A Ruhr Supports A London - Belgium
+///     F North Sea Convoys A London - Belgium
+///     A Holland Supports A London - Belgium
+///     A Yorkshire - London
+///     A London - Belgium
+///     A Ruhr Supports A London - Belgium
 ///
 /// France:
-/// F English Channel Convoys A Belgium - London
-/// A Belgium - London
-/// A Wales Supports A Belgium - London
+///     F English Channel Convoys A Belgium - London
+///     A Belgium - London
+///     A Wales Supports A Belgium - London
+///
 /// Belgium and London are swapped, while the army in Yorkshire fails to move to London.
 #[test]
-fn test_datc_6_g_18() {}
+fn test_datc_6_g_18() {
+    let mut phase = Phase::new_spring_order(1900, 1);
+    let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
+    let unit_e_hol = Unit::new_army(Power::England, p("hol"));
+    let unit_e_yor = Unit::new_army(Power::England, p("yor"));
+    let unit_e_lon = Unit::new_army(Power::England, p("lon"));
+    let unit_e_ruh = Unit::new_army(Power::England, p("ruh"));
+    let unit_f_eng = Unit::new_fleet(Power::France, p("eng"));
+    let unit_f_bel = Unit::new_army(Power::France, p("bel"));
+    let unit_f_wal = Unit::new_army(Power::France, p("wal"));
+    phase.data.orders.push(unit_e_nth.convoy(unit_e_lon, p("bel")));
+    phase.data.orders.push(unit_e_hol.support_move(unit_e_lon, p("bel")));
+    phase.data.orders.push(unit_e_yor.move_to(p("lon")));
+    phase.data.orders.push(unit_e_lon.move_to(p("bel")));
+    phase.data.orders.push(unit_e_ruh.support_move(unit_e_lon, p("bel")));
+    phase.data.orders.push(unit_f_eng.convoy(unit_f_bel, p("lon")));
+    phase.data.orders.push(unit_f_bel.move_to(p("lon")));
+    phase.data.orders.push(unit_f_wal.support_move(unit_f_bel, p("lon")));
+    resolve_orders_for_order_phase(&mut phase);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[6].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[7].status, OrderStatus::Valid);
+}
 
 /// 6.G.19. TEST CASE, SWAPPING WITH INTENT OF UNNECESSARY CONVOY
 /// Can the intent made clear by the order of a fleet that is not necessary?
