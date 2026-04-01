@@ -2,6 +2,7 @@ use crate::domain::order::ConvoyOrder;
 use crate::domain::order::MoveOrder;
 use crate::domain::order::Order;
 use crate::domain::order::OrderKind;
+use crate::domain::power::Power;
 use crate::domain::province::Province;
 use indexmap::IndexSet;
 
@@ -30,6 +31,7 @@ pub trait OrderHelper {
     fn count_supports(&self, target_idx: usize) -> usize;
     fn count_max_supports_for_attackers(&self, attacker_indicies: &[usize], target_idx: usize) -> usize;
     fn has_confliction(&self, target_location_code: &str) -> bool;
+    fn occupant_power_on_target(&self, target_code: &str) -> Option<Power>;
 }
 
 impl OrderHelper for [Order] {
@@ -253,5 +255,34 @@ impl OrderHelper for [Order] {
             })
             .count()
             > 1
+    }
+
+    /// 指定地点に非移動命令または失敗が予想される移動命令があればその勢力を返す
+    fn occupant_power_on_target(&self, target_code: &str) -> Option<Power> {
+        let occupant_order = self
+            .iter()
+            .find(|o| !o.is_assumed() && o.location().code()[..3] == target_code[..3])?;
+
+        if !matches!(occupant_order.kind, OrderKind::Move(_)) {
+            // 非移動命令が存在すればその勢力を返す
+            return Some(occupant_order.unit.power);
+        }
+
+        if occupant_order.is_valid() {
+            // 未処理の移動命令が存在すればその勢力を返す
+            return Some(occupant_order.unit.power);
+        }
+
+        if occupant_order.is_failure() {
+            // 失敗した移動命令が存在すればその勢力を返す
+            return Some(occupant_order.power);
+        }
+
+        if occupant_order.is_success() {
+            // 成功した移動命令は不在とみなす
+            return None;
+        }
+
+        None
     }
 }
