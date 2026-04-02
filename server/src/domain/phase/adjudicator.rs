@@ -56,34 +56,37 @@ impl Adjudicator {
     }
 
     /// 支援命令検証
-    pub(crate) fn validate_support_orders(original_orders: &mut [Order]) {
-        let orders = original_orders.collect_not_invalid_orders();
-
-        for idx in original_orders.collect_unresolved_support_indices() {
-            let support_order = &mut original_orders[idx];
-
-            // 支援対象が存在しない場合は無効
-            let Some(target) = orders.iter().find(|o| support_order.is_matching_target(o)) else {
-                support_order.set_invalid();
+    pub(crate) fn validate_support_orders(orders: &mut [Order]) {
+        for support_idx in orders.collect_unresolved_support_indices() {
+            // 有効な支援対象が存在しない場合は無効
+            let Some(target_idx) = orders.find_support_target_idx(support_idx) else {
+                orders[support_idx].set_invalid();
                 continue;
             };
 
-            // 支援対象の移動命令の移動先に支援ユニットが移動できるなら有効
-            if let OrderKind::Move(m) = &target.kind {
-                if Path::can_unit_support_to(&support_order.unit, support_order.location().code(), m.dest.code()) {
-                    support_order.set_valid();
+            if let OrderKind::Move(_) = &orders[target_idx].kind {
+                // 支援対象の移動命令の移動先に支援ユニットが移動できるなら有効
+                if Path::can_unit_support_to(
+                    &orders[support_idx].unit,
+                    orders[support_idx].location().code(),
+                    orders[target_idx].dest().code(),
+                ) {
+                    orders[support_idx].set_valid();
                     continue;
                 }
-                support_order.set_invalid();
-                continue;
+            } else {
+                // 支援対象の非移動命令の現在地に支援ユニットが移動できるなら有効
+                if Path::can_unit_support_to(
+                    &orders[support_idx].unit,
+                    orders[support_idx].location().code(),
+                    orders[target_idx].location().code(),
+                ) {
+                    orders[support_idx].set_valid();
+                    continue;
+                }
             }
 
-            // 支援対象の非移動命令の現在地に支援ユニットが移動できるなら有効
-            if Path::can_unit_support_to(&support_order.unit, support_order.location().code(), target.location().code()) {
-                support_order.set_valid();
-                continue;
-            }
-            support_order.set_invalid();
+            orders[support_idx].set_invalid();
             continue;
         }
     }
@@ -810,7 +813,7 @@ impl Adjudicator {
         // BELEAGUERED GARRISON が有効な場合は失敗判定された移動命令も conflicting_move_indicies に追加する
         let conflicting_move_indicies: Vec<usize> = if enable_bg {
             original_orders
-                .collect_not_invalid_order_indices()
+                .collect_valid_order_indices()
                 .into_iter()
                 .filter(|&idx| {
                     if let OrderKind::Move(m) = original_orders[idx].kind {

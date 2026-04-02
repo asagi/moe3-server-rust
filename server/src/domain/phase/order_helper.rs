@@ -8,7 +8,7 @@ use indexmap::IndexSet;
 
 pub trait OrderHelper {
     fn collect_not_invalid_orders(&self) -> Vec<Order>;
-    fn collect_not_invalid_order_indices(&self) -> Vec<usize>;
+    fn collect_valid_order_indices(&self) -> Vec<usize>;
     fn collect_unresolved_indices(&self) -> Vec<usize>;
     fn collect_unresolved_move_indices(&self) -> Vec<usize>;
     fn collect_valid_move_orders(&self) -> Vec<Order>;
@@ -23,6 +23,7 @@ pub trait OrderHelper {
     fn collect_valid_convoy_indices(&self) -> Vec<usize>;
     fn collect_matched_convoy_order_indices(&self, attack_order: &Order) -> Vec<usize>;
     fn collect_valid_move_destination_set(&self) -> IndexSet<Province>;
+    fn find_support_target_idx(&self, support_idx: usize) -> Option<usize>;
     fn find_target_convoy_order_idx(&self, m: MoveOrder) -> Option<usize>;
     fn find_target_support_order_idx(&self, m: MoveOrder) -> Option<usize>;
     fn find_occupant_order_idx(&self, target_location_code: &str) -> Option<usize>;
@@ -40,8 +41,8 @@ impl OrderHelper for [Order] {
         self.iter().filter(|o| !o.is_assumed() && !o.is_invalid()).copied().collect()
     }
 
-    /// 全ての命令のインデックスコレクションを作成
-    fn collect_not_invalid_order_indices(&self) -> Vec<usize> {
+    /// 全ての有効な命令のインデックスコレクションを作成
+    fn collect_valid_order_indices(&self) -> Vec<usize> {
         self.iter()
             .enumerate()
             .filter(|(_, o)| !o.is_assumed() && !o.is_invalid() && !o.is_dislodged() && !o.is_unreachable())
@@ -180,12 +181,22 @@ impl OrderHelper for [Order] {
             .collect()
     }
 
-    /// 移動先に輸送命令があればその輸送命令の index を返す
+    /// 支援対象の命令のインデックスを返す
+    /// - Invalid な移動命令は支援対象にならないので除外する
+    fn find_support_target_idx(&self, support_idx: usize) -> Option<usize> {
+        self.iter().position(|o| {
+            !o.is_assumed()
+                && self[support_idx].is_matching_target(o)
+                && !(matches!(o.kind, OrderKind::Move(_)) && o.is_invalid())
+        })
+    }
+
+    /// 移動先に輸送命令があればその輸送命令のインデックスを返す
     fn find_target_convoy_order_idx(&self, m: MoveOrder) -> Option<usize> {
         self.iter().position(|o| o.location() == m.dest)
     }
 
-    /// 移動先に支援命令があればその輸送命令の index を返す
+    /// 移動先に支援命令があればその輸送命令のインデックスを返す
     fn find_target_support_order_idx(&self, m: MoveOrder) -> Option<usize> {
         self.iter()
             .position(|o| o.location() == m.dest && matches!(o.kind, OrderKind::Support(_)))
