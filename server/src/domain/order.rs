@@ -141,12 +141,10 @@ impl Order {
     }
 
     /// ターゲットの目的地を返す
-    pub fn target_dest(&self) -> Province {
+    pub fn target_dest(&self) -> Option<Province> {
         match &self.kind {
-            OrderKind::Support(s) => s
-                .target_dest
-                .expect("Support order should have target_dest if it's a support move order"),
-            OrderKind::Convoy(c) => c.target_dest,
+            OrderKind::Support(s) => s.target_dest,
+            OrderKind::Convoy(c) => Some(c.target_dest),
             _ => unreachable!("Only support and convoy orders have target destinations"),
         }
     }

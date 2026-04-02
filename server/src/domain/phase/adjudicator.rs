@@ -113,7 +113,7 @@ impl Adjudicator {
             }
             if !Path::is_reachable_by_sea(
                 orders[convoy_idx].location().code(),
-                orders[convoy_idx].target_dest().code(),
+                orders[convoy_idx].target_dest().map(|d| d.code()).unwrap_or(""),
                 &waters,
             ) {
                 orders[convoy_idx].set_invalid();
@@ -141,93 +141,67 @@ impl Adjudicator {
         }
     }
 
-    /// 支援命令のカット
-    pub(crate) fn handle_cutting_support_orders(original_orders: &mut [Order]) {
-        let move_orders = original_orders.collect_valid_move_orders();
-
-        // 支援命令をカットし得る移動命令がなければ終了
-        if !move_orders.iter().any(|m| m.is_valid()) {
-            return;
-        }
-
-        for idx in original_orders.collect_valid_support_indices() {
+    /// 支援命令のカット判定
+    pub(crate) fn handle_cutting_support_orders(orders: &mut [Order]) {
+        for support_idx in orders.collect_valid_support_indices() {
             // support_order に向かう移動命令は攻撃とみなす（自国軍は除く）
-            let attack_orders: Vec<&Order> = move_orders
-                .iter()
-                .filter(|o| o.power != original_orders[idx].power)
-                .filter(|o| {
-                    if let OrderKind::Move(m) = &o.kind {
-                        m.dest.code()[..3] == original_orders[idx].location().code()[..3]
-                    } else {
-                        false
-                    }
-                })
-                .collect();
+            let attacker_indicies = orders.collect_attacker_indicies(support_idx);
 
             // 支援命令をカットし得る移動命令がなければスキップ
-            if attack_orders.is_empty() {
+            if attacker_indicies.is_empty() {
                 continue;
             }
 
             // 複数個所からの攻撃は即カット
-            if attack_orders.len() > 1 {
-                original_orders[idx].set_cut();
+            if attacker_indicies.len() > 1 {
+                orders[support_idx].set_cut();
                 continue;
             }
-            let attack_order = attack_orders[0];
-            let Some(attack_order_idx) = original_orders.iter().position(|o| o == attack_order) else {
-                unreachable!("attack order should exist in original orders")
-            };
-            let OrderKind::Move(m) = &attack_order.kind else {
-                unreachable!("expected Move")
-            };
+            let cutter_idx = attacker_indicies[0];
 
-            // support_order の支援対象の移動先が attack_order ならカット回避
-            let OrderKind::Support(s) = &original_orders[idx].kind.clone() else {
-                unreachable!("expected Support")
-            };
-            if s.target_dest == Some(attack_order.location()) {
+            // support_order の支援対象の移動先が cutter ならカット回避
+            if orders[support_idx].target_dest() == Some(orders[cutter_idx].location()) {
                 continue;
             }
 
-            // attack_order が隣接地域からの場合はカット（遠隔攻撃の場合はさらに経路判定が必要）
-            if !m.via_convoy && Path::is_adjacent(attack_order.location().code(), original_orders[idx].location().code()) {
-                original_orders[idx].set_cut();
+            // cutter が非輸送近接攻撃の場合はカット
+            if Self::is_attacker_without_convoy(orders, cutter_idx) {
+                orders[support_idx].set_cut();
                 continue;
             }
 
-            // 輸送経路が成立していなければ経路不成立でカット回避
-            if !Self::can_move_via_valid_convoy(original_orders, attack_order_idx, None) {
+            // cutter の輸送経路が成立していなければ経路不成立でカット回避
+            if !Self::can_move_via_valid_convoy(orders, cutter_idx, None) {
                 continue;
             }
 
             // Szykman ルールに従ったカット回避
-            if Self::should_avoid_cut_due_to_datc_6_f_18(original_orders, idx, attack_order_idx) {
-                original_orders[attack_order_idx].set_unreachable();
+            if Self::should_avoid_cut_due_to_datc_6_f_18(orders, support_idx, cutter_idx) {
+                orders[cutter_idx].set_unreachable();
                 continue;
             }
 
             // 支援対象が移動命令の場合
-            if original_orders.get_support_target_move_order_kind(idx).is_some() {
-                if Self::should_avoid_cut_due_to_datc_6_f_22(original_orders, idx, idx) {
+            if orders.get_support_target_move_order_kind(support_idx).is_some() {
+                if Self::should_avoid_cut_due_to_datc_6_f_22(orders, support_idx, support_idx) {
                     continue;
                 }
-                if Self::should_avoid_cut_due_to_datc_6_f_24_a(original_orders, idx, idx) {
+                if Self::should_avoid_cut_due_to_datc_6_f_24_a(orders, support_idx, support_idx) {
                     continue;
                 }
             };
 
             // 支援対象が輸送命令の場合
-            if original_orders.get_support_target_convoy_order_kind(idx).is_some() {
-                if Self::should_avoid_cut_due_to_datc_6_f_23(original_orders, idx, idx) {
+            if orders.get_support_target_convoy_order_kind(support_idx).is_some() {
+                if Self::should_avoid_cut_due_to_datc_6_f_23(orders, support_idx, support_idx) {
                     continue;
                 }
-                if Self::should_avoid_cut_due_to_datc_6_f_24_b(original_orders, idx, idx) {
+                if Self::should_avoid_cut_due_to_datc_6_f_24_b(orders, support_idx, support_idx) {
                     continue;
                 }
             }
 
-            original_orders[idx].set_cut();
+            orders[support_idx].set_cut();
         }
     }
 
@@ -558,7 +532,7 @@ impl Adjudicator {
 
         if !Path::is_adjacent(
             orders[convoy_idx].target_unit().location().code(),
-            orders[convoy_idx].target_dest().code(),
+            orders[convoy_idx].target_dest().map(|d| d.code()).unwrap_or(""),
         ) {
             // 輸送対象の現在地と目的地が隣接していない場合は海路利用の意図の明示とみなす
             return true;
@@ -566,7 +540,7 @@ impl Adjudicator {
 
         if !Path::can_convoy_move(
             orders[convoy_idx].target_unit().location().code(),
-            orders[convoy_idx].target_dest().code(),
+            orders[convoy_idx].target_dest().map(|d| d.code()).unwrap_or(""),
         ) {
             // 輸送対象の現在地と目的地が海軍視点で隣接していない場合は海路利用の意図の明示とみなす
             return true;
@@ -581,7 +555,10 @@ impl Adjudicator {
             return false;
         }
 
-        if !Path::is_adjacent(orders[convoy_idx].location().code(), orders[convoy_idx].target_dest().code()) {
+        if !Path::is_adjacent(
+            orders[convoy_idx].location().code(),
+            orders[convoy_idx].target_dest().map(|d| d.code()).unwrap_or(""),
+        ) {
             return false;
         }
 
@@ -955,6 +932,14 @@ impl Adjudicator {
         }
 
         Self::can_move_via_valid_convoy(original_orders, move_order_idx, None)
+    }
+
+    /// 移動命令が非輸送近接攻撃かどうかを判定する。
+    fn is_attacker_without_convoy(orders: &[Order], move_idx: usize) -> bool {
+        if orders[move_idx].via_convoy() {
+            return false;
+        }
+        Path::can_unit_move_to(&orders[move_idx].unit, orders[move_idx].dest().code(), false)
     }
 
     /// 交換移動命令双方の支援が生きている前提で支援数を比較し勝者のインデックスを返す。
