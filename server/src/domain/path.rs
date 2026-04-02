@@ -463,10 +463,14 @@ impl Path {
     }
 
     /// ユニットが指定地点に移動可能かを判定する
-    pub fn can_unit_move_to(unit: &Unit, origin: &str, dest: &str) -> bool {
+    pub fn can_unit_move_to(unit: &Unit, dest: &str, via_convoy: bool) -> bool {
         match unit.kind {
-            UnitKind::Army(_) => PATHS.iter().any(|p| p.origin == origin && p.dest == dest && p.army),
-            UnitKind::Fleet(_) => PATHS.iter().any(|p| p.origin == origin && p.dest == dest && p.fleet),
+            UnitKind::Army(_) => PATHS
+                .iter()
+                .any(|p| p.origin == unit.location().code() && p.dest == dest && p.army && !via_convoy),
+            UnitKind::Fleet(_) => PATHS
+                .iter()
+                .any(|p| p.origin == unit.location().code() && p.dest == dest && p.fleet),
         }
     }
 

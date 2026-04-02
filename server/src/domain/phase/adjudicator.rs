@@ -14,53 +14,44 @@ use std::collections::HashSet;
 
 impl Adjudicator {
     /// 移動命令検証
-    pub(crate) fn validate_move_orders(original_orders: &mut [Order]) {
-        for idx in original_orders.collect_unresolved_move_indices() {
-            let OrderKind::Move(m) = &original_orders[idx].kind else {
-                unreachable!("expected Move")
-            };
-
-            // 隣接経路が成立していれば有効
-            // - ただし海路利用を明示している陸軍を除く
-            if !m.via_convoy
-                && Path::can_unit_move_to(
-                    &original_orders[idx].unit,
-                    original_orders[idx].location().code(),
-                    m.dest.code(),
-                )
-            {
-                original_orders[idx].set_valid();
+    pub(crate) fn validate_move_orders(orders: &mut [Order]) {
+        for move_idx in orders.collect_unresolved_move_indices() {
+            // 隣接地域への移動は原則有効
+            if Path::can_unit_move_to(
+                &orders[move_idx].unit,
+                orders[move_idx].dest().code(),
+                orders[move_idx].via_convoy(),
+            ) {
+                orders[move_idx].set_valid();
                 continue;
             }
 
-            // 陸軍の遠隔移動は輸送経路が成立している場合のみ有効
-            if let UnitKind::Army(_) = &original_orders[idx].unit.kind {
-                // 目的地が海岸でなければ無効
-                if !m.dest.is_coast() {
-                    original_orders[idx].set_invalid();
-                    continue;
-                }
-
-                // 現在地と目的地が同一の場合は無効
-                if original_orders[idx].location().code() == m.dest.code() {
-                    original_orders[idx].set_invalid();
-                    continue;
-                }
-
-                let matched_convoy_indicies: Vec<usize> =
-                    original_orders.collect_matched_convoy_order_indices(&original_orders[idx]);
-
-                if Self::can_move_via_unresolved_matched_convoy(original_orders, idx, &matched_convoy_indicies) {
-                    original_orders[idx].set_valid();
-                    continue;
-                } else {
-                    original_orders[idx].set_invalid();
-                    continue;
-                }
-            } else {
-                original_orders[idx].set_invalid();
+            // 海軍は遠隔移動不可
+            if let UnitKind::Fleet(_) = &orders[move_idx].unit.kind {
+                orders[move_idx].set_invalid();
                 continue;
             }
+
+            // 陸軍の輸送は目的地が海岸でなければ無効
+            if !orders[move_idx].dest().is_coast() {
+                orders[move_idx].set_invalid();
+                continue;
+            }
+
+            // 輸送前の所在地と目的地が同一の場合は無効
+            if orders[move_idx].location().code() == orders[move_idx].dest().code() {
+                orders[move_idx].set_invalid();
+                continue;
+            }
+
+            // 輸送路の成立見込みがない場合は無効
+            if !Self::can_move_via_unresolved_matched_convoy(orders, move_idx) {
+                orders[move_idx].set_invalid();
+                continue;
+            }
+
+            orders[move_idx].set_valid();
+            continue;
         }
     }
 
@@ -560,21 +551,16 @@ impl Adjudicator {
     }
 
     /// 輸送経路が成立しているかどうかを判定する。
-    fn can_move_via_unresolved_matched_convoy(
-        orders: &[Order],
-        move_order_idx: usize,
-        matched_convoy_indicies: &[usize],
-    ) -> bool {
-        let allowed_waters: HashSet<&str> = matched_convoy_indicies
+    fn can_move_via_unresolved_matched_convoy(orders: &[Order], move_idx: usize) -> bool {
+        let allowed_waters: HashSet<&str> = orders
+            .collect_matched_convoy_order_indices(&orders[move_idx])
             .iter()
             .map(|&idx| orders[idx].location().code())
             .collect();
-        let OrderKind::Move(m) = &orders[move_order_idx].kind else {
-            unreachable!("expected Move")
-        };
+
         Path::is_reachable_by_sea(
-            &orders[move_order_idx].location().code()[..3],
-            &m.dest.code()[..3],
+            &orders[move_idx].location().code()[..3],
+            &orders[move_idx].dest().code()[..3],
             &allowed_waters,
         )
     }
