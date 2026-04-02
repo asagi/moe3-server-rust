@@ -18,7 +18,6 @@ pub trait OrderHelper {
     fn collect_unresolved_support_indices(&self) -> Vec<usize>;
     fn collect_valid_support_orders(&self) -> Vec<Order>;
     fn collect_valid_support_indices(&self) -> Vec<usize>;
-    fn collect_cut_support_indices(&self) -> Vec<usize>;
     fn collect_unresolved_convoy_indices(&self) -> Vec<usize>;
     fn collect_valid_convoy_orders(&self) -> Vec<Order>;
     fn collect_valid_convoy_indices(&self) -> Vec<usize>;
@@ -28,11 +27,11 @@ pub trait OrderHelper {
     fn find_support_target_idx(&self, support_idx: usize) -> Option<usize>;
     fn find_convoy_target_idx(&self, convoy_idx: usize) -> Option<usize>;
     fn find_convoy_at_dest_idx(&self, m: MoveOrder) -> Option<usize>;
-    fn find_support_at_dest_idx(&self, m: MoveOrder) -> Option<usize>;
+    fn find_support_at_dest_idx(&self, move_idx: usize) -> Option<usize>;
     fn find_occupant_order_idx(&self, target_location_code: &str) -> Option<usize>;
     fn get_support_target_move_order_kind(&self, support_order_idx: usize) -> Option<MoveOrder>;
     fn get_support_target_convoy_order_kind(&self, support_order_idx: usize) -> Option<(usize, ConvoyOrder)>;
-    fn count_supports(&self, target_idx: usize) -> usize;
+    fn count_supports(&self, target_idx: usize, exclude_power: Option<&Power>) -> usize;
     fn count_max_supports_for_attackers(&self, attacker_indicies: &[usize], target_idx: usize) -> usize;
     fn has_confliction(&self, target_location_code: &str) -> bool;
     fn occupant_power_on_target(&self, target_code: &str) -> Option<Power>;
@@ -130,15 +129,6 @@ impl OrderHelper for [Order] {
             .collect()
     }
 
-    /// カットされた支援命令のインデックスコレクションを作成
-    fn collect_cut_support_indices(&self) -> Vec<usize> {
-        self.iter()
-            .enumerate()
-            .filter(|(_, o)| !o.is_assumed() && o.is_cut() && matches!(o.kind, OrderKind::Support(_)))
-            .map(|(i, _)| i)
-            .collect()
-    }
-
     /// 未処理の輸送命令のインデックスコレクションを作成
     fn collect_unresolved_convoy_indices(&self) -> Vec<usize> {
         self.iter()
@@ -214,7 +204,10 @@ impl OrderHelper for [Order] {
     }
 
     /// 移動先に支援命令があればその輸送命令のインデックスを返す
-    fn find_support_at_dest_idx(&self, m: MoveOrder) -> Option<usize> {
+    fn find_support_at_dest_idx(&self, move_idx: usize) -> Option<usize> {
+        let OrderKind::Move(m) = self[move_idx].kind else {
+            return None;
+        };
         self.iter()
             .position(|o| o.location() == m.dest && matches!(o.kind, OrderKind::Support(_)))
     }
@@ -247,11 +240,15 @@ impl OrderHelper for [Order] {
     }
 
     /// 対象へのサポート数を数える
-    fn count_supports(&self, target_idx: usize) -> usize {
+    fn count_supports(&self, target_idx: usize, exclude_power: Option<&Power>) -> usize {
         let support_orders = self.collect_valid_support_orders();
         support_orders
             .iter()
             .filter(|s| s.is_matching_target(&self[target_idx]))
+            .filter(|s| match exclude_power {
+                Some(power) => s.power != *power,
+                None => true,
+            })
             .count()
     }
 

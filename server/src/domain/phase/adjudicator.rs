@@ -204,80 +204,53 @@ impl Adjudicator {
     }
 
     /// 輸送妨害の優先解決
-    pub(crate) fn handle_disruption_convoy_order(original_orders: &mut [Order], standoff_province_codes: &mut Vec<String>) {
-        let support_orders = original_orders.collect_valid_support_orders();
-
-        for convoy_order_idx in original_orders.collect_valid_convoy_indices() {
+    pub(crate) fn handle_disruption_convoy_order(orders: &mut [Order], standoff_codes: &mut Vec<String>) {
+        for convoy_idx in orders.collect_valid_convoy_indices() {
             // 輸送命令に対する攻撃競争の勝者を取得
-            let Some(winner_idx) = Self::handle_conflicting(
-                original_orders,
-                original_orders[convoy_order_idx].location().code(),
-                standoff_province_codes,
-                true,
-            ) else {
-                // 勝者がいなければスキップ
+            let contested_code = orders[convoy_idx].location().code();
+            let Some(winner_idx) = Self::handle_conflicting(orders, contested_code, standoff_codes, true) else {
+                // 勝者なし
                 continue;
             };
-            if original_orders[winner_idx].power == original_orders[convoy_order_idx].power {
-                // 勝者が自国軍であればその移動は無条件失敗となりスキップ
-                original_orders[winner_idx].set_failure();
+            if orders[winner_idx].power == orders[convoy_idx].power {
+                // 勝者が自軍であれば攻撃失敗
+                orders[winner_idx].set_failure();
                 continue;
             }
 
-            // 戦闘解決
-            let convoy_supports_count = support_orders
-                .iter()
-                .filter(|o| o.is_matching_target(&original_orders[convoy_order_idx]))
-                .count();
-            let winner_supports_count = support_orders
-                .iter()
-                .filter(|o| {
-                    o.is_matching_target(&original_orders[winner_idx]) && o.power != original_orders[convoy_order_idx].power
-                })
-                .count();
+            // 攻防戦力比較
+            let convoy_supports_count = orders.count_supports(convoy_idx, None);
+            let winner_supports_count = orders.count_supports(winner_idx, Some(&orders[convoy_idx].power));
             if convoy_supports_count >= winner_supports_count {
                 // 攻撃失敗
-                original_orders[winner_idx].set_failure();
+                orders[winner_idx].set_failure();
                 continue;
             }
 
-            // 輸送敗退
-            original_orders[winner_idx].set_success();
-            original_orders[convoy_order_idx].set_dislodged_from(&original_orders[winner_idx].location());
+            // 攻撃成功
+            orders[winner_idx].set_success();
+            orders[convoy_idx].set_dislodged_from(&orders[winner_idx].location());
 
             // 敗退した輸送命令の対象である移動命令の成否を検証
-            let Some(move_order_idx) = original_orders
-                .iter()
-                .position(|o| original_orders[convoy_order_idx].is_matching_target(o))
-            else {
-                unreachable!("move order matching convoy order should exist");
-            };
-            let OrderKind::Move(m) = &original_orders[move_order_idx].kind.clone() else {
-                unreachable!("expected Move")
-            };
-            if Path::is_adjacent(original_orders[move_order_idx].location().code(), m.dest.code())
-                && !m.via_convoy
-                && original_orders
+            let move_idx = orders.find_convoy_target_idx(convoy_idx).expect("expected a target");
+            if Path::is_adjacent(orders[move_idx].location().code(), orders[move_idx].dest().code())
+                && !orders[move_idx].via_convoy()
+                && orders
                     .collect_valid_convoy_orders()
                     .iter()
-                    .find(|o| {
-                        o.is_matching_target(&original_orders[move_order_idx]) && o.power == original_orders[move_order_idx].power
-                    })
+                    .find(|o| o.is_matching_target(&orders[move_idx]) && o.power == orders[move_idx].power)
                     .is_none()
             {
                 // 敗退した輸送命令の対象である移動命令が陸路移動可能かつ海路利用の明示がなければ輸送路切断判定は不要
                 continue;
             }
-            if !Self::can_move_via_valid_convoy(original_orders, move_order_idx, None) {
+            if !Self::can_move_via_valid_convoy(orders, move_idx, None) {
                 // 輸送経路切断による移動失敗
-                original_orders[move_order_idx].set_unreachable();
+                orders[move_idx].set_unreachable();
 
                 // 輸送先にカットされた支援命令があればカットを取り消す
-                for idx in original_orders.collect_cut_support_indices() {
-                    let support_order = &mut original_orders[idx];
-                    if support_order.location().code()[..3] == m.dest.code()[..3] {
-                        support_order.set_valid();
-                    }
+                if let Some(idx) = orders.find_support_at_dest_idx(move_idx) {
+                    orders[idx].set_valid();
                 }
                 continue;
             }
@@ -649,14 +622,12 @@ impl Adjudicator {
         let c_idx = orders.find_convoy_at_dest_idx(m1k)?;
 
         // 支援対象の移動先の輸送命令の輸送対象の移動先が支援命令でなければカット回避失敗（S1 → M1 → C → M2 → S2）
-        let m2k = orders.get_support_target_move_order_kind(c_idx)?;
-
         // 支援対象の移動先の輸送命令の輸送対象移動命令（m2）を取得
         let m2 = orders.iter().find(|o| orders[c_idx].is_matching_target(o))?;
         let m2_idx = orders.iter().position(|o| o == m2)?;
 
         // 支援対象の移動先の輸送命令の輸送対象移動命令の移動先（s2）のインデックスを取得
-        let s2_idx = orders.find_support_at_dest_idx(m2k)?;
+        let s2_idx = orders.find_support_at_dest_idx(m2_idx)?;
 
         // m1 が c を撃退しても m2 の移動経路が維持されるならカット回避失敗
         if Self::can_move_via_valid_convoy(orders, m2_idx, Some(orders[c_idx].location())) {
@@ -758,7 +729,7 @@ impl Adjudicator {
         }
 
         // 自身の支援がなくても輸送海軍が撃退されない見込みなら本ルールによるカット回避不可
-        let convoy_supports_count = orders.count_supports(target_idx).saturating_sub(1);
+        let convoy_supports_count = orders.count_supports(target_idx, None).saturating_sub(1);
         let max_attacker_supports = orders.count_max_supports_for_attackers(&attacker_indicies, target_idx);
         if max_attacker_supports <= convoy_supports_count {
             return true;
