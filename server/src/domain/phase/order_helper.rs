@@ -5,6 +5,7 @@ use crate::domain::order::OrderKind;
 use crate::domain::power::Power;
 use crate::domain::province::Province;
 use indexmap::IndexSet;
+use std::collections::HashSet;
 
 pub trait OrderHelper {
     fn collect_not_invalid_orders(&self) -> Vec<Order>;
@@ -23,9 +24,11 @@ pub trait OrderHelper {
     fn collect_valid_convoy_indices(&self) -> Vec<usize>;
     fn collect_matched_convoy_order_indices(&self, attack_order: &Order) -> Vec<usize>;
     fn collect_valid_move_destination_set(&self) -> IndexSet<Province>;
+    fn collect_fleet_water_codes(&self) -> HashSet<&'static str>;
     fn find_support_target_idx(&self, support_idx: usize) -> Option<usize>;
-    fn find_target_convoy_order_idx(&self, m: MoveOrder) -> Option<usize>;
-    fn find_target_support_order_idx(&self, m: MoveOrder) -> Option<usize>;
+    fn find_convoy_target_idx(&self, convoy_idx: usize) -> Option<usize>;
+    fn find_convoy_at_dest_idx(&self, m: MoveOrder) -> Option<usize>;
+    fn find_support_at_dest_idx(&self, m: MoveOrder) -> Option<usize>;
     fn find_occupant_order_idx(&self, target_location_code: &str) -> Option<usize>;
     fn get_support_target_move_order_kind(&self, support_order_idx: usize) -> Option<MoveOrder>;
     fn get_support_target_convoy_order_kind(&self, support_order_idx: usize) -> Option<(usize, ConvoyOrder)>;
@@ -181,6 +184,14 @@ impl OrderHelper for [Order] {
             .collect()
     }
 
+    /// 水域にいる全ての艦隊の現在地コードのコレクションを作成
+    fn collect_fleet_water_codes(&self) -> HashSet<&'static str> {
+        self.iter()
+            .filter(|o| o.unit.is_fleet() && o.location().is_water())
+            .map(|o| o.location().code())
+            .collect()
+    }
+
     /// 支援対象の命令のインデックスを返す
     /// - Invalid な移動命令は支援対象にならないので除外する
     fn find_support_target_idx(&self, support_idx: usize) -> Option<usize> {
@@ -191,13 +202,19 @@ impl OrderHelper for [Order] {
         })
     }
 
+    /// 輸送対象の移動命令のインデックスを返す
+    fn find_convoy_target_idx(&self, convoy_idx: usize) -> Option<usize> {
+        self.iter()
+            .position(|o| self[convoy_idx].is_matching_target(o) && matches!(o.kind, OrderKind::Move(_)))
+    }
+
     /// 移動先に輸送命令があればその輸送命令のインデックスを返す
-    fn find_target_convoy_order_idx(&self, m: MoveOrder) -> Option<usize> {
+    fn find_convoy_at_dest_idx(&self, m: MoveOrder) -> Option<usize> {
         self.iter().position(|o| o.location() == m.dest)
     }
 
     /// 移動先に支援命令があればその輸送命令のインデックスを返す
-    fn find_target_support_order_idx(&self, m: MoveOrder) -> Option<usize> {
+    fn find_support_at_dest_idx(&self, m: MoveOrder) -> Option<usize> {
         self.iter()
             .position(|o| o.location() == m.dest && matches!(o.kind, OrderKind::Support(_)))
     }

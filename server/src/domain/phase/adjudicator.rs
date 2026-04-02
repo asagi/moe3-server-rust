@@ -92,70 +92,51 @@ impl Adjudicator {
     }
 
     /// 輸送命令検証
-    pub(crate) fn validate_convoy_orders(original_orders: &mut [Order]) {
-        let move_orders = original_orders.collect_valid_move_orders();
-        let allowed_waters: HashSet<&str> = original_orders
-            .iter()
-            .filter(|o| o.unit.is_fleet() && o.location().is_water())
-            .map(|o| o.location().code())
-            .collect();
+    pub(crate) fn validate_convoy_orders(orders: &mut [Order]) {
+        let waters = orders.collect_fleet_water_codes();
 
-        for convoy_order_idx in original_orders.collect_unresolved_convoy_indices() {
-            // 水上にない艦への輸送命令は無効
-            if !original_orders[convoy_order_idx].location().is_water() {
-                original_orders[convoy_order_idx].set_invalid();
+        for convoy_idx in orders.collect_unresolved_convoy_indices() {
+            // 水上にない海軍への輸送命令は無効
+            if !orders[convoy_idx].location().is_water() {
+                orders[convoy_idx].set_invalid();
                 continue;
             }
 
             // 輸送対象の所在地と目的地の両方に海路で接続される可能性がない場合は無効
-            let OrderKind::Convoy(c) = &original_orders[convoy_order_idx].kind.clone() else {
-                unreachable!("expected Convoy")
-            };
-            if !Path::is_adjacent(
-                original_orders[convoy_order_idx].location().code(),
-                c.target_unit.location().code(),
-            ) && !Path::is_reachable_by_sea(
-                &original_orders[convoy_order_idx].location().code()[..3],
-                &c.target_unit.location().code()[..3],
-                &allowed_waters,
+            if !Path::is_reachable_by_sea(
+                orders[convoy_idx].location().code(),
+                orders[convoy_idx].target_unit().location().code(),
+                &waters,
             ) {
-                original_orders[convoy_order_idx].set_invalid();
+                orders[convoy_idx].set_invalid();
                 continue;
             }
-            if !Path::is_adjacent(original_orders[convoy_order_idx].location().code(), c.target_dest.code())
-                && !Path::is_reachable_by_sea(
-                    &original_orders[convoy_order_idx].location().code()[..3],
-                    &c.target_dest.code()[..3],
-                    &allowed_waters,
-                )
-            {
-                original_orders[convoy_order_idx].set_invalid();
-                continue;
-            }
-
-            // 輸送対象移動命令が存在すれば有効、なければ無効
-            if move_orders
-                .iter()
-                .any(|m| original_orders[convoy_order_idx].is_matching_target(m))
-            {
-                original_orders[convoy_order_idx].set_valid();
-
-                // convoy_order の対象移動命令を取得
-                let Some(move_order_idx) = original_orders
-                    .iter()
-                    .position(|m| original_orders[convoy_order_idx].is_matching_target(m))
-                else {
-                    unreachable!("matching move order should exist")
-                };
-
-                if Self::is_convoy_intended(original_orders, convoy_order_idx, move_order_idx) {
-                    // 本輸送命令の存在を以て対象の移動命令の海路利用の意思が示されたものとする
-                    original_orders[move_order_idx].set_via_convoy();
-                }
+            if !Path::is_reachable_by_sea(
+                orders[convoy_idx].location().code(),
+                orders[convoy_idx].target_dest().code(),
+                &waters,
+            ) {
+                orders[convoy_idx].set_invalid();
                 continue;
             }
 
-            original_orders[convoy_order_idx].set_invalid();
+            // 輸送対象移動命令が存在しなければ無効
+            if orders.find_support_target_idx(convoy_idx).is_none() {
+                orders[convoy_idx].set_invalid();
+                continue;
+            }
+
+            // 輸送命令の有効を確定
+            orders[convoy_idx].set_valid();
+
+            // 輸送対象移動命令の海路利用の意思の判定
+            let Some(move_idx) = orders.find_convoy_target_idx(convoy_idx) else {
+                unreachable!("matching move order should exist")
+            };
+            if Self::is_convoy_intended(orders, convoy_idx, move_idx) {
+                // 本輸送命令の存在を以て対象の移動命令の海路利用の意思が示されたものとする
+                orders[move_idx].set_via_convoy();
+            }
             continue;
         }
     }
@@ -569,31 +550,38 @@ impl Adjudicator {
     }
 
     /// 輸送命令の存在によって移動命令に海路利用の意図が示されていたかを判定する。
-    fn is_convoy_intended(original_orders: &[Order], convoy_order_idx: usize, move_order_idx: usize) -> bool {
-        let OrderKind::Convoy(c) = &original_orders[convoy_order_idx].kind.clone() else {
-            unreachable!("expected Convoy")
-        };
-
-        if original_orders[convoy_order_idx].power != original_orders[move_order_idx].power {
+    fn is_convoy_intended(orders: &[Order], convoy_idx: usize, move_idx: usize) -> bool {
+        if orders[convoy_idx].power != orders[move_idx].power {
+            // 輸送命令と移動命令の勢力が異なる場合は海路利用の意図の明示とは認めない
             return false;
         }
 
-        if !Path::is_adjacent(original_orders[move_order_idx].location().code(), c.target_dest.code()) {
-            return true;
-        }
-
-        if !Path::can_convoy_move(original_orders[move_order_idx].location().code(), c.target_dest.code()) {
-            return true;
-        }
-
         if !Path::is_adjacent(
-            original_orders[convoy_order_idx].location().code(),
-            original_orders[move_order_idx].location().code(),
+            orders[convoy_idx].target_unit().location().code(),
+            orders[convoy_idx].target_dest().code(),
+        ) {
+            // 輸送対象の現在地と目的地が隣接していない場合は海路利用の意図の明示とみなす
+            return true;
+        }
+
+        if !Path::can_convoy_move(
+            orders[convoy_idx].target_unit().location().code(),
+            orders[convoy_idx].target_dest().code(),
+        ) {
+            // 輸送対象の現在地と目的地が海軍視点で隣接していない場合は海路利用の意図の明示とみなす
+            return true;
+        }
+
+        // 輸送対象の現在地と目的地が隣接している場合は輸送命令がその両地と隣接していなければ
+        // 海路利用の意図の明示とは認めない
+        if !Path::is_adjacent(
+            orders[convoy_idx].location().code(),
+            orders[convoy_idx].target_unit().location().code(),
         ) {
             return false;
         }
 
-        if !Path::is_adjacent(original_orders[convoy_order_idx].location().code(), c.target_dest.code()) {
+        if !Path::is_adjacent(orders[convoy_idx].location().code(), orders[convoy_idx].target_dest().code()) {
             return false;
         }
 
@@ -683,7 +671,7 @@ impl Adjudicator {
         let m1k = orders.get_support_target_move_order_kind(start_idx)?;
 
         // 支援対象の移動先が輸送命令でなければカット回避失敗（S1 → M1 → C）
-        let c_idx = orders.find_target_convoy_order_idx(m1k)?;
+        let c_idx = orders.find_convoy_at_dest_idx(m1k)?;
 
         // 支援対象の移動先の輸送命令の輸送対象の移動先が支援命令でなければカット回避失敗（S1 → M1 → C → M2 → S2）
         let m2k = orders.get_support_target_move_order_kind(c_idx)?;
@@ -693,7 +681,7 @@ impl Adjudicator {
         let m2_idx = orders.iter().position(|o| o == m2)?;
 
         // 支援対象の移動先の輸送命令の輸送対象移動命令の移動先（s2）のインデックスを取得
-        let s2_idx = orders.find_target_support_order_idx(m2k)?;
+        let s2_idx = orders.find_support_at_dest_idx(m2k)?;
 
         // m1 が c を撃退しても m2 の移動経路が維持されるならカット回避失敗
         if Self::can_move_via_valid_convoy(orders, m2_idx, Some(orders[c_idx].location())) {

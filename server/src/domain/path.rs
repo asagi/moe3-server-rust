@@ -1,3 +1,4 @@
+use super::province::Province;
 use super::unit::Unit;
 use super::unit::UnitKind;
 use std::collections::HashSet;
@@ -505,6 +506,11 @@ impl Path {
     pub fn is_reachable_by_sea(origin: &str, dest: &str, allowed_waters: &HashSet<&str>) -> bool {
         let mut visited: HashSet<&str> = HashSet::new();
         let mut queue: VecDeque<&str> = VecDeque::new();
+
+        // origion が水域の場合は dest が隣接していても true を返す
+        if Province::from_code(origin).expect("valid province code").is_water() && Self::can_convoy_move(origin, dest) {
+            return true;
+        };
 
         // 初期起点を集める
         for p in PATHS.iter().filter(|p| p.fleet && &p.origin[..3] == origin) {

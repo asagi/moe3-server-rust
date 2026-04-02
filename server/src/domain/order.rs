@@ -126,19 +126,32 @@ impl Order {
     /// ユニットの目的地を返す
     pub fn dest(&self) -> Province {
         match &self.kind {
-            OrderKind::Hold(_) => unreachable!("Hold order does not have a destination"),
             OrderKind::Move(m) => m.dest,
-            OrderKind::Support(s) => {
-                if let Some(dest) = s.target_dest {
-                    dest
-                } else {
-                    unreachable!("Support order for non-move order does not have a destination")
-                }
-            }
-            OrderKind::Convoy(c) => c.target_dest,
+            _ => unreachable!("Not move order does not have a destination"),
         }
     }
 
+    /// ターゲットユニットを返す
+    pub fn target_unit(&self) -> Unit {
+        match &self.kind {
+            OrderKind::Support(s) => s.target_unit,
+            OrderKind::Convoy(c) => c.target_unit,
+            _ => unreachable!("Only support and convoy orders have target units"),
+        }
+    }
+
+    /// ターゲットの目的地を返す
+    pub fn target_dest(&self) -> Province {
+        match &self.kind {
+            OrderKind::Support(s) => s
+                .target_dest
+                .expect("Support order should have target_dest if it's a support move order"),
+            OrderKind::Convoy(c) => c.target_dest,
+            _ => unreachable!("Only support and convoy orders have target destinations"),
+        }
+    }
+
+    /// 移動命令で海路指定フラグが立っているかどうかを返す
     pub fn via_convoy(&self) -> bool {
         match &self.kind {
             OrderKind::Move(m) => m.via_convoy,
