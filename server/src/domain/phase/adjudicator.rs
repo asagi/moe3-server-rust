@@ -130,11 +130,9 @@ impl Adjudicator {
             orders[convoy_idx].set_valid();
 
             // 輸送対象移動命令の海路利用の意思の判定
-            let Some(move_idx) = orders.find_convoy_target_idx(convoy_idx) else {
-                unreachable!("matching move order should exist")
-            };
-            if Self::is_convoy_intended(orders, convoy_idx, move_idx) {
+            if Self::is_convoy_intended(orders, convoy_idx) {
                 // 本輸送命令の存在を以て対象の移動命令の海路利用の意思が示されたものとする
+                let move_idx = orders.find_convoy_target_idx(convoy_idx).expect("expected a target");
                 orders[move_idx].set_via_convoy();
             }
             continue;
@@ -524,8 +522,8 @@ impl Adjudicator {
     }
 
     /// 輸送命令の存在によって移動命令に海路利用の意図が示されていたかを判定する。
-    fn is_convoy_intended(orders: &[Order], convoy_idx: usize, move_idx: usize) -> bool {
-        if orders[convoy_idx].power != orders[move_idx].power {
+    fn is_convoy_intended(orders: &[Order], convoy_idx: usize) -> bool {
+        if orders[convoy_idx].power != orders[convoy_idx].target_unit().power {
             // 輸送命令と移動命令の勢力が異なる場合は海路利用の意図の明示とは認めない
             return false;
         }
