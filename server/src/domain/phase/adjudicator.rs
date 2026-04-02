@@ -233,15 +233,8 @@ impl Adjudicator {
 
             // 敗退した輸送命令の対象である移動命令の成否を検証
             let move_idx = orders.find_convoy_target_idx(convoy_idx).expect("expected a target");
-            if Path::is_adjacent(orders[move_idx].location().code(), orders[move_idx].dest().code())
-                && !orders[move_idx].via_convoy()
-                && orders
-                    .collect_valid_convoy_orders()
-                    .iter()
-                    .find(|o| o.is_matching_target(&orders[move_idx]) && o.power == orders[move_idx].power)
-                    .is_none()
-            {
-                // 敗退した輸送命令の対象である移動命令が陸路移動可能かつ海路利用の明示がなければ輸送路切断判定は不要
+            if is_land_move_without_convoy(orders, move_idx) {
+                // 輸送対象が海路利用を明示していなければ輸送路切断からの移動失敗及び支援カット撤回判定は不要（6.G.3）
                 continue;
             }
             if !Self::can_move_via_valid_convoy(orders, move_idx, None) {
@@ -1017,4 +1010,21 @@ impl Adjudicator {
         // attacker の進軍失敗確定で終了
         original_orders[attacker_idx].set_failure();
     }
+}
+
+/// 移動命令に海路利用の明示がないことを判定する
+fn is_land_move_without_convoy(orders: &mut [Order], move_idx: usize) -> bool {
+    // 下記条件をすべて満たす場合は true を返す
+    // - 移動命令の移動先が隣接地域である
+    // - 海路利用の明示がない
+    // - 有効な自国海軍による輸送命令が存在しない
+    if !Path::is_adjacent(orders[move_idx].location().code(), orders[move_idx].dest().code()) {
+        return false;
+    }
+
+    if orders[move_idx].via_convoy() {
+        return false;
+    }
+
+    orders.collect_own_matching_convoy_indices(move_idx).is_empty()
 }

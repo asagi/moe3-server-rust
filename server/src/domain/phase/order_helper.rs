@@ -22,6 +22,7 @@ pub trait OrderHelper {
     fn collect_valid_convoy_orders(&self) -> Vec<Order>;
     fn collect_valid_convoy_indices(&self) -> Vec<usize>;
     fn collect_matched_convoy_order_indices(&self, attack_order: &Order) -> Vec<usize>;
+    fn collect_own_matching_convoy_indices(&self, move_idx: usize) -> Vec<usize>;
     fn collect_valid_move_destination_set(&self) -> IndexSet<Province>;
     fn collect_fleet_water_codes(&self) -> HashSet<&'static str>;
     fn find_support_target_idx(&self, support_idx: usize) -> Option<usize>;
@@ -155,13 +156,23 @@ impl OrderHelper for [Order] {
             .collect()
     }
 
-    /// attack_order にマッチする輸送命令のインデックスコレクションを返す
+    /// 移動命令にマッチする輸送命令のインデックスコレクションを返す
     fn collect_matched_convoy_order_indices(&self, attack_order: &Order) -> Vec<usize> {
         self.iter()
             .enumerate()
             .filter(|(_, o)| {
                 matches!(o.kind, OrderKind::Convoy(_)) && o.is_matching_target(attack_order) && o.location().is_water()
             })
+            .map(|(idx, _)| idx)
+            .collect()
+    }
+
+    /// 移動命令にマッチする自国の輸送命令のインデックスコレクションを返す
+    fn collect_own_matching_convoy_indices(&self, move_idx: usize) -> Vec<usize> {
+        self.iter()
+            .enumerate()
+            .filter(|(_, o)| !o.is_assumed() && o.is_valid() && matches!(o.kind, OrderKind::Convoy(_)))
+            .filter(|(_, o)| o.is_matching_target(&self[move_idx]) && o.power == self[move_idx].power)
             .map(|(idx, _)| idx)
             .collect()
     }
