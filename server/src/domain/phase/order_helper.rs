@@ -10,11 +10,11 @@ use std::collections::HashSet;
 pub trait OrderHelper {
     fn collect_not_assumed_orders(&self) -> Vec<Order>;
     fn collect_not_invalid_orders(&self) -> Vec<Order>;
-    fn collect_valid_order_indices(&self) -> Vec<usize>;
     fn collect_unresolved_indices(&self) -> Vec<usize>;
     fn collect_unresolved_move_indices(&self) -> Vec<usize>;
     fn collect_valid_move_orders(&self) -> Vec<Order>;
     fn collect_valid_move_indices(&self) -> Vec<usize>;
+    fn collect_non_dislodged_move_indices(&self) -> Vec<usize>;
     fn collect_attacker_indicies(&self, target_idx: usize) -> Vec<usize>;
     fn collect_unresolved_support_indices(&self) -> Vec<usize>;
     fn collect_valid_support_orders(&self) -> Vec<Order>;
@@ -31,12 +31,15 @@ pub trait OrderHelper {
     fn find_convoy_at_dest_idx(&self, m: MoveOrder) -> Option<usize>;
     fn find_support_at_dest_idx(&self, move_idx: usize) -> Option<usize>;
     fn find_occupant_order_idx(&self, target_location_code: &str) -> Option<usize>;
+    fn find_opposite_move_idx(&self, move_idx: usize) -> Option<usize>;
     fn get_support_target_move_order_kind(&self, support_order_idx: usize) -> Option<MoveOrder>;
     fn get_support_target_convoy_order_kind(&self, support_order_idx: usize) -> Option<(usize, ConvoyOrder)>;
+    fn get_occupant_power_on_target(&self, target_code: &str) -> Option<Power>;
     fn count_supports(&self, target_idx: usize, exclude_power: Option<&Power>) -> usize;
     fn count_max_supports_for_attackers(&self, attacker_indicies: &[usize], target_idx: usize) -> usize;
+    fn count_supports_without_exclude_power(&self, move_idx: usize, exclude_power: Option<Power>) -> usize;
+    fn has_supports_excluding_occupant_power(&self, move_idx: usize, target_power: Option<Power>) -> bool;
     fn has_confliction(&self, target_location_code: &str) -> bool;
-    fn occupant_power_on_target(&self, target_code: &str) -> Option<Power>;
 }
 
 impl OrderHelper for [Order] {
@@ -51,16 +54,6 @@ impl OrderHelper for [Order] {
             .iter()
             .filter(|o| !o.is_invalid())
             .copied()
-            .collect()
-    }
-
-    /// 全ての有効な命令のインデックスコレクションを作成
-    fn collect_valid_order_indices(&self) -> Vec<usize> {
-        self.collect_not_assumed_orders()
-            .iter()
-            .enumerate()
-            .filter(|(_, o)| !o.is_invalid() && !o.is_dislodged() && !o.is_unreachable())
-            .map(|(i, _)| i)
             .collect()
     }
 
@@ -99,6 +92,17 @@ impl OrderHelper for [Order] {
             .iter()
             .enumerate()
             .filter(|(_, o)| o.is_valid() && matches!(o.kind, OrderKind::Move(_)))
+            .map(|(i, _)| i)
+            .collect()
+    }
+
+    /// 撃退されていない有効な移動命令（失敗判定済み含む）のインデックスコレクションを作成
+    fn collect_non_dislodged_move_indices(&self) -> Vec<usize> {
+        self.collect_not_assumed_orders()
+            .iter()
+            .enumerate()
+            .filter(|(_, o)| matches!(o.kind, OrderKind::Move(_)))
+            .filter(|(_, o)| !o.is_invalid() && !o.is_dislodged() && !o.is_unreachable())
             .map(|(i, _)| i)
             .collect()
     }
@@ -256,6 +260,17 @@ impl OrderHelper for [Order] {
         })
     }
 
+    /// 移動命令に対する対向移動命令のインデックスを返す
+    fn find_opposite_move_idx(&self, move_idx: usize) -> Option<usize> {
+        self.collect_not_assumed_orders().iter().position(|o| match o.kind {
+            OrderKind::Move(_) => {
+                o.location().code()[..3] == self[move_idx].dest().code()[..3]
+                    && o.dest().code()[..3] == self[move_idx].location().code()[..3]
+            }
+            _ => false,
+        })
+    }
+
     /// 支援対象が移動命令であればその移動命令の MoveOrder オブジェクトを返す
     fn get_support_target_move_order_kind(&self, support_order_idx: usize) -> Option<MoveOrder> {
         let target_order = self
@@ -278,6 +293,36 @@ impl OrderHelper for [Order] {
             return None;
         };
         Some((c_idx, *ck))
+    }
+
+    /// 指定地点に非移動命令または失敗が予想される移動命令があればその勢力を返す
+    fn get_occupant_power_on_target(&self, target_code: &str) -> Option<Power> {
+        let occupant_order = self
+            .collect_not_assumed_orders()
+            .into_iter()
+            .find(|o| o.location().code()[..3] == target_code[..3])?;
+
+        if !matches!(occupant_order.kind, OrderKind::Move(_)) {
+            // 非移動命令が存在すればその勢力を返す
+            return Some(occupant_order.unit.power);
+        }
+
+        if occupant_order.is_valid() {
+            // 未処理の移動命令が存在すればその勢力を返す
+            return Some(occupant_order.unit.power);
+        }
+
+        if occupant_order.is_failure() {
+            // 失敗した移動命令が存在すればその勢力を返す
+            return Some(occupant_order.power);
+        }
+
+        if occupant_order.is_success() {
+            // 成功した移動命令は不在とみなす
+            return None;
+        }
+
+        None
     }
 
     /// 対象へのサポート数を数える
@@ -307,6 +352,26 @@ impl OrderHelper for [Order] {
             .unwrap_or(0)
     }
 
+    /// 対象へのサポート数を数える（特定の勢力を除外）
+    fn count_supports_without_exclude_power(&self, move_idx: usize, exclude_power: Option<Power>) -> usize {
+        self.collect_valid_support_orders()
+            .iter()
+            .filter(|s| {
+                s.is_matching_target(&self[move_idx])
+                    && match exclude_power {
+                        Some(p) => s.power != p,
+                        None => true,
+                    }
+            })
+            .count()
+    }
+
+    fn has_supports_excluding_occupant_power(&self, move_idx: usize, target_power: Option<Power>) -> bool {
+        self.collect_valid_support_orders()
+            .iter()
+            .any(|s| s.is_matching_target(&self[move_idx]) && Some(s.power) != target_power)
+    }
+
     /// 指定地点に移動を試みる複数の移動命令が存在するかどうかを判定する。
     fn has_confliction(&self, target_location_code: &str) -> bool {
         self.collect_valid_move_indices()
@@ -320,35 +385,5 @@ impl OrderHelper for [Order] {
             })
             .count()
             > 1
-    }
-
-    /// 指定地点に非移動命令または失敗が予想される移動命令があればその勢力を返す
-    fn occupant_power_on_target(&self, target_code: &str) -> Option<Power> {
-        let occupant_order = self
-            .collect_not_assumed_orders()
-            .into_iter()
-            .find(|o| o.location().code()[..3] == target_code[..3])?;
-
-        if !matches!(occupant_order.kind, OrderKind::Move(_)) {
-            // 非移動命令が存在すればその勢力を返す
-            return Some(occupant_order.unit.power);
-        }
-
-        if occupant_order.is_valid() {
-            // 未処理の移動命令が存在すればその勢力を返す
-            return Some(occupant_order.unit.power);
-        }
-
-        if occupant_order.is_failure() {
-            // 失敗した移動命令が存在すればその勢力を返す
-            return Some(occupant_order.power);
-        }
-
-        if occupant_order.is_success() {
-            // 成功した移動命令は不在とみなす
-            return None;
-        }
-
-        None
     }
 }
