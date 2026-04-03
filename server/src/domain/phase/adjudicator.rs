@@ -45,7 +45,7 @@ impl Adjudicator {
             }
 
             // 輸送路の成立見込みがない場合は無効
-            if !Self::can_move_via_unresolved_matched_convoy(orders, move_idx) {
+            if !can_move_via_unresolved_matched_convoy(orders, move_idx) {
                 orders[move_idx].set_invalid();
                 continue;
             }
@@ -130,7 +130,7 @@ impl Adjudicator {
             orders[convoy_idx].set_valid();
 
             // 輸送対象移動命令の海路利用の意思の判定
-            if Self::is_convoy_intended(orders, convoy_idx) {
+            if is_convoy_intended(orders, convoy_idx) {
                 // 本輸送命令の存在を以て対象の移動命令の海路利用の意思が示されたものとする
                 let move_idx = orders.find_convoy_target_idx(convoy_idx).expect("expected a target");
                 orders[move_idx].set_via_convoy();
@@ -163,38 +163,38 @@ impl Adjudicator {
             }
 
             // cutter が非輸送近接攻撃の場合はカット
-            if Self::is_attacker_without_convoy(orders, cutter_idx) {
+            if is_attacker_without_convoy(orders, cutter_idx) {
                 orders[support_idx].set_cut();
                 continue;
             }
 
             // cutter の輸送経路が成立していなければ経路不成立でカット回避
-            if !Self::can_move_via_valid_convoy(orders, cutter_idx, None) {
+            if !can_move_via_valid_convoy(orders, cutter_idx, None) {
                 continue;
             }
 
             // Szykman ルールに従ったカット回避
-            if Self::should_avoid_cut_due_to_datc_6_f_18(orders, support_idx, cutter_idx) {
+            if should_avoid_cut_due_to_datc_6_f_18(orders, support_idx, cutter_idx) {
                 orders[cutter_idx].set_unreachable();
                 continue;
             }
 
             // 支援対象が移動命令の場合
             if orders.get_support_target_move_order_kind(support_idx).is_some() {
-                if Self::should_avoid_cut_due_to_datc_6_f_22(orders, support_idx, support_idx) {
+                if should_avoid_cut_due_to_datc_6_f_22(orders, support_idx, support_idx) {
                     continue;
                 }
-                if Self::should_avoid_cut_due_to_datc_6_f_24_a(orders, support_idx, support_idx) {
+                if should_avoid_cut_due_to_datc_6_f_24_a(orders, support_idx, support_idx) {
                     continue;
                 }
             };
 
             // 支援対象が輸送命令の場合
             if orders.get_support_target_convoy_order_kind(support_idx).is_some() {
-                if Self::should_avoid_cut_due_to_datc_6_f_23(orders, support_idx, support_idx) {
+                if should_avoid_cut_due_to_datc_6_f_23(orders, support_idx, support_idx) {
                     continue;
                 }
-                if Self::should_avoid_cut_due_to_datc_6_f_24_b(orders, support_idx, support_idx) {
+                if should_avoid_cut_due_to_datc_6_f_24_b(orders, support_idx, support_idx) {
                     continue;
                 }
             }
@@ -208,7 +208,7 @@ impl Adjudicator {
         for convoy_idx in orders.collect_valid_convoy_indices() {
             // 輸送命令に対する攻撃競争の勝者を取得
             let contested_code = orders[convoy_idx].location().code();
-            let Some(winner_idx) = Self::handle_conflicting(orders, contested_code, standoff_codes, true) else {
+            let Some(winner_idx) = handle_conflicting(orders, contested_code, standoff_codes, true) else {
                 // 勝者なし
                 continue;
             };
@@ -220,7 +220,7 @@ impl Adjudicator {
 
             // 攻防戦力比較
             let convoy_supports_count = orders.count_supports(convoy_idx, None);
-            let winner_supports_count = orders.count_supports(winner_idx, Some(&orders[convoy_idx].power));
+            let winner_supports_count = orders.count_supports(winner_idx, Some(orders[convoy_idx].power));
             if convoy_supports_count >= winner_supports_count {
                 // 攻撃失敗
                 orders[winner_idx].set_failure();
@@ -237,7 +237,7 @@ impl Adjudicator {
                 // 輸送対象が海路利用を明示していなければ輸送路切断からの移動失敗及び支援カット撤回判定は不要（6.G.3）
                 continue;
             }
-            if !Self::can_move_via_valid_convoy(orders, move_idx, None) {
+            if !can_move_via_valid_convoy(orders, move_idx, None) {
                 // 輸送経路切断による移動失敗
                 orders[move_idx].set_unreachable();
 
@@ -271,11 +271,9 @@ impl Adjudicator {
             };
 
             // スタンドオフ判定
-            let conflict_winner_idx =
-                Self::handle_conflicting(orders, orders[opposite_idx].location().code(), standoff_codes, false);
-            let opposite_conflict_winner_idx =
-                Self::handle_conflicting(orders, orders[move_idx].location().code(), standoff_codes, false);
-            if conflict_winner_idx.is_none() && opposite_conflict_winner_idx.is_none() {
+            let conflict_winner_idx = handle_conflicting(orders, orders[opposite_idx].location().code(), standoff_codes, false);
+            let opposite_winner_idx = handle_conflicting(orders, orders[move_idx].location().code(), standoff_codes, false);
+            if conflict_winner_idx.is_none() && opposite_winner_idx.is_none() {
                 // 両地域スタンドオフで関連する全軍が移動失敗
                 continue;
             }
@@ -286,8 +284,8 @@ impl Adjudicator {
 
             if !orders[move_idx].is_failure() && !orders[opposite_idx].is_failure() {
                 // どちらも移動可能であれば海路迂回交換移動判定
-                let a_can = Self::can_reach_via_convoy(orders, move_idx);
-                let b_can = Self::can_reach_via_convoy(orders, opposite_idx);
+                let a_can = can_reach_via_convoy(orders, move_idx);
+                let b_can = can_reach_via_convoy(orders, opposite_idx);
                 if a_can || b_can {
                     // どちらか一方が海路迂回移動可能なら両者移動成功
                     orders[move_idx].set_success();
@@ -297,7 +295,7 @@ impl Adjudicator {
             }
 
             // 直接対決
-            let Some(winner_idx) = Self::determine_conflict_winner(orders, move_idx, opposite_idx) else {
+            let Some(winner_idx) = determine_conflict_winner(orders, move_idx, opposite_idx) else {
                 // 勝者なしで両者移動失敗
                 orders[move_idx].set_failure();
                 orders[opposite_idx].set_failure();
@@ -314,39 +312,35 @@ impl Adjudicator {
 
             // BELEAGUERED GARRISON を適用しても勝者が変わらないなら結果を確定させる
             // （そうでなければ判定を保留して次のループへ）
-            if Self::handle_conflicting(orders, orders[loser_idx].location().code(), standoff_codes, true) == Some(winner_idx) {
+            if handle_conflicting(orders, orders[loser_idx].location().code(), standoff_codes, true) == Some(winner_idx) {
                 orders[winner_idx].set_success();
                 orders[loser_idx].set_dislodged_from(&orders[winner_idx].location());
 
                 // 海路迂回移動が絡む場合はスタンドオフの無効化はしない
-                let a_can = Self::can_reach_via_convoy(orders, winner_idx);
-                let b_can = Self::can_reach_via_convoy(orders, loser_idx);
+                let a_can = can_reach_via_convoy(orders, winner_idx);
+                let b_can = can_reach_via_convoy(orders, loser_idx);
                 if a_can || b_can {
                     continue;
                 }
 
                 // 撃退された軍の元所在地に発生させたスタンドオフを解除
-                Self::reset_standoff_failures_to_attacker_origin(orders, winner_idx, loser_idx, standoff_codes);
+                reset_standoff_failures_to_attacker_origin(orders, winner_idx, loser_idx, standoff_codes);
             }
         }
     }
 
     /// 支援命令撃退の優先解決
-    pub(crate) fn handle_dislodging_support_orders(original_orders: &mut [Order], standoff_province_codes: &mut Vec<String>) {
-        for idx in original_orders.collect_valid_support_indices() {
+    pub(crate) fn handle_dislodging_support_orders(orders: &mut [Order], standoff_codes: &mut Vec<String>) {
+        for support_idx in orders.collect_valid_support_indices() {
             // 支援命令に対する攻撃競争の勝者を取得
-            let Some(attacker_idx) = Self::handle_conflicting(
-                original_orders,
-                original_orders[idx].location().code(),
-                standoff_province_codes,
-                true,
-            ) else {
+            let Some(attacker_idx) = handle_conflicting(orders, orders[support_idx].location().code(), standoff_codes, true)
+            else {
                 // 勝者がいなければスキップ
                 continue;
             };
 
             // 支援命令に対する排除の成否判定を実施する
-            Self::resolve_attack_against_non_move(original_orders, attacker_idx, idx);
+            resolve_attack_against_non_move(orders, attacker_idx, support_idx);
         }
     }
 
@@ -377,8 +371,7 @@ impl Adjudicator {
             }
 
             // target_location に対する攻撃競争の勝者を取得
-            let Some(attacker_idx) =
-                Self::handle_conflicting(original_orders, target_location_code, standoff_province_codes, true)
+            let Some(attacker_idx) = handle_conflicting(original_orders, target_location_code, standoff_province_codes, true)
             else {
                 // 勝者がいなければ関係全軍移動失敗
                 dest_snapshots.clear();
@@ -396,7 +389,7 @@ impl Adjudicator {
             // winner の移動成否判定
             if !matches!(original_orders[occupant_idx].kind, OrderKind::Move(_)) {
                 // 移動先の非移動駐留軍に対して排除判定を実施する
-                Self::resolve_attack_against_non_move(original_orders, attacker_idx, occupant_idx);
+                resolve_attack_against_non_move(original_orders, attacker_idx, occupant_idx);
                 dest_snapshots.clear();
                 continue;
             } else {
@@ -423,7 +416,7 @@ impl Adjudicator {
                     }
                     _ => {
                         // 移動先の駐留軍は移動に失敗しているので排除判定を実施する
-                        Self::resolve_no_support_defense(original_orders, attacker_idx, occupant_idx);
+                        resolve_no_support_defense(original_orders, attacker_idx, occupant_idx);
                         dest_snapshots.clear();
                         continue;
                     }
@@ -440,508 +433,504 @@ impl Adjudicator {
             original_orders[idx].set_success();
         }
     }
+}
 
-    /// 輸送経路が成立しているかどうかを判定する。
-    fn can_move_via_unresolved_matched_convoy(orders: &[Order], move_idx: usize) -> bool {
-        let allowed_waters: HashSet<&str> = orders
-            .collect_matched_convoy_order_indices(&orders[move_idx])
-            .iter()
-            .map(|&idx| orders[idx].location().code())
-            .collect();
+/// 輸送経路が成立しているかどうかを判定する。
+fn can_move_via_unresolved_matched_convoy(orders: &[Order], move_idx: usize) -> bool {
+    let allowed_waters: HashSet<&str> = orders
+        .collect_matched_convoy_order_indices(&orders[move_idx])
+        .iter()
+        .map(|&idx| orders[idx].location().code())
+        .collect();
 
-        Path::is_reachable_by_sea(
-            &orders[move_idx].location().code()[..3],
-            &orders[move_idx].dest().code()[..3],
-            &allowed_waters,
-        )
+    Path::is_reachable_by_sea(
+        &orders[move_idx].location().code()[..3],
+        &orders[move_idx].dest().code()[..3],
+        &allowed_waters,
+    )
+}
+
+/// 輸送命令の存在によって移動命令に海路利用の意図が示されていたかを判定する。
+fn is_convoy_intended(orders: &[Order], convoy_idx: usize) -> bool {
+    if orders[convoy_idx].power != orders[convoy_idx].target_unit().power {
+        // 輸送命令と移動命令の勢力が異なる場合は海路利用の意図の明示とは認めない
+        return false;
     }
 
-    /// 輸送命令の存在によって移動命令に海路利用の意図が示されていたかを判定する。
-    fn is_convoy_intended(orders: &[Order], convoy_idx: usize) -> bool {
-        if orders[convoy_idx].power != orders[convoy_idx].target_unit().power {
-            // 輸送命令と移動命令の勢力が異なる場合は海路利用の意図の明示とは認めない
-            return false;
-        }
-
-        if !Path::is_adjacent(
-            orders[convoy_idx].target_unit().location().code(),
-            orders[convoy_idx].target_dest().map(|d| d.code()).unwrap_or(""),
-        ) {
-            // 輸送対象の現在地と目的地が隣接していない場合は海路利用の意図の明示とみなす
-            return true;
-        }
-
-        if !Path::can_convoy_move(
-            orders[convoy_idx].target_unit().location().code(),
-            orders[convoy_idx].target_dest().map(|d| d.code()).unwrap_or(""),
-        ) {
-            // 輸送対象の現在地と目的地が海軍視点で隣接していない場合は海路利用の意図の明示とみなす
-            return true;
-        }
-
-        // 輸送対象の現在地と目的地が隣接している場合は輸送命令がその両地と隣接していなければ
-        // 海路利用の意図の明示とは認めない
-        if !Path::is_adjacent(
-            orders[convoy_idx].location().code(),
-            orders[convoy_idx].target_unit().location().code(),
-        ) {
-            return false;
-        }
-
-        if !Path::is_adjacent(
-            orders[convoy_idx].location().code(),
-            orders[convoy_idx].target_dest().map(|d| d.code()).unwrap_or(""),
-        ) {
-            return false;
-        }
-
-        true
-    }
-
-    /// 輸送経路が成立しているかどうかを判定する。
-    fn can_move_via_valid_convoy(orders: &[Order], move_order_idx: usize, exclude: Option<Province>) -> bool {
-        let convoy_orders = orders.collect_valid_convoy_orders();
-        let OrderKind::Move(m) = &orders[move_order_idx].kind else {
-            unreachable!("expected Move")
-        };
-
-        // 隣接地移動の場合は輸送経路成立には下記いずれかの条件を満たす必要がある
-        // - 移動命令に海路が指定されている
-        // - 自国海軍に該当する輸送命令が出ている
-        // 遠隔地移動の場合は海路指定の明示は必要ない（明示されていても良い）
-        if Path::is_adjacent(orders[move_order_idx].location().code(), m.dest.code())
-            && !m.via_convoy
-            && convoy_orders
-                .iter()
-                .find(|o| o.is_matching_target(&orders[move_order_idx]) && o.power == orders[move_order_idx].power)
-                .is_none()
-        {
-            return false;
-        }
-
-        let matched_convoy_orders: Vec<&Order> = convoy_orders
-            .collect_matched_convoy_order_indices(&orders[move_order_idx])
-            .iter()
-            .filter(|&&idx| Some(convoy_orders[idx].location()) != exclude)
-            .map(|&idx| &convoy_orders[idx])
-            .collect();
-
-        let allowed_waters: HashSet<&str> = matched_convoy_orders.iter().map(|order| order.location().code()).collect();
-        Path::is_reachable_by_sea(
-            &orders[move_order_idx].location().code()[..3],
-            &m.dest.code()[..3],
-            &allowed_waters,
-        )
-    }
-
-    // DATC テストケース 6.F.18 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
-    fn should_avoid_cut_due_to_datc_6_f_18(original_orders: &mut [Order], s1_idx: usize, attacker_idx: usize) -> bool {
-        let cloned_orders = &mut original_orders.to_vec();
-
-        // 支援対象が輸送命令でなければカット回避失敗（S1 → C）
-        let Some((c_idx, ck)) = cloned_orders.get_support_target_convoy_order_kind(s1_idx) else {
-            return false;
-        };
-
-        // 輸送対象の移動先が支援命令でなければカット回避失敗（S1 → C → S2）
-        let Some(s2_idx) = cloned_orders.iter().position(|o| o.location() == ck.target_dest) else {
-            return false;
-        };
-        let OrderKind::Support(_) = &cloned_orders[s2_idx].kind.clone() else {
-            return false;
-        };
-
-        // 自身の支援がなくても輸送海軍が撃退されない見込みなら本ルールによるカット回避不可
-        if Self::is_target_safe_without_own_support(cloned_orders, c_idx) {
-            return false;
-        }
-
-        // 該当の輸送海軍を除いても輸送経路が維持されるのであれば本ルールによるカット回避不可
-        if Self::can_move_via_valid_convoy(cloned_orders, attacker_idx, Some(cloned_orders[c_idx].location())) {
-            return false;
-        }
-        true
-    }
-
-    // DATC テストケース 6.F.22 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
-    fn should_avoid_cut_due_to_datc_6_f_22(original_orders: &[Order], start_idx: usize, end_idx: usize) -> bool {
-        let cloned_orders = &mut original_orders.to_vec();
-
-        let Some(s2_idx) = Self::should_avoid_cut_due_to_datc_6_f_22_core(cloned_orders, start_idx) else {
-            return false;
-        };
-        if s2_idx == end_idx {
-            return true;
-        }
-        Self::should_avoid_cut_due_to_datc_6_f_22(original_orders, s2_idx, end_idx)
-    }
-
-    fn should_avoid_cut_due_to_datc_6_f_22_core(orders: &[Order], start_idx: usize) -> Option<usize> {
-        // 支援対象が移動命令でなければカット回避失敗（S1 → M2）
-        let m1k = orders.get_support_target_move_order_kind(start_idx)?;
-
-        // 支援対象の移動先が輸送命令でなければカット回避失敗（S1 → M1 → C）
-        let c_idx = orders.find_convoy_at_dest_idx(m1k)?;
-
-        // 支援対象の移動先の輸送命令の輸送対象の移動先が支援命令でなければカット回避失敗（S1 → M1 → C → M2 → S2）
-        // 支援対象の移動先の輸送命令の輸送対象移動命令（m2）を取得
-        let m2 = orders.iter().find(|o| orders[c_idx].is_matching_target(o))?;
-        let m2_idx = orders.iter().position(|o| o == m2)?;
-
-        // 支援対象の移動先の輸送命令の輸送対象移動命令の移動先（s2）のインデックスを取得
-        let s2_idx = orders.find_support_at_dest_idx(m2_idx)?;
-
-        // m1 が c を撃退しても m2 の移動経路が維持されるならカット回避失敗
-        if Self::can_move_via_valid_convoy(orders, m2_idx, Some(orders[c_idx].location())) {
-            return None;
-        };
-
-        Some(s2_idx)
-    }
-
-    // DATC テストケース 6.F.23 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
-    fn should_avoid_cut_due_to_datc_6_f_23(original_orders: &[Order], start_idx: usize, end_idx: usize) -> bool {
-        let cloned_orders = &mut original_orders.to_vec();
-
-        let Some(s2_idx) = Self::should_avoid_cut_due_to_datc_6_f_23_core(cloned_orders, start_idx, end_idx) else {
-            return false;
-        };
-        if s2_idx == end_idx {
-            return true;
-        }
-
-        Self::should_avoid_cut_due_to_datc_6_f_23(original_orders, s2_idx, end_idx)
-    }
-
-    fn should_avoid_cut_due_to_datc_6_f_23_core(orders: &[Order], start_idx: usize, end_idx: usize) -> Option<usize> {
-        // 支援対象が輸送命令でなければカット回避失敗（S1 → C）
-        let (c_idx, ck) = orders.get_support_target_convoy_order_kind(start_idx)?;
-
-        // 自身の支援がなくても輸送海軍が撃退されない見込みなら本ルールによるカット回避不可
-        if Self::is_target_safe_without_own_support(orders, c_idx) {
-            return None;
-        }
-
-        // 輸送対象の移動先が支援命令でなければカット回避失敗（S1 → C → M1 → S2）
-        let s2_idx = orders.iter().position(|o| o.location() == ck.target_dest)?;
-        let OrderKind::Support(_) = &orders[s2_idx].kind.clone() else {
-            return None;
-        };
-
-        // 支援対象の輸送対象を取得
-        let attack_order_idx = orders.iter().position(|o| orders[c_idx].is_matching_target(o))?;
-
-        // 該当の輸送海軍を除いても輸送経路が維持されるのであれば本ルールによるカット回避不可
-        if Self::can_move_via_valid_convoy(orders, attack_order_idx, Some(orders[c_idx].location())) {
-            return None;
-        }
-
-        if s2_idx == end_idx && orders[attack_order_idx].power == orders[end_idx].power {
-            // 自軍輸送での循環攻撃偽装によるカット回避は認めない
-            return None;
-        }
-
-        Some(s2_idx)
-    }
-
-    // DATC テストケース 6.F.24 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
-    fn should_avoid_cut_due_to_datc_6_f_24_a(original_orders: &[Order], s1_idx: usize, end_idx: usize) -> bool {
-        let cloned_orders = &mut original_orders.to_vec();
-
-        let Some(s2_idx) = Self::should_avoid_cut_due_to_datc_6_f_22_core(cloned_orders, s1_idx) else {
-            return false;
-        };
-
-        let Some(s3_idx) = Self::should_avoid_cut_due_to_datc_6_f_23_core(cloned_orders, s2_idx, end_idx) else {
-            return false;
-        };
-
-        if s3_idx == end_idx {
-            return true;
-        }
-
-        Self::should_avoid_cut_due_to_datc_6_f_24_a(original_orders, s3_idx, end_idx)
-    }
-
-    // DATC テストケース 6.F.24 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
-    fn should_avoid_cut_due_to_datc_6_f_24_b(original_orders: &[Order], s1_idx: usize, end_idx: usize) -> bool {
-        let cloned_orders = &mut original_orders.to_vec();
-
-        let Some(s2_idx) = Self::should_avoid_cut_due_to_datc_6_f_23_core(cloned_orders, s1_idx, end_idx) else {
-            return false;
-        };
-
-        let Some(s3_idx) = Self::should_avoid_cut_due_to_datc_6_f_22_core(cloned_orders, s2_idx) else {
-            return false;
-        };
-
-        if s3_idx == end_idx {
-            return true;
-        }
-
-        Self::should_avoid_cut_due_to_datc_6_f_24_b(original_orders, s3_idx, end_idx)
-    }
-
-    /// 対象への攻撃命令が支援を一つ減らした状態で撃退されない見込みかどうかを判定する
-    fn is_target_safe_without_own_support(orders: &[Order], target_idx: usize) -> bool {
-        // 輸送海軍を攻撃する移動命令を収集（自国軍を除く）
-        let attacker_indicies = orders.collect_attacker_indicies(target_idx);
-        if attacker_indicies.is_empty() {
-            return true;
-        }
-
-        // 自身の支援がなくても輸送海軍が撃退されない見込みなら本ルールによるカット回避不可
-        let convoy_supports_count = orders.count_supports(target_idx, None).saturating_sub(1);
-        let max_attacker_supports = orders.count_max_supports_for_attackers(&attacker_indicies, target_idx);
-        if max_attacker_supports <= convoy_supports_count {
-            return true;
-        }
-        false
-    }
-
-    /// 戦闘解決
-    fn handle_conflicting(
-        orders: &mut [Order],
-        target_code: &str,
-        standoff_codes: &mut Vec<String>,
-        enable_bg: bool,
-    ) -> Option<usize> {
-        // BELEAGUERED GARRISON が有効な場合は既に失敗判定された移動命令（敗退済みを除く）も再判定に加える
-        let move_indices: Vec<usize> = if enable_bg {
-            orders.collect_non_dislodged_move_indices()
-        } else {
-            orders.collect_valid_move_indices()
-        };
-        let conflicting_indices: Vec<usize> = move_indices
-            .into_iter()
-            .filter(|&idx| orders[idx].dest().code()[..3] == target_code[..3])
-            .collect();
-
-        // 移動命令がなければ勝者なしで終了
-        if conflicting_indices.is_empty() {
-            return None;
-        }
-
-        // 移動命令が 1 つなら即勝者確定で終了
-        if conflicting_indices.len() == 1 {
-            let winner_idx = conflicting_indices[0];
-            return Some(winner_idx);
-        }
-
-        // 指定地点に非移動命令か失敗した移動命令があればその勢力を取得
-        let occupant_power = if enable_bg {
-            orders.get_occupant_power_on_target(target_code)
-        } else {
-            None
-        };
-
-        // 戦闘解決
-        let winner_idx =
-            Self::handle_conflicting_core(orders, &conflicting_indices, target_code, standoff_codes, occupant_power)?;
-
-        // DATC の解釈では
-        // - 自軍撃退支援を有効とすることで逆にスタンドオフが発生して撃退を回避できるならその支援は有効
-        // - そうでなければその支援は無効
-        if occupant_power.is_none() {
-            // 指定地点に駐留軍がいないなら自己撃退支援の有効無効は関係ないので勝者確定で判定終了
-            return Some(winner_idx);
-        }
-
-        // 駐留軍の自己撃退支援有効での判定についての検証
-        if orders.has_supports_excluding_occupant_power(winner_idx, occupant_power) {
-            // 勝者に一つ以上の支援の付いている場合は自己撃退支援無効の条件で再判定した結果を正とする
-            return Self::handle_conflicting_core(orders, &conflicting_indices, target_code, standoff_codes, None);
-        }
-
-        // 勝者に有効な支援がなければ駐留軍の自己撃退含めて支援がなかったということで勝者確定で判定終了
-        Some(winner_idx)
-    }
-
-    /// 戦闘解決コア
-    fn handle_conflicting_core(
-        orders: &mut [Order],
-        conflicting_indices: &[usize],
-        target_code: &str,
-        standoff_codes: &mut Vec<String>,
-        occupant_power: Option<Power>,
-    ) -> Option<usize> {
-        // 支援数集計
-        // - support_counts: (move_idx, 支援数) の配列
-        // - support_counts は 支援数降順（戦力順）にソートする
-        let mut strength_table: Vec<(usize, usize)> = conflicting_indices
-            .iter()
-            .map(|&idx| (idx, orders.count_supports_without_exclude_power(idx, occupant_power)))
-            .collect();
-        strength_table.sort_by(|a, b| b.1.cmp(&a.1));
-
-        // 戦力比較
-        let Some(winner_idx) = Self::get_unique_winner_idx(&strength_table) else {
-            // 単独勝利なしで全軍移動失敗
-            for (idx, _) in strength_table {
-                orders[idx].set_failure();
-            }
-
-            // スタンドオフ地点を記録
-            standoff_codes.push(target_code[..3].to_string());
-            return None;
-        };
-
-        // 単独勝者以外の全軍移動失敗
-        for (idx, _) in strength_table {
-            if idx != winner_idx {
-                orders[idx].set_failure();
-            }
-        }
-
-        Some(winner_idx)
-    }
-
-    /// 戦力比較の結果、単独勝利が存在しないことを判定する。
-    fn get_unique_winner_idx(strength_table: &[(usize, usize)]) -> Option<usize> {
-        if strength_table
-            .iter()
-            .filter(|(_, count)| *count == strength_table[0].1)
-            .count()
-            == 1
-        {
-            return Some(strength_table[0].0);
-        }
-        None
-    }
-
-    /// 移動命令の移動先に対して、既存の有効な輸送命令群で海路到達可能か判定する。
-    fn can_reach_via_convoy(original_orders: &[Order], move_order_idx: usize) -> bool {
-        if original_orders[move_order_idx].unit.is_fleet() {
-            // 陸軍以外は海路迂回不可
-            return false;
-        }
-
-        let OrderKind::Move(m) = &original_orders[move_order_idx].kind else {
-            unreachable!("expected Move");
-        };
-        if !m.via_convoy {
-            return false;
-        }
-
-        Self::can_move_via_valid_convoy(original_orders, move_order_idx, None)
-    }
-
-    /// 移動命令が非輸送近接攻撃かどうかを判定する。
-    fn is_attacker_without_convoy(orders: &[Order], move_idx: usize) -> bool {
-        if orders[move_idx].via_convoy() {
-            return false;
-        }
-        Path::can_unit_move_to(&orders[move_idx].unit, orders[move_idx].dest().code(), false)
-    }
-
-    /// 交換移動命令双方の支援が生きている前提で支援数を比較し勝者のインデックスを返す。
-    /// - 同点または同勢力の場合は `None` を返す
-    fn determine_conflict_winner(orders: &[Order], a_idx: usize, b_idx: usize) -> Option<usize> {
-        // 自軍同士は勝者なし
-        if orders[a_idx].power == orders[b_idx].power {
-            return None;
-        }
-
-        let support_indices = orders.collect_valid_support_indices();
-        let a_supports = support_indices
-            .iter()
-            .copied()
-            .filter(|&idx| orders[idx].is_matching_target(&orders[a_idx]) && orders[idx].power != orders[b_idx].power)
-            .count();
-        let b_supports = support_indices
-            .iter()
-            .copied()
-            .filter(|&idx| orders[idx].is_matching_target(&orders[b_idx]) && orders[idx].power != orders[a_idx].power)
-            .count();
-
-        match a_supports.cmp(&b_supports) {
-            Ordering::Greater => Some(a_idx),
-            Ordering::Less => Some(b_idx),
-            Ordering::Equal => None,
-        }
-    }
-
-    /// 撃退された命令が攻撃側の元所在地に発生させたスタンドオフを無効化する。
-    fn reset_standoff_failures_to_attacker_origin(
-        original_orders: &mut [Order],
-        attacker_idx: usize,
-        defender_idx: usize,
-        standoff_province_codes: &mut Vec<String>,
+    if !Path::is_adjacent(
+        orders[convoy_idx].target_unit().location().code(),
+        orders[convoy_idx].target_dest().map(|d| d.code()).unwrap_or(""),
     ) {
-        // 防御側が撃退されていなければ処理は不要
-        if !original_orders[defender_idx].is_dislodged() {
-            return;
-        }
-
-        let origin_code = &original_orders[attacker_idx].location().code()[..3];
-        for order in original_orders.iter_mut() {
-            if order.is_assumed() || !order.is_failure() {
-                continue;
-            }
-            if let OrderKind::Move(m) = &order.kind
-                && &m.dest.code()[..3] == origin_code
-            {
-                order.set_valid();
-            }
-        }
-
-        standoff_province_codes.retain(|code| code != origin_code);
+        // 輸送対象の現在地と目的地が隣接していない場合は海路利用の意図の明示とみなす
+        return true;
     }
 
-    /// 移動命令 `attacker_idx` が非移動命令 `defender_idx` を攻撃したときの判定を行う。
-    /// - attacker が勝てば attacker を success、defender を dislodged_from(attacker.location()) にする。
-    /// - attacker が負ければ attacker を failure にする。
-    /// - 同勢力の場合は attacker を failure にする。
-    fn resolve_attack_against_non_move(original_orders: &mut [Order], attacker_idx: usize, defender_idx: usize) {
-        // 自軍攻撃は失敗
-        if original_orders[attacker_idx].power == original_orders[defender_idx].power {
-            original_orders[attacker_idx].set_failure();
-            return;
+    if !Path::can_convoy_move(
+        orders[convoy_idx].target_unit().location().code(),
+        orders[convoy_idx].target_dest().map(|d| d.code()).unwrap_or(""),
+    ) {
+        // 輸送対象の現在地と目的地が海軍視点で隣接していない場合は海路利用の意図の明示とみなす
+        return true;
+    }
+
+    // 輸送対象の現在地と目的地が隣接している場合は輸送命令がその両地と隣接していなければ
+    // 海路利用の意図の明示とは認めない
+    if !Path::is_adjacent(
+        orders[convoy_idx].location().code(),
+        orders[convoy_idx].target_unit().location().code(),
+    ) {
+        return false;
+    }
+
+    if !Path::is_adjacent(
+        orders[convoy_idx].location().code(),
+        orders[convoy_idx].target_dest().map(|d| d.code()).unwrap_or(""),
+    ) {
+        return false;
+    }
+
+    true
+}
+
+/// 輸送経路が成立しているかどうかを判定する。
+fn can_move_via_valid_convoy(orders: &[Order], move_order_idx: usize, exclude: Option<Province>) -> bool {
+    let convoy_orders = orders.collect_valid_convoy_orders();
+    let OrderKind::Move(m) = &orders[move_order_idx].kind else {
+        unreachable!("expected Move")
+    };
+
+    // 隣接地移動の場合は輸送経路成立には下記いずれかの条件を満たす必要がある
+    // - 移動命令に海路が指定されている
+    // - 自国海軍に該当する輸送命令が出ている
+    // 遠隔地移動の場合は海路指定の明示は必要ない（明示されていても良い）
+    if Path::is_adjacent(orders[move_order_idx].location().code(), m.dest.code())
+        && !m.via_convoy
+        && convoy_orders
+            .iter()
+            .find(|o| o.is_matching_target(&orders[move_order_idx]) && o.power == orders[move_order_idx].power)
+            .is_none()
+    {
+        return false;
+    }
+
+    let matched_convoy_orders: Vec<&Order> = convoy_orders
+        .collect_matched_convoy_order_indices(&orders[move_order_idx])
+        .iter()
+        .filter(|&&idx| Some(convoy_orders[idx].location()) != exclude)
+        .map(|&idx| &convoy_orders[idx])
+        .collect();
+
+    let allowed_waters: HashSet<&str> = matched_convoy_orders.iter().map(|order| order.location().code()).collect();
+    Path::is_reachable_by_sea(
+        &orders[move_order_idx].location().code()[..3],
+        &m.dest.code()[..3],
+        &allowed_waters,
+    )
+}
+
+// DATC テストケース 6.F.18 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
+fn should_avoid_cut_due_to_datc_6_f_18(original_orders: &mut [Order], s1_idx: usize, attacker_idx: usize) -> bool {
+    let cloned_orders = &mut original_orders.to_vec();
+
+    // 支援対象が輸送命令でなければカット回避失敗（S1 → C）
+    let Some((c_idx, ck)) = cloned_orders.get_support_target_convoy_order_kind(s1_idx) else {
+        return false;
+    };
+
+    // 輸送対象の移動先が支援命令でなければカット回避失敗（S1 → C → S2）
+    let Some(s2_idx) = cloned_orders.iter().position(|o| o.location() == ck.target_dest) else {
+        return false;
+    };
+    let OrderKind::Support(_) = &cloned_orders[s2_idx].kind.clone() else {
+        return false;
+    };
+
+    // 自身の支援がなくても輸送海軍が撃退されない見込みなら本ルールによるカット回避不可
+    if is_target_safe_without_own_support(cloned_orders, c_idx) {
+        return false;
+    }
+
+    // 該当の輸送海軍を除いても輸送経路が維持されるのであれば本ルールによるカット回避不可
+    if can_move_via_valid_convoy(cloned_orders, attacker_idx, Some(cloned_orders[c_idx].location())) {
+        return false;
+    }
+    true
+}
+
+// DATC テストケース 6.F.22 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
+fn should_avoid_cut_due_to_datc_6_f_22(original_orders: &[Order], start_idx: usize, end_idx: usize) -> bool {
+    let cloned_orders = &mut original_orders.to_vec();
+
+    let Some(s2_idx) = should_avoid_cut_due_to_datc_6_f_22_core(cloned_orders, start_idx) else {
+        return false;
+    };
+    if s2_idx == end_idx {
+        return true;
+    }
+    should_avoid_cut_due_to_datc_6_f_22(original_orders, s2_idx, end_idx)
+}
+
+fn should_avoid_cut_due_to_datc_6_f_22_core(orders: &[Order], start_idx: usize) -> Option<usize> {
+    // 支援対象が移動命令でなければカット回避失敗（S1 → M2）
+    let m1k = orders.get_support_target_move_order_kind(start_idx)?;
+
+    // 支援対象の移動先が輸送命令でなければカット回避失敗（S1 → M1 → C）
+    let c_idx = orders.find_convoy_at_dest_idx(m1k)?;
+
+    // 支援対象の移動先の輸送命令の輸送対象の移動先が支援命令でなければカット回避失敗（S1 → M1 → C → M2 → S2）
+    // 支援対象の移動先の輸送命令の輸送対象移動命令（m2）を取得
+    let m2 = orders.iter().find(|o| orders[c_idx].is_matching_target(o))?;
+    let m2_idx = orders.iter().position(|o| o == m2)?;
+
+    // 支援対象の移動先の輸送命令の輸送対象移動命令の移動先（s2）のインデックスを取得
+    let s2_idx = orders.find_support_at_dest_idx(m2_idx)?;
+
+    // m1 が c を撃退しても m2 の移動経路が維持されるならカット回避失敗
+    if can_move_via_valid_convoy(orders, m2_idx, Some(orders[c_idx].location())) {
+        return None;
+    };
+
+    Some(s2_idx)
+}
+
+// DATC テストケース 6.F.23 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
+fn should_avoid_cut_due_to_datc_6_f_23(original_orders: &[Order], start_idx: usize, end_idx: usize) -> bool {
+    let cloned_orders = &mut original_orders.to_vec();
+
+    let Some(s2_idx) = should_avoid_cut_due_to_datc_6_f_23_core(cloned_orders, start_idx, end_idx) else {
+        return false;
+    };
+    if s2_idx == end_idx {
+        return true;
+    }
+
+    should_avoid_cut_due_to_datc_6_f_23(original_orders, s2_idx, end_idx)
+}
+
+fn should_avoid_cut_due_to_datc_6_f_23_core(orders: &[Order], start_idx: usize, end_idx: usize) -> Option<usize> {
+    // 支援対象が輸送命令でなければカット回避失敗（S1 → C）
+    let (c_idx, ck) = orders.get_support_target_convoy_order_kind(start_idx)?;
+
+    // 自身の支援がなくても輸送海軍が撃退されない見込みなら本ルールによるカット回避不可
+    if is_target_safe_without_own_support(orders, c_idx) {
+        return None;
+    }
+
+    // 輸送対象の移動先が支援命令でなければカット回避失敗（S1 → C → M1 → S2）
+    let s2_idx = orders.iter().position(|o| o.location() == ck.target_dest)?;
+    let OrderKind::Support(_) = &orders[s2_idx].kind.clone() else {
+        return None;
+    };
+
+    // 支援対象の輸送対象を取得
+    let attack_order_idx = orders.iter().position(|o| orders[c_idx].is_matching_target(o))?;
+
+    // 該当の輸送海軍を除いても輸送経路が維持されるのであれば本ルールによるカット回避不可
+    if can_move_via_valid_convoy(orders, attack_order_idx, Some(orders[c_idx].location())) {
+        return None;
+    }
+
+    if s2_idx == end_idx && orders[attack_order_idx].power == orders[end_idx].power {
+        // 自軍輸送での循環攻撃偽装によるカット回避は認めない
+        return None;
+    }
+
+    Some(s2_idx)
+}
+
+// DATC テストケース 6.F.24 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
+fn should_avoid_cut_due_to_datc_6_f_24_a(original_orders: &[Order], s1_idx: usize, end_idx: usize) -> bool {
+    let cloned_orders = &mut original_orders.to_vec();
+
+    let Some(s2_idx) = should_avoid_cut_due_to_datc_6_f_22_core(cloned_orders, s1_idx) else {
+        return false;
+    };
+
+    let Some(s3_idx) = should_avoid_cut_due_to_datc_6_f_23_core(cloned_orders, s2_idx, end_idx) else {
+        return false;
+    };
+
+    if s3_idx == end_idx {
+        return true;
+    }
+
+    should_avoid_cut_due_to_datc_6_f_24_a(original_orders, s3_idx, end_idx)
+}
+
+// DATC テストケース 6.F.24 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
+fn should_avoid_cut_due_to_datc_6_f_24_b(original_orders: &[Order], s1_idx: usize, end_idx: usize) -> bool {
+    let cloned_orders = &mut original_orders.to_vec();
+
+    let Some(s2_idx) = should_avoid_cut_due_to_datc_6_f_23_core(cloned_orders, s1_idx, end_idx) else {
+        return false;
+    };
+
+    let Some(s3_idx) = should_avoid_cut_due_to_datc_6_f_22_core(cloned_orders, s2_idx) else {
+        return false;
+    };
+
+    if s3_idx == end_idx {
+        return true;
+    }
+
+    should_avoid_cut_due_to_datc_6_f_24_b(original_orders, s3_idx, end_idx)
+}
+
+/// 対象への攻撃命令が支援を一つ減らした状態で撃退されない見込みかどうかを判定する
+fn is_target_safe_without_own_support(orders: &[Order], target_idx: usize) -> bool {
+    // 輸送海軍を攻撃する移動命令を収集（自国軍を除く）
+    let attacker_indicies = orders.collect_attacker_indicies(target_idx);
+    if attacker_indicies.is_empty() {
+        return true;
+    }
+
+    // 自身の支援がなくても輸送海軍が撃退されない見込みなら本ルールによるカット回避不可
+    let convoy_supports_count = orders.count_supports(target_idx, None).saturating_sub(1);
+    let max_attacker_supports = orders.count_max_supports_for_attackers(&attacker_indicies, target_idx);
+    if max_attacker_supports <= convoy_supports_count {
+        return true;
+    }
+    false
+}
+
+/// 戦闘解決
+fn handle_conflicting(
+    orders: &mut [Order],
+    target_code: &str,
+    standoff_codes: &mut Vec<String>,
+    enable_bg: bool,
+) -> Option<usize> {
+    // BELEAGUERED GARRISON が有効な場合は既に失敗判定された移動命令（敗退済みを除く）も再判定に加える
+    let move_indices: Vec<usize> = if enable_bg {
+        orders.collect_non_dislodged_move_indices()
+    } else {
+        orders.collect_valid_move_indices()
+    };
+    let conflicting_indices: Vec<usize> = move_indices
+        .into_iter()
+        .filter(|&idx| orders[idx].dest().code()[..3] == target_code[..3])
+        .collect();
+
+    // 移動命令がなければ勝者なしで終了
+    if conflicting_indices.is_empty() {
+        return None;
+    }
+
+    // 移動命令が 1 つなら即勝者確定で終了
+    if conflicting_indices.len() == 1 {
+        let winner_idx = conflicting_indices[0];
+        return Some(winner_idx);
+    }
+
+    // 指定地点に非移動命令か失敗した移動命令があればその勢力を取得
+    let occupant_power = if enable_bg {
+        orders.get_occupant_power_on_target(target_code)
+    } else {
+        None
+    };
+
+    // 戦闘解決
+    let winner_idx = handle_conflicting_core(orders, &conflicting_indices, target_code, standoff_codes, occupant_power)?;
+
+    // DATC の解釈では
+    // - 自軍撃退支援を有効とすることで逆にスタンドオフが発生して撃退を回避できるならその支援は有効
+    // - そうでなければその支援は無効
+    if occupant_power.is_none() {
+        // 指定地点に駐留軍がいないなら自己撃退支援の有効無効は関係ないので勝者確定で判定終了
+        return Some(winner_idx);
+    }
+
+    // 駐留軍の自己撃退支援有効での判定についての検証
+    if orders.has_supports_excluding_occupant_power(winner_idx, occupant_power) {
+        // 勝者に一つ以上の支援の付いている場合は自己撃退支援無効の条件で再判定した結果を正とする
+        return handle_conflicting_core(orders, &conflicting_indices, target_code, standoff_codes, None);
+    }
+
+    // 勝者に有効な支援がなければ駐留軍の自己撃退含めて支援がなかったということで勝者確定で判定終了
+    Some(winner_idx)
+}
+
+/// 戦闘解決コア
+fn handle_conflicting_core(
+    orders: &mut [Order],
+    conflicting_indices: &[usize],
+    target_code: &str,
+    standoff_codes: &mut Vec<String>,
+    occupant_power: Option<Power>,
+) -> Option<usize> {
+    // 戦力比較
+    let strength_table = calc_conflict_strengths(orders, conflicting_indices, occupant_power);
+    let Some(winner_idx) = get_unique_winner_idx(&strength_table) else {
+        // 単独勝利なしで全軍移動失敗
+        for (idx, _) in strength_table {
+            orders[idx].set_failure();
         }
 
-        let support_orders = original_orders.collect_valid_support_orders();
-        let attacker_supports = support_orders
-            .iter()
-            .filter(|s| s.is_matching_target(&original_orders[attacker_idx]) && s.power != original_orders[defender_idx].power)
-            .count();
-        let defender_supports = support_orders
-            .iter()
-            .filter(|s| s.is_matching_target(&original_orders[defender_idx]))
-            .count();
+        // スタンドオフ地点を記録
+        standoff_codes.push(target_code[..3].to_string());
+        return None;
+    };
 
-        if attacker_supports > defender_supports {
-            original_orders[attacker_idx].set_success();
-            original_orders[defender_idx].set_dislodged_from(&original_orders[attacker_idx].location());
-        } else {
-            // 同点・守備優勢ともに攻撃失敗
-            original_orders[attacker_idx].set_failure();
+    // 単独勝者以外の全軍移動失敗
+    for (idx, _) in strength_table {
+        if idx != winner_idx {
+            orders[idx].set_failure();
         }
     }
 
-    /// attacker 進軍成功かつ defender 進軍失敗からの defender の防衛成否判定
-    // - defender は進軍に失敗しているので支援は全て切れている
-    // - attacker に有効な支援が残っていれば進軍成功で defender の敗退
-    fn resolve_no_support_defense(original_orders: &mut [Order], attacker_idx: usize, defender_idx: usize) {
-        let support_orders = original_orders.collect_valid_support_orders();
+    Some(winner_idx)
+}
 
-        if original_orders[attacker_idx].power == original_orders[defender_idx].power {
-            // 自国軍同士の衝突は攻撃失敗
-            original_orders[attacker_idx].set_failure();
-            return;
+/// 戦力比較の結果、単独勝利が存在しないことを判定する。
+fn get_unique_winner_idx(strength_table: &[(usize, usize)]) -> Option<usize> {
+    if strength_table
+        .iter()
+        .filter(|(_, count)| *count == strength_table[0].1)
+        .count()
+        == 1
+    {
+        return Some(strength_table[0].0);
+    }
+    None
+}
+
+/// 移動命令の移動先に対して、既存の有効な輸送命令群で海路到達可能か判定する。
+fn can_reach_via_convoy(original_orders: &[Order], move_order_idx: usize) -> bool {
+    if original_orders[move_order_idx].unit.is_fleet() {
+        // 陸軍以外は海路迂回不可
+        return false;
+    }
+
+    let OrderKind::Move(m) = &original_orders[move_order_idx].kind else {
+        unreachable!("expected Move");
+    };
+    if !m.via_convoy {
+        return false;
+    }
+
+    can_move_via_valid_convoy(original_orders, move_order_idx, None)
+}
+
+/// 移動命令が非輸送近接攻撃かどうかを判定する。
+fn is_attacker_without_convoy(orders: &[Order], move_idx: usize) -> bool {
+    if orders[move_idx].via_convoy() {
+        return false;
+    }
+    Path::can_unit_move_to(&orders[move_idx].unit, orders[move_idx].dest().code(), false)
+}
+
+/// 交換移動命令双方の支援が生きている前提で支援数を比較し勝者のインデックスを返す。
+/// - 同点または同勢力の場合は `None` を返す
+fn determine_conflict_winner(orders: &[Order], a_idx: usize, b_idx: usize) -> Option<usize> {
+    // 自軍同士は勝者なし
+    if orders[a_idx].power == orders[b_idx].power {
+        return None;
+    }
+
+    let support_indices = orders.collect_valid_support_indices();
+    let a_supports = support_indices
+        .iter()
+        .copied()
+        .filter(|&idx| orders[idx].is_matching_target(&orders[a_idx]) && orders[idx].power != orders[b_idx].power)
+        .count();
+    let b_supports = support_indices
+        .iter()
+        .copied()
+        .filter(|&idx| orders[idx].is_matching_target(&orders[b_idx]) && orders[idx].power != orders[a_idx].power)
+        .count();
+
+    match a_supports.cmp(&b_supports) {
+        Ordering::Greater => Some(a_idx),
+        Ordering::Less => Some(b_idx),
+        Ordering::Equal => None,
+    }
+}
+
+/// 撃退された命令が攻撃側の元所在地に発生させたスタンドオフを無効化する。
+fn reset_standoff_failures_to_attacker_origin(
+    original_orders: &mut [Order],
+    attacker_idx: usize,
+    defender_idx: usize,
+    standoff_province_codes: &mut Vec<String>,
+) {
+    // 防御側が撃退されていなければ処理は不要
+    if !original_orders[defender_idx].is_dislodged() {
+        return;
+    }
+
+    let origin_code = &original_orders[attacker_idx].location().code()[..3];
+    for order in original_orders.iter_mut() {
+        if order.is_assumed() || !order.is_failure() {
+            continue;
         }
-        if support_orders
-            .iter()
-            .any(|o| o.is_matching_target(&original_orders[attacker_idx]) && o.power != original_orders[defender_idx].power)
+        if let OrderKind::Move(m) = &order.kind
+            && &m.dest.code()[..3] == origin_code
         {
-            // defender 防衛失敗
-            original_orders[attacker_idx].set_success();
-            original_orders[defender_idx].set_dislodged_from(&original_orders[attacker_idx].location());
-            return;
+            order.set_valid();
         }
-
-        // attacker の進軍失敗確定で終了
-        original_orders[attacker_idx].set_failure();
     }
+
+    standoff_province_codes.retain(|code| code != origin_code);
+}
+
+/// 移動命令が非移動命令を攻撃した場合の判定を行う
+fn resolve_attack_against_non_move(orders: &mut [Order], attacker_idx: usize, defender_idx: usize) {
+    // 自軍攻撃は失敗
+    if orders[attacker_idx].power == orders[defender_idx].power {
+        orders[attacker_idx].set_failure();
+        return;
+    }
+
+    let attacker_supports = orders.count_supports(attacker_idx, Some(orders[defender_idx].power));
+    let defender_supports = orders.count_supports(defender_idx, None);
+    if attacker_supports > defender_supports {
+        orders[attacker_idx].set_success();
+        orders[defender_idx].set_dislodged_from(&orders[attacker_idx].location());
+    } else {
+        // 同点・守備優勢ともに攻撃失敗
+        orders[attacker_idx].set_failure();
+    }
+}
+
+/// attacker 進軍成功かつ defender 進軍失敗からの defender の防衛成否判定
+// - defender は進軍に失敗しているので支援は全て切れている
+// - attacker に有効な支援が残っていれば進軍成功で defender の敗退
+fn resolve_no_support_defense(original_orders: &mut [Order], attacker_idx: usize, defender_idx: usize) {
+    let support_orders = original_orders.collect_valid_support_orders();
+
+    if original_orders[attacker_idx].power == original_orders[defender_idx].power {
+        // 自国軍同士の衝突は攻撃失敗
+        original_orders[attacker_idx].set_failure();
+        return;
+    }
+    if support_orders
+        .iter()
+        .any(|o| o.is_matching_target(&original_orders[attacker_idx]) && o.power != original_orders[defender_idx].power)
+    {
+        // defender 防衛失敗
+        original_orders[attacker_idx].set_success();
+        original_orders[defender_idx].set_dislodged_from(&original_orders[attacker_idx].location());
+        return;
+    }
+
+    // attacker の進軍失敗確定で終了
+    original_orders[attacker_idx].set_failure();
+}
+
+/// 競合戦力の集計
+fn calc_conflict_strengths(
+    orders: &[Order],
+    conflicting_indices: &[usize],
+    occupant_power: Option<Power>,
+) -> Vec<(usize, usize)> {
+    // - strength_table: (move_idx, 支援数) の配列
+    // - strength_table は 支援数降順（戦力順）にソートする
+    let mut strength_table: Vec<(usize, usize)> = conflicting_indices
+        .iter()
+        .map(|&idx| (idx, orders.count_supports(idx, occupant_power)))
+        .collect();
+    strength_table.sort_by(|a, b| b.1.cmp(&a.1));
+    strength_table
 }
 
 /// 移動命令に海路利用の明示がないことを判定する

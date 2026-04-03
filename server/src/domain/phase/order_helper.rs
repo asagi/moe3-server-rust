@@ -30,14 +30,13 @@ pub trait OrderHelper {
     fn find_convoy_target_idx(&self, convoy_idx: usize) -> Option<usize>;
     fn find_convoy_at_dest_idx(&self, m: MoveOrder) -> Option<usize>;
     fn find_support_at_dest_idx(&self, move_idx: usize) -> Option<usize>;
-    fn find_occupant_order_idx(&self, target_location_code: &str) -> Option<usize>;
+    fn find_occupant_order_idx(&self, target_code: &str) -> Option<usize>;
     fn find_opposite_move_idx(&self, move_idx: usize) -> Option<usize>;
-    fn get_support_target_move_order_kind(&self, support_order_idx: usize) -> Option<MoveOrder>;
-    fn get_support_target_convoy_order_kind(&self, support_order_idx: usize) -> Option<(usize, ConvoyOrder)>;
+    fn get_support_target_move_order_kind(&self, support_idx: usize) -> Option<MoveOrder>;
+    fn get_support_target_convoy_order_kind(&self, support_idx: usize) -> Option<(usize, ConvoyOrder)>;
     fn get_occupant_power_on_target(&self, target_code: &str) -> Option<Power>;
-    fn count_supports(&self, target_idx: usize, exclude_power: Option<&Power>) -> usize;
+    fn count_supports(&self, target_idx: usize, exclude_power: Option<Power>) -> usize;
     fn count_max_supports_for_attackers(&self, attacker_indicies: &[usize], target_idx: usize) -> usize;
-    fn count_supports_without_exclude_power(&self, move_idx: usize, exclude_power: Option<Power>) -> usize;
     fn has_supports_excluding_occupant_power(&self, move_idx: usize, target_power: Option<Power>) -> bool;
     fn has_confliction(&self, target_location_code: &str) -> bool;
 }
@@ -326,12 +325,12 @@ impl OrderHelper for [Order] {
     }
 
     /// 対象へのサポート数を数える
-    fn count_supports(&self, target_idx: usize, exclude_power: Option<&Power>) -> usize {
+    fn count_supports(&self, target_idx: usize, exclude_power: Option<Power>) -> usize {
         self.collect_valid_support_orders()
             .iter()
             .filter(|s| s.is_matching_target(&self[target_idx]))
             .filter(|s| match exclude_power {
-                Some(power) => s.power != *power,
+                Some(power) => s.power != power,
                 None => true,
             })
             .count()
@@ -350,20 +349,6 @@ impl OrderHelper for [Order] {
             })
             .max()
             .unwrap_or(0)
-    }
-
-    /// 対象へのサポート数を数える（特定の勢力を除外）
-    fn count_supports_without_exclude_power(&self, move_idx: usize, exclude_power: Option<Power>) -> usize {
-        self.collect_valid_support_orders()
-            .iter()
-            .filter(|s| {
-                s.is_matching_target(&self[move_idx])
-                    && match exclude_power {
-                        Some(p) => s.power != p,
-                        None => true,
-                    }
-            })
-            .count()
     }
 
     fn has_supports_excluding_occupant_power(&self, move_idx: usize, target_power: Option<Power>) -> bool {
