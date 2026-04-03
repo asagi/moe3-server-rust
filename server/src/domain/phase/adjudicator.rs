@@ -169,7 +169,7 @@ impl Adjudicator {
             }
 
             // cutter の輸送経路が成立していなければ経路不成立でカット回避
-            if !can_move_via_valid_convoy(orders, cutter_idx, None) {
+            if !can_move_via_valid_matched_convoy(orders, cutter_idx, None) {
                 continue;
             }
 
@@ -237,7 +237,7 @@ impl Adjudicator {
                 // 輸送対象が海路利用を明示していなければ輸送路切断からの移動失敗及び支援カット撤回判定は不要（6.G.3）
                 continue;
             }
-            if !can_move_via_valid_convoy(orders, move_idx, None) {
+            if !can_move_via_valid_matched_convoy(orders, move_idx, None) {
                 // 輸送経路切断による移動失敗
                 orders[move_idx].set_unreachable();
 
@@ -437,16 +437,31 @@ impl Adjudicator {
 
 /// 輸送経路が成立しているかどうかを判定する。
 fn can_move_via_unresolved_matched_convoy(orders: &[Order], move_idx: usize) -> bool {
-    let allowed_waters: HashSet<&str> = orders
-        .collect_matched_convoy_order_indices(&orders[move_idx])
-        .iter()
-        .map(|&idx| orders[idx].location().code())
-        .collect();
+    Path::is_reachable_by_sea(
+        &orders[move_idx].location().code()[..3],
+        &orders[move_idx].dest().code()[..3],
+        &orders.get_unresolved_allowed_waters(move_idx),
+    )
+}
+
+/// 輸送経路が成立しているかどうかを判定する。
+fn can_move_via_valid_matched_convoy(orders: &[Order], move_idx: usize, exclude: Option<Province>) -> bool {
+    // 隣接地移動の場合は輸送経路成立には下記いずれかの条件を満たす必要がある
+    // - 移動命令に海路が指定されている
+    // - 自国海軍に該当する輸送命令が出ている
+    // 遠隔地移動の場合は海路指定の明示は必要ない（明示されていても良い）
+    if Path::is_adjacent(orders[move_idx].location().code(), orders[move_idx].dest().code())
+        && !orders[move_idx].via_convoy()
+        && orders.collect_own_matching_convoy_indices(move_idx).is_empty()
+    {
+        // 隣接地移動かつどちらの条件にも該当しない場合は輸送経路不成立
+        return false;
+    }
 
     Path::is_reachable_by_sea(
         &orders[move_idx].location().code()[..3],
         &orders[move_idx].dest().code()[..3],
-        &allowed_waters,
+        &orders.get_valid_allowed_waters(move_idx, exclude),
     )
 }
 
@@ -492,42 +507,6 @@ fn is_convoy_intended(orders: &[Order], convoy_idx: usize) -> bool {
     true
 }
 
-/// 輸送経路が成立しているかどうかを判定する。
-fn can_move_via_valid_convoy(orders: &[Order], move_order_idx: usize, exclude: Option<Province>) -> bool {
-    let convoy_orders = orders.collect_valid_convoy_orders();
-    let OrderKind::Move(m) = &orders[move_order_idx].kind else {
-        unreachable!("expected Move")
-    };
-
-    // 隣接地移動の場合は輸送経路成立には下記いずれかの条件を満たす必要がある
-    // - 移動命令に海路が指定されている
-    // - 自国海軍に該当する輸送命令が出ている
-    // 遠隔地移動の場合は海路指定の明示は必要ない（明示されていても良い）
-    if Path::is_adjacent(orders[move_order_idx].location().code(), m.dest.code())
-        && !m.via_convoy
-        && convoy_orders
-            .iter()
-            .find(|o| o.is_matching_target(&orders[move_order_idx]) && o.power == orders[move_order_idx].power)
-            .is_none()
-    {
-        return false;
-    }
-
-    let matched_convoy_orders: Vec<&Order> = convoy_orders
-        .collect_matched_convoy_order_indices(&orders[move_order_idx])
-        .iter()
-        .filter(|&&idx| Some(convoy_orders[idx].location()) != exclude)
-        .map(|&idx| &convoy_orders[idx])
-        .collect();
-
-    let allowed_waters: HashSet<&str> = matched_convoy_orders.iter().map(|order| order.location().code()).collect();
-    Path::is_reachable_by_sea(
-        &orders[move_order_idx].location().code()[..3],
-        &m.dest.code()[..3],
-        &allowed_waters,
-    )
-}
-
 // DATC テストケース 6.F.18 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
 fn should_avoid_cut_due_to_datc_6_f_18(original_orders: &mut [Order], s1_idx: usize, attacker_idx: usize) -> bool {
     let cloned_orders = &mut original_orders.to_vec();
@@ -551,7 +530,7 @@ fn should_avoid_cut_due_to_datc_6_f_18(original_orders: &mut [Order], s1_idx: us
     }
 
     // 該当の輸送海軍を除いても輸送経路が維持されるのであれば本ルールによるカット回避不可
-    if can_move_via_valid_convoy(cloned_orders, attacker_idx, Some(cloned_orders[c_idx].location())) {
+    if can_move_via_valid_matched_convoy(cloned_orders, attacker_idx, Some(cloned_orders[c_idx].location())) {
         return false;
     }
     true
@@ -586,7 +565,7 @@ fn should_avoid_cut_due_to_datc_6_f_22_core(orders: &[Order], start_idx: usize) 
     let s2_idx = orders.find_support_at_dest_idx(m2_idx)?;
 
     // m1 が c を撃退しても m2 の移動経路が維持されるならカット回避失敗
-    if can_move_via_valid_convoy(orders, m2_idx, Some(orders[c_idx].location())) {
+    if can_move_via_valid_matched_convoy(orders, m2_idx, Some(orders[c_idx].location())) {
         return None;
     };
 
@@ -626,7 +605,7 @@ fn should_avoid_cut_due_to_datc_6_f_23_core(orders: &[Order], start_idx: usize, 
     let attack_order_idx = orders.iter().position(|o| orders[c_idx].is_matching_target(o))?;
 
     // 該当の輸送海軍を除いても輸送経路が維持されるのであれば本ルールによるカット回避不可
-    if can_move_via_valid_convoy(orders, attack_order_idx, Some(orders[c_idx].location())) {
+    if can_move_via_valid_matched_convoy(orders, attack_order_idx, Some(orders[c_idx].location())) {
         return None;
     }
 
@@ -808,7 +787,7 @@ fn can_reach_via_convoy(original_orders: &[Order], move_order_idx: usize) -> boo
         return false;
     }
 
-    can_move_via_valid_convoy(original_orders, move_order_idx, None)
+    can_move_via_valid_matched_convoy(original_orders, move_order_idx, None)
 }
 
 /// 移動命令が非輸送近接攻撃かどうかを判定する。

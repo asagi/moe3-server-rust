@@ -20,7 +20,6 @@ pub trait OrderHelper {
     fn collect_valid_support_orders(&self) -> Vec<Order>;
     fn collect_valid_support_indices(&self) -> Vec<usize>;
     fn collect_unresolved_convoy_indices(&self) -> Vec<usize>;
-    fn collect_valid_convoy_orders(&self) -> Vec<Order>;
     fn collect_valid_convoy_indices(&self) -> Vec<usize>;
     fn collect_matched_convoy_order_indices(&self, attack_order: &Order) -> Vec<usize>;
     fn collect_own_matching_convoy_indices(&self, move_idx: usize) -> Vec<usize>;
@@ -35,6 +34,8 @@ pub trait OrderHelper {
     fn get_support_target_move_order_kind(&self, support_idx: usize) -> Option<MoveOrder>;
     fn get_support_target_convoy_order_kind(&self, support_idx: usize) -> Option<(usize, ConvoyOrder)>;
     fn get_occupant_power_on_target(&self, target_code: &str) -> Option<Power>;
+    fn get_unresolved_allowed_waters(&self, move_idx: usize) -> HashSet<&'static str>;
+    fn get_valid_allowed_waters(&self, move_idx: usize, exclude_province: Option<Province>) -> HashSet<&'static str>;
     fn count_supports(&self, target_idx: usize, exclude_power: Option<Power>) -> usize;
     fn count_max_supports_for_attackers(&self, attacker_indicies: &[usize], target_idx: usize) -> usize;
     fn has_supports_excluding_occupant_power(&self, move_idx: usize, target_power: Option<Power>) -> bool;
@@ -159,15 +160,6 @@ impl OrderHelper for [Order] {
             .enumerate()
             .filter(|(_, o)| o.is_unresolved() && matches!(o.kind, OrderKind::Convoy(_)))
             .map(|(i, _)| i)
-            .collect()
-    }
-
-    /// 有効な輸送命令のコレクションを作成
-    fn collect_valid_convoy_orders(&self) -> Vec<Order> {
-        self.collect_not_assumed_orders()
-            .iter()
-            .filter(|o| o.is_valid() && matches!(o.kind, OrderKind::Convoy(_)))
-            .copied()
             .collect()
     }
 
@@ -322,6 +314,23 @@ impl OrderHelper for [Order] {
         }
 
         None
+    }
+
+    /// 移動命令にマッチする輸送命令が存在する水域コードのコレクションを返す
+    fn get_unresolved_allowed_waters(&self, move_idx: usize) -> HashSet<&'static str> {
+        self.collect_matched_convoy_order_indices(&self[move_idx])
+            .iter()
+            .map(|&idx| self[idx].location().code())
+            .collect()
+    }
+
+    /// 移動命令にマッチする輸送命令が存在する水域コードのコレクションを返す
+    fn get_valid_allowed_waters(&self, move_idx: usize, exclude_province: Option<Province>) -> HashSet<&'static str> {
+        self.collect_matched_convoy_order_indices(&self[move_idx])
+            .iter()
+            .filter(|&&idx| self[idx].is_valid() && Some(self[idx].location()) != exclude_province)
+            .map(|&idx| self[idx].location().code())
+            .collect()
     }
 
     /// 対象へのサポート数を数える
