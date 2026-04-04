@@ -2,7 +2,7 @@ use crate::domain::order::Order;
 use crate::domain::order::OrderKind;
 use crate::domain::phase::Phase;
 use crate::domain::phase::main_adjudicator::MainAdjudicator;
-use crate::domain::phase::main_order_helper::OrderHelper;
+use crate::domain::phase::main_order_helper::MainOrderHelper;
 use crate::domain::unit::Unit;
 
 /// メインフェイズの命令解決処理

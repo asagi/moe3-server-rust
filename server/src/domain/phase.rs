@@ -1,6 +1,9 @@
 mod main_adjudicator;
 mod main_order_helper;
 mod main_order_resolution;
+mod retreat_adjudicator;
+mod retreat_order_helper;
+mod retreat_order_resolution;
 
 use super::PhaseId;
 use super::TableId;
@@ -10,6 +13,7 @@ use super::unit::Unit;
 use chrono::DateTime;
 use chrono::Utc;
 use main_order_resolution::resolve_orders_for_main_phase;
+use retreat_order_resolution::resolve_orders_for_retreat_phase;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -289,6 +293,10 @@ impl PhaseCloseLogic for SpringMainPhase {
 }
 
 impl PhaseCloseLogic for SpringRetreatPhase {
+    fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
+        resolve_orders_for_retreat_phase(_current_phase);
+    }
+
     fn occupy(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
         occupy_for_retreat_phase(_current_phase, _context);
     }
@@ -319,6 +327,10 @@ impl PhaseCloseLogic for FallMainPhase {
 }
 
 impl PhaseCloseLogic for FallRetreatPhase {
+    fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
+        resolve_orders_for_retreat_phase(_current_phase);
+    }
+
     fn occupy(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
         occupy_for_retreat_phase(_current_phase, _context);
     }
@@ -395,3 +407,5 @@ mod main_order_resolution_tests_e;
 mod main_order_resolution_tests_f;
 #[cfg(test)]
 mod main_order_resolution_tests_g;
+#[cfg(test)]
+mod retreat_order_resolution_tests_h;

@@ -2,7 +2,7 @@ use crate::domain::order::Order;
 use crate::domain::order::OrderKind;
 use crate::domain::order::OrderStatus;
 use crate::domain::path::Path;
-use crate::domain::phase::main_order_helper::OrderHelper;
+use crate::domain::phase::main_order_helper::MainOrderHelper;
 use crate::domain::power::Power;
 use crate::domain::province::Province;
 use crate::domain::unit::UnitKind;

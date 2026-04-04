@@ -39,6 +39,8 @@ pub enum OrderKind {
     Move(MoveOrder),
     Support(SupportOrder),
     Convoy(ConvoyOrder),
+    Retreat(RetreatOrder),
+    Disband(DisbandOrder),
 }
 
 /// ホールド命令
@@ -65,6 +67,17 @@ pub struct ConvoyOrder {
     pub target_unit: Unit,
     pub target_dest: Province,
 }
+
+/// 撤退命令
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+pub struct RetreatOrder {
+    pub dest: Province,
+    pub via_convoy: bool,
+}
+
+/// 解体命令
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+pub struct DisbandOrder {}
 
 /// 命令のロジック
 impl Order {
@@ -333,6 +346,12 @@ impl fmt::Display for Order {
                 };
 
                 write!(f, "{} C {} - {}", prefix, target_label, o.target_dest)
+            }
+            OrderKind::Retreat(o) => {
+                write!(f, "{} - {}", prefix, o.dest)
+            }
+            OrderKind::Disband(_) => {
+                write!(f, "{} Disband", prefix)
             }
         }
     }

@@ -7,7 +7,7 @@ use crate::domain::province::Province;
 use indexmap::IndexSet;
 use std::collections::HashSet;
 
-pub trait OrderHelper {
+pub trait MainOrderHelper {
     fn collect_not_assumed_orders(&self) -> Vec<Order>;
     fn collect_not_invalid_orders(&self) -> Vec<Order>;
     fn collect_unresolved_idxs(&self) -> Vec<usize>;
@@ -40,7 +40,7 @@ pub trait OrderHelper {
     fn has_supports_excluding_occupant_power(&self, move_idx: usize, target_power: Option<Power>) -> bool;
 }
 
-impl OrderHelper for [Order] {
+impl MainOrderHelper for [Order] {
     /// 全ての非仮定命令のコレクションを作成
     fn collect_not_assumed_orders(&self) -> Vec<Order> {
         self.iter().filter(|o| !o.is_assumed()).copied().collect()
