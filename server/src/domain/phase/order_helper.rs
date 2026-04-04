@@ -12,7 +12,6 @@ pub trait OrderHelper {
     fn collect_not_invalid_orders(&self) -> Vec<Order>;
     fn collect_unresolved_indices(&self) -> Vec<usize>;
     fn collect_unresolved_move_indices(&self) -> Vec<usize>;
-    fn collect_valid_move_orders(&self) -> Vec<Order>;
     fn collect_valid_move_indices(&self) -> Vec<usize>;
     fn collect_non_dislodged_move_indices(&self) -> Vec<usize>;
     fn collect_attacker_indicies(&self, target_idx: usize) -> Vec<usize>;
@@ -23,8 +22,8 @@ pub trait OrderHelper {
     fn collect_valid_convoy_indices(&self) -> Vec<usize>;
     fn collect_matched_convoy_order_indices(&self, attack_order: &Order) -> Vec<usize>;
     fn collect_own_matching_convoy_indices(&self, move_idx: usize) -> Vec<usize>;
-    fn collect_valid_move_destination_set(&self) -> IndexSet<Province>;
     fn collect_fleet_water_codes(&self) -> HashSet<&'static str>;
+    fn collect_valid_move_destination_code_set(&self) -> IndexSet<&'static str>;
     fn find_support_target_idx(&self, support_idx: usize) -> Option<usize>;
     fn find_convoy_target_idx(&self, convoy_idx: usize) -> Option<usize>;
     fn find_convoy_at_dest_idx(&self, m: MoveOrder) -> Option<usize>;
@@ -39,7 +38,6 @@ pub trait OrderHelper {
     fn count_supports(&self, target_idx: usize, exclude_power: Option<Power>) -> usize;
     fn count_max_supports_for_attackers(&self, attacker_indicies: &[usize], target_idx: usize) -> usize;
     fn has_supports_excluding_occupant_power(&self, move_idx: usize, target_power: Option<Power>) -> bool;
-    fn has_confliction(&self, target_location_code: &str) -> bool;
 }
 
 impl OrderHelper for [Order] {
@@ -74,15 +72,6 @@ impl OrderHelper for [Order] {
             .enumerate()
             .filter(|(_, o)| o.is_unresolved() && matches!(o.kind, OrderKind::Move(_)))
             .map(|(i, _)| i)
-            .collect()
-    }
-
-    /// 有効な移動命令のコレクションを作成
-    fn collect_valid_move_orders(&self) -> Vec<Order> {
-        self.collect_not_assumed_orders()
-            .iter()
-            .filter(|o| o.is_valid() && matches!(o.kind, OrderKind::Move(_)))
-            .copied()
             .collect()
     }
 
@@ -196,21 +185,22 @@ impl OrderHelper for [Order] {
             .collect()
     }
 
-    /// 未解決の有効な移動命令の移動先を重複なしで収集取する
-    fn collect_valid_move_destination_set(&self) -> IndexSet<Province> {
-        self.collect_not_assumed_orders()
-            .iter()
-            .filter(|o| o.is_valid())
-            .filter_map(|o| if let OrderKind::Move(m) = o.kind { Some(m.dest) } else { None })
-            .collect()
-    }
-
     /// 水域にいる全ての艦隊の現在地コードのコレクションを作成
     fn collect_fleet_water_codes(&self) -> HashSet<&'static str> {
         self.collect_not_assumed_orders()
             .iter()
             .filter(|o| o.unit.is_fleet() && o.location().is_water())
             .map(|o| o.location().code())
+            .collect()
+    }
+
+    /// 未解決の有効な移動命令の移動先を重複なしで収集取する
+    fn collect_valid_move_destination_code_set(&self) -> IndexSet<&'static str> {
+        self.collect_not_assumed_orders()
+            .iter()
+            .filter(|o| o.is_valid())
+            .filter_map(|o| if let OrderKind::Move(m) = o.kind { Some(m.dest) } else { None })
+            .map(|p| &p.code()[..3])
             .collect()
     }
 
@@ -364,20 +354,5 @@ impl OrderHelper for [Order] {
         self.collect_valid_support_orders()
             .iter()
             .any(|s| s.is_matching_target(&self[move_idx]) && Some(s.power) != target_power)
-    }
-
-    /// 指定地点に移動を試みる複数の移動命令が存在するかどうかを判定する。
-    fn has_confliction(&self, target_location_code: &str) -> bool {
-        self.collect_valid_move_indices()
-            .into_iter()
-            .filter(|&idx| {
-                if let OrderKind::Move(m) = self[idx].kind {
-                    m.dest.code()[..3] == target_location_code[..3]
-                } else {
-                    false
-                }
-            })
-            .count()
-            > 1
     }
 }
