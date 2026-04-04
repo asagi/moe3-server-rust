@@ -7,7 +7,7 @@
 //! [DATC_6B]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.B
 
 use super::super::order::*;
-use super::super::phase::order_resolution::*;
+use super::super::phase::main_order_resolution::*;
 use super::super::phase::*;
 use super::super::power::*;
 use super::super::province::*;
@@ -29,7 +29,7 @@ fn test_datc_6_b_1() {
     let mut phase = Phase::new_spring_order(1900, 1);
     let unit_f_por = Unit::new_fleet(Power::France, p("por"));
     phase.data.orders.push(unit_f_por.move_to(p("spa")));
-    resolve_orders_for_order_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
 }
 
@@ -61,7 +61,7 @@ fn test_datc_6_b_3() {
     let mut phase = Phase::new_spring_order(1900, 1);
     let unit_f_gas = Unit::new_fleet(Power::France, p("gas"));
     phase.data.orders.push(unit_f_gas.move_to(p("spa_sc")));
-    resolve_orders_for_order_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
 }
 
@@ -86,7 +86,7 @@ fn test_datc_6_b_4() {
     phase.data.orders.push(unit_f_gas.move_to(p("spa_nc")));
     phase.data.orders.push(unit_f_mar.support_move(unit_f_gas, p("spa_nc")));
     phase.data.orders.push(unit_i_spa_nc.move_to(p("spa_sc")));
-    resolve_orders_for_order_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
@@ -113,7 +113,7 @@ fn test_datc_6_b_5() {
     phase.data.orders.push(unit_f_mar.move_to(p("lyo")));
     phase.data.orders.push(unit_f_spa_nc.support_move(unit_f_mar, p("lyo")));
     phase.data.orders.push(unit_i_lyo.hold());
-    resolve_orders_for_order_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
@@ -149,7 +149,7 @@ fn test_datc_6_b_6() {
     phase.data.orders.push(unit_f_spa_nc.support_hold(unit_f_mao));
     phase.data.orders.push(unit_f_mao.hold());
     phase.data.orders.push(unit_i_lyo.move_to(p("spa_sc")));
-    resolve_orders_for_order_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Cut);
@@ -220,7 +220,7 @@ fn test_datc_6_b_9() {
     phase.data.orders.push(unit_f_mao.move_to(p("spa_sc")));
     phase.data.orders.push(unit_i_lyo.support_move(unit_i_wes, p("spa_sc")));
     phase.data.orders.push(unit_i_wes.move_to(p("spa_sc")));
-    resolve_orders_for_order_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
@@ -288,7 +288,7 @@ fn test_datc_6_b_13() {
     let unit_t_con = Unit::new_fleet(Power::Turkey, p("con"));
     phase.data.orders.push(unit_t_bul_sc.move_to(p("con")));
     phase.data.orders.push(unit_t_con.move_to(p("bul_ec")));
-    resolve_orders_for_order_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
 }
