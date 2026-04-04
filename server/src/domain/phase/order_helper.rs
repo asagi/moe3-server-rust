@@ -10,18 +10,18 @@ use std::collections::HashSet;
 pub trait OrderHelper {
     fn collect_not_assumed_orders(&self) -> Vec<Order>;
     fn collect_not_invalid_orders(&self) -> Vec<Order>;
-    fn collect_unresolved_indices(&self) -> Vec<usize>;
-    fn collect_unresolved_move_indices(&self) -> Vec<usize>;
-    fn collect_valid_move_indices(&self) -> Vec<usize>;
-    fn collect_non_dislodged_move_indices(&self) -> Vec<usize>;
+    fn collect_unresolved_idxs(&self) -> Vec<usize>;
+    fn collect_unresolved_move_idxs(&self) -> Vec<usize>;
+    fn collect_valid_move_idxs(&self) -> Vec<usize>;
+    fn collect_non_dislodged_move_idxs(&self) -> Vec<usize>;
     fn collect_attacker_indicies(&self, target_idx: usize) -> Vec<usize>;
-    fn collect_unresolved_support_indices(&self) -> Vec<usize>;
+    fn collect_unresolved_support_idxs(&self) -> Vec<usize>;
     fn collect_valid_support_orders(&self) -> Vec<Order>;
-    fn collect_valid_support_indices(&self) -> Vec<usize>;
-    fn collect_unresolved_convoy_indices(&self) -> Vec<usize>;
-    fn collect_valid_convoy_indices(&self) -> Vec<usize>;
-    fn collect_matched_convoy_order_indices(&self, attack_order: &Order) -> Vec<usize>;
-    fn collect_own_matching_convoy_indices(&self, move_idx: usize) -> Vec<usize>;
+    fn collect_valid_support_idxs(&self) -> Vec<usize>;
+    fn collect_unresolved_convoy_idxs(&self) -> Vec<usize>;
+    fn collect_valid_convoy_idxs(&self) -> Vec<usize>;
+    fn collect_matched_convoy_order_idxs(&self, attack_order: &Order) -> Vec<usize>;
+    fn collect_own_matching_convoy_idxs(&self, move_idx: usize) -> Vec<usize>;
     fn collect_fleet_water_codes(&self) -> HashSet<&'static str>;
     fn collect_valid_move_destination_code_set(&self) -> IndexSet<&'static str>;
     fn find_support_target_idx(&self, support_idx: usize) -> Option<usize>;
@@ -56,7 +56,7 @@ impl OrderHelper for [Order] {
     }
 
     /// 未処理の命令のインデックスコレクションを作成
-    fn collect_unresolved_indices(&self) -> Vec<usize> {
+    fn collect_unresolved_idxs(&self) -> Vec<usize> {
         self.collect_not_assumed_orders()
             .iter()
             .enumerate()
@@ -66,7 +66,7 @@ impl OrderHelper for [Order] {
     }
 
     /// 未処理の移動命令のインデックスコレクションを作成
-    fn collect_unresolved_move_indices(&self) -> Vec<usize> {
+    fn collect_unresolved_move_idxs(&self) -> Vec<usize> {
         self.collect_not_assumed_orders()
             .iter()
             .enumerate()
@@ -76,7 +76,7 @@ impl OrderHelper for [Order] {
     }
 
     /// 有効な移動命令のインデックスコレクションを作成
-    fn collect_valid_move_indices(&self) -> Vec<usize> {
+    fn collect_valid_move_idxs(&self) -> Vec<usize> {
         self.collect_not_assumed_orders()
             .iter()
             .enumerate()
@@ -86,7 +86,7 @@ impl OrderHelper for [Order] {
     }
 
     /// 撃退されていない有効な移動命令（失敗判定済み含む）のインデックスコレクションを作成
-    fn collect_non_dislodged_move_indices(&self) -> Vec<usize> {
+    fn collect_non_dislodged_move_idxs(&self) -> Vec<usize> {
         self.collect_not_assumed_orders()
             .iter()
             .enumerate()
@@ -114,7 +114,7 @@ impl OrderHelper for [Order] {
     }
 
     /// 未処理の支援命令のインデックスコレクションを作成
-    fn collect_unresolved_support_indices(&self) -> Vec<usize> {
+    fn collect_unresolved_support_idxs(&self) -> Vec<usize> {
         self.collect_not_assumed_orders()
             .iter()
             .enumerate()
@@ -133,7 +133,7 @@ impl OrderHelper for [Order] {
     }
 
     /// 有効な支援命令のインデックスコレクションを作成
-    fn collect_valid_support_indices(&self) -> Vec<usize> {
+    fn collect_valid_support_idxs(&self) -> Vec<usize> {
         self.collect_not_assumed_orders()
             .iter()
             .enumerate()
@@ -143,7 +143,7 @@ impl OrderHelper for [Order] {
     }
 
     /// 未処理の輸送命令のインデックスコレクションを作成
-    fn collect_unresolved_convoy_indices(&self) -> Vec<usize> {
+    fn collect_unresolved_convoy_idxs(&self) -> Vec<usize> {
         self.collect_not_assumed_orders()
             .iter()
             .enumerate()
@@ -153,7 +153,7 @@ impl OrderHelper for [Order] {
     }
 
     /// 有効な輸送命令のインデックスコレクションを作成
-    fn collect_valid_convoy_indices(&self) -> Vec<usize> {
+    fn collect_valid_convoy_idxs(&self) -> Vec<usize> {
         self.collect_not_assumed_orders()
             .iter()
             .enumerate()
@@ -163,7 +163,7 @@ impl OrderHelper for [Order] {
     }
 
     /// 移動命令にマッチする輸送命令のインデックスコレクションを返す
-    fn collect_matched_convoy_order_indices(&self, attack_order: &Order) -> Vec<usize> {
+    fn collect_matched_convoy_order_idxs(&self, attack_order: &Order) -> Vec<usize> {
         self.collect_not_assumed_orders()
             .iter()
             .enumerate()
@@ -175,7 +175,7 @@ impl OrderHelper for [Order] {
     }
 
     /// 移動命令にマッチする自国の輸送命令のインデックスコレクションを返す
-    fn collect_own_matching_convoy_indices(&self, move_idx: usize) -> Vec<usize> {
+    fn collect_own_matching_convoy_idxs(&self, move_idx: usize) -> Vec<usize> {
         self.collect_not_assumed_orders()
             .iter()
             .enumerate()
@@ -308,7 +308,7 @@ impl OrderHelper for [Order] {
 
     /// 移動命令にマッチする輸送命令が存在する水域コードのコレクションを返す
     fn get_unresolved_allowed_waters(&self, move_idx: usize) -> HashSet<&'static str> {
-        self.collect_matched_convoy_order_indices(&self[move_idx])
+        self.collect_matched_convoy_order_idxs(&self[move_idx])
             .iter()
             .map(|&idx| self[idx].location().code())
             .collect()
@@ -316,7 +316,7 @@ impl OrderHelper for [Order] {
 
     /// 移動命令にマッチする輸送命令が存在する水域コードのコレクションを返す
     fn get_valid_allowed_waters(&self, move_idx: usize, exclude_province: Option<Province>) -> HashSet<&'static str> {
-        self.collect_matched_convoy_order_indices(&self[move_idx])
+        self.collect_matched_convoy_order_idxs(&self[move_idx])
             .iter()
             .filter(|&&idx| self[idx].is_valid() && Some(self[idx].location()) != exclude_province)
             .map(|&idx| self[idx].location().code())
