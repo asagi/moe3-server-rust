@@ -2,16 +2,16 @@ use crate::domain::order::Order;
 use crate::domain::order::OrderKind;
 use crate::domain::order::OrderStatus;
 use crate::domain::path::Path;
-use crate::domain::phase::order_helper::OrderHelper;
+use crate::domain::phase::main_order_helper::OrderHelper;
 use crate::domain::power::Power;
 use crate::domain::province::Province;
 use crate::domain::unit::UnitKind;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 
-pub struct Adjudicator;
+pub struct MainAdjudicator;
 
-impl Adjudicator {
+impl MainAdjudicator {
     /// 移動命令検証
     pub(crate) fn validate_move_orders(orders: &mut [Order]) {
         for move_idx in orders.collect_unresolved_move_idxs() {

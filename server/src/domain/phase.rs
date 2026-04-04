@@ -1,6 +1,6 @@
-mod adjudicator;
-mod order_helper;
-mod order_resolution;
+mod main_adjudicator;
+mod main_order_helper;
+mod main_order_resolution;
 
 use super::PhaseId;
 use super::TableId;
@@ -9,7 +9,7 @@ use super::province::Province;
 use super::unit::Unit;
 use chrono::DateTime;
 use chrono::Utc;
-use order_resolution::resolve_orders_for_order_phase;
+use main_order_resolution::resolve_orders_for_main_phase;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -41,9 +41,9 @@ pub struct PhaseData {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PhaseKind {
     Ready(ReadyPhase),                 // 準備
-    SpringOrder(SpringOrderPhase),     // 春命令
+    SpringOrder(SpringMainPhase),      // 春命令
     SpringRetreat(SpringRetreatPhase), // 春撤退
-    FallOrder(FallOrderPhase),         // 秋命令
+    FallOrder(FallMainPhase),          // 秋命令
     FallRetreat(FallRetreatPhase),     // 秋撤退
     Adjustment(AdjustmentPhase),       // 調整
     Debrief(DebriefPhase),             // 感想戦
@@ -56,7 +56,7 @@ pub struct ReadyPhase {}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub struct SpringOrderPhase {}
+pub struct SpringMainPhase {}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -64,7 +64,7 @@ pub struct SpringRetreatPhase {}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub struct FallOrderPhase {}
+pub struct FallMainPhase {}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -101,7 +101,7 @@ impl Phase {
         Self::new(1900, 0, PhaseKind::Ready(ReadyPhase {}))
     }
 
-    /// 春命令フェイズを生成する。
+    /// 春メインフェイズを生成する。
     ///
     /// - 春命令は「次年の開始フェイズ」なので、必ず `year = prev_year + 1`。
     /// - このルールは Ready -> SpringOrder / Adjustment -> SpringOrder の両方で共通。
@@ -109,7 +109,7 @@ impl Phase {
         Self::new(
             current_year + 1,
             current_index + 1,
-            PhaseKind::SpringOrder(SpringOrderPhase {}),
+            PhaseKind::SpringOrder(SpringMainPhase {}),
         )
     }
 
@@ -118,9 +118,9 @@ impl Phase {
         Self::new(current_year, prev_index + 1, PhaseKind::SpringRetreat(SpringRetreatPhase {}))
     }
 
-    /// 秋命令フェイズを生成する。
+    /// 秋メインフェイズを生成する。
     pub fn new_fall_order(current_year: i32, prev_index: i32) -> Self {
-        Self::new(current_year, prev_index + 1, PhaseKind::FallOrder(FallOrderPhase {}))
+        Self::new(current_year, prev_index + 1, PhaseKind::FallOrder(FallMainPhase {}))
     }
 
     /// 秋撤退フェイズを生成する。
@@ -246,8 +246,8 @@ trait PhaseCloseLogic {
     }
 }
 
-/// 命令フェイズの和平合意条件の判定
-fn check_draw_condition_for_order_phase(_context: &PhaseContext) -> bool {
+/// メインフェイズの和平合意条件の判定
+fn check_draw_condition_for_main_phase(_context: &PhaseContext) -> bool {
     // TODO: 和平合意条件の判定
     // - 有効な勢力のうち、和平に同意しているプレイヤーが過半数を超えたら true を返す
 
@@ -268,17 +268,17 @@ impl PhaseCloseLogic for ReadyPhase {
     }
 }
 
-impl PhaseCloseLogic for SpringOrderPhase {
+impl PhaseCloseLogic for SpringMainPhase {
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
         Some(Phase::new_spring_retreat(current_phase.year(), current_phase.index()))
     }
 
     fn check_draw_condition(&self, _context: &PhaseContext) -> bool {
-        check_draw_condition_for_order_phase(_context)
+        check_draw_condition_for_main_phase(_context)
     }
 
     fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
-        resolve_orders_for_order_phase(_current_phase);
+        resolve_orders_for_main_phase(_current_phase);
     }
 
     /// 撤退指示が必要なユニットが存在しない場合に true を返す
@@ -298,17 +298,17 @@ impl PhaseCloseLogic for SpringRetreatPhase {
     }
 }
 
-impl PhaseCloseLogic for FallOrderPhase {
+impl PhaseCloseLogic for FallMainPhase {
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
         Some(Phase::new_fall_retreat(current_phase.year(), current_phase.index()))
     }
 
     fn check_draw_condition(&self, _context: &PhaseContext) -> bool {
-        check_draw_condition_for_order_phase(_context)
+        check_draw_condition_for_main_phase(_context)
     }
 
     fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
-        resolve_orders_for_order_phase(_current_phase);
+        resolve_orders_for_main_phase(_current_phase);
     }
 
     /// 撤退指示が必要なユニットが存在しない場合に true を返す
@@ -382,16 +382,16 @@ mod tests {
 }
 
 #[cfg(test)]
-mod order_resolution_tests_a;
+mod main_order_resolution_tests_a;
 #[cfg(test)]
-mod order_resolution_tests_b;
+mod main_order_resolution_tests_b;
 #[cfg(test)]
-mod order_resolution_tests_c;
+mod main_order_resolution_tests_c;
 #[cfg(test)]
-mod order_resolution_tests_d;
+mod main_order_resolution_tests_d;
 #[cfg(test)]
-mod order_resolution_tests_e;
+mod main_order_resolution_tests_e;
 #[cfg(test)]
-mod order_resolution_tests_f;
+mod main_order_resolution_tests_f;
 #[cfg(test)]
-mod order_resolution_tests_g;
+mod main_order_resolution_tests_g;
