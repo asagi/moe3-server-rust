@@ -26,7 +26,7 @@ fn p(code: &str) -> Province {
 ///  Order should fail.
 #[test]
 fn test_datc_6_a_1() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     phase.data.orders.push(unit_e_nth.move_to(p("pic")));
     resolve_orders_for_main_phase(&mut phase);
@@ -42,7 +42,7 @@ fn test_datc_6_a_1() {
 /// Order should fail.
 #[test]
 fn test_datc_6_a_2() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_lvp = Unit::new_army(Power::England, p("lvp"));
     phase.data.orders.push(unit_e_lvp.move_to(p("iri")));
     resolve_orders_for_main_phase(&mut phase);
@@ -58,7 +58,7 @@ fn test_datc_6_a_2() {
 /// Order should fail.
 #[test]
 fn test_datc_6_a_3() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
     phase.data.orders.push(unit_g_kie.move_to(p("mun")));
     resolve_orders_for_main_phase(&mut phase);
@@ -75,7 +75,7 @@ fn test_datc_6_a_3() {
 /// Program should not crash.
 #[test]
 fn test_datc_6_a_4() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
     phase.data.orders.push(unit_g_kie.move_to(p("kie")));
     resolve_orders_for_main_phase(&mut phase);
@@ -100,7 +100,7 @@ fn test_datc_6_a_4() {
 /// the Germans have a stronger force. The army in London dislodges the army in Yorkshire.
 #[test]
 fn test_datc_6_a_5() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_yor = Unit::new_army(Power::England, p("yor"));
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     let unit_e_lvp = Unit::new_army(Power::England, p("lvp"));
@@ -129,7 +129,7 @@ fn test_datc_6_a_5() {
 /// Order should fail.
 #[test]
 fn test_datc_6_a_6() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_lon = Unit::new_fleet(Power::England, p("lon"));
     phase
         .data
@@ -149,7 +149,7 @@ fn test_datc_6_a_6() {
 /// Move from London to Belgium should fail.
 #[test]
 fn test_datc_6_a_7() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_lon = Unit::new_fleet(Power::England, p("lon"));
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     phase.data.orders.push(unit_e_lon.move_to(p("bel")));
@@ -172,7 +172,7 @@ fn test_datc_6_a_7() {
 /// The army in Trieste should be dislodged.
 #[test]
 fn test_datc_6_a_8() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
     let unit_i_tyr = Unit::new_army(Power::Italy, p("tyr"));
     let unit_a_tri = Unit::new_fleet(Power::Austria, p("tri"));
@@ -195,7 +195,7 @@ fn test_datc_6_a_8() {
 /// Move fails. An army can go from Rome to Venice, but a fleet cannot.
 #[test]
 fn test_datc_6_a_9() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_i_rom = Unit::new_fleet(Power::Italy, p("rom"));
     phase.data.orders.push(unit_i_rom.move_to(p("ven")));
     resolve_orders_for_main_phase(&mut phase);
@@ -216,7 +216,7 @@ fn test_datc_6_a_9() {
 /// Venice is not dislodged.
 #[test]
 fn test_datc_6_a_10() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_ven = Unit::new_army(Power::Austria, p("ven"));
     let unit_i_rom = Unit::new_fleet(Power::Italy, p("rom"));
     let unit_i_apu = Unit::new_army(Power::Italy, p("apu"));
@@ -241,7 +241,7 @@ fn test_datc_6_a_10() {
 /// The two units bounce.
 #[test]
 fn test_datc_6_a_11() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
     let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
     phase.data.orders.push(unit_a_vie.move_to(p("tyr")));
@@ -267,7 +267,7 @@ fn test_datc_6_a_11() {
 /// The three units bounce.
 #[test]
 fn test_datc_6_a_12() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
     let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
     let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));

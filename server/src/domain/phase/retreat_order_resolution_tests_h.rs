@@ -6,123 +6,153 @@
 //!
 //! [DATC_6H]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.H
 
-// use super::super::order::*;
-// use super::super::phase::main_order_resolution::*;
-// use super::super::phase::*;
-// use super::super::power::*;
-// use super::super::province::*;
-// use super::super::unit::*;
+use super::super::order::*;
+use super::super::phase::retreat_order_resolution::*;
+use super::super::phase::*;
+use super::super::power::*;
+use super::super::province::*;
+use super::super::unit::*;
 
-// fn p(code: &str) -> Province {
-//     Province::from_code(code).expect("valid province code")
-// }
+fn p(code: &str) -> Province {
+    Province::from_code(code).expect("valid province code")
+}
 
 /// 6.H.1. TEST CASE, NO SUPPORTS DURING RETREAT
 /// Supports are not allowed in the retreat phase.
 ///
 /// Austria:
-/// F Trieste Hold
-/// A Serbia Hold
+///     F Trieste Hold
+///     A Serbia Hold
 ///
 /// Turkey:
-/// F Greece Hold
+///     F Greece Hold
 ///
 /// Italy:
-/// A Venice Supports A Tyrolia - Trieste
-/// A Tyrolia - Trieste
-/// F Ionian Sea - Greece
-/// F Aegean Sea Supports F Ionian Sea - Greece
+///     A Venice Supports A Tyrolia - Trieste
+///     A Tyrolia - Trieste
+///     F Ionian Sea - Greece
+///     F Aegean Sea Supports F Ionian Sea - Greece
+///
 /// The fleet in Trieste and the fleet in Greece are dislodged. If the retreat orders are as follows:
 ///
 /// Austria:
-/// F Trieste - Albania
-/// A Serbia Supports F Trieste - Albania
+///     F Trieste - Albania
+///     A Serbia Supports F Trieste - Albania
 ///
 /// Turkey:
-/// F Greece - Albania
+///     F Greece - Albania
+///
 /// The Austrian support order is illegal. Both dislodged fleets are disbanded.
-#[test]
-fn test_datc_6_h_1() {}
+#[allow(unused)]
+fn test_datc_6_h_1() {
+    // 撤退フェイズでは解体か撤退以外の命令は受け付けないためテスト不要
+}
 
 /// 6.H.2. TEST CASE, NO SUPPORTS FROM RETREATING UNIT
 /// Even a retreating unit cannot give support.
 ///
 /// England:
-/// A Liverpool - Edinburgh
-/// F Yorkshire Supports A Liverpool - Edinburgh
-/// F Norway Hold
+///     A Liverpool - Edinburgh
+///     F Yorkshire Supports A Liverpool - Edinburgh
+///     F Norway Hold
 ///
 /// Germany:
-/// A Kiel Supports A Ruhr - Holland
-/// A Ruhr - Holland
+///     A Kiel Supports A Ruhr - Holland
+///     A Ruhr - Holland
 ///
 /// Russia:
-/// F Edinburgh Hold
-/// A Sweden Supports A Finland - Norway
-/// A Finland - Norway
-/// F Holland Hold
+///     F Edinburgh Hold
+///     A Sweden Supports A Finland - Norway
+///     A Finland - Norway
+///     F Holland Hold
+///
 /// The English fleet in Norway and the Russian fleets in Edinburgh and Holland are dislodged. If the following retreat orders are given:
 ///
 /// England:
-/// F Norway - North Sea
+///     F Norway - North Sea
 ///
 /// Russia:
-/// F Edinburgh - North Sea
-/// F Holland Supports F Edinburgh - North Sea
-/// Although the fleet in Holland may receive an order, it may not support (it is disbanded). The English fleet in Norway and the Russian fleet in Edinburgh bounce and are disbanded.
-#[test]
-fn test_datc_6_h_2() {}
+///     F Edinburgh - North Sea
+///     F Holland Supports F Edinburgh - North Sea
+///
+/// Although the fleet in Holland may receive an order, it may not support (it is disbanded).
+/// The English fleet in Norway and the Russian fleet in Edinburgh bounce and are disbanded.
+#[allow(unused)]
+fn test_datc_6_h_2() {
+    // 撤退フェイズでは解体か撤退以外の命令は受け付けないためテスト不要
+}
 
 /// 6.H.3. TEST CASE, NO CONVOY DURING RETREAT
 /// Convoys during retreat are not allowed.
 ///
 /// England:
-/// F North Sea Hold
-/// A Holland Hold
+///     F North Sea Hold
+///     A Holland Hold
 ///
 /// Germany:
-/// F Kiel Supports A Ruhr - Holland
-/// A Ruhr - Holland
+///     F Kiel Supports A Ruhr - Holland
+///     A Ruhr - Holland
+///
 /// The English army in Holland is dislodged. If England orders the following in retreat:
 ///
 /// England:
-/// A Holland - Yorkshire
-/// F North Sea Convoys A Holland - Yorkshire
+///     A Holland - Yorkshire
+///     F North Sea Convoys A Holland - Yorkshire
+///
 /// The convoy order is illegal. The army in Holland is disbanded.
-#[test]
-fn test_datc_6_h_3() {}
+#[allow(unused)]
+fn test_datc_6_h_3() {
+    // 撤退フェイズでは解体か撤退以外の命令は受け付けないためテスト不要
+}
 
 /// 6.H.4. TEST CASE, NO OTHER MOVES DURING RETREAT
 /// Of course, you may not do any other move during a retreat. But look if the adjudicator checks for it.
 ///
 /// England:
-/// F North Sea Hold
-/// A Holland Hold
+///     F North Sea Hold
+///     A Holland Hold
 ///
 /// Germany:
-/// F Kiel Supports A Ruhr - Holland
-/// A Ruhr - Holland
+///     F Kiel Supports A Ruhr - Holland
+///     A Ruhr - Holland
+///
 /// The English army in Holland is dislodged. If England orders the following in retreat:
 ///
 /// England:
-/// A Holland - Belgium
-/// F North Sea - Norwegian Sea
+///     A Holland - Belgium
+///     F North Sea - Norwegian Sea
+///
 /// The fleet in the North Sea is not dislodge, so the move is illegal.
-#[test]
-fn test_datc_6_h_4() {}
+#[allow(unused)]
+fn test_datc_6_h_4() {
+    // 撤退フェイズでは通常ユニットへの命令は受け付けないためテスト不要
+}
 
 /// 6.H.5. TEST CASE, A UNIT MAY NOT RETREAT TO THE AREA FROM WHICH IT IS ATTACKED
 /// Well, that would be of course stupid. Still, the adjudicator must be tested on this.
 ///
 /// Russia:
-/// F Constantinople Supports F Black Sea - Ankara
-/// F Black Sea - Ankara
+///     F Constantinople Supports F Black Sea - Ankara
+///     F Black Sea - Ankara
 ///
 /// Turkey:
-/// F Ankara Hold
+///     F Ankara Hold
+///
 /// Fleet in Ankara is dislodged and may not retreat to Black Sea.
 #[test]
-fn test_datc_6_h_5() {}
+fn test_datc_6_h_5() {
+    let mut phase = Phase::new_spring_retreat(1901, 2);
+    let context = &mut PhaseContext::new();
+    let unit_r_con = Unit::new_fleet(Power::Russia, p("con"));
+    let unit_r_ank = Unit::new_fleet(Power::Russia, p("ank"));
+    let unit_t_ank = Unit::new_fleet(Power::Turkey, p("ank")).dislodged_from(p("bla"));
+    context.last_resolved_units.push(unit_r_con);
+    context.last_resolved_units.push(unit_r_ank);
+    context.last_resolved_units.push(unit_t_ank);
+    phase.data.orders.push(unit_t_ank.retreat_to(p("bla")));
+    resolve_orders_for_retreat_phase(&mut phase, context);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+}
 
 /// 6.H.6. TEST CASE, UNIT MAY NOT RETREAT TO A CONTESTED AREA
 /// Standoff prevents retreat to the area.

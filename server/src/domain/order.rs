@@ -72,7 +72,6 @@ pub struct ConvoyOrder {
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct RetreatOrder {
     pub dest: Province,
-    pub via_convoy: bool,
 }
 
 /// 解体命令
@@ -128,6 +127,28 @@ impl Order {
                 target_unit,
                 target_dest,
             }),
+        }
+    }
+
+    pub fn new_retreat(power: Power, unit: Unit, dest: Province) -> Self {
+        Order {
+            id: None,
+            power,
+            unit,
+            dislodged_from: unit.dislodged_from,
+            status: OrderStatus::Unresolved,
+            kind: OrderKind::Retreat(RetreatOrder { dest }),
+        }
+    }
+
+    pub fn new_disband(power: Power, unit: Unit) -> Self {
+        Order {
+            id: None,
+            power,
+            unit,
+            dislodged_from: unit.dislodged_from,
+            status: OrderStatus::Unresolved,
+            kind: OrderKind::Disband(DisbandOrder {}),
         }
     }
 

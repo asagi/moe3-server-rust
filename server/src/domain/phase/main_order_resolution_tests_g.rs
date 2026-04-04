@@ -34,7 +34,7 @@ fn p(code: &str) -> Province {
 /// So, swap should happen.
 #[test]
 fn test_datc_6_g_1() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_1_nwy = Unit::new_army(Power::England, p("nwy"));
     let unit_e_2_ska = Unit::new_fleet(Power::England, p("ska"));
     let unit_r_1_swe = Unit::new_army(Power::Russia, p("swe"));
@@ -67,7 +67,7 @@ fn test_datc_6_g_1() {
 /// kidnapping is prevented and the armies fail to move.
 #[test]
 fn test_datc_6_g_2() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nwy = Unit::new_army(Power::England, p("nwy"));
     let unit_r_swe = Unit::new_fleet(Power::Russia, p("swe"));
     let unit_g_ska = Unit::new_fleet(Power::Germany, p("ska"));
@@ -101,7 +101,7 @@ fn test_datc_6_g_2() {
 /// resulting in the same adjudication.
 #[test]
 fn test_datc_6_g_3() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_bre = Unit::new_fleet(Power::France, p("bre"));
     let unit_f_pic = Unit::new_army(Power::France, p("pic"));
     let unit_f_bur = Unit::new_army(Power::France, p("bur"));
@@ -144,7 +144,7 @@ fn test_datc_6_g_3() {
 /// kidnapping is prevented and the French army will successfully move.
 #[test]
 fn test_datc_6_g_4() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_bre = Unit::new_fleet(Power::France, p("bre"));
     let unit_f_pic = Unit::new_army(Power::France, p("pic"));
     let unit_f_bur = Unit::new_army(Power::France, p("bur"));
@@ -184,7 +184,7 @@ fn test_datc_6_g_4() {
 /// So, the swap should happen.
 #[test]
 fn test_datc_6_g_5() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_i_rom = Unit::new_army(Power::Italy, p("rom"));
     let unit_i_tyr = Unit::new_fleet(Power::Italy, p("tys"));
     let unit_t_apu = Unit::new_army(Power::Turkey, p("apu"));
@@ -232,7 +232,7 @@ fn test_datc_6_g_5() {
 /// So, it is just a head-to-head battle and both the army in Edinburgh and Liverpool will not move.
 #[test]
 fn test_datc_6_g_6() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_lvp = Unit::new_army(Power::England, p("lvp"));
     let unit_e_eng = Unit::new_fleet(Power::England, p("eng"));
     let unit_g_edi = Unit::new_army(Power::Germany, p("edi"));
@@ -277,7 +277,7 @@ fn test_datc_6_g_6() {
 /// If explicit adjacent convoying is used (DPTG) there is also no convoy and none of the units move.
 #[test]
 fn test_datc_6_g_7() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_ska = Unit::new_fleet(Power::England, p("ska"));
     let unit_e_nwy = Unit::new_army(Power::England, p("nwy"));
     let unit_r_swe = Unit::new_army(Power::Russia, p("swe"));
@@ -313,7 +313,7 @@ fn test_datc_6_g_7() {
 /// As discussed in the issue, I don't prefer fallback anymore.
 #[test]
 fn test_datc_6_g_8() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_bel = Unit::new_army(Power::France, p("bel"));
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     let unit_e_hol = Unit::new_army(Power::England, p("hol"));
@@ -347,7 +347,7 @@ fn test_datc_6_g_8() {
 /// then the move of Norway is via convoy and the armies swap.
 #[test]
 fn test_datc_6_g_9() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nwy = Unit::new_army(Power::England, p("nwy"));
     let unit_e_ska = Unit::new_fleet(Power::England, p("ska"));
     let unit_e_fin = Unit::new_fleet(Power::England, p("fin"));
@@ -401,7 +401,7 @@ fn test_datc_6_g_9() {
 /// when there is no head-to-head battle. So, the fleet in the Norwegian Sea will fail to move.
 #[test]
 fn test_datc_6_g_10() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nwy = Unit::new_army(Power::England, p("nwy"));
     let unit_e_den = Unit::new_fleet(Power::England, p("den"));
     let unit_e_fin = Unit::new_fleet(Power::England, p("fin"));
@@ -457,7 +457,7 @@ fn test_datc_6_g_10() {
 /// the Russian fleet in Skagerrak and the army in Sweden will not advance.
 #[test]
 fn test_datc_6_g_11() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nwy = Unit::new_fleet(Power::England, p("nwy"));
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     let unit_r_swe = Unit::new_army(Power::Russia, p("swe"));
@@ -493,7 +493,7 @@ fn test_datc_6_g_11() {
 /// The armies in Liverpool and Edinburgh are swapped.
 #[test]
 fn test_datc_6_g_12() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_lvp = Unit::new_army(Power::England, p("lvp"));
     let unit_e_nao = Unit::new_fleet(Power::England, p("nao"));
     let unit_e_nwg = Unit::new_fleet(Power::England, p("nwg"));
@@ -550,7 +550,7 @@ fn test_datc_6_g_12() {
 /// and that the army in Trieste is dislodged by the fleet in Albania.
 #[test]
 fn test_datc_6_g_13() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_adr = Unit::new_fleet(Power::Austria, p("adr"));
     let unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
     let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
@@ -592,7 +592,7 @@ fn test_datc_6_g_13() {
 /// but if choice b is taken (which I prefer) the fleet bounces and stays in the Norwegian Sea.
 #[test]
 fn test_datc_6_g_14() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nwy = Unit::new_army(Power::England, p("nwy"));
     let unit_e_den = Unit::new_fleet(Power::England, p("den"));
     let unit_e_fin = Unit::new_fleet(Power::England, p("fin"));
@@ -641,7 +641,7 @@ fn test_datc_6_g_14() {
 /// but if choice b is taken (which I prefer) the army bounces and stays in Yorkshire.
 #[test]
 fn test_datc_6_g_15() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     let unit_e_hol = Unit::new_army(Power::England, p("hol"));
     let unit_e_yor = Unit::new_army(Power::England, p("yor"));
@@ -690,7 +690,7 @@ fn test_datc_6_g_15() {
 /// This fleet will stay in the North Sea.
 #[test]
 fn test_datc_6_g_16() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nwy = Unit::new_army(Power::England, p("nwy"));
     let unit_e_den = Unit::new_fleet(Power::England, p("den"));
     let unit_e_bal = Unit::new_fleet(Power::England, p("bal"));
@@ -732,7 +732,7 @@ fn test_datc_6_g_16() {
 /// Sweden and Norway are swapped, while the fleet in the North Sea will bounce.
 #[test]
 fn test_datc_6_g_17() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nwy = Unit::new_army(Power::England, p("nwy"));
     let unit_e_den = Unit::new_fleet(Power::England, p("den"));
     let unit_e_bal = Unit::new_fleet(Power::England, p("bal"));
@@ -775,7 +775,7 @@ fn test_datc_6_g_17() {
 /// Belgium and London are swapped, while the army in Yorkshire fails to move to London.
 #[test]
 fn test_datc_6_g_18() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     let unit_e_hol = Unit::new_army(Power::England, p("hol"));
     let unit_e_yor = Unit::new_army(Power::England, p("yor"));
@@ -829,7 +829,7 @@ fn test_datc_6_g_18() {
 /// If explicit adjacent convoying is used (DPTG) there is also no convoy and none of the units move.
 #[test]
 fn test_datc_6_g_19() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_mar = Unit::new_army(Power::France, p("mar"));
     let unit_f_wes = Unit::new_fleet(Power::France, p("wes"));
     let unit_i_lyo = Unit::new_fleet(Power::Italy, p("lyo"));
@@ -866,7 +866,7 @@ fn test_datc_6_g_19() {
 /// I don't prefer the fallback anymore. So, the move of Picardy fails.
 #[test]
 fn test_datc_6_g_20() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_bre = Unit::new_fleet(Power::France, p("bre"));
     let unit_f_pic = Unit::new_army(Power::France, p("pic"));
     let unit_f_bur = Unit::new_army(Power::France, p("bur"));

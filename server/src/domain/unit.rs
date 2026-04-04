@@ -1,9 +1,11 @@
 use super::order::ConvoyOrder;
+use super::order::DisbandOrder;
 use super::order::HoldOrder;
 use super::order::MoveOrder;
 use super::order::Order;
 use super::order::OrderKind;
 use super::order::OrderStatus;
+use super::order::RetreatOrder;
 use super::order::SupportOrder;
 use super::power::Power;
 use super::province::Province;
@@ -149,6 +151,36 @@ impl Unit {
                 target_dest,
             }),
         }
+    }
+
+    /// 撤退命令を生成
+    pub fn retreat_to(&self, dest: Province) -> Order {
+        Order {
+            id: None,
+            power: self.power,
+            unit: *self,
+            dislodged_from: self.dislodged_from,
+            status: OrderStatus::Unresolved,
+            kind: OrderKind::Retreat(RetreatOrder { dest }),
+        }
+    }
+
+    /// 解体命令を生成
+    pub fn disband(&self) -> Order {
+        Order {
+            id: None,
+            power: self.power,
+            unit: *self,
+            dislodged_from: self.dislodged_from,
+            status: OrderStatus::Unresolved,
+            kind: OrderKind::Disband(DisbandOrder {}),
+        }
+    }
+
+    /// ユニットがどこから撃退されたかを設定
+    pub fn dislodged_from(mut self, province: Province) -> Self {
+        self.dislodged_from = Some(province);
+        self
     }
 }
 

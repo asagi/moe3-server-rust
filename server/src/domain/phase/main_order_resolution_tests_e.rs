@@ -31,7 +31,7 @@ fn p(code: &str) -> Province {
 /// The army in Kiel will move to Berlin.
 #[test]
 fn test_datc_6_e_1() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
     let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
     let unit_g_sil = Unit::new_army(Power::Germany, p("sil"));
@@ -58,7 +58,7 @@ fn test_datc_6_e_1() {
 /// No unit will move.
 #[test]
 fn test_datc_6_e_2() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
     let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
     let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
@@ -84,7 +84,7 @@ fn test_datc_6_e_2() {
 /// No unit will move.
 #[test]
 fn test_datc_6_e_3() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
     let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
     let unit_e_kie = Unit::new_fleet(Power::England, p("kie"));
@@ -123,7 +123,7 @@ fn test_datc_6_e_3() {
 /// Therefore, the Austrian army in Ruhr will not move to Holland.
 #[test]
 fn test_datc_6_e_4() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_hol = Unit::new_fleet(Power::Germany, p("hol"));
     let unit_g_hel = Unit::new_fleet(Power::Germany, p("hel"));
     let unit_g_ska = Unit::new_fleet(Power::Germany, p("ska"));
@@ -185,7 +185,7 @@ fn test_datc_6_e_4() {
 /// So, the Austrian move in Ruhr fails and the German fleet in Holland is not dislodged.
 #[test]
 fn test_datc_6_e_5() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_hol = Unit::new_fleet(Power::Germany, p("hol"));
     let unit_g_hel = Unit::new_fleet(Power::Germany, p("hel"));
     let unit_g_ska = Unit::new_fleet(Power::Germany, p("ska"));
@@ -247,7 +247,7 @@ fn test_datc_6_e_5() {
 /// Therefore, the Austrian army in Ruhr will not move to Holland.
 #[test]
 fn test_datc_6_e_6() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_hol = Unit::new_fleet(Power::Germany, p("hol"));
     let unit_g_hel = Unit::new_fleet(Power::Germany, p("hel"));
     let unit_f_nth = Unit::new_fleet(Power::France, p("nth"));
@@ -298,7 +298,7 @@ fn test_datc_6_e_6() {
 /// but this doesn't mean that they can advance.
 #[test]
 fn test_datc_6_e_7() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     let unit_e_yor = Unit::new_fleet(Power::England, p("yor"));
     let unit_g_hol = Unit::new_fleet(Power::Germany, p("hol"));
@@ -338,7 +338,7 @@ fn test_datc_6_e_7() {
 /// Again, none of the fleets move.
 #[test]
 fn test_datc_6_e_8() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     let unit_e_yor = Unit::new_fleet(Power::England, p("yor"));
     let unit_g_hol = Unit::new_fleet(Power::Germany, p("hol"));
@@ -378,7 +378,7 @@ fn test_datc_6_e_8() {
 /// Both the fleet in the North Sea and the fleet in Norway move.
 #[test]
 fn test_datc_6_e_9() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     let unit_e_yor = Unit::new_fleet(Power::England, p("yor"));
     let unit_g_hol = Unit::new_fleet(Power::Germany, p("hol"));
@@ -420,7 +420,7 @@ fn test_datc_6_e_9() {
 /// There is no movement of fleets.
 #[test]
 fn test_datc_6_e_10() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     let unit_e_yor = Unit::new_fleet(Power::England, p("yor"));
     let unit_g_hol = Unit::new_fleet(Power::Germany, p("hol"));
@@ -469,7 +469,7 @@ fn test_datc_6_e_10() {
 /// there is no beleaguered garrison anymore.
 #[test]
 fn test_datc_6_e_11() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_spa = Unit::new_army(Power::France, p("spa"));
     let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
     let unit_f_lyo = Unit::new_fleet(Power::France, p("lyo"));
@@ -513,7 +513,7 @@ fn test_datc_6_e_11() {
 /// No army will move.
 #[test]
 fn test_datc_6_e_12() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_bud = Unit::new_army(Power::Austria, p("bud"));
     let unit_a_ser = Unit::new_army(Power::Austria, p("ser"));
     let unit_i_vie = Unit::new_army(Power::Italy, p("vie"));
@@ -554,7 +554,7 @@ fn test_datc_6_e_12() {
 /// None of the fleets move. The German fleet in the North Sea is not dislodged.
 #[test]
 fn test_datc_6_e_13() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_edi = Unit::new_fleet(Power::England, p("edi"));
     let unit_e_yor = Unit::new_fleet(Power::England, p("yor"));
     let unit_f_bel = Unit::new_fleet(Power::France, p("bel"));
@@ -594,7 +594,7 @@ fn test_datc_6_e_13() {
 /// So, none of the units move.
 #[test]
 fn test_datc_6_e_14() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_lvp = Unit::new_army(Power::England, p("lvp"));
     let unit_r_edi = Unit::new_fleet(Power::Russia, p("edi"));
     phase.data.orders.push(unit_e_lvp.move_to(p("edi")));
@@ -633,7 +633,7 @@ fn test_datc_6_e_14() {
 /// In this process, one of the sides of the head-to-head battle might be cancelled out.
 #[test]
 fn test_datc_6_e_15() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_hol = Unit::new_fleet(Power::England, p("hol"));
     let unit_e_ruh = Unit::new_army(Power::England, p("ruh"));
     let unit_f_kie = Unit::new_army(Power::France, p("kie"));
