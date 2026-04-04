@@ -8,6 +8,7 @@ use crate::domain::province::Province;
 use crate::domain::unit::UnitKind;
 use std::cmp::Ordering;
 use std::collections::HashSet;
+use std::iter::successors;
 
 pub struct MainAdjudicator;
 
@@ -180,20 +181,20 @@ impl MainAdjudicator {
 
             // 支援対象が移動命令の場合
             if orders.get_support_target_move_order_kind(support_idx).is_some() {
-                if should_avoid_cut_due_to_datc_6_f_22(orders, support_idx, support_idx) {
+                if should_avoid_cut_due_to_datc_6_f_22(orders, support_idx) {
                     continue;
                 }
-                if should_avoid_cut_due_to_datc_6_f_24_a(orders, support_idx, support_idx) {
+                if should_avoid_cut_due_to_datc_6_f_24_a(orders, support_idx) {
                     continue;
                 }
             };
 
             // 支援対象が輸送命令の場合
             if orders.get_support_target_convoy_order_kind(support_idx).is_some() {
-                if should_avoid_cut_due_to_datc_6_f_23(orders, support_idx, support_idx) {
+                if should_avoid_cut_due_to_datc_6_f_23(orders, support_idx) {
                     continue;
                 }
-                if should_avoid_cut_due_to_datc_6_f_24_b(orders, support_idx, support_idx) {
+                if should_avoid_cut_due_to_datc_6_f_24_b(orders, support_idx) {
                     continue;
                 }
             }
@@ -517,14 +518,10 @@ fn should_avoid_cut_due_to_datc_6_f_18(orders: &mut [Order], s1_idx: usize, atta
 }
 
 /// DATC テストケース 6.F.22 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
-fn should_avoid_cut_due_to_datc_6_f_22(orders: &[Order], start_idx: usize, end_idx: usize) -> bool {
-    let Some(s2_idx) = should_avoid_cut_due_to_datc_6_f_22_core(orders, start_idx) else {
-        return false;
-    };
-    if s2_idx == end_idx {
-        return true;
-    }
-    should_avoid_cut_due_to_datc_6_f_22(orders, s2_idx, end_idx)
+fn should_avoid_cut_due_to_datc_6_f_22(orders: &[Order], start_idx: usize) -> bool {
+    successors(Some(start_idx), |&idx| should_avoid_cut_due_to_datc_6_f_22_core(orders, idx))
+        .skip(1)
+        .any(|idx| idx == start_idx)
 }
 
 // DATC テストケース 6.F.22 対応判定処理本体
@@ -552,15 +549,12 @@ fn should_avoid_cut_due_to_datc_6_f_22_core(orders: &[Order], start_idx: usize) 
 }
 
 /// DATC テストケース 6.F.23 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
-fn should_avoid_cut_due_to_datc_6_f_23(orders: &[Order], start_idx: usize, end_idx: usize) -> bool {
-    let Some(s2_idx) = should_avoid_cut_due_to_datc_6_f_23_core(orders, start_idx, end_idx) else {
-        return false;
-    };
-    if s2_idx == end_idx {
-        return true;
-    }
-
-    should_avoid_cut_due_to_datc_6_f_23(orders, s2_idx, end_idx)
+fn should_avoid_cut_due_to_datc_6_f_23(orders: &[Order], start_idx: usize) -> bool {
+    successors(Some(start_idx), |&idx| {
+        should_avoid_cut_due_to_datc_6_f_23_core(orders, idx, start_idx)
+    })
+    .skip(1)
+    .any(|idx| idx == start_idx)
 }
 
 // DATC テストケース 6.F.23 対応判定処理本体
@@ -595,35 +589,22 @@ fn should_avoid_cut_due_to_datc_6_f_23_core(orders: &[Order], start_idx: usize, 
     Some(s2_idx)
 }
 
-/// DATC テストケース 6.F.24 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
+/// DATC テストケース 6.F.24 の Szykman ルールに従ったカット回避が成立するかどうかを判定する
 /// 6.F.22 と 6.F.23 の複合ケース
-fn should_avoid_cut_due_to_datc_6_f_24_a(orders: &[Order], s1_idx: usize, end_idx: usize) -> bool {
-    let Some(s2_idx) = should_avoid_cut_due_to_datc_6_f_22_core(orders, s1_idx) else {
-        return false;
-    };
-    let Some(s3_idx) = should_avoid_cut_due_to_datc_6_f_23_core(orders, s2_idx, end_idx) else {
-        return false;
-    };
-    if s3_idx == end_idx {
-        return true;
-    }
-
-    should_avoid_cut_due_to_datc_6_f_24_a(orders, s3_idx, end_idx)
+fn should_avoid_cut_due_to_datc_6_f_24_a(orders: &[Order], s1_idx: usize) -> bool {
+    successors(should_avoid_cut_due_to_datc_6_f_22_core(orders, s1_idx), |&s2_idx| {
+        should_avoid_cut_due_to_datc_6_f_23_core(orders, s2_idx, s1_idx)
+    })
+    .any(|s3_idx| s3_idx == s1_idx)
 }
 
 /// DATC テストケース 6.F.24 の Szykman ルールに従ったカット回避が成立するかどうかを判定する。
-fn should_avoid_cut_due_to_datc_6_f_24_b(orders: &[Order], s1_idx: usize, end_idx: usize) -> bool {
-    let Some(s2_idx) = should_avoid_cut_due_to_datc_6_f_23_core(orders, s1_idx, end_idx) else {
-        return false;
-    };
-    let Some(s3_idx) = should_avoid_cut_due_to_datc_6_f_22_core(orders, s2_idx) else {
-        return false;
-    };
-    if s3_idx == end_idx {
-        return true;
-    }
-
-    should_avoid_cut_due_to_datc_6_f_24_b(orders, s3_idx, end_idx)
+/// 6.F.23 と 6.F.22 の複合ケース
+fn should_avoid_cut_due_to_datc_6_f_24_b(orders: &[Order], s1_idx: usize) -> bool {
+    successors(should_avoid_cut_due_to_datc_6_f_23_core(orders, s1_idx, s1_idx), |&s2_idx| {
+        should_avoid_cut_due_to_datc_6_f_22_core(orders, s2_idx)
+    })
+    .any(|s3_idx| s3_idx == s1_idx)
 }
 
 /// 対象への攻撃命令が支援を一つ減らした状態で撃退されない可能性の有無を判定する
