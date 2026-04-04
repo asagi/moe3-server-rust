@@ -123,6 +123,40 @@ impl Order {
         self.unit.location()
     }
 
+    /// ユニットの目的地を返す
+    pub fn dest(&self) -> Province {
+        match &self.kind {
+            OrderKind::Move(m) => m.dest,
+            _ => unreachable!("Not move order does not have a destination"),
+        }
+    }
+
+    /// ターゲットユニットを返す
+    pub fn target_unit(&self) -> Unit {
+        match &self.kind {
+            OrderKind::Support(s) => s.target_unit,
+            OrderKind::Convoy(c) => c.target_unit,
+            _ => unreachable!("Only support and convoy orders have target units"),
+        }
+    }
+
+    /// ターゲットの目的地を返す
+    pub fn target_dest(&self) -> Option<Province> {
+        match &self.kind {
+            OrderKind::Support(s) => s.target_dest,
+            OrderKind::Convoy(c) => Some(c.target_dest),
+            _ => unreachable!("Only support and convoy orders have target destinations"),
+        }
+    }
+
+    /// 移動命令で海路指定フラグが立っているかどうかを返す
+    pub fn via_convoy(&self) -> bool {
+        match &self.kind {
+            OrderKind::Move(m) => m.via_convoy,
+            _ => false,
+        }
+    }
+
     /// ターゲット命令と一致するかどうかを判定
     pub fn is_matching_target(&self, other_order: &Order) -> bool {
         match &self.kind {
