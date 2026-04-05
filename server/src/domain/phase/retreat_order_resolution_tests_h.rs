@@ -238,30 +238,60 @@ fn test_datc_6_h_7() {
 /// When three units retreat to the same area, then all three units are disbanded.
 ///
 /// England:
-/// A Liverpool - Edinburgh
-/// F Yorkshire Supports A Liverpool - Edinburgh
-/// F Norway Hold
+///     A Liverpool - Edinburgh
+///     F Yorkshire Supports A Liverpool - Edinburgh
+///     F Norway Hold
 ///
 /// Germany:
-/// A Kiel Supports A Ruhr - Holland
-/// A Ruhr - Holland
+///     A Kiel Supports A Ruhr - Holland
+///     A Ruhr - Holland
 ///
 /// Russia:
-/// F Edinburgh Hold
-/// A Sweden Supports A Finland - Norway
-/// A Finland - Norway
-/// F Holland Hold
+///     F Edinburgh Hold
+///     A Sweden Supports A Finland - Norway
+///     A Finland - Norway
+///     F Holland Hold
+///
 /// The fleets in Norway, Edinburgh and Holland are dislodged. If the following retreat orders are given:
 ///
 /// England:
-/// F Norway - North Sea
+///     F Norway - North Sea
 ///
 /// Russia:
-/// F Edinburgh - North Sea
-/// F Holland - North Sea
+///     F Edinburgh - North Sea
+///     F Holland - North Sea
+///
 /// All three units are disbanded.
 #[test]
-fn test_datc_6_h_8() {}
+fn test_datc_6_h_8() {
+    let mut phase = Phase::new_spring_retreat(1901, 2);
+    let context = &mut PhaseContext::new();
+    let unit_e_edi = Unit::new_army(Power::England, p("edi"));
+    let unit_e_yor = Unit::new_fleet(Power::England, p("yor"));
+    let unit_e_nwy = Unit::new_fleet(Power::England, p("nwy")).dislodged_from(p("fin"));
+    let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
+    let unit_g_hol = Unit::new_fleet(Power::Germany, p("hol"));
+    let unit_r_edi = Unit::new_fleet(Power::Russia, p("edi")).dislodged_from(p("lvp"));
+    let unit_r_swe = Unit::new_army(Power::Russia, p("swe"));
+    let unit_r_nwy = Unit::new_army(Power::Russia, p("nwy"));
+    let unit_r_hol = Unit::new_fleet(Power::Russia, p("hol")).dislodged_from(p("ruh"));
+    context.last_resolved_units.push(unit_e_edi);
+    context.last_resolved_units.push(unit_e_yor);
+    context.last_resolved_units.push(unit_e_nwy);
+    context.last_resolved_units.push(unit_g_kie);
+    context.last_resolved_units.push(unit_g_hol);
+    context.last_resolved_units.push(unit_r_edi);
+    context.last_resolved_units.push(unit_r_swe);
+    context.last_resolved_units.push(unit_r_nwy);
+    context.last_resolved_units.push(unit_r_hol);
+    phase.data.orders.push(unit_e_nwy.retreat_to(p("nth")));
+    phase.data.orders.push(unit_r_edi.retreat_to(p("nth")));
+    phase.data.orders.push(unit_r_hol.retreat_to(p("nth")));
+    resolve_orders_for_retreat_phase(&mut phase, context);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+}
 
 /// 6.H.9. TEST CASE, DISLODGED UNIT WILL NOT MAKE ATTACKERS AREA CONTESTED
 /// An army can follow.
