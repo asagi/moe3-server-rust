@@ -7,5 +7,8 @@ pub fn resolve_orders_for_retreat_phase(current_phase: &mut Phase, context: &mut
     let orders = &mut current_phase.data.orders;
 
     // # 01. 撤退命令検証
-    RetreatAdjudicator::resolve_retreat_orders(orders, context);
+    RetreatAdjudicator::validate_retreat_orders(orders, context);
+
+    // # 02. 撤退命令処理
+    RetreatAdjudicator::handle_retreat_orders(orders);
 }

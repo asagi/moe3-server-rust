@@ -161,6 +161,7 @@ impl Order {
     pub fn dest(&self) -> Province {
         match &self.kind {
             OrderKind::Move(m) => m.dest,
+            OrderKind::Retreat(r) => r.dest,
             _ => unreachable!("Not move order does not have a destination"),
         }
     }
