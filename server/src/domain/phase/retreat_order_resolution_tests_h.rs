@@ -193,24 +193,46 @@ fn test_datc_6_h_6() {
 /// There can only be one unit in an area.
 ///
 /// Austria:
-/// A Budapest Supports A Trieste - Vienna
-/// A Trieste - Vienna
+///     A Budapest Supports A Trieste - Vienna
+///     A Trieste - Vienna
 ///
 /// Germany:
-/// A Munich Supports A Silesia - Bohemia
-/// A Silesia - Bohemia
+///     A Munich Supports A Silesia - Bohemia
+///     A Silesia - Bohemia
 ///
 /// Italy:
-/// A Vienna Hold
-/// A Bohemia Hold
+///     A Vienna Hold
+///     A Bohemia Hold
+///
 /// If Italy orders the following for retreat:
 ///
 /// Italy:
-/// A Bohemia - Tyrolia
-/// A Vienna - Tyrolia
+///     A Bohemia - Tyrolia
+///     A Vienna - Tyrolia
+///
 /// Both armies will be disbanded.
 #[test]
-fn test_datc_6_h_7() {}
+fn test_datc_6_h_7() {
+    let mut phase = Phase::new_spring_retreat(1901, 2);
+    let context = &mut PhaseContext::new();
+    let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
+    let unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
+    let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
+    let unit_g_boh = Unit::new_army(Power::Germany, p("boh"));
+    let unit_i_vie = Unit::new_army(Power::Italy, p("vie")).dislodged_from(p("tri"));
+    let unit_i_boh = Unit::new_army(Power::Italy, p("boh")).dislodged_from(p("sil"));
+    context.last_resolved_units.push(unit_a_tri);
+    context.last_resolved_units.push(unit_a_vie);
+    context.last_resolved_units.push(unit_g_mun);
+    context.last_resolved_units.push(unit_g_boh);
+    context.last_resolved_units.push(unit_i_vie);
+    context.last_resolved_units.push(unit_i_boh);
+    phase.data.orders.push(unit_i_vie.retreat_to(p("tyr")));
+    phase.data.orders.push(unit_i_boh.retreat_to(p("tyr")));
+    resolve_orders_for_retreat_phase(&mut phase, context);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+}
 
 /// 6.H.8. TEST CASE, TRIPLE RETREAT TO SAME AREA WILL DISBAND UNITS
 /// When three units retreat to the same area, then all three units are disbanded.
