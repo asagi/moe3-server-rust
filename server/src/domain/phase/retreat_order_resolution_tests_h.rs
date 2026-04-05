@@ -158,18 +158,36 @@ fn test_datc_6_h_5() {
 /// Standoff prevents retreat to the area.
 ///
 /// Austria:
-/// A Budapest Supports A Trieste - Vienna
-/// A Trieste - Vienna
+///     A Budapest Supports A Trieste - Vienna
+///     A Trieste - Vienna
 ///
 /// Germany:
-/// A Munich - Bohemia
-/// A Silesia - Bohemia
+///     A Munich - Bohemia
+///     A Silesia - Bohemia
 ///
 /// Italy:
-/// A Vienna Hold
+///     A Vienna Hold
+///
 /// The Italian army in Vienna is dislodged. It may not retreat to Bohemia.
 #[test]
-fn test_datc_6_h_6() {}
+fn test_datc_6_h_6() {
+    let mut phase = Phase::new_spring_retreat(1901, 2);
+    let context = &mut PhaseContext::new();
+    let unit_a_bud = Unit::new_army(Power::Austria, p("bud"));
+    let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
+    let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
+    let unit_g_sil = Unit::new_army(Power::Germany, p("sil"));
+    let unit_i_vie = Unit::new_army(Power::Italy, p("vie")).dislodged_from(p("tri"));
+    context.last_resolved_units.push(unit_a_bud);
+    context.last_resolved_units.push(unit_a_vie);
+    context.last_resolved_units.push(unit_i_vie);
+    context.last_resolved_units.push(unit_g_mun);
+    context.last_resolved_units.push(unit_g_sil);
+    context.standoff_codes.push(&p("boh").code()[..3]);
+    phase.data.orders.push(unit_i_vie.retreat_to(p("boh")));
+    resolve_orders_for_retreat_phase(&mut phase, context);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+}
 
 /// 6.H.7. TEST CASE, MULTIPLE RETREAT TO SAME AREA WILL DISBAND UNITS
 /// There can only be one unit in an area.

@@ -25,7 +25,7 @@ impl RetreatAdjudicator {
             }
 
             // 撤退先がスタンドオフエリアの場合は無効
-            if context.standoff_codes.iter().find(|&c| *c == &dest_code[..3]).is_some() {
+            if context.standoff_codes.iter().find(|&&c| c == &dest_code[..3]).is_some() {
                 for idx in conflict_idxs {
                     orders[idx].set_invalid();
                 }
