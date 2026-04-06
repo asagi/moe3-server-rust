@@ -178,9 +178,14 @@ impl Unit {
     }
 
     /// ユニットがどこから撃退されたかを設定
-    pub fn dislodged_from(mut self, province: Province) -> Self {
+    pub fn dislodged_from(&mut self, province: Province) -> Self {
         self.dislodged_from = Some(province);
-        self
+        *self
+    }
+
+    pub fn dislodged_via_convoy(&mut self) -> Self {
+        self.dislodged_from = None;
+        *self
     }
 }
 

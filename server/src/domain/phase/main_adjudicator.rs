@@ -229,7 +229,7 @@ impl MainAdjudicator {
 
             // 攻撃成功
             orders[winner_idx].set_success();
-            orders[convoy_idx].set_dislodged_from(&orders[winner_idx].location());
+            orders[convoy_idx].set_dislodged_by(&orders[winner_idx].clone());
 
             // 敗退した輸送命令の対象である移動命令の成否を検証
             let move_idx = orders.find_convoy_target_idx(convoy_idx).expect("expected a target");
@@ -314,7 +314,7 @@ impl MainAdjudicator {
             // （そうでなければ判定を保留して次のループへ）
             if handle_conflicting(orders, orders[loser_idx].location().code(), standoff_codes, true) == Some(winner_idx) {
                 orders[winner_idx].set_success();
-                orders[loser_idx].set_dislodged_from(&orders[winner_idx].location());
+                orders[loser_idx].set_dislodged_by(&orders[winner_idx].clone());
 
                 // 海路迂回移動が絡む場合はスタンドオフの無効化はしない
                 let a_can = can_reach_via_convoy(orders, winner_idx);
@@ -825,7 +825,7 @@ fn resolve_attack_against_non_move(orders: &mut [Order], attacker_idx: usize, de
     let defender_supports = orders.count_supports(defender_idx, None);
     if attacker_supports > defender_supports {
         orders[attacker_idx].set_success();
-        orders[defender_idx].set_dislodged_from(&orders[attacker_idx].location());
+        orders[defender_idx].set_dislodged_by(&orders[attacker_idx].clone());
     } else {
         // 同点・守備優勢ともに攻撃失敗
         orders[attacker_idx].set_failure();
@@ -849,7 +849,7 @@ fn resolve_no_support_defense(orders: &mut [Order], attacker_idx: usize, defende
     {
         // defender 防衛失敗
         orders[attacker_idx].set_success();
-        orders[defender_idx].set_dislodged_from(&orders[attacker_idx].location());
+        orders[defender_idx].set_dislodged_by(&orders[attacker_idx].clone());
         return;
     }
 

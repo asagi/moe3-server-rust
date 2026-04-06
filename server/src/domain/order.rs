@@ -302,10 +302,15 @@ impl Order {
         self.power != self.unit.power()
     }
 
-    /// ユニットがどこから追い出されたかを記録
-    pub(crate) fn set_dislodged_from(&mut self, winner_location: &Province) {
+    // /// ユニットがどこから追い出されたかを記録
+    // pub(crate) fn set_dislodged_from(&mut self, winner_location: &Province) {
+    //     self.status = OrderStatus::Dislodged;
+    //     self.dislodged_from = Some(*winner_location);
+    // }
+
+    pub(crate) fn set_dislodged_by(&mut self, winner: &Order) {
         self.status = OrderStatus::Dislodged;
-        self.dislodged_from = Some(*winner_location);
+        self.dislodged_from = if winner.via_convoy() { None } else { Some(winner.location()) };
     }
 
     /// 命令を仮定命令に変換
