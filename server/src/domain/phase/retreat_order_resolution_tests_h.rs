@@ -333,29 +333,56 @@ fn test_datc_6_h_9() {
 }
 
 /// 6.H.10. TEST CASE, NOT RETREATING TO ATTACKER DOES NOT MEAN CONTESTED
-/// An army cannot retreat to the area of the attacker. The easiest way to program that, is to mark that area as "contested". However, this is not correct. Another army may retreat to that area.
+/// An army cannot retreat to the area of the attacker.
+/// The easiest way to program that, is to mark that area as "contested".
+/// However, this is not correct. Another army may retreat to that area.
 ///
 /// England:
-/// A Kiel Hold
+///     A Kiel Hold
 ///
 /// Germany:
-/// A Berlin - Kiel
-/// A Munich Supports A Berlin - Kiel
-/// A Prussia Hold
+///     A Berlin - Kiel
+///     A Munich Supports A Berlin - Kiel
+///     A Prussia Hold
 ///
 /// Russia:
-/// A Warsaw - Prussia
-/// A Silesia Supports A Warsaw - Prussia
-/// The armies in Kiel and Prussia are dislodged. The English army in Kiel cannot retreat to Berlin, but the army in Prussia can retreat to Berlin. Suppose the following retreat orders are given:
+///     A Warsaw - Prussia
+///     A Silesia Supports A Warsaw - Prussia
+///
+/// The armies in Kiel and Prussia are dislodged.
+/// The English army in Kiel cannot retreat to Berlin, but the army in Prussia can retreat to Berlin.
+/// Suppose the following retreat orders are given:
 ///
 /// England:
-/// A Kiel - Berlin
+///     A Kiel - Berlin
 ///
 /// Germany:
-/// A Prussia - Berlin
-/// The English retreat to Berlin is illegal and fails (the unit is disbanded). The German retreat to Berlin is successful and does not bounce on the English unit.
+///     A Prussia - Berlin
+///
+/// The English retreat to Berlin is illegal and fails (the unit is disbanded).
+/// The German retreat to Berlin is successful and does not bounce on the English unit.
 #[test]
-fn test_datc_6_h_10() {}
+fn test_datc_6_h_10() {
+    let mut phase = Phase::new_spring_retreat(1901, 2);
+    let context = &mut PhaseContext::new();
+    let unit_e_kie = Unit::new_army(Power::England, p("kie")).dislodged_from(p("ber"));
+    let unit_g_kie = Unit::new_army(Power::Germany, p("kie"));
+    let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
+    let unit_g_pru = Unit::new_army(Power::Germany, p("pru")).dislodged_from(p("war"));
+    let unit_r_pru = Unit::new_army(Power::Russia, p("pru"));
+    let unit_r_sil = Unit::new_army(Power::Russia, p("sil"));
+    context.last_resolved_units.push(unit_e_kie);
+    context.last_resolved_units.push(unit_g_kie);
+    context.last_resolved_units.push(unit_g_mun);
+    context.last_resolved_units.push(unit_g_pru);
+    context.last_resolved_units.push(unit_r_pru);
+    context.last_resolved_units.push(unit_r_sil);
+    phase.data.orders.push(unit_e_kie.retreat_to(p("ber")));
+    phase.data.orders.push(unit_g_pru.retreat_to(p("ber")));
+    resolve_orders_for_retreat_phase(&mut phase, context);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+}
 
 /// 6.H.11. TEST CASE, RETREAT WHEN DISLODGED BY ADJACENT CONVOY
 /// If a unit is dislodged by an army via convoy, the question arises whether the dislodged army can retreat to the original province of the convoyed army. This is only relevant in case the convoy was to an adjacent province.
