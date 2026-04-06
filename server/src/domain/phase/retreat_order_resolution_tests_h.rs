@@ -297,19 +297,40 @@ fn test_datc_6_h_8() {
 /// An army can follow.
 ///
 /// England:
-/// F Helgoland Bight - Kiel
-/// F Denmark Supports F Helgoland Bight - Kiel
+///     F Helgoland Bight - Kiel
+///     F Denmark Supports F Helgoland Bight - Kiel
 ///
 /// Germany:
-/// A Berlin - Prussia
-/// F Kiel Hold
-/// A Silesia Supports A Berlin - Prussia
+///     A Berlin - Prussia
+///     F Kiel Hold
+///     A Silesia Supports A Berlin - Prussia
 ///
 /// Russia:
-/// A Prussia - Berlin
+///     A Prussia - Berlin
+///
 /// The fleet in Kiel can retreat to Berlin.
 #[test]
-fn test_datc_6_h_9() {}
+fn test_datc_6_h_9() {
+    let mut phase = Phase::new_spring_retreat(1901, 2);
+    let context = &mut PhaseContext::new();
+    let unit_e_kie = Unit::new_fleet(Power::England, p("kie"));
+    let unit_e_den = Unit::new_fleet(Power::England, p("den"));
+    let unit_g_pru = Unit::new_army(Power::Germany, p("pru"));
+    let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie")).dislodged_from(p("hel"));
+    let unit_g_sil = Unit::new_army(Power::Germany, p("sil"));
+    let unit_r_pru = Unit::new_army(Power::Russia, p("pru")).dislodged_from(p("ber"));
+    context.last_resolved_units.push(unit_e_kie);
+    context.last_resolved_units.push(unit_e_den);
+    context.last_resolved_units.push(unit_g_pru);
+    context.last_resolved_units.push(unit_g_kie);
+    context.last_resolved_units.push(unit_g_sil);
+    context.last_resolved_units.push(unit_r_pru);
+    phase.data.orders.push(unit_g_kie.retreat_to(p("ber")));
+    phase.data.orders.push(unit_r_pru.retreat_to(p("ber")));
+    resolve_orders_for_retreat_phase(&mut phase, context);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+}
 
 /// 6.H.10. TEST CASE, NOT RETREATING TO ATTACKER DOES NOT MEAN CONTESTED
 /// An army cannot retreat to the area of the attacker. The easiest way to program that, is to mark that area as "contested". However, this is not correct. Another army may retreat to that area.
