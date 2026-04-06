@@ -385,22 +385,46 @@ fn test_datc_6_h_10() {
 }
 
 /// 6.H.11. TEST CASE, RETREAT WHEN DISLODGED BY ADJACENT CONVOY
-/// If a unit is dislodged by an army via convoy, the question arises whether the dislodged army can retreat to the original province of the convoyed army. This is only relevant in case the convoy was to an adjacent province.
+/// If a unit is dislodged by an army via convoy,
+/// the question arises whether the dislodged army can retreat to the original province of the convoyed army.
+/// This is only relevant in case the convoy was to an adjacent province.
 ///
 /// France:
-/// A Gascony - Marseilles via convoy
-/// A Burgundy Supports A Gascony - Marseilles
-/// F Mid-Atlantic Ocean Convoys A Gascony - Marseilles
-/// F Western Mediterranean Convoys A Gascony - Marseilles
-/// F Gulf of Lyon Convoys A Gascony - Marseilles
+///     A Gascony - Marseilles via convoy
+///     A Burgundy Supports A Gascony - Marseilles
+///     F Mid-Atlantic Ocean Convoys A Gascony - Marseilles
+///     F Western Mediterranean Convoys A Gascony - Marseilles
+///     F Gulf of Lyon Convoys A Gascony - Marseilles
 ///
 /// Italy:
-/// A Marseilles Hold
-/// The army in Gascony takes a convoy and does not pass the border of Gascony with Marseilles (it went a completely different direction). Now, the result depends on which rule is used for retreating (see issue 4.A.5).
+///     A Marseilles Hold
+///
+/// The army in Gascony takes a convoy and does not pass the border of Gascony with Marseilles
+/// (it went a completely different direction).
+/// Now, the result depends on which rule is used for retreating (see issue 4.A.5).
 ///
 /// The 2023 rules explicitly allow this. So, I prefer that Marseilles may retreat to Gascony.
 #[test]
-fn test_datc_6_h_11() {}
+fn test_datc_6_h_11() {
+    let mut phase = Phase::new_spring_retreat(1901, 2);
+    let context = &mut PhaseContext::new();
+    let unit_f_mar = Unit::new_army(Power::France, p("mar"));
+    let unit_f_bur = Unit::new_army(Power::France, p("bur"));
+    let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
+    let unit_f_wes = Unit::new_fleet(Power::France, p("wes"));
+    let unit_f_lyo = Unit::new_fleet(Power::France, p("lyo"));
+    let unit_i_mar = Unit::new_army(Power::Italy, p("mar")).dislodged_via_convoy();
+    context.last_resolved_units.push(unit_f_mar);
+    context.last_resolved_units.push(unit_f_mar);
+    context.last_resolved_units.push(unit_f_bur);
+    context.last_resolved_units.push(unit_f_mao);
+    context.last_resolved_units.push(unit_f_wes);
+    context.last_resolved_units.push(unit_f_lyo);
+    context.last_resolved_units.push(unit_i_mar);
+    phase.data.orders.push(unit_i_mar.retreat_to(p("gas")));
+    resolve_orders_for_retreat_phase(&mut phase, context);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+}
 
 /// 6.H.12. TEST CASE, RETREAT WHEN DISLODGED BY ADJACENT CONVOY WHILE TRYING TO DO THE SAME
 /// The previous test case can be made more extra ordinary, when both armies tried to move by convoy.
