@@ -1,4 +1,3 @@
-use crate::domain::order::Order;
 use crate::domain::order::OrderKind;
 use crate::domain::phase::Phase;
 use crate::domain::phase::main_adjudicator::MainAdjudicator;
@@ -9,7 +8,6 @@ use crate::domain::unit::Unit;
 pub fn resolve_orders_for_main_phase(current_phase: &mut Phase) {
     let orders = &mut current_phase.data.orders;
     let standoff_province_codes = &mut current_phase.data.standoff_province_codes;
-    let resolved_units = &mut current_phase.data.resolved_units;
 
     // # 01. 移動命令検証
     MainAdjudicator::validate_move_orders(orders);
@@ -39,17 +37,17 @@ pub fn resolve_orders_for_main_phase(current_phase: &mut Phase) {
     MainAdjudicator::succeed_remaining_orders(orders);
 
     // # 10. 命令解決後のユニット配置情報をフェイズに反映
-    apply_resolved_unit_locations(orders, resolved_units);
+    apply_resolved_unit_locations(current_phase);
 }
 
 /// 命令解決後のユニット配置情報をフェイズに反映
-fn apply_resolved_unit_locations(orders: &[Order], resolved_units: &mut Vec<Unit>) {
-    for order in orders.collect_not_invalid_orders() {
+fn apply_resolved_unit_locations(current_phase: &mut Phase) {
+    for order in current_phase.data.orders.collect_not_invalid_orders() {
         // 移動に成功した軍の保存
         if let OrderKind::Move(m) = &order.kind
             && order.is_success()
         {
-            resolved_units.push(Unit {
+            current_phase.data.resolved_units.push(Unit {
                 province: m.dest,
                 ..order.unit
             });
@@ -58,7 +56,7 @@ fn apply_resolved_unit_locations(orders: &[Order], resolved_units: &mut Vec<Unit
 
         // 撃退された軍の保存
         if order.is_dislodged() {
-            resolved_units.push(Unit {
+            current_phase.data.resolved_units.push(Unit {
                 dislodged_from: order.dislodged_from,
                 ..order.unit
             });
@@ -66,6 +64,6 @@ fn apply_resolved_unit_locations(orders: &[Order], resolved_units: &mut Vec<Unit
         }
 
         // それ以外の軍は現状維持
-        resolved_units.push(Unit { ..order.unit });
+        current_phase.data.resolved_units.push(Unit { ..order.unit });
     }
 }
