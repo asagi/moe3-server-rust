@@ -502,30 +502,34 @@ fn test_datc_6_h_13() {
 }
 
 /// 6.H.14. TEST CASE, NO RETREAT WITH SUPPORT IN MOVEMENT PHASE
-/// Comparable to the previous test case, a support given in the movement phase cannot be used in the retreat phase.
+/// Comparable to the previous test case,
+/// a support given in the movement phase cannot be used in the retreat phase.
 ///
 /// England:
-/// A Picardy Hold
-/// F English Channel Supports A Picardy - Belgium
+///     A Picardy Hold
+///     F English Channel Supports A Picardy - Belgium
 ///
 /// France:
-/// A Paris - Picardy
-/// A Brest Supports A Paris - Picardy
-/// A Burgundy Hold
+///     A Paris - Picardy
+///     A Brest Supports A Paris - Picardy
+///     A Burgundy Hold
 ///
 /// Germany:
-/// A Munich Supports A Marseilles - Burgundy
-/// A Marseilles - Burgundy
-/// After the movement phase the following retreat orders are given:
+///     A Munich Supports A Marseilles - Burgundy
+///     A Marseilles - Burgundy
+///     After the movement phase the following retreat orders are given:
 ///
 /// England:
-/// A Picardy - Belgium
+///     A Picardy - Belgium
 ///
 /// France:
-/// A Burgundy - Belgium
+///     A Burgundy - Belgium
+///
 /// Both the army in Picardy and Burgundy are disbanded.
-#[test]
-fn test_datc_6_h_14() {}
+#[allow(unused)]
+fn test_datc_6_h_14() {
+    // 撤退フェイズでは解体か撤退以外の命令は受け付けないためテスト不要
+}
 
 /// 6.H.15. TEST CASE, NO COASTAL CRAWL IN RETREAT
 /// You cannot go to the other coast from where the attacker came from.
