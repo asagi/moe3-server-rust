@@ -484,18 +484,22 @@ fn test_datc_6_h_12() {
 }
 
 /// 6.H.13. TEST CASE, NO RETREAT WITH CONVOY IN MOVEMENT PHASE
-/// The areas where a unit may retreat to, must be determined during the movement phase. Care should be taken that a convoy ordered in the movement phase cannot be used in the retreat phase.
+/// The areas where a unit may retreat to, must be determined during the movement phase.
+/// Care should be taken that a convoy ordered in the movement phase cannot be used in the retreat phase.
 ///
 /// England:
-/// A Picardy Hold
-/// F English Channel Convoys A Picardy - London
+///     A Picardy Hold
+///     F English Channel Convoys A Picardy - London
 ///
 /// France:
-/// A Paris - Picardy
-/// A Brest Supports A Paris - Picardy
+///     A Paris - Picardy
+///     A Brest Supports A Paris - Picardy
+///
 /// The dislodged army in Picardy cannot retreat to London.
-#[test]
-fn test_datc_6_h_13() {}
+#[allow(unused)]
+fn test_datc_6_h_13() {
+    // 撤退フェイズでは解体か撤退以外の命令は受け付けないためテスト不要
+}
 
 /// 6.H.14. TEST CASE, NO RETREAT WITH SUPPORT IN MOVEMENT PHASE
 /// Comparable to the previous test case, a support given in the movement phase cannot be used in the retreat phase.
