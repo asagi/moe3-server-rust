@@ -6,7 +6,7 @@ pub struct RetreatAdjudicator;
 
 impl RetreatAdjudicator {
     /// 撤退命令の妥当性を検査
-    pub(crate) fn validate_retreat_orders(orders: &mut [Order], context: &mut PhaseContext) {
+    pub(crate) fn validate_retreat_orders(orders: &mut [Order], context: &PhaseContext) {
         for &dest_code in orders.collect_retreat_destination_code_set().iter() {
             // 指定地域に対する未処理の撤退命令のインデックスを取得
             let conflict_idxs: Vec<usize> = orders.collect_unresolved_retreat_idxs_by_dest(dest_code);
