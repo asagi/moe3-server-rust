@@ -427,28 +427,61 @@ fn test_datc_6_h_11() {
 }
 
 /// 6.H.12. TEST CASE, RETREAT WHEN DISLODGED BY ADJACENT CONVOY WHILE TRYING TO DO THE SAME
-/// The previous test case can be made more extra ordinary, when both armies tried to move by convoy.
+/// The previous test case can be made more extra ordinary,
+/// when both armies tried to move by convoy.
 ///
 /// England:
-/// A Liverpool - Edinburgh via convoy
-/// F Irish Sea Convoys A Liverpool - Edinburgh
-/// F English Channel Convoys A Liverpool - Edinburgh
-/// F North Sea Convoys A Liverpool - Edinburgh
+///     A Liverpool - Edinburgh via convoy
+///     F Irish Sea Convoys A Liverpool - Edinburgh
+///     F English Channel Convoys A Liverpool - Edinburgh
+///     F North Sea Convoys A Liverpool - Edinburgh
 ///
 /// France:
-/// F Brest - English Channel
-/// F Mid-Atlantic Ocean Supports F Brest - English Channel
+///     F Brest - English Channel
+///     F Mid-Atlantic Ocean Supports F Brest - English Channel
 ///
 /// Russia:
-/// A Edinburgh - Liverpool via convoy
-/// F Norwegian Sea Convoys A Edinburgh - Liverpool
-/// F North Atlantic Ocean Convoys A Edinburgh - Liverpool
-/// A Clyde Supports A Edinburgh - Liverpool
-/// Both the army in Liverpool as in Edinburgh will try to move by convoy. The army in Edinburgh will succeed. The army in Liverpool will fail, because of the disrupted convoy. It is dislodged by the army of Edinburgh. Now, the question is whether the army in Liverpool may retreat to Edinburgh. The result depends on which rule is used for retreating (see issue 4.A.5).
+///     A Edinburgh - Liverpool via convoy
+///     F Norwegian Sea Convoys A Edinburgh - Liverpool
+///     F North Atlantic Ocean Convoys A Edinburgh - Liverpool
+///     A Clyde Supports A Edinburgh - Liverpool
 ///
-/// The 2023 rules, which I prefer, explicitly allow that the army in Liverpool may retreat to Edinburgh.
+/// Both the army in Liverpool as in Edinburgh will try to move by convoy.
+/// The army in Edinburgh will succeed.
+/// The army in Liverpool will fail, because of the disrupted convoy.
+/// It is dislodged by the army of Edinburgh.
+/// Now, the question is whether the army in Liverpool may retreat to Edinburgh.
+/// The result depends on which rule is used for retreating (see issue 4.A.5).
+/// The 2023 rules, which I prefer,
+/// explicitly allow that the army in Liverpool may retreat to Edinburgh.
 #[test]
-fn test_datc_6_h_12() {}
+fn test_datc_6_h_12() {
+    let mut phase = Phase::new_spring_retreat(1901, 2);
+    let context = &mut PhaseContext::new();
+    let unit_e_lvp = Unit::new_army(Power::England, p("lvp")).dislodged_via_convoy();
+    let unit_e_iri = Unit::new_fleet(Power::England, p("iri"));
+    let unit_e_eng = Unit::new_fleet(Power::England, p("eng")).dislodged_from(p("bre"));
+    let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
+    let unit_f_bre = Unit::new_fleet(Power::France, p("bre"));
+    let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
+    let unit_r_lvp = Unit::new_army(Power::Russia, p("lvp"));
+    let unit_r_nwg = Unit::new_fleet(Power::Russia, p("nwg"));
+    let unit_r_nao = Unit::new_fleet(Power::Russia, p("nao"));
+    let unit_r_cly = Unit::new_army(Power::Russia, p("cly"));
+    context.last_resolved_units.push(unit_e_lvp);
+    context.last_resolved_units.push(unit_e_iri);
+    context.last_resolved_units.push(unit_e_eng);
+    context.last_resolved_units.push(unit_e_nth);
+    context.last_resolved_units.push(unit_f_bre);
+    context.last_resolved_units.push(unit_f_mao);
+    context.last_resolved_units.push(unit_r_lvp);
+    context.last_resolved_units.push(unit_r_nwg);
+    context.last_resolved_units.push(unit_r_nao);
+    context.last_resolved_units.push(unit_r_cly);
+    phase.data.orders.push(unit_r_lvp.retreat_to(p("edi")));
+    resolve_orders_for_retreat_phase(&mut phase, context);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+}
 
 /// 6.H.13. TEST CASE, NO RETREAT WITH CONVOY IN MOVEMENT PHASE
 /// The areas where a unit may retreat to, must be determined during the movement phase. Care should be taken that a convoy ordered in the movement phase cannot be used in the retreat phase.
