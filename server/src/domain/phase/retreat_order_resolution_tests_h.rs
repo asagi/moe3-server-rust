@@ -535,26 +535,57 @@ fn test_datc_6_h_14() {
 /// You cannot go to the other coast from where the attacker came from.
 ///
 /// England:
-/// F Portugal Hold
+///     F Portugal Hold
 ///
 /// France:
-/// F Spain(sc) - Portugal
-/// F Mid-Atlantic Ocean Supports F Spain(sc) - Portugal
+///     F Spain(sc) - Portugal
+///     F Mid-Atlantic Ocean Supports F Spain(sc) - Portugal
+///
 /// The English fleet in Portugal is destroyed and cannot retreat to Spain(nc).
 #[test]
-fn test_datc_6_h_15() {}
+fn test_datc_6_h_15() {
+    let mut phase = Phase::new_spring_retreat(1901, 2);
+    let context = &mut PhaseContext::new();
+    let unit_e_por = Unit::new_fleet(Power::England, p("por")).dislodged_from(p("spa"));
+    let unit_f_por = Unit::new_fleet(Power::France, p("por"));
+    let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
+    context.last_resolved_units.push(unit_e_por);
+    context.last_resolved_units.push(unit_f_por);
+    context.last_resolved_units.push(unit_f_mao);
+    phase.data.orders.push(unit_e_por.retreat_to(p("spa")));
+    resolve_orders_for_retreat_phase(&mut phase, context);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+}
 
 /// 6.H.16. TEST CASE, CONTESTED FOR BOTH COASTS
 /// If a coast is contested, the other is not available for retreat.
 ///
 /// France:
-/// F Mid-Atlantic Ocean - Spain(nc)
-/// F Gascony - Spain(nc)
-/// F Western Mediterranean Hold
+///     F Mid-Atlantic Ocean - Spain(nc)
+///     F Gascony - Spain(nc)
+///     F Western Mediterranean Hold
 ///
 /// Italy:
-/// F Tunis Supports F Tyrrhenian Sea - Western Mediterranean
-/// F Tyrrhenian Sea - Western Mediterranean
+///     F Tunis Supports F Tyrrhenian Sea - Western Mediterranean
+///     F Tyrrhenian Sea - Western Mediterranean
+///
 /// The French fleet in the Western Mediterranean cannot retreat to Spain(sc).
 #[test]
-fn test_datc_6_h_16() {}
+fn test_datc_6_h_16() {
+    let mut phase = Phase::new_spring_retreat(1901, 2);
+    let context = &mut PhaseContext::new();
+    let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
+    let unit_f_gas = Unit::new_fleet(Power::France, p("gas"));
+    let unit_f_wes = Unit::new_fleet(Power::France, p("wes")).dislodged_from(p("tyr"));
+    let unit_i_tun = Unit::new_fleet(Power::Italy, p("tun"));
+    let unit_i_wes = Unit::new_fleet(Power::Italy, p("wes"));
+    context.last_resolved_units.push(unit_f_mao);
+    context.last_resolved_units.push(unit_f_gas);
+    context.last_resolved_units.push(unit_f_wes);
+    context.last_resolved_units.push(unit_i_tun);
+    context.last_resolved_units.push(unit_i_wes);
+    context.standoff_codes.push("spa");
+    phase.data.orders.push(unit_f_wes.retreat_to(p("spa_sc")));
+    resolve_orders_for_retreat_phase(&mut phase, context);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+}
