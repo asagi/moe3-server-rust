@@ -39,6 +39,8 @@ pub enum OrderKind {
     Move(MoveOrder),
     Support(SupportOrder),
     Convoy(ConvoyOrder),
+    Retreat(RetreatOrder),
+    Disband(DisbandOrder),
 }
 
 /// ホールド命令
@@ -65,6 +67,16 @@ pub struct ConvoyOrder {
     pub target_unit: Unit,
     pub target_dest: Province,
 }
+
+/// 撤退命令
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+pub struct RetreatOrder {
+    pub dest: Province,
+}
+
+/// 解体命令
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+pub struct DisbandOrder {}
 
 /// 命令のロジック
 impl Order {
@@ -118,6 +130,28 @@ impl Order {
         }
     }
 
+    pub fn new_retreat(power: Power, unit: Unit, dest: Province) -> Self {
+        Order {
+            id: None,
+            power,
+            unit,
+            dislodged_from: unit.dislodged_from,
+            status: OrderStatus::Unresolved,
+            kind: OrderKind::Retreat(RetreatOrder { dest }),
+        }
+    }
+
+    pub fn new_disband(power: Power, unit: Unit) -> Self {
+        Order {
+            id: None,
+            power,
+            unit,
+            dislodged_from: unit.dislodged_from,
+            status: OrderStatus::Unresolved,
+            kind: OrderKind::Disband(DisbandOrder {}),
+        }
+    }
+
     /// ユニットの現在地を返す
     pub fn location(&self) -> Province {
         self.unit.location()
@@ -127,6 +161,7 @@ impl Order {
     pub fn dest(&self) -> Province {
         match &self.kind {
             OrderKind::Move(m) => m.dest,
+            OrderKind::Retreat(r) => r.dest,
             _ => unreachable!("Not move order does not have a destination"),
         }
     }
@@ -267,10 +302,15 @@ impl Order {
         self.power != self.unit.power()
     }
 
-    /// ユニットがどこから追い出されたかを記録
-    pub(crate) fn set_dislodged_from(&mut self, winner_location: &Province) {
+    // /// ユニットがどこから追い出されたかを記録
+    // pub(crate) fn set_dislodged_from(&mut self, winner_location: &Province) {
+    //     self.status = OrderStatus::Dislodged;
+    //     self.dislodged_from = Some(*winner_location);
+    // }
+
+    pub(crate) fn set_dislodged_by(&mut self, winner: &Order) {
         self.status = OrderStatus::Dislodged;
-        self.dislodged_from = Some(*winner_location);
+        self.dislodged_from = if winner.via_convoy() { None } else { Some(winner.location()) };
     }
 
     /// 命令を仮定命令に変換
@@ -333,6 +373,12 @@ impl fmt::Display for Order {
                 };
 
                 write!(f, "{} C {} - {}", prefix, target_label, o.target_dest)
+            }
+            OrderKind::Retreat(o) => {
+                write!(f, "{} - {}", prefix, o.dest)
+            }
+            OrderKind::Disband(_) => {
+                write!(f, "{} Disband", prefix)
             }
         }
     }

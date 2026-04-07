@@ -35,7 +35,7 @@ fn p(code: &str) -> Province {
 /// The army in Trieste will not move.
 #[test]
 fn test_datc_6_d_1() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_adr = Unit::new_fleet(Power::Austria, p("adr"));
     let unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
     let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
@@ -67,7 +67,7 @@ fn test_datc_6_d_1() {
 /// That means that the army in Venice is dislodged by the army from Trieste.
 #[test]
 fn test_datc_6_d_2() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_adr = Unit::new_fleet(Power::Austria, p("adr"));
     let unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
     let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
@@ -101,7 +101,7 @@ fn test_datc_6_d_2() {
 /// That means that the army in Venice will not be dislodged and the army in Trieste stays in Trieste.
 #[test]
 fn test_datc_6_d_3() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_adr = Unit::new_fleet(Power::Austria, p("adr"));
     let unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
     let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
@@ -131,7 +131,7 @@ fn test_datc_6_d_3() {
 /// The Russian move from Prussia to Berlin fails.
 #[test]
 fn test_datc_6_d_4() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
     let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
     let unit_r_bal = Unit::new_fleet(Power::Russia, p("bal"));
@@ -162,7 +162,7 @@ fn test_datc_6_d_4() {
 /// The Russian move from Prussia to Berlin fails.
 #[test]
 fn test_datc_6_d_5() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
     let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
     let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
@@ -196,7 +196,7 @@ fn test_datc_6_d_5() {
 /// The Russian move from Livonia to the Baltic Sea fails. The convoy from Berlin to Sweden succeeds.
 #[test]
 fn test_datc_6_d_6() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
     let unit_g_bal = Unit::new_fleet(Power::Germany, p("bal"));
     let unit_g_pru = Unit::new_fleet(Power::Germany, p("pru"));
@@ -232,7 +232,7 @@ fn test_datc_6_d_6() {
 /// and will be dislodged by the Russian fleet from Livonia when it returns to the Baltic Sea.
 #[test]
 fn test_datc_6_d_7() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_bal = Unit::new_fleet(Power::Germany, p("bal"));
     let unit_g_pru = Unit::new_fleet(Power::Germany, p("pru"));
     let unit_r_lvn = Unit::new_fleet(Power::Russia, p("lvn"));
@@ -270,7 +270,7 @@ fn test_datc_6_d_7() {
 /// Therefore, the support in Bulgaria fails and the army in Greece is dislodged by the army in Albania.
 #[test]
 fn test_datc_6_d_8() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_ion = Unit::new_fleet(Power::Austria, p("ion"));
     let unit_a_ser = Unit::new_army(Power::Austria, p("ser"));
     let unit_a_alb = Unit::new_army(Power::Austria, p("alb"));
@@ -303,7 +303,7 @@ fn test_datc_6_d_8() {
 /// The support of the army in Albania fails and the army in Trieste is dislodged by the army from Venice.
 #[test]
 fn test_datc_6_d_9() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
     let unit_i_tyr = Unit::new_army(Power::Italy, p("tyr"));
     let unit_a_alb = Unit::new_army(Power::Austria, p("alb"));
@@ -330,7 +330,7 @@ fn test_datc_6_d_9() {
 /// Move to Berlin fails.
 #[test]
 fn test_datc_6_d_10() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
     let unit_g_kie = Unit::new_army(Power::Germany, p("kie"));
     let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
@@ -357,7 +357,7 @@ fn test_datc_6_d_10() {
 /// Army in Berlin bounces, but is not dislodged by own unit.
 #[test]
 fn test_datc_6_d_11() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
     let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
     let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
@@ -386,7 +386,7 @@ fn test_datc_6_d_11() {
 /// No dislodgment of fleet in Trieste.
 #[test]
 fn test_datc_6_d_12() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_tri = Unit::new_fleet(Power::Austria, p("tri"));
     let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
     let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
@@ -413,7 +413,7 @@ fn test_datc_6_d_12() {
 /// No dislodgment of fleet in Trieste.
 #[test]
 fn test_datc_6_d_13() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_tri = Unit::new_fleet(Power::Austria, p("tri"));
     let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
     let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
@@ -445,7 +445,7 @@ fn test_datc_6_d_13() {
 /// The fleet in Trieste is dislodged.
 #[test]
 fn test_datc_6_d_14() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_tri = Unit::new_fleet(Power::Austria, p("tri"));
     let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
     let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
@@ -479,7 +479,7 @@ fn test_datc_6_d_14() {
 /// and the fleet in Ankara is dislodged by the fleet in the Black Sea.
 #[test]
 fn test_datc_6_d_15() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_r_con = Unit::new_fleet(Power::Russia, p("con"));
     let unit_r_bla = Unit::new_fleet(Power::Russia, p("bla"));
     let unit_t_ank = Unit::new_fleet(Power::Turkey, p("ank"));
@@ -506,7 +506,7 @@ fn test_datc_6_d_15() {
 /// The English army in London is dislodged by the French army coming from Belgium.
 #[test]
 fn test_datc_6_d_16() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_lon = Unit::new_army(Power::England, p("lon"));
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     let unit_f_eng = Unit::new_fleet(Power::France, p("eng"));
@@ -539,7 +539,7 @@ fn test_datc_6_d_16() {
 /// Black Sea will bounce with the army from Armenia.
 #[test]
 fn test_datc_6_d_17() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_r_con = Unit::new_fleet(Power::Russia, p("con"));
     let unit_r_bla = Unit::new_fleet(Power::Russia, p("bla"));
     let unit_t_ank = Unit::new_fleet(Power::Turkey, p("ank"));
@@ -574,7 +574,7 @@ fn test_datc_6_d_17() {
 /// The Russian fleet in the Black Sea will dislodge the Turkish fleet in Ankara.
 #[test]
 fn test_datc_6_d_18() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_r_con = Unit::new_fleet(Power::Russia, p("con"));
     let unit_r_bla = Unit::new_fleet(Power::Russia, p("bla"));
     let unit_r_bul = Unit::new_army(Power::Russia, p("bul"));
@@ -612,7 +612,7 @@ fn test_datc_6_d_18() {
 /// The support from Black Sea to Ankara will sustain and the fleet in Ankara will be dislodged.
 #[test]
 fn test_datc_6_d_19() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_r_con = Unit::new_fleet(Power::Russia, p("con"));
     let unit_r_bla = Unit::new_fleet(Power::Russia, p("bla"));
     let unit_r_smy = Unit::new_army(Power::Russia, p("smy"));
@@ -645,7 +645,7 @@ fn test_datc_6_d_19() {
 /// This means that the fleet in the English Channel is dislodged by the fleet in the North Sea.
 #[test]
 fn test_datc_6_d_20() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_lon = Unit::new_fleet(Power::England, p("lon"));
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     let unit_e_yor = Unit::new_army(Power::England, p("yor"));
@@ -684,7 +684,7 @@ fn test_datc_6_d_20() {
 /// That means that the Austrian Fleet is not dislodged.
 #[test]
 fn test_datc_6_d_21() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_tri = Unit::new_fleet(Power::Austria, p("tri"));
     let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
     let unit_i_tyr = Unit::new_army(Power::Italy, p("tyr"));
@@ -724,7 +724,7 @@ fn test_datc_6_d_21() {
 /// The Russian army in Munich will dislodge the fleet in Kiel.
 #[test]
 fn test_datc_6_d_22() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
     let unit_g_bur = Unit::new_army(Power::Germany, p("bur"));
     let unit_r_mun = Unit::new_army(Power::Russia, p("mun"));
@@ -755,7 +755,7 @@ fn test_datc_6_d_22() {
 /// Therefore, the support from Marseilles fails and the fleet in Spain is dislodged.
 #[test]
 fn test_datc_6_d_23() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_i_lyo = Unit::new_fleet(Power::Italy, p("lyo"));
     let unit_i_wes = Unit::new_fleet(Power::Italy, p("wes"));
     let unit_f_spa_nc = Unit::new_fleet(Power::France, p("spa_nc"));
@@ -791,7 +791,7 @@ fn test_datc_6_d_23() {
 /// The fleet in the Gulf of Lyon is dislodged by the Turkish fleet in the Western Mediterranean.
 #[test]
 fn test_datc_6_d_24() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_mar = Unit::new_army(Power::France, p("mar"));
     let unit_f_spa_sc = Unit::new_fleet(Power::France, p("spa_sc"));
     let unit_i_lyo = Unit::new_fleet(Power::Italy, p("lyo"));
@@ -828,7 +828,7 @@ fn test_datc_6_d_24() {
 /// the support of Kiel on Berlin is still valid. So, Berlin will not be dislodged.
 #[test]
 fn test_datc_6_d_25() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
     let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
     let unit_r_bal = Unit::new_fleet(Power::Russia, p("bal"));
@@ -858,7 +858,7 @@ fn test_datc_6_d_25() {
 /// Again, Berlin will not be dislodged.
 #[test]
 fn test_datc_6_d_26() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
     let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
     let unit_r_bal = Unit::new_fleet(Power::Russia, p("bal"));
@@ -893,7 +893,7 @@ fn test_datc_6_d_26() {
 /// and the fleet in the Baltic Sea is not dislodged.
 #[test]
 fn test_datc_6_d_27() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_swe = Unit::new_fleet(Power::England, p("swe"));
     let unit_e_den = Unit::new_fleet(Power::England, p("den"));
     let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
@@ -996,7 +996,7 @@ fn test_datc_6_d_30() {
 /// If there is a second order for the Black Sea, that order should be executed (see issue 4.E.1).
 #[test]
 fn test_datc_6_d_31() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_rum = Unit::new_army(Power::Austria, p("rum"));
     let unit_t_bla = Unit::new_fleet(Power::Turkey, p("bla"));
     phase.data.orders.push(unit_a_rum.move_to(p("arm")));
@@ -1050,7 +1050,7 @@ fn test_datc_6_d_32() {
 /// This enables Turkey to capture Serbia with the army in Bulgaria.
 #[test]
 fn test_datc_6_d_33() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_ser = Unit::new_army(Power::Austria, p("ser"));
     let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
     let unit_r_gal = Unit::new_army(Power::Russia, p("gal"));
@@ -1095,7 +1095,7 @@ fn test_datc_6_d_33() {
 /// because the support of Prussia is cut by Livonia and Berlin.
 #[test]
 fn test_datc_6_d_34() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
     let unit_g_sil = Unit::new_army(Power::Germany, p("sil"));
     let unit_g_bal = Unit::new_fleet(Power::Germany, p("bal"));

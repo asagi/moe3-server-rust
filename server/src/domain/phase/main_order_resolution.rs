@@ -2,7 +2,7 @@ use crate::domain::order::Order;
 use crate::domain::order::OrderKind;
 use crate::domain::phase::Phase;
 use crate::domain::phase::main_adjudicator::MainAdjudicator;
-use crate::domain::phase::main_order_helper::OrderHelper;
+use crate::domain::phase::main_order_helper::MainOrderHelper;
 use crate::domain::unit::Unit;
 
 /// メインフェイズの命令解決処理
@@ -59,9 +59,7 @@ fn apply_resolved_unit_locations(orders: &[Order], resolved_units: &mut Vec<Unit
         // 撃退された軍の保存
         if order.is_dislodged() {
             resolved_units.push(Unit {
-                province: order
-                    .dislodged_from
-                    .expect("dislodged_from should be set if is_dislodged is true"),
+                dislodged_from: order.dislodged_from,
                 ..order.unit
             });
             continue;

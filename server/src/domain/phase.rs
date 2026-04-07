@@ -1,15 +1,18 @@
 mod main_adjudicator;
 mod main_order_helper;
 mod main_order_resolution;
+mod retreat_adjudicator;
+mod retreat_order_helper;
+mod retreat_order_resolution;
 
 use super::PhaseId;
 use super::TableId;
 use super::order::Order;
-use super::province::Province;
 use super::unit::Unit;
 use chrono::DateTime;
 use chrono::Utc;
 use main_order_resolution::resolve_orders_for_main_phase;
+use retreat_order_resolution::resolve_orders_for_retreat_phase;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -105,7 +108,7 @@ impl Phase {
     ///
     /// - 春命令は「次年の開始フェイズ」なので、必ず `year = prev_year + 1`。
     /// - このルールは Ready -> SpringOrder / Adjustment -> SpringOrder の両方で共通。
-    pub fn new_spring_order(current_year: i32, current_index: i32) -> Self {
+    pub fn new_spring_main(current_year: i32, current_index: i32) -> Self {
         Self::new(
             current_year + 1,
             current_index + 1,
@@ -119,7 +122,7 @@ impl Phase {
     }
 
     /// 秋メインフェイズを生成する。
-    pub fn new_fall_order(current_year: i32, prev_index: i32) -> Self {
+    pub fn new_fall_main(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseKind::FallOrder(FallMainPhase {}))
     }
 
@@ -264,7 +267,7 @@ fn occupy_for_retreat_phase(_current_phase: &mut Phase, _context: &mut PhaseCont
 /// 各フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for ReadyPhase {
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(Phase::new_spring_order(current_phase.year(), current_phase.index()))
+        Some(Phase::new_spring_main(current_phase.year(), current_phase.index()))
     }
 }
 
@@ -289,12 +292,16 @@ impl PhaseCloseLogic for SpringMainPhase {
 }
 
 impl PhaseCloseLogic for SpringRetreatPhase {
+    fn resolve_orders(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
+        resolve_orders_for_retreat_phase(current_phase, context);
+    }
+
     fn occupy(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
         occupy_for_retreat_phase(_current_phase, _context);
     }
 
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(Phase::new_fall_order(current_phase.year(), current_phase.index()))
+        Some(Phase::new_fall_main(current_phase.year(), current_phase.index()))
     }
 }
 
@@ -319,6 +326,10 @@ impl PhaseCloseLogic for FallMainPhase {
 }
 
 impl PhaseCloseLogic for FallRetreatPhase {
+    fn resolve_orders(&self, _current_phase: &mut Phase, context: &mut PhaseContext) {
+        resolve_orders_for_retreat_phase(_current_phase, context);
+    }
+
     fn occupy(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
         occupy_for_retreat_phase(_current_phase, _context);
     }
@@ -336,7 +347,7 @@ impl PhaseCloseLogic for FallRetreatPhase {
 
 impl PhaseCloseLogic for AdjustmentPhase {
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(Phase::new_spring_order(current_phase.year(), current_phase.index()))
+        Some(Phase::new_spring_main(current_phase.year(), current_phase.index()))
     }
 }
 
@@ -347,13 +358,22 @@ impl PhaseCloseLogic for DebriefPhase {
 }
 
 /// フェイズのコンテキストと終了結果（必要に応じてフィールドを追加）
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct PhaseContext {
     pub phases: Vec<Phase>,
-    pub(crate) standoff_provinces: Vec<Province>,
+    pub(crate) standoff_codes: Vec<&'static str>,
+    pub(crate) last_resolved_units: Vec<Unit>,
 }
 
 impl PhaseContext {
+    pub fn new() -> Self {
+        Self {
+            phases: Vec::new(),
+            standoff_codes: Vec::new(),
+            last_resolved_units: Vec::new(),
+        }
+    }
+
     pub fn finalize(&mut self, latest_phase: &Phase) -> PhaseCloseResult {
         self.phases.push(latest_phase.clone());
         self.to_result()
@@ -374,7 +394,7 @@ mod tests {
 
     #[test]
     fn test_new_spring_order_always_increments_year() {
-        let p = Phase::new_spring_order(1900, 7);
+        let p = Phase::new_spring_main(1900, 7);
         assert_eq!(p.year(), 1901);
         assert_eq!(p.index(), 8);
         assert!(matches!(p.phase_type(), PhaseKind::SpringOrder(_)));
@@ -395,3 +415,5 @@ mod main_order_resolution_tests_e;
 mod main_order_resolution_tests_f;
 #[cfg(test)]
 mod main_order_resolution_tests_g;
+#[cfg(test)]
+mod retreat_order_resolution_tests_h;

@@ -28,7 +28,7 @@ fn p(code: &str) -> Province {
 /// All three units will move.
 #[test]
 fn test_datc_6_c_1() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_t_ank = Unit::new_fleet(Power::Turkey, p("ank"));
     let unit_t_con = Unit::new_army(Power::Turkey, p("con"));
     let unit_t_smy = Unit::new_army(Power::Turkey, p("smy"));
@@ -54,7 +54,7 @@ fn test_datc_6_c_1() {
 /// this can confuse the adjudicator.
 #[test]
 fn test_datc_6_c_2() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_t_ank = Unit::new_fleet(Power::Turkey, p("ank"));
     let unit_t_con = Unit::new_army(Power::Turkey, p("con"));
     let unit_t_smy = Unit::new_army(Power::Turkey, p("smy"));
@@ -82,7 +82,7 @@ fn test_datc_6_c_2() {
 /// Every unit will keep its place.
 #[test]
 fn test_datc_6_c_3() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_t_ank = Unit::new_fleet(Power::Turkey, p("ank"));
     let unit_t_con = Unit::new_army(Power::Turkey, p("con"));
     let unit_t_smy = Unit::new_army(Power::Turkey, p("smy"));
@@ -120,7 +120,7 @@ fn test_datc_6_c_3() {
 /// The Austrian and Turkish armies will advance.
 #[test]
 fn test_datc_6_c_4() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
     let unit_a_ser = Unit::new_army(Power::Austria, p("ser"));
     let unit_t_bul = Unit::new_army(Power::Turkey, p("bul"));
@@ -167,7 +167,7 @@ fn test_datc_6_c_4() {
 /// Due to the dislodged convoying fleet, all Austrian and Turkish armies will not move.
 #[test]
 fn test_datc_6_c_5() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
     let unit_a_ser = Unit::new_army(Power::Austria, p("ser"));
     let unit_t_bul = Unit::new_army(Power::Turkey, p("bul"));
@@ -209,7 +209,7 @@ fn test_datc_6_c_5() {
 /// Both convoys should succeed.
 #[test]
 fn test_datc_6_c_6() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     let unit_e_lon = Unit::new_army(Power::England, p("lon"));
     let unit_f_eng = Unit::new_fleet(Power::France, p("eng"));
@@ -240,7 +240,7 @@ fn test_datc_6_c_6() {
 /// None of the units will succeed to move.
 #[test]
 fn test_datc_6_c_7() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     let unit_e_lon = Unit::new_army(Power::England, p("lon"));
     let unit_f_eng = Unit::new_fleet(Power::France, p("eng"));
@@ -276,7 +276,7 @@ fn test_datc_6_c_7() {
 /// None of the units will succeed to move.
 #[test]
 fn test_datc_6_c_8() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_t_1 = Unit::new_fleet(Power::Turkey, p("con"));
     let unit_t_2 = Unit::new_army(Power::Turkey, p("bul"));
     let unit_t_3 = Unit::new_army(Power::Turkey, p("smy"));
@@ -312,7 +312,7 @@ fn test_datc_6_c_8() {
 /// None of the units will succeed to move.
 #[test]
 fn test_datc_6_c_9() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_t_con = Unit::new_fleet(Power::Turkey, p("con"));
     let unit_t_smy = Unit::new_army(Power::Turkey, p("smy"));
     let unit_r_bla = Unit::new_fleet(Power::Russia, p("bla"));

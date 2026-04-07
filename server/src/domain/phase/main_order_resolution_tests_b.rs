@@ -26,7 +26,7 @@ fn p(code: &str) -> Province {
 /// Move should fail.
 #[test]
 fn test_datc_6_b_1() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_por = Unit::new_fleet(Power::France, p("por"));
     phase.data.orders.push(unit_f_por.move_to(p("spa")));
     resolve_orders_for_main_phase(&mut phase);
@@ -58,7 +58,7 @@ fn test_datc_6_b_2() {
 /// The order should be declared illegal and fleet should hold. See issue 4.B.3.
 #[test]
 fn test_datc_6_b_3() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_gas = Unit::new_fleet(Power::France, p("gas"));
     phase.data.orders.push(unit_f_gas.move_to(p("spa_sc")));
     resolve_orders_for_main_phase(&mut phase);
@@ -79,7 +79,7 @@ fn test_datc_6_b_3() {
 /// So, the support is successful, the move of the fleet in Gascony succeeds and the move of the Italian fleet fails.
 #[test]
 fn test_datc_6_b_4() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_gas = Unit::new_fleet(Power::France, p("gas"));
     let unit_f_mar = Unit::new_fleet(Power::France, p("mar"));
     let unit_i_spa_nc = Unit::new_fleet(Power::Italy, p("wes"));
@@ -106,7 +106,7 @@ fn test_datc_6_b_4() {
 /// Therefore, the support of Spain is illegal and the fleet in the Gulf of Lyon is not dislodged.
 #[test]
 fn test_datc_6_b_5() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_mar = Unit::new_fleet(Power::France, p("mar"));
     let unit_f_spa_nc = Unit::new_fleet(Power::France, p("spa_nc"));
     let unit_i_lyo = Unit::new_fleet(Power::Italy, p("lyo"));
@@ -138,7 +138,7 @@ fn test_datc_6_b_5() {
 /// by the English fleet in the North Atlantic Ocean.
 #[test]
 fn test_datc_6_b_6() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_iri = Unit::new_fleet(Power::England, p("iri"));
     let unit_e_nao = Unit::new_fleet(Power::England, p("nao"));
     let unit_f_spa_nc = Unit::new_fleet(Power::France, p("spa_nc"));
@@ -211,7 +211,7 @@ fn test_datc_6_b_8() {
 /// and the Italian fleet in the Western Mediterranean moves successfully.
 #[test]
 fn test_datc_6_b_9() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
     let unit_f_por = Unit::new_fleet(Power::France, p("por"));
     let unit_i_wes = Unit::new_fleet(Power::Italy, p("wes"));
@@ -283,7 +283,7 @@ fn test_datc_6_b_12() {
 /// Both moves fail.
 #[test]
 fn test_datc_6_b_13() {
-    let mut phase = Phase::new_spring_order(1900, 1);
+    let mut phase = Phase::new_spring_main(1900, 1);
     let unit_t_bul_sc = Unit::new_fleet(Power::Turkey, p("bul_sc"));
     let unit_t_con = Unit::new_fleet(Power::Turkey, p("con"));
     phase.data.orders.push(unit_t_bul_sc.move_to(p("con")));
