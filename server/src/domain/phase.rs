@@ -1,3 +1,5 @@
+mod adjustment_adjudicator;
+mod adjustment_order_resolution;
 mod main_adjudicator;
 mod main_order_helper;
 mod main_order_resolution;
@@ -9,6 +11,7 @@ use super::PhaseId;
 use super::TableId;
 use super::order::Order;
 use super::unit::Unit;
+use adjustment_order_resolution::resolve_orders_for_adjustment_phase;
 use chrono::DateTime;
 use chrono::Utc;
 use main_order_resolution::resolve_orders_for_main_phase;
@@ -342,6 +345,10 @@ impl PhaseCloseLogic for FallRetreatPhase {
 }
 
 impl PhaseCloseLogic for AdjustmentPhase {
+    fn resolve_orders(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
+        resolve_orders_for_adjustment_phase(current_phase, context);
+    }
+
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
         Some(Phase::new_spring_main(current_phase.year(), current_phase.index()))
     }
@@ -397,6 +404,8 @@ mod tests {
     }
 }
 
+#[cfg(test)]
+mod adjustment_order_resolution_tests_i;
 #[cfg(test)]
 mod main_order_resolution_tests_a;
 #[cfg(test)]

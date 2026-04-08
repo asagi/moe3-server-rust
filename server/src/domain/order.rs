@@ -40,6 +40,7 @@ pub enum OrderKind {
     Support(SupportOrder),
     Convoy(ConvoyOrder),
     Retreat(RetreatOrder),
+    Build(BuildOrder),
     Disband(DisbandOrder),
 }
 
@@ -73,6 +74,10 @@ pub struct ConvoyOrder {
 pub struct RetreatOrder {
     pub dest: Province,
 }
+
+/// 建造命令
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+pub struct BuildOrder {}
 
 /// 解体命令
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
@@ -138,6 +143,17 @@ impl Order {
             dislodged_from: unit.dislodged_from,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Retreat(RetreatOrder { dest }),
+        }
+    }
+
+    pub fn new_build(power: Power, unit: Unit) -> Self {
+        Order {
+            id: None,
+            power,
+            unit,
+            dislodged_from: None,
+            status: OrderStatus::Unresolved,
+            kind: OrderKind::Build(BuildOrder {}),
         }
     }
 
@@ -342,14 +358,12 @@ impl Order {
 /// - Convoy: F eng C A lon - bre
 impl fmt::Display for Order {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let prefix = self.unit.label();
-
         match &self.kind {
             OrderKind::Hold(_) => {
-                write!(f, "{} Holds", prefix)
+                write!(f, "{} Holds", self.unit.label())
             }
             OrderKind::Move(o) => {
-                write!(f, "{} - {}", prefix, o.dest)
+                write!(f, "{} - {}", self.unit.label(), o.dest)
             }
             OrderKind::Support(o) => {
                 // 自分の勢力とターゲットの勢力が違う場合、形容詞を取得
@@ -360,9 +374,9 @@ impl fmt::Display for Order {
                 };
 
                 if let Some(dest) = o.target_dest {
-                    write!(f, "{} S {} - {}", prefix, target_label, dest)
+                    write!(f, "{} S {} - {}", self.unit.label(), target_label, dest)
                 } else {
-                    write!(f, "{} S {}", prefix, target_label)
+                    write!(f, "{} S {}", self.unit.label(), target_label)
                 }
             }
             OrderKind::Convoy(o) => {
@@ -372,13 +386,16 @@ impl fmt::Display for Order {
                     o.target_unit.label()
                 };
 
-                write!(f, "{} C {} - {}", prefix, target_label, o.target_dest)
+                write!(f, "{} C {} - {}", self.unit.label(), target_label, o.target_dest)
             }
             OrderKind::Retreat(o) => {
-                write!(f, "{} - {}", prefix, o.dest)
+                write!(f, "{} - {}", self.unit.label(), o.dest)
+            }
+            OrderKind::Build(_) => {
+                write!(f, "Build {}", self.unit.label())
             }
             OrderKind::Disband(_) => {
-                write!(f, "{} Disband", prefix)
+                write!(f, "Remove {}", self.unit.label())
             }
         }
     }
