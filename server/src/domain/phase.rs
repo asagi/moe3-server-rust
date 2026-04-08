@@ -405,20 +405,20 @@ mod tests {
 }
 
 #[cfg(test)]
-mod adjustment_order_resolution_tests_i;
+mod test_datc_6_a;
 #[cfg(test)]
-mod main_order_resolution_tests_a;
+mod test_datc_6_b;
 #[cfg(test)]
-mod main_order_resolution_tests_b;
+mod test_datc_6_c;
 #[cfg(test)]
-mod main_order_resolution_tests_c;
+mod test_datc_6_d;
 #[cfg(test)]
-mod main_order_resolution_tests_d;
+mod test_datc_6_e;
 #[cfg(test)]
-mod main_order_resolution_tests_e;
+mod test_datc_6_f;
 #[cfg(test)]
-mod main_order_resolution_tests_f;
+mod test_datc_6_g;
 #[cfg(test)]
-mod main_order_resolution_tests_g;
+mod test_datc_6_h;
 #[cfg(test)]
-mod retreat_order_resolution_tests_h;
+mod test_datc_6_i;
