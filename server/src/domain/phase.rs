@@ -44,9 +44,9 @@ pub struct PhaseData {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PhaseKind {
     Ready(ReadyPhase),                 // 準備
-    SpringOrder(SpringMainPhase),      // 春命令
+    SpringMain(SpringMainPhase),       // 春命令
     SpringRetreat(SpringRetreatPhase), // 春撤退
-    FallOrder(FallMainPhase),          // 秋命令
+    FallMain(FallMainPhase),           // 秋命令
     FallRetreat(FallRetreatPhase),     // 秋撤退
     Adjustment(AdjustmentPhase),       // 調整
     Debrief(DebriefPhase),             // 感想戦
@@ -109,11 +109,7 @@ impl Phase {
     /// - 春命令は「次年の開始フェイズ」なので、必ず `year = prev_year + 1`。
     /// - このルールは Ready -> SpringOrder / Adjustment -> SpringOrder の両方で共通。
     pub fn new_spring_main(current_year: i32, current_index: i32) -> Self {
-        Self::new(
-            current_year + 1,
-            current_index + 1,
-            PhaseKind::SpringOrder(SpringMainPhase {}),
-        )
+        Self::new(current_year + 1, current_index + 1, PhaseKind::SpringMain(SpringMainPhase {}))
     }
 
     /// 春撤退フェイズを生成する。
@@ -123,7 +119,7 @@ impl Phase {
 
     /// 秋メインフェイズを生成する。
     pub fn new_fall_main(current_year: i32, prev_index: i32) -> Self {
-        Self::new(current_year, prev_index + 1, PhaseKind::FallOrder(FallMainPhase {}))
+        Self::new(current_year, prev_index + 1, PhaseKind::FallMain(FallMainPhase {}))
     }
 
     /// 秋撤退フェイズを生成する。
@@ -160,9 +156,9 @@ impl Phase {
     pub fn close(mut self, context: &mut PhaseContext) -> PhaseCloseResult {
         match self.data.kind {
             PhaseKind::Ready(r) => r.close(&mut self, context),
-            PhaseKind::SpringOrder(s) => s.close(&mut self, context),
+            PhaseKind::SpringMain(s) => s.close(&mut self, context),
             PhaseKind::SpringRetreat(s) => s.close(&mut self, context),
-            PhaseKind::FallOrder(f) => f.close(&mut self, context),
+            PhaseKind::FallMain(f) => f.close(&mut self, context),
             PhaseKind::FallRetreat(f) => f.close(&mut self, context),
             PhaseKind::Adjustment(a) => a.close(&mut self, context),
             PhaseKind::Debrief(d) => d.close(&mut self, context),
@@ -397,7 +393,7 @@ mod tests {
         let p = Phase::new_spring_main(1900, 7);
         assert_eq!(p.year(), 1901);
         assert_eq!(p.index(), 8);
-        assert!(matches!(p.phase_type(), PhaseKind::SpringOrder(_)));
+        assert!(matches!(p.phase_type(), PhaseKind::SpringMain(_)));
     }
 }
 
