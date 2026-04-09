@@ -10,6 +10,7 @@ mod retreat_order_resolution;
 use super::PhaseId;
 use super::TableId;
 use super::order::Order;
+use super::territory::Territory;
 use super::unit::Unit;
 use adjustment_order_resolution::resolve_orders_for_adjustment_phase;
 use chrono::DateTime;
@@ -39,6 +40,7 @@ pub struct PhaseData {
     pub kind: PhaseKind,
     pub orders: Vec<Order>,
     pub resolved_units: Vec<Unit>,
+    pub territories: Vec<Territory>,
     pub standoff_province_codes: Vec<String>,
 }
 
@@ -97,6 +99,7 @@ impl Phase {
                 kind: phase_type,
                 orders: Vec::new(),
                 resolved_units: Vec::new(),
+                territories: Vec::new(),
                 standoff_province_codes: Vec::new(),
             },
         }
