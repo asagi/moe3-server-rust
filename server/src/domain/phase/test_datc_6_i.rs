@@ -6,18 +6,16 @@
 //!
 //! [DATC_6I]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.I
 
-// use super::super::order::*;
-// use super::super::phase::retreat_order_resolution::*;
-// use super::super::phase::*;
-// use super::super::power::*;
-// use super::super::province::*;
-// use super::super::unit::*;
+use super::super::order::*;
+use super::super::phase::adjustment_order_resolution::*;
+use super::super::phase::*;
+use super::super::power::*;
+use super::super::province::*;
 
-// fn p(code: &str) -> Province {
-//     Province::from_code(code).expect("valid province code")
-// }
+fn p(code: &str) -> Province {
+    Province::from_code(code).expect("valid province code")
+}
 
-/// 6.I. TEST CASES, BUILDING
 /// 6.I.1. TEST CASE, TOO MANY BUILD ORDERS
 /// Check how program reacts when someone orders too many builds.
 ///
@@ -33,7 +31,23 @@
 /// According to this preference, the build in Warsaw fails,
 /// the build in Kiel succeeds and the build in Munich fails.
 #[test]
-fn test_datc_6_i_1() {}
+fn test_datc_6_i_1() {
+    let phase = &mut Phase::new_adjustment(1901, 5);
+    phase.data.territories.push(Territory::new(Power::Germany, "kie"));
+    phase.data.territories.push(Territory::new(Power::Germany, "mun"));
+    phase.data.units.push(Unit::new_army(Power::Germany, p("ber")));
+    let context = &mut PhaseContext::new();
+    let unit_g_war = Unit::new_army(Power::Germany, p("war"));
+    let unit_g_kie = Unit::new_army(Power::Germany, p("kie"));
+    let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
+    phase.data.orders.push(unit_g_war.build());
+    phase.data.orders.push(unit_g_kie.build());
+    phase.data.orders.push(unit_g_mun.build());
+    resolve_orders_for_adjustment_phase(phase, context);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Invalid);
+}
 
 /// 6.I.2. TEST CASE, FLEETS CANNOT BE BUILD IN LAND AREAS
 /// Physical this is possible, but it is still not allowed.
