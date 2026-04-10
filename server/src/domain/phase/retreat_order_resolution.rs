@@ -26,7 +26,7 @@ fn apply_resolved_unit_locations(current_phase: &mut Phase, context: &PhaseConte
         if let OrderKind::Retreat(r) = &order.kind
             && order.is_success()
         {
-            current_phase.data.resolved_units.push(Unit {
+            current_phase.data.units.push(Unit {
                 province: r.dest,
                 ..order.unit
             });
@@ -38,7 +38,7 @@ fn apply_resolved_unit_locations(current_phase: &mut Phase, context: &PhaseConte
             if current_phase.data.orders.iter().find(|o| o.unit == unit).is_some() {
                 continue;
             }
-            current_phase.data.resolved_units.push(Unit { ..unit });
+            current_phase.data.units.push(Unit { ..unit });
         }
     }
 }

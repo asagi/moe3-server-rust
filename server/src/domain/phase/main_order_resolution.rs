@@ -7,7 +7,7 @@ use crate::domain::unit::Unit;
 /// メインフェイズの命令解決処理
 pub fn resolve_orders_for_main_phase(current_phase: &mut Phase) {
     let orders = &mut current_phase.data.orders;
-    let standoff_province_codes = &mut current_phase.data.standoff_province_codes;
+    let standoff_province_codes = &mut current_phase.data.standoff_codes;
 
     // # 01. 移動命令検証
     MainAdjudicator::validate_move_orders(orders);
@@ -47,7 +47,7 @@ fn apply_resolved_unit_locations(current_phase: &mut Phase) {
         if let OrderKind::Move(m) = &order.kind
             && order.is_success()
         {
-            current_phase.data.resolved_units.push(Unit {
+            current_phase.data.units.push(Unit {
                 province: m.dest,
                 ..order.unit
             });
@@ -56,7 +56,7 @@ fn apply_resolved_unit_locations(current_phase: &mut Phase) {
 
         // 撃退された軍の保存
         if order.is_dislodged() {
-            current_phase.data.resolved_units.push(Unit {
+            current_phase.data.units.push(Unit {
                 dislodged_from: order.dislodged_from,
                 ..order.unit
             });
@@ -64,6 +64,6 @@ fn apply_resolved_unit_locations(current_phase: &mut Phase) {
         }
 
         // それ以外の軍は現状維持
-        current_phase.data.resolved_units.push(Unit { ..order.unit });
+        current_phase.data.units.push(Unit { ..order.unit });
     }
 }

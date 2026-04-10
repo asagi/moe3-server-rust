@@ -253,7 +253,7 @@ fn test_datc_6_f_7() {
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
     assert_ne!(phase.data.orders[0].dislodged_from.map(|p| p.code()), Some("hol"));
-    assert!(!phase.data.standoff_province_codes.contains(&"hol".to_string()));
+    assert!(!phase.data.standoff_codes.contains(&"hol".to_string()));
 }
 
 /// 6.F.8. TEST CASE, DISLODGED CONVOY DOES NOT CAUSE A BOUNCE

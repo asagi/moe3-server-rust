@@ -39,9 +39,9 @@ pub struct PhaseData {
     #[serde(flatten)]
     pub kind: PhaseKind,
     pub orders: Vec<Order>,
-    pub resolved_units: Vec<Unit>,
+    pub units: Vec<Unit>,
     pub territories: Vec<Territory>,
-    pub standoff_province_codes: Vec<String>,
+    pub standoff_codes: Vec<String>,
 }
 
 /// フェイズの種類
@@ -98,9 +98,9 @@ impl Phase {
                 year,
                 kind: phase_type,
                 orders: Vec::new(),
-                resolved_units: Vec::new(),
+                units: Vec::new(),
                 territories: Vec::new(),
-                standoff_province_codes: Vec::new(),
+                standoff_codes: Vec::new(),
             },
         }
     }
