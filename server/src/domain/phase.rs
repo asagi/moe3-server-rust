@@ -1,4 +1,5 @@
 mod adjustment_adjudicator;
+mod adjustment_order_helper;
 mod adjustment_order_resolution;
 mod main_adjudicator;
 mod main_order_helper;
@@ -10,6 +11,7 @@ mod retreat_order_resolution;
 use super::PhaseId;
 use super::TableId;
 use super::order::Order;
+use super::power::Power;
 use super::territory::Territory;
 use super::unit::Unit;
 use adjustment_order_resolution::resolve_orders_for_adjustment_phase;
@@ -156,6 +158,16 @@ impl Phase {
     /// フェイズの種別を返す
     pub fn phase_type(&self) -> PhaseKind {
         self.data.kind
+    }
+
+    /// 指定した国が現在保有する補給都市数を取得する
+    pub fn count_supply_centers(&self, power: &Power) -> usize {
+        self.data.territories.iter().filter(|t| t.power() == power).count()
+    }
+
+    /// 指定した国が現在保有するユニット数を取得する
+    pub fn count_units(&self, power: &Power) -> usize {
+        self.data.units.iter().filter(|u| &u.power == power).count()
     }
 
     /// フェイズを締め切り命令を解決する。
