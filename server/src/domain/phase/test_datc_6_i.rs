@@ -168,4 +168,15 @@ fn test_datc_6_i_6() {
 ///
 /// The second build should fail.
 #[test]
-fn test_datc_6_i_7() {}
+fn test_datc_6_i_7() {
+    let phase = &mut Phase::new_adjustment(1901, 5);
+    phase.data.territories.push(Territory::new(Power::Russia, "mos"));
+    let context = &mut PhaseContext::new();
+    let unit_r_mos_1 = Unit::new_army(Power::Russia, p("mos"));
+    let unit_r_mos_2 = Unit::new_army(Power::Russia, p("mos"));
+    phase.data.orders.push(unit_r_mos_1.build());
+    phase.data.orders.push(unit_r_mos_2.build());
+    resolve_orders_for_adjustment_phase(phase, context);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+}
