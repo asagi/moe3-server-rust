@@ -36,7 +36,7 @@ fn test_datc_6_j_1() {
     phase.data.territories.push(Territory::new(Power::France, "par"));
     phase.data.units.push(Unit::new_army(Power::France, p("par")));
     phase.data.units.push(Unit::new_army(Power::France, p("pic")));
-    let unit_f_lyo = Unit::new_fleet(Power::France, p("lyo"));
+    let unit_f_lyo = Unit::new_fleet(Power::France, p("gol"));
     let unit_a_pic = Unit::new_army(Power::France, p("pic"));
     let unit_a_par = Unit::new_army(Power::France, p("par"));
     phase.data.orders.push(unit_f_lyo.disband());
@@ -92,7 +92,7 @@ fn test_datc_6_j_3() {
     phase.data.units.push(Unit::new_army(Power::Russia, p("swe")));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
-    assert_eq!(phase.data.orders[0].to_string(), "Remove A swe");
+    assert_eq!(phase.data.orders[0].to_string(), "Remove A Swe");
 }
 
 /// 6.J.4. TEST CASE, CIVIL DISORDER TWO ARMIES WITH EQUAL DISTANCE
@@ -114,7 +114,7 @@ fn test_datc_6_j_4() {
     phase.data.units.push(Unit::new_army(Power::Russia, p("ukr")));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
-    assert_eq!(phase.data.orders[0].to_string(), "Remove A lvn");
+    assert_eq!(phase.data.orders[0].to_string(), "Remove A Lvn");
 }
 
 /// 6.J.5 TEST CASE, CIVIL DISORDER TWO FLEETS WITH DIFFERENT DISTANCE
@@ -138,7 +138,7 @@ fn test_datc_6_j_5() {
     phase.data.units.push(Unit::new_fleet(Power::Russia, p("ber")));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
-    assert_eq!(phase.data.orders[0].to_string(), "Remove F ber");
+    assert_eq!(phase.data.orders[0].to_string(), "Remove F Ber");
 }
 
 /// 6.J.6. TEST CASE, CIVIL DISORDER TWO FLEETS WITH EQUAL DISTANCE
@@ -162,7 +162,7 @@ fn test_datc_6_j_6() {
     phase.data.units.push(Unit::new_fleet(Power::Russia, p("nth")));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
-    assert_eq!(phase.data.orders[0].to_string(), "Remove F bot");
+    assert_eq!(phase.data.orders[0].to_string(), "Remove F Bot");
 }
 
 /// 6.J.7. TEST CASE, CIVIL DISORDER TWO FLEETS AND ARMY WITH EQUAL DISTANCE
@@ -187,7 +187,7 @@ fn test_datc_6_j_7() {
     phase.data.units.push(Unit::new_fleet(Power::Russia, p("nth")));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
-    assert_eq!(phase.data.orders[0].to_string(), "Remove F nth");
+    assert_eq!(phase.data.orders[0].to_string(), "Remove F Nth");
 }
 
 /// 6.J.8. TEST CASE, CIVIL DISORDER A FLEET WITH SHORTER DISTANCE THEN THE ARMY
@@ -208,7 +208,7 @@ fn test_datc_6_j_8() {
     phase.data.units.push(Unit::new_fleet(Power::Russia, p("bal")));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
-    assert_eq!(phase.data.orders[0].to_string(), "Remove A tyr");
+    assert_eq!(phase.data.orders[0].to_string(), "Remove A Tyr");
 }
 
 /// 6.J.9. TEST CASE, CIVIL DISORDER MUST BE COUNTED FROM BOTH COASTS
@@ -239,7 +239,7 @@ fn test_datc_6_j_9() {
     phase.data.units.push(Unit::new_fleet(Power::Russia, p("bal")));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
-    assert_eq!(phase.data.orders[0].to_string(), "Remove A gre");
+    assert_eq!(phase.data.orders[0].to_string(), "Remove A Gre");
 
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Russia, "stp"));
@@ -249,7 +249,7 @@ fn test_datc_6_j_9() {
     phase.data.units.push(Unit::new_fleet(Power::Russia, p("ska")));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
-    assert_eq!(phase.data.orders[0].to_string(), "Remove A gre");
+    assert_eq!(phase.data.orders[0].to_string(), "Remove A Gre");
 }
 
 /// 6.J.10. TEST CASE, CIVIL DISORDER COUNTING CONVOYING DISTANCE
@@ -271,7 +271,7 @@ fn test_datc_6_j_10() {
     phase.data.units.push(Unit::new_army(Power::Italy, p("pie")));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
-    assert_eq!(phase.data.orders[0].to_string(), "Remove A pie");
+    assert_eq!(phase.data.orders[0].to_string(), "Remove A Pie");
 }
 
 /// 6.J.11. TEST CASE, DISTANCE TO OWNED SUPPLY CENTER
@@ -293,5 +293,5 @@ fn test_datc_6_j_11() {
     phase.data.units.push(Unit::new_army(Power::Italy, p("tus")));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
-    assert_eq!(phase.data.orders[0].to_string(), "Remove A tus");
+    assert_eq!(phase.data.orders[0].to_string(), "Remove A Tus");
 }

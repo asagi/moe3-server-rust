@@ -75,7 +75,7 @@ impl Unit {
     }
 
     pub fn label(&self) -> String {
-        format!("{} {}", self.symbol(), self.location())
+        format!("{} {}", self.symbol(), self.location().short_name())
     }
 
     /// 陸軍かどうか判定
@@ -216,10 +216,10 @@ mod tests {
     fn test_unit_creation() {
         let army = Unit::new_army(Power::France, p("par"));
         assert_eq!(army.symbol(), "A");
-        assert_eq!(army.label(), "A par");
+        assert_eq!(army.label(), "A Par");
 
         let fleet = Unit::new_fleet(Power::England, p("lon"));
         assert_eq!(fleet.symbol(), "F");
-        assert_eq!(fleet.label(), "F lon");
+        assert_eq!(fleet.label(), "F Lon");
     }
 }

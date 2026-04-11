@@ -360,10 +360,10 @@ impl Order {
 /// 命令を Diplomacy 風の短縮表記で整形する。
 ///
 /// 例:
-/// - Hold: A lon Holds
-/// - Move: A lon - wal
-/// - Support: A lon S A wal - yor
-/// - Convoy: F eng C A lon - bre
+/// - Hold: A Lon Holds
+/// - Move: A Lon - Wal
+/// - Support: A Lon S A Wal - Yor
+/// - Convoy: F Eng C A Lon - Bre
 impl fmt::Display for Order {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.kind {
@@ -371,7 +371,7 @@ impl fmt::Display for Order {
                 write!(f, "{} Holds", self.unit.label())
             }
             OrderKind::Move(o) => {
-                write!(f, "{} - {}", self.unit.label(), o.dest)
+                write!(f, "{} - {}", self.unit.label(), o.dest.short_name())
             }
             OrderKind::Support(o) => {
                 // 自分の勢力とターゲットの勢力が違う場合、形容詞を取得
@@ -382,7 +382,7 @@ impl fmt::Display for Order {
                 };
 
                 if let Some(dest) = o.target_dest {
-                    write!(f, "{} S {} - {}", self.unit.label(), target_label, dest)
+                    write!(f, "{} S {} - {}", self.unit.label(), target_label, dest.short_name())
                 } else {
                     write!(f, "{} S {}", self.unit.label(), target_label)
                 }
@@ -394,10 +394,10 @@ impl fmt::Display for Order {
                     o.target_unit.label()
                 };
 
-                write!(f, "{} C {} - {}", self.unit.label(), target_label, o.target_dest)
+                write!(f, "{} C {} - {}", self.unit.label(), target_label, o.target_dest.short_name())
             }
             OrderKind::Retreat(o) => {
-                write!(f, "{} - {}", self.unit.label(), o.dest)
+                write!(f, "{} - {}", self.unit.label(), o.dest.short_name())
             }
             OrderKind::Build(_) => {
                 write!(f, "Build {}", self.unit.label())
@@ -437,7 +437,7 @@ mod tests {
         let unit = Unit::new_army(Power::Austria, p("vie"));
         let order = Order::new_hold(Power::Austria, unit);
 
-        assert_eq!(order.to_string(), "A vie Holds");
+        assert_eq!(order.to_string(), "A Vie Holds");
     }
 
     #[test]
@@ -445,7 +445,7 @@ mod tests {
         let unit = Unit::new_army(Power::England, p("lon"));
         let order = Order::new_move(Power::England, unit, p("wal"));
 
-        assert_eq!(order.to_string(), "A lon - wal");
+        assert_eq!(order.to_string(), "A Lon - Wal");
     }
 
     #[test]
@@ -453,15 +453,15 @@ mod tests {
         let unit = Unit::new_army(Power::Germany, p("ber"));
         let target_unit = Unit::new_army(Power::Germany, p("sil"));
         let order = Order::new_support(Power::Germany, unit, target_unit, None);
-        assert_eq!(order.to_string(), "A ber S A sil");
+        assert_eq!(order.to_string(), "A Ber S A Sil");
     }
 
     #[test]
     fn test_display_support_move() {
-        let unit = Unit::new_fleet(Power::France, p("lyo"));
-        let target_unit = Unit::new_fleet(Power::France, p("tys"));
+        let unit = Unit::new_fleet(Power::France, p("gol"));
+        let target_unit = Unit::new_fleet(Power::France, p("tyn"));
         let order = Order::new_support(Power::France, unit, target_unit, Some(p("nap")));
-        assert_eq!(order.to_string(), "F lyo S F tys - nap");
+        assert_eq!(order.to_string(), "F GoL S F Tyn - Nap");
     }
 
     #[test]
@@ -469,6 +469,6 @@ mod tests {
         let unit = Unit::new_fleet(Power::England, p("nth"));
         let target_unit = Unit::new_army(Power::England, p("lon"));
         let order = Order::new_convoy(Power::England, unit, target_unit, p("bel"));
-        assert_eq!(order.to_string(), "F nth C A lon - bel");
+        assert_eq!(order.to_string(), "F Nth C A Lon - Bel");
     }
 }
