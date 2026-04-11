@@ -99,15 +99,27 @@ fn test_datc_6_j_3() {
 }
 
 /// 6.J.4. TEST CASE, CIVIL DISORDER TWO ARMIES WITH EQUAL DISTANCE
-/// If two armies have equal distance from the home supply centers, then alphabetical order is used.
+/// If two armies have equal distance from the home supply centers,
+/// then alphabetical order is used.
 ///
 /// Russia has to remove one.
 /// Russia owns Moscow.
 /// Russia has armies in Livonia and Ukraine.
 /// Russia does not order a disband.
-/// Both armies have distance one. The Livonia army is removed, because it appears first in alphabetical order.
+///
+/// Both armies have distance one. The Livonia army is removed,
+/// because it appears first in alphabetical order.
 #[test]
-fn test_datc_6_j_4() {}
+fn test_datc_6_j_4() {
+    let phase = &mut Phase::new_adjustment(1901, 5);
+    phase.data.territories.push(Territory::new(Power::Russia, "mos"));
+    phase.data.units.push(Unit::new_army(Power::Russia, p("lvn")));
+    phase.data.units.push(Unit::new_army(Power::Russia, p("ukr")));
+    let context = &mut PhaseContext::new();
+    resolve_orders_for_adjustment_phase(phase, context);
+    assert_eq!(phase.data.orders.len(), 1);
+    assert_eq!(phase.data.orders[0].to_string(), "Remove A lvn");
+}
 
 /// 6.J.5 TEST CASE, CIVIL DISORDER TWO FLEETS WITH DIFFERENT DISTANCE
 /// If two fleets have different distance from the home supply centers, then the fleet with the greatest distance has to be removed. Note that fleets cannot go over land.
