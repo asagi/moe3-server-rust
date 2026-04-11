@@ -50,16 +50,30 @@ fn test_datc_6_j_1() {
 }
 
 /// 6.J.2. TEST CASE, REMOVING THE SAME UNIT TWICE
-/// If you have to remove two units, you can always try to trick the computer by removing the same unit twice.
+/// If you have to remove two units,
+/// you can always try to trick the computer by removing the same unit twice.
 ///
 /// France has to disband two and has an army in Paris.
 ///
 /// France:
-/// Remove A Paris
-/// Remove A Paris
+///     Remove A Paris
+///     Remove A Paris
+///
 /// Program should remove army in Paris and remove another unit by using the civil disorder rules.
 #[test]
-fn test_datc_6_j_2() {}
+fn test_datc_6_j_2() {
+    let phase = &mut Phase::new_adjustment(1901, 5);
+    phase.data.territories.push(Territory::new(Power::France, "par"));
+    phase.data.units.push(Unit::new_army(Power::France, p("par")));
+    phase.data.units.push(Unit::new_army(Power::France, p("bre")));
+    let context = &mut PhaseContext::new();
+    let unit_a_par = Unit::new_army(Power::France, p("par"));
+    phase.data.orders.push(unit_a_par.disband());
+    phase.data.orders.push(unit_a_par.disband());
+    resolve_orders_for_adjustment_phase(phase, context);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+}
 
 /// 6.J.3. TEST CASE, CIVIL DISORDER TWO ARMIES WITH DIFFERENT DISTANCE
 /// When a player forgets to disband a unit, the civil disorder rules must be applied. When two armies have different distance from the home supply centers, then the army with the greatest distance has to be removed.
