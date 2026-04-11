@@ -63,7 +63,6 @@ fn test_datc_6_j_1() {
 #[test]
 fn test_datc_6_j_2() {
     let phase = &mut Phase::new_adjustment(1901, 5);
-    phase.data.territories.push(Territory::new(Power::France, "par"));
     phase.data.units.push(Unit::new_army(Power::France, p("par")));
     phase.data.units.push(Unit::new_army(Power::France, p("bre")));
     let context = &mut PhaseContext::new();
@@ -73,6 +72,7 @@ fn test_datc_6_j_2() {
     resolve_orders_for_adjustment_phase(phase, context);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
 }
 
 /// 6.J.3. TEST CASE, CIVIL DISORDER TWO ARMIES WITH DIFFERENT DISTANCE
