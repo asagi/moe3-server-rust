@@ -226,15 +226,41 @@ fn test_datc_6_j_8() {
 /// Russia owns St Petersburg and Sevastopol.
 /// Russia has armies in Greece and Sevastopol and a fleet in the Baltic Sea.
 /// Russia does not order a disband.
-/// The distance of the fleet to St Petersburg(nc) is three but to St Petersburg(sc) is two. So, the army in Greece must be removed.
+///
+/// The distance of the fleet to St Petersburg(nc) is three but to St Petersburg(sc) is two.
+/// So, the army in Greece must be removed.
 ///
 /// Russia has to remove one.
 /// Russia owns St Petersburg and Sevastopol.
 /// Russia has armies in Greece and Sevastopol and a fleet in Skagerrak.
 /// Russia does not order a disband.
-/// The distance of the fleet to St Petersburg(sc) is three but to St Petersburg(nc) is two. So, the army in Greece must be removed.
+///
+/// The distance of the fleet to St Petersburg(sc) is three but to St Petersburg(nc) is two.
+/// So, the army in Greece must be removed.
 #[test]
-fn test_datc_6_j_9() {}
+fn test_datc_6_j_9() {
+    let phase = &mut Phase::new_adjustment(1901, 5);
+    phase.data.territories.push(Territory::new(Power::Russia, "stp"));
+    phase.data.territories.push(Territory::new(Power::Russia, "sev"));
+    phase.data.units.push(Unit::new_army(Power::Russia, p("gre")));
+    phase.data.units.push(Unit::new_army(Power::Russia, p("sev")));
+    phase.data.units.push(Unit::new_fleet(Power::Russia, p("bal")));
+    let context = &mut PhaseContext::new();
+    resolve_orders_for_adjustment_phase(phase, context);
+    assert_eq!(phase.data.orders.len(), 1);
+    assert_eq!(phase.data.orders[0].to_string(), "Remove A gre");
+
+    let phase = &mut Phase::new_adjustment(1901, 5);
+    phase.data.territories.push(Territory::new(Power::Russia, "stp"));
+    phase.data.territories.push(Territory::new(Power::Russia, "sev"));
+    phase.data.units.push(Unit::new_army(Power::Russia, p("gre")));
+    phase.data.units.push(Unit::new_army(Power::Russia, p("sev")));
+    phase.data.units.push(Unit::new_fleet(Power::Russia, p("ska")));
+    let context = &mut PhaseContext::new();
+    resolve_orders_for_adjustment_phase(phase, context);
+    assert_eq!(phase.data.orders.len(), 1);
+    assert_eq!(phase.data.orders[0].to_string(), "Remove A gre");
+}
 
 /// 6.J.10. TEST CASE, CIVIL DISORDER COUNTING CONVOYING DISTANCE
 /// For calculating the distance for armies all areas must be considered.
