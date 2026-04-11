@@ -76,15 +76,27 @@ fn test_datc_6_j_2() {
 }
 
 /// 6.J.3. TEST CASE, CIVIL DISORDER TWO ARMIES WITH DIFFERENT DISTANCE
-/// When a player forgets to disband a unit, the civil disorder rules must be applied. When two armies have different distance from the home supply centers, then the army with the greatest distance has to be removed.
+/// When a player forgets to disband a unit, the civil disorder rules must be applied.
+/// When two armies have different distance from the home supply centers,
+/// then the army with the greatest distance has to be removed.
 ///
 /// Russia has to remove one.
 /// Russia owns supply center St Petersburg.
 /// Russia has armies in Livonia and Sweden.
 /// Russia does not order a disband.
+///
 /// The army in Sweden is removed.
 #[test]
-fn test_datc_6_j_3() {}
+fn test_datc_6_j_3() {
+    let phase = &mut Phase::new_adjustment(1901, 5);
+    phase.data.territories.push(Territory::new(Power::Russia, "stp"));
+    phase.data.units.push(Unit::new_army(Power::Russia, p("lvp")));
+    phase.data.units.push(Unit::new_army(Power::Russia, p("swe")));
+    let context = &mut PhaseContext::new();
+    resolve_orders_for_adjustment_phase(phase, context);
+    assert_eq!(phase.data.orders.len(), 1);
+    assert_eq!(phase.data.orders[0].to_string(), "Remove A swe");
+}
 
 /// 6.J.4. TEST CASE, CIVIL DISORDER TWO ARMIES WITH EQUAL DISTANCE
 /// If two armies have equal distance from the home supply centers, then alphabetical order is used.
