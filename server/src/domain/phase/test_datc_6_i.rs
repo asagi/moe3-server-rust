@@ -60,7 +60,15 @@ fn test_datc_6_i_1() {
 /// See issue 4.C.4. Some game masters will change the order and build an army in Moscow.
 /// I prefer that the build fails.
 #[test]
-fn test_datc_6_i_2() {}
+fn test_datc_6_i_2() {
+    let phase = &mut Phase::new_adjustment(1901, 5);
+    phase.data.territories.push(Territory::new(Power::Russia, "mos"));
+    let context = &mut PhaseContext::new();
+    let unit_r_mos = Unit::new_fleet(Power::Russia, p("mos"));
+    phase.data.orders.push(unit_r_mos.build());
+    resolve_orders_for_adjustment_phase(phase, context);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+}
 
 /// 6.I.3. TEST CASE, SUPPLY CENTER MUST BE EMPTY FOR BUILDING
 /// You can't have two units in a sector.
