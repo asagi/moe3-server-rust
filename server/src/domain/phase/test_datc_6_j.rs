@@ -286,12 +286,24 @@ fn test_datc_6_j_10() {
 }
 
 /// 6.J.11. TEST CASE, DISTANCE TO OWNED SUPPLY CENTER
-/// The 2023 rules say that distance must be calculated to owned supply center instead of home supply center (as it was in the older rulebooks).
+/// The 2023 rules say that distance must be calculated to owned supply center
+/// instead of home supply center (as it was in the older rulebooks).
 ///
 /// Italy has to remove one.
 /// Italy owns Warsaw.
 /// Italy has armies in Warsaw and Tuscany.
 /// Italy does not order a disband.
-/// The army in Tuscany is removed and Italy will continue defending its supply center in Warsaw. Under older rulebooks the army in Tuscany was kept.
+///
+/// The army in Tuscany is removed and Italy will continue defending its supply center in Warsaw.
+/// Under older rulebooks the army in Tuscany was kept.
 #[test]
-fn test_datc_6_j_11() {}
+fn test_datc_6_j_11() {
+    let phase = &mut Phase::new_adjustment(1901, 5);
+    phase.data.territories.push(Territory::new(Power::Italy, "war"));
+    phase.data.units.push(Unit::new_army(Power::Italy, p("war")));
+    phase.data.units.push(Unit::new_army(Power::Italy, p("tus")));
+    let context = &mut PhaseContext::new();
+    resolve_orders_for_adjustment_phase(phase, context);
+    assert_eq!(phase.data.orders.len(), 1);
+    assert_eq!(phase.data.orders[0].to_string(), "Remove A tus");
+}
