@@ -106,12 +106,10 @@ impl AdjustmentAdjudicator {
             // 解体命令が足りない場合の処理
             let disband_candidates = &mut copied_units.collect_units_for_civil_disorder(&p, &current_phase.data.territories);
             while remaining > 0 {
-                if let Some(unit) = disband_candidates.pop() {
-                    current_phase.data.orders.push(unit.disband().set_valid());
-                    remaining -= 1;
-                    continue;
-                }
-                break;
+                let unit = disband_candidates.remove(0);
+                current_phase.data.orders.push(unit.disband().set_valid());
+                remaining -= 1;
+                continue;
             }
         }
     }

@@ -271,4 +271,14 @@ mod tests {
         assert_eq!(p("lon").home(), Some("e"));
         assert_eq!(p("adr").home(), None);
     }
+
+    #[test]
+    fn test_distance_ska_to_stp_is_two() {
+        assert_eq!(Province::distance("ska", "stp"), 2);
+    }
+
+    #[test]
+    fn test_distance_ber_to_stp_is_three() {
+        assert_eq!(Province::distance("ber", "stp"), 3);
+    }
 }

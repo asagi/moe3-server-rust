@@ -90,7 +90,7 @@ fn test_datc_6_j_2() {
 fn test_datc_6_j_3() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Russia, "stp"));
-    phase.data.units.push(Unit::new_army(Power::Russia, p("lvp")));
+    phase.data.units.push(Unit::new_army(Power::Russia, p("lvn")));
     phase.data.units.push(Unit::new_army(Power::Russia, p("swe")));
     let context = &mut PhaseContext::new();
     resolve_orders_for_adjustment_phase(phase, context);
