@@ -122,15 +122,29 @@ fn test_datc_6_j_4() {
 }
 
 /// 6.J.5 TEST CASE, CIVIL DISORDER TWO FLEETS WITH DIFFERENT DISTANCE
-/// If two fleets have different distance from the home supply centers, then the fleet with the greatest distance has to be removed. Note that fleets cannot go over land.
+/// If two fleets have different distance from the home supply centers,
+/// then the fleet with the greatest distance has to be removed.
+/// Note that fleets cannot go over land.
 ///
 /// Russia has to remove one.
 /// Russia owns St Petersburg.
 /// Russia has fleets in Skagerrak and Berlin.
 /// Russia does not order a disband.
-/// The distance of the fleet in Berlin is three, the fleet in Skagerrak has distance two (via Norway). So, the fleet in Berlin has to be removed.
+///
+/// The distance of the fleet in Berlin is three,
+/// the fleet in Skagerrak has distance two (via Norway).
+/// So, the fleet in Berlin has to be removed.
 #[test]
-fn test_datc_6_j_5() {}
+fn test_datc_6_j_5() {
+    let phase = &mut Phase::new_adjustment(1901, 5);
+    phase.data.territories.push(Territory::new(Power::Russia, "stp"));
+    phase.data.units.push(Unit::new_fleet(Power::Russia, p("ska")));
+    phase.data.units.push(Unit::new_fleet(Power::Russia, p("ber")));
+    let context = &mut PhaseContext::new();
+    resolve_orders_for_adjustment_phase(phase, context);
+    assert_eq!(phase.data.orders.len(), 1);
+    assert_eq!(phase.data.orders[0].to_string(), "Remove F ber");
+}
 
 /// 6.J.6. TEST CASE, CIVIL DISORDER TWO FLEETS WITH EQUAL DISTANCE
 /// Alphabetical order is used, when two fleets have equal distance to the home supply centers.
