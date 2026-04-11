@@ -131,7 +131,7 @@ fn test_datc_6_e_4() {
     let unit_f_bel = Unit::new_fleet(Power::France, p("bel"));
     let unit_e_edi = Unit::new_fleet(Power::England, p("edi"));
     let unit_e_yor = Unit::new_fleet(Power::England, p("yor"));
-    let unit_e_nwg = Unit::new_fleet(Power::England, p("nwg"));
+    let unit_e_nwg = Unit::new_fleet(Power::England, p("nrg"));
     let unit_a_kie = Unit::new_army(Power::Austria, p("kie"));
     let unit_a_ruh = Unit::new_army(Power::Austria, p("ruh"));
     phase.data.orders.push(unit_g_hol.move_to(p("nth")));
@@ -193,7 +193,7 @@ fn test_datc_6_e_5() {
     let unit_f_bel = Unit::new_fleet(Power::France, p("bel"));
     let unit_e_edi = Unit::new_fleet(Power::England, p("edi"));
     let unit_e_yor = Unit::new_fleet(Power::England, p("yor"));
-    let unit_e_nwg = Unit::new_fleet(Power::England, p("nwg"));
+    let unit_e_nwg = Unit::new_fleet(Power::England, p("nrg"));
     let unit_e_lon = Unit::new_fleet(Power::England, p("lon"));
     let unit_a_kie = Unit::new_army(Power::Austria, p("kie"));
     let unit_a_ruh = Unit::new_army(Power::Austria, p("ruh"));
@@ -385,7 +385,7 @@ fn test_datc_6_e_9() {
     let unit_g_hel = Unit::new_fleet(Power::Germany, p("hel"));
     let unit_r_ska = Unit::new_fleet(Power::Russia, p("ska"));
     let unit_r_nwy = Unit::new_fleet(Power::Russia, p("nwy"));
-    phase.data.orders.push(unit_e_nth.move_to(p("nwg")));
+    phase.data.orders.push(unit_e_nth.move_to(p("nrg")));
     phase.data.orders.push(unit_e_yor.support_move(unit_r_nwy, p("nth")));
     phase.data.orders.push(unit_g_hol.support_move(unit_g_hel, p("nth")));
     phase.data.orders.push(unit_g_hel.move_to(p("nth")));
@@ -471,8 +471,8 @@ fn test_datc_6_e_10() {
 fn test_datc_6_e_11() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_spa = Unit::new_army(Power::France, p("spa"));
-    let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
-    let unit_f_lyo = Unit::new_fleet(Power::France, p("lyo"));
+    let unit_f_mao = Unit::new_fleet(Power::France, p("mid"));
+    let unit_f_lyo = Unit::new_fleet(Power::France, p("gol"));
     let unit_g_mar = Unit::new_army(Power::Germany, p("mar"));
     let unit_g_gas = Unit::new_army(Power::Germany, p("gas"));
     let unit_i_por = Unit::new_fleet(Power::Italy, p("por"));
@@ -560,7 +560,7 @@ fn test_datc_6_e_13() {
     let unit_f_bel = Unit::new_fleet(Power::France, p("bel"));
     let unit_f_eng = Unit::new_fleet(Power::France, p("eng"));
     let unit_g_nth = Unit::new_fleet(Power::Germany, p("nth"));
-    let unit_r_nwg = Unit::new_fleet(Power::Russia, p("nwg"));
+    let unit_r_nwg = Unit::new_fleet(Power::Russia, p("nrg"));
     let unit_r_nwy = Unit::new_fleet(Power::Russia, p("nwy"));
     phase.data.orders.push(unit_e_edi.support_move(unit_e_yor, p("nth")));
     phase.data.orders.push(unit_e_yor.move_to(p("nth")));

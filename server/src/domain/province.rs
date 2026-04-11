@@ -1,18 +1,18 @@
 use super::power::Power;
 use crate::domain::path::Path;
-use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fmt;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct Province(u8);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(into = "String")]
+pub struct Province(&'static str);
 
 #[derive(Debug, Clone, Copy)]
 pub struct ProvinceData {
     pub code: &'static str,
+    pub short: &'static str,
     pub full: &'static str,
     pub jname: &'static str,
     pub kind: &'static str,
@@ -22,104 +22,108 @@ pub struct ProvinceData {
 
 #[rustfmt::skip]
 const PROVINCE_DATA: &[ProvinceData] = &[
-    ProvinceData { code: "adr", full: "Adriatic Water", jname: "アドリア海", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "aeg", full: "Aegean Water", jname: "エーゲ海", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "alb", full: "Albania", jname: "アルバニア", kind: "Coast", supply: false, home: None },
-    ProvinceData { code: "ank", full: "Ankara", jname: "アンカラ", kind: "Coast", supply: true, home: Some("t") },
-    ProvinceData { code: "apu", full: "Apulia", jname: "アプリア", kind: "Coast", supply: false, home: Some("i") },
-    ProvinceData { code: "arm", full: "Armenia", jname: "アルメニア", kind: "Coast", supply: false, home: Some("t") },
-    ProvinceData { code: "bal", full: "Baltic Water", jname: "バルト海", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "bar", full: "Barents Water", jname: "バレンツ海", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "bel", full: "Belgium", jname: "ベルギー", kind: "Coast", supply: true, home: None },
-    ProvinceData { code: "ber", full: "Berlin", jname: "ベルリン", kind: "Coast", supply: true, home: Some("g") },
-    ProvinceData { code: "bla", full: "Black Water", jname: "黒海", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "boh", full: "Bohemia", jname: "ボヘミア", kind: "Inland", supply: false, home: Some("a") },
-    ProvinceData { code: "bot", full: "Gulf of Bothnia", jname: "ボスニア湾", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "bre", full: "Brest", jname: "ブレスト", kind: "Coast", supply: true, home: Some("f") },
-    ProvinceData { code: "bud", full: "Budapest", jname: "ブダペスト", kind: "Inland", supply: true, home: Some("a") },
-    ProvinceData { code: "bul", full: "Bulgaria", jname: "ブルガリア", kind: "Coast", supply: true, home: None },
-    ProvinceData { code: "bul_ec", full: "Bulgaria(EC)", jname: "ブルガリア(EC)", kind: "Coast", supply: false, home: None },
-    ProvinceData { code: "bul_sc", full: "Bulgaria(SC)", jname: "ブルガリア(SC)", kind: "Coast", supply: false, home: None },
-    ProvinceData { code: "bur", full: "Burgundy", jname: "ブルゴーニュ", kind: "Inland", supply: false, home: Some("f") },
-    ProvinceData { code: "cly", full: "Clyde", jname: "クライド", kind: "Coast", supply: false, home: Some("e") },
-    ProvinceData { code: "con", full: "Constantinople", jname: "コンスタンティノープル", kind: "Coast", supply: true, home: Some("t") },
-    ProvinceData { code: "den", full: "Denmark", jname: "デンマーク", kind: "Coast", supply: true, home: None },
-    ProvinceData { code: "eas", full: "Eastern Mediterranean", jname: "東地中海", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "edi", full: "Edinburgh", jname: "エディンバラ", kind: "Coast", supply: true, home: Some("e") },
-    ProvinceData { code: "eng", full: "English Channel", jname: "イギリス海峡", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "fin", full: "Finland", jname: "フィンランド", kind: "Coast", supply: false, home: Some("r") },
-    ProvinceData { code: "gal", full: "Galicia", jname: "ガリツィア", kind: "Inland", supply: false, home: Some("a") },
-    ProvinceData { code: "gas", full: "Gascony", jname: "ガスコーニュ", kind: "Coast", supply: false, home: Some("f") },
-    ProvinceData { code: "gre", full: "Greece", jname: "ギリシア", kind: "Coast", supply: true, home: None },
-    ProvinceData { code: "hel", full: "Helgoland Bight", jname: "ヘルゴラント湾", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "hol", full: "Holland", jname: "オランダ", kind: "Coast", supply: true, home: None },
-    ProvinceData { code: "ion", full: "Ionian Water", jname: "イオニア海", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "iri", full: "Irish Water", jname: "アイリッシュ海", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "kie", full: "Kiel", jname: "キール", kind: "Coast", supply: true, home: Some("g") },
-    ProvinceData { code: "lon", full: "London", jname: "ロンドン", kind: "Coast", supply: true, home: Some("e") },
-    ProvinceData { code: "lvn", full: "Livonia", jname: "リヴォニア", kind: "Coast", supply: false, home: Some("r") },
-    ProvinceData { code: "lvp", full: "Liverpool", jname: "リヴァプール", kind: "Coast", supply: true, home: Some("e") },
-    ProvinceData { code: "lyo", full: "Gulf of Lyon", jname: "リオン湾", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "mao", full: "Mid-Atlantic Ocean", jname: "中大西洋", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "mar", full: "Marseilles", jname: "マルセイユ", kind: "Coast", supply: true, home: Some("f") },
-    ProvinceData { code: "mos", full: "Moscow", jname: "モスクワ", kind: "Inland", supply: true, home: Some("r") },
-    ProvinceData { code: "mun", full: "Munich", jname: "ミュンヘン", kind: "Inland", supply: true, home: Some("g") },
-    ProvinceData { code: "naf", full: "North Africa", jname: "北アフリカ", kind: "Coast", supply: false, home: None },
-    ProvinceData { code: "nao", full: "North Atlantic Ocean", jname: "北大西洋", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "nap", full: "Naples", jname: "ナポリ", kind: "Coast", supply: true, home: Some("i") },
-    ProvinceData { code: "nth", full: "North Water", jname: "北海", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "nwg", full: "Norwegian Water", jname: "ノルウェー海", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "nwy", full: "Norway", jname: "ノルウェー", kind: "Coast", supply: true, home: None },
-    ProvinceData { code: "par", full: "Paris", jname: "パリ", kind: "Inland", supply: true, home: Some("f") },
-    ProvinceData { code: "pic", full: "Picardy", jname: "ピカルディ", kind: "Coast", supply: false, home: Some("f") },
-    ProvinceData { code: "pie", full: "Piedmont", jname: "ピエモンテ", kind: "Coast", supply: false, home: Some("i") },
-    ProvinceData { code: "por", full: "Portugal", jname: "ポルトガル", kind: "Coast", supply: true, home: None },
-    ProvinceData { code: "pru", full: "Prussia", jname: "プロイセン", kind: "Coast", supply: false, home: Some("g") },
-    ProvinceData { code: "rom", full: "Rome", jname: "ローマ", kind: "Coast", supply: true, home: Some("i") },
-    ProvinceData { code: "ruh", full: "Ruhr", jname: "ルール", kind: "Inland", supply: false, home: Some("g") },
-    ProvinceData { code: "rum", full: "Rumania", jname: "ルーマニア", kind: "Coast", supply: true, home: None },
-    ProvinceData { code: "ser", full: "Serbia", jname: "セルビア", kind: "Inland", supply: true, home: None },
-    ProvinceData { code: "sev", full: "Sevastopol", jname: "セヴァストポリ", kind: "Coast", supply: true, home: Some("r") },
-    ProvinceData { code: "sil", full: "Silesia", jname: "シレジア", kind: "Inland", supply: false, home: Some("g") },
-    ProvinceData { code: "ska", full: "Skagerrak", jname: "スカゲラク海峡", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "smy", full: "Smyrna", jname: "スミルナ", kind: "Coast", supply: true, home: Some("t") },
-    ProvinceData { code: "spa", full: "Spain", jname: "スペイン", kind: "Coast", supply: true, home: None },
-    ProvinceData { code: "spa_nc", full: "Spain(NC)", jname: "スペイン(NC)", kind: "Coast", supply: false, home: None },
-    ProvinceData { code: "spa_sc", full: "Spain(SC)", jname: "スペイン(SC)", kind: "Coast", supply: false, home: None },
-    ProvinceData { code: "stp", full: "St. Petersburg", jname: "サンクトペテルブルク", kind: "Coast", supply: true, home: Some("r") },
-    ProvinceData { code: "stp_nc", full: "St. Petersburg(NC)", jname: "サンクトペテルブルク(NC)", kind: "Coast", supply: false, home: None },
-    ProvinceData { code: "stp_sc", full: "St. Petersburg(SC)", jname: "サンクトペテルブルク(SC)", kind: "Coast", supply: false, home: None },
-    ProvinceData { code: "swe", full: "Sweden", jname: "スウェーデン", kind: "Coast", supply: true, home: None },
-    ProvinceData { code: "syr", full: "Syria", jname: "シリア", kind: "Coast", supply: false, home: Some("t") },
-    ProvinceData { code: "tri", full: "Trieste", jname: "トリエステ", kind: "Coast", supply: true, home: Some("a") },
-    ProvinceData { code: "tun", full: "Tunis", jname: "チュニス", kind: "Coast", supply: true, home: None },
-    ProvinceData { code: "tus", full: "Tuscany", jname: "トスカーナ", kind: "Coast", supply: false, home: Some("i") },
-    ProvinceData { code: "tyr", full: "Tyrolia", jname: "ティロル", kind: "Inland", supply: false, home: Some("a") },
-    ProvinceData { code: "tys", full: "Tyrrhenian Water", jname: "ティレニア海", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "ukr", full: "Ukraine", jname: "ウクライナ", kind: "Inland", supply: false, home: Some("r") },
-    ProvinceData { code: "ven", full: "Venice", jname: "ヴェネツィア", kind: "Coast", supply: true, home: Some("i") },
-    ProvinceData { code: "vie", full: "Vienna", jname: "ウィーン", kind: "Inland", supply: true, home: Some("a") },
-    ProvinceData { code: "wal", full: "Wales", jname: "ウェールズ", kind: "Coast", supply: false, home: Some("e") },
-    ProvinceData { code: "war", full: "Warsaw", jname: "ワルシャワ", kind: "Inland", supply: true, home: Some("r") },
-    ProvinceData { code: "wes", full: "Western Mediterranean", jname: "西地中海", kind: "Water", supply: false, home: None },
-    ProvinceData { code: "yor", full: "Yorkshire", jname: "ヨークシャー", kind: "Coast", supply: false, home: Some("e") },
+    ProvinceData { code: "adr",    short: "Adr",     full: "Adriatic Sea",          jname: "アドリア海",               kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "aeg",    short: "Aeg",     full: "Aegean Sea",            jname: "エーゲ海",                 kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "alb",    short: "Alb",     full: "Albania",               jname: "アルバニア",               kind: "Coast",  supply: false, home: None },
+    ProvinceData { code: "ank",    short: "Ank",     full: "Ankara",                jname: "アンカラ",                 kind: "Coast",  supply: true,  home: Some("t") },
+    ProvinceData { code: "apu",    short: "Apu",     full: "Apulia",                jname: "アプリア",                 kind: "Coast",  supply: false, home: Some("i") },
+    ProvinceData { code: "arm",    short: "Arm",     full: "Armenia",               jname: "アルメニア",               kind: "Coast",  supply: false, home: Some("t") },
+    ProvinceData { code: "bal",    short: "Bal",     full: "Baltic Sea",            jname: "バルト海",                 kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "bar",    short: "Bar",     full: "Barents Sea",           jname: "バレンツ海",               kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "bel",    short: "Bel",     full: "Belgium",               jname: "ベルギー",                 kind: "Coast",  supply: true,  home: None },
+    ProvinceData { code: "ber",    short: "Ber",     full: "Berlin",                jname: "ベルリン",                 kind: "Coast",  supply: true,  home: Some("g") },
+    ProvinceData { code: "bla",    short: "Bla",     full: "Black Sea",             jname: "黒海",                     kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "boh",    short: "Boh",     full: "Bohemia",               jname: "ボヘミア",                 kind: "Inland", supply: false, home: Some("a") },
+    ProvinceData { code: "bot",    short: "Bot",     full: "Gulf of Bothnia",       jname: "ボスニア湾",               kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "bre",    short: "Bre",     full: "Brest",                 jname: "ブレスト",                 kind: "Coast",  supply: true,  home: Some("f") },
+    ProvinceData { code: "bud",    short: "Bud",     full: "Budapest",              jname: "ブダペスト",               kind: "Inland", supply: true,  home: Some("a") },
+    ProvinceData { code: "bul",    short: "Bul",     full: "Bulgaria",              jname: "ブルガリア",               kind: "Coast",  supply: true,  home: None },
+    ProvinceData { code: "bul_ec", short: "Bul(EC)", full: "Bulgaria(EC)",          jname: "ブルガリア(EC)",           kind: "Coast",  supply: false, home: None },
+    ProvinceData { code: "bul_sc", short: "Bul(SC)", full: "Bulgaria(SC)",          jname: "ブルガリア(SC)",           kind: "Coast",  supply: false, home: None },
+    ProvinceData { code: "bur",    short: "Bur",     full: "Burgundy",              jname: "ブルゴーニュ",             kind: "Inland", supply: false, home: Some("f") },
+    ProvinceData { code: "cly",    short: "Cly",     full: "Clyde",                 jname: "クライド",                 kind: "Coast",  supply: false, home: Some("e") },
+    ProvinceData { code: "con",    short: "Con",     full: "Constantinople",        jname: "コンスタンティノープル",   kind: "Coast",  supply: true,  home: Some("t") },
+    ProvinceData { code: "den",    short: "Den",     full: "Denmark",               jname: "デンマーク",               kind: "Coast",  supply: true,  home: None },
+    ProvinceData { code: "eas",    short: "Eas",     full: "Eastern Mediterranean", jname: "東地中海",                 kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "edi",    short: "Edi",     full: "Edinburgh",             jname: "エディンバラ",             kind: "Coast",  supply: true,  home: Some("e") },
+    ProvinceData { code: "eng",    short: "Eng",     full: "English Channel",       jname: "イギリス海峡",             kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "fin",    short: "Fin",     full: "Finland",               jname: "フィンランド",             kind: "Coast",  supply: false, home: Some("r") },
+    ProvinceData { code: "gal",    short: "Gal",     full: "Galicia",               jname: "ガリツィア",               kind: "Inland", supply: false, home: Some("a") },
+    ProvinceData { code: "gas",    short: "Gas",     full: "Gascony",               jname: "ガスコーニュ",             kind: "Coast",  supply: false, home: Some("f") },
+    ProvinceData { code: "gre",    short: "Gre",     full: "Greece",                jname: "ギリシア",                 kind: "Coast",  supply: true,  home: None },
+    ProvinceData { code: "hel",    short: "Hel",     full: "Helgoland Bight",       jname: "ヘルゴラント湾",           kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "hol",    short: "Hol",     full: "Holland",               jname: "オランダ",                 kind: "Coast",  supply: true,  home: None },
+    ProvinceData { code: "ion",    short: "Ion",     full: "Ionian Sea",            jname: "イオニア海",               kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "iri",    short: "Iri",     full: "Irish Sea",             jname: "アイリッシュ海",           kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "kie",    short: "Kie",     full: "Kiel",                  jname: "キール",                   kind: "Coast",  supply: true,  home: Some("g") },
+    ProvinceData { code: "lon",    short: "Lon",     full: "London",                jname: "ロンドン",                 kind: "Coast",  supply: true,  home: Some("e") },
+    ProvinceData { code: "lvn",    short: "Lvn",     full: "Livonia",               jname: "リヴォニア",               kind: "Coast",  supply: false, home: Some("r") },
+    ProvinceData { code: "lvp",    short: "Lvp",     full: "Liverpool",             jname: "リヴァプール",             kind: "Coast",  supply: true,  home: Some("e") },
+    ProvinceData { code: "gol",    short: "GoL",     full: "Gulf of Lyon",          jname: "リオン湾",                 kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "mid",    short: "Mid",     full: "Mid-Atlantic Ocean",    jname: "中大西洋",                 kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "mar",    short: "Mar",     full: "Marseilles",            jname: "マルセイユ",               kind: "Coast",  supply: true,  home: Some("f") },
+    ProvinceData { code: "mos",    short: "Mos",     full: "Moscow",                jname: "モスクワ",                 kind: "Inland", supply: true,  home: Some("r") },
+    ProvinceData { code: "mun",    short: "Mun",     full: "Munich",                jname: "ミュンヘン",               kind: "Inland", supply: true,  home: Some("g") },
+    ProvinceData { code: "naf",    short: "NAf",     full: "North Africa",          jname: "北アフリカ",               kind: "Coast",  supply: false, home: None },
+    ProvinceData { code: "nat",    short: "NAt",     full: "North Atlantic Ocean",  jname: "北大西洋",                 kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "nap",    short: "Nap",     full: "Naples",                jname: "ナポリ",                   kind: "Coast",  supply: true,  home: Some("i") },
+    ProvinceData { code: "nth",    short: "Nth",     full: "North Sea",             jname: "北海",                     kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "nrg",    short: "Nrg",     full: "Norwegian Sea",         jname: "ノルウェー海",             kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "nwy",    short: "Nwy",     full: "Norway",                jname: "ノルウェー",               kind: "Coast",  supply: true,  home: None },
+    ProvinceData { code: "par",    short: "Par",     full: "Paris",                 jname: "パリ",                     kind: "Inland", supply: true,  home: Some("f") },
+    ProvinceData { code: "pic",    short: "Pic",     full: "Picardy",               jname: "ピカルディ",               kind: "Coast",  supply: false, home: Some("f") },
+    ProvinceData { code: "pie",    short: "Pie",     full: "Piedmont",              jname: "ピエモンテ",               kind: "Coast",  supply: false, home: Some("i") },
+    ProvinceData { code: "por",    short: "Por",     full: "Portugal",              jname: "ポルトガル",               kind: "Coast",  supply: true,  home: None },
+    ProvinceData { code: "pru",    short: "Pru",     full: "Prussia",               jname: "プロイセン",               kind: "Coast",  supply: false, home: Some("g") },
+    ProvinceData { code: "rom",    short: "Rom",     full: "Rome",                  jname: "ローマ",                   kind: "Coast",  supply: true,  home: Some("i") },
+    ProvinceData { code: "ruh",    short: "Ruh",     full: "Ruhr",                  jname: "ルール",                   kind: "Inland", supply: false, home: Some("g") },
+    ProvinceData { code: "rum",    short: "Rum",     full: "Rumania",               jname: "ルーマニア",               kind: "Coast",  supply: true,  home: None },
+    ProvinceData { code: "ser",    short: "Ser",     full: "Serbia",                jname: "セルビア",                 kind: "Inland", supply: true,  home: None },
+    ProvinceData { code: "sev",    short: "Sev",     full: "Sevastopol",            jname: "セヴァストポリ",           kind: "Coast",  supply: true,  home: Some("r") },
+    ProvinceData { code: "sil",    short: "Sil",     full: "Silesia",               jname: "シレジア",                 kind: "Inland", supply: false, home: Some("g") },
+    ProvinceData { code: "ska",    short: "Ska",     full: "Skagerrak",             jname: "スカゲラク海峡",           kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "smy",    short: "Smy",     full: "Smyrna",                jname: "スミルナ",                 kind: "Coast",  supply: true,  home: Some("t") },
+    ProvinceData { code: "spa",    short: "Spa",     full: "Spain",                 jname: "スペイン",                 kind: "Coast",  supply: true,  home: None },
+    ProvinceData { code: "spa_nc", short: "Spa(NC)", full: "Spain(NC)",             jname: "スペイン(NC)",             kind: "Coast",  supply: false, home: None },
+    ProvinceData { code: "spa_sc", short: "Spa(SC)", full: "Spain(SC)",             jname: "スペイン(SC)",             kind: "Coast",  supply: false, home: None },
+    ProvinceData { code: "stp",    short: "StP",     full: "St. Petersburg",        jname: "サンクトペテルブルク",     kind: "Coast",  supply: true,  home: Some("r") },
+    ProvinceData { code: "stp_nc", short: "StP(NC)", full: "St. Petersburg(NC)",    jname: "サンクトペテルブルク(NC)", kind: "Coast",  supply: false, home: None },
+    ProvinceData { code: "stp_sc", short: "StP(SC)", full: "St. Petersburg(SC)",    jname: "サンクトペテルブルク(SC)", kind: "Coast",  supply: false, home: None },
+    ProvinceData { code: "swe",    short: "Swe",     full: "Sweden",                jname: "スウェーデン",             kind: "Coast",  supply: true,  home: None },
+    ProvinceData { code: "syr",    short: "Syr",     full: "Syria",                 jname: "シリア",                   kind: "Coast",  supply: false, home: Some("t") },
+    ProvinceData { code: "tri",    short: "Tri",     full: "Trieste",               jname: "トリエステ",               kind: "Coast",  supply: true,  home: Some("a") },
+    ProvinceData { code: "tun",    short: "Tun",     full: "Tunis",                 jname: "チュニス",                 kind: "Coast",  supply: true,  home: None },
+    ProvinceData { code: "tus",    short: "Tus",     full: "Tuscany",               jname: "トスカーナ",               kind: "Coast",  supply: false, home: Some("i") },
+    ProvinceData { code: "tyr",    short: "Tyr",     full: "Tyrolia",               jname: "ティロル",                 kind: "Inland", supply: false, home: Some("a") },
+    ProvinceData { code: "tyn",    short: "Tyn",     full: "Tyrrhenian Sea",        jname: "ティレニア海",             kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "ukr",    short: "Ukr",     full: "Ukraine",               jname: "ウクライナ",               kind: "Inland", supply: false, home: Some("r") },
+    ProvinceData { code: "ven",    short: "Ven",     full: "Venice",                jname: "ヴェネツィア",             kind: "Coast",  supply: true,  home: Some("i") },
+    ProvinceData { code: "vie",    short: "Vie",     full: "Vienna",                jname: "ウィーン",                 kind: "Inland", supply: true,  home: Some("a") },
+    ProvinceData { code: "wal",    short: "Wal",     full: "Wales",                 jname: "ウェールズ",               kind: "Coast",  supply: false, home: Some("e") },
+    ProvinceData { code: "war",    short: "War",     full: "Warsaw",                jname: "ワルシャワ",               kind: "Inland", supply: true,  home: Some("r") },
+    ProvinceData { code: "wes",    short: "Wes",     full: "Western Mediterranean", jname: "西地中海",                 kind: "Water",  supply: false, home: None },
+    ProvinceData { code: "yor",    short: "Yor",     full: "Yorkshire",             jname: "ヨークシャー",             kind: "Coast",  supply: false, home: Some("e") },
 ];
 
 impl Province {
     pub fn from_code(code: &str) -> Option<Self> {
-        PROVINCE_DATA.iter().position(|d| d.code == code).map(|idx| Self(idx as u8))
+        PROVINCE_DATA.iter().find(|d| d.code == code).map(|d| Self(d.code))
     }
 
     pub fn all() -> impl Iterator<Item = Self> {
-        (0..PROVINCE_DATA.len()).map(|idx| Self(idx as u8))
+        (0..PROVINCE_DATA.len()).map(|idx| Self(PROVINCE_DATA[idx].code))
     }
 
     pub fn data(self) -> &'static ProvinceData {
-        &PROVINCE_DATA[self.0 as usize]
+        PROVINCE_DATA.iter().find(|d| d.code == self.0).expect("valid province code")
     }
 
     pub fn full_name(self) -> &'static str {
         self.data().full
+    }
+
+    pub fn short_name(self) -> &'static str {
+        self.data().short
     }
 
     pub fn jname(self) -> &'static str {
@@ -219,6 +223,13 @@ impl fmt::Display for Province {
     }
 }
 
+impl<'de> serde::Deserialize<'de> for Province {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Province::try_from(s).map_err(serde::de::Error::custom)
+    }
+}
+
 impl TryFrom<String> for Province {
     type Error = String;
 
@@ -250,7 +261,7 @@ mod tests {
 
     #[test]
     fn test_full_name() {
-        assert_eq!(p("adr").full_name(), "Adriatic Water");
+        assert_eq!(p("adr").full_name(), "Adriatic Sea");
         assert_eq!(p("lon").full_name(), "London");
     }
 

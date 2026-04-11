@@ -92,7 +92,7 @@ fn test_datc_6_f_3() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_eng = Unit::new_fleet(Power::England, p("eng"));
     let unit_e_lon = Unit::new_army(Power::England, p("lon"));
-    let unit_e_mao = Unit::new_fleet(Power::England, p("mao"));
+    let unit_e_mao = Unit::new_fleet(Power::England, p("mid"));
     let unit_f_par = Unit::new_army(Power::France, p("par"));
     phase.data.orders.push(unit_e_eng.convoy(unit_e_lon, p("bre")));
     phase.data.orders.push(unit_e_lon.move_to(p("bre")));
@@ -315,7 +315,7 @@ fn test_datc_6_f_9() {
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     let unit_e_lon = Unit::new_army(Power::England, p("lon"));
     let unit_f_bre = Unit::new_fleet(Power::France, p("bre"));
-    let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
+    let unit_f_mao = Unit::new_fleet(Power::France, p("mid"));
     phase.data.orders.push(unit_e_eng.convoy(unit_e_lon, p("bel")));
     phase.data.orders.push(unit_e_nth.convoy(unit_e_lon, p("bel")));
     phase.data.orders.push(unit_e_lon.move_to(p("bel")));
@@ -357,7 +357,7 @@ fn test_datc_6_f_10() {
     let unit_e_lon = Unit::new_army(Power::England, p("lon"));
     let unit_g_eng = Unit::new_fleet(Power::Germany, p("eng"));
     let unit_f_bre = Unit::new_fleet(Power::France, p("bre"));
-    let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
+    let unit_f_mao = Unit::new_fleet(Power::France, p("mid"));
     phase.data.orders.push(unit_e_nth.convoy(unit_e_lon, p("bel")));
     phase.data.orders.push(unit_e_lon.move_to(p("bel")));
     phase.data.orders.push(unit_g_eng.convoy(unit_e_lon, p("bel")));
@@ -403,7 +403,7 @@ fn test_datc_6_f_11() {
     let unit_g_eng = Unit::new_fleet(Power::Germany, p("eng"));
     let unit_r_nth = Unit::new_fleet(Power::Russia, p("nth"));
     let unit_f_bre = Unit::new_fleet(Power::France, p("bre"));
-    let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
+    let unit_f_mao = Unit::new_fleet(Power::France, p("mid"));
     phase.data.orders.push(unit_e_lon.move_to(p("bel")));
     phase.data.orders.push(unit_g_eng.convoy(unit_e_lon, p("bel")));
     phase.data.orders.push(unit_r_nth.convoy(unit_e_lon, p("bel")));
@@ -442,8 +442,8 @@ fn test_datc_6_f_12() {
     let unit_e_eng = Unit::new_fleet(Power::England, p("eng"));
     let unit_e_lon = Unit::new_army(Power::England, p("lon"));
     let unit_e_iri = Unit::new_fleet(Power::England, p("iri"));
-    let unit_f_nao = Unit::new_fleet(Power::France, p("nao"));
-    let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
+    let unit_f_nao = Unit::new_fleet(Power::France, p("nat"));
+    let unit_f_mao = Unit::new_fleet(Power::France, p("mid"));
     phase.data.orders.push(unit_e_eng.convoy(unit_e_lon, p("bel")));
     phase.data.orders.push(unit_e_lon.move_to(p("bel")));
     phase.data.orders.push(unit_e_iri.convoy(unit_e_lon, p("bel")));
@@ -562,7 +562,7 @@ fn test_datc_6_f_15() {
     let unit_f_bre = Unit::new_army(Power::France, p("bre"));
     let unit_f_eng = Unit::new_fleet(Power::France, p("eng"));
     let unit_i_iri = Unit::new_fleet(Power::Italy, p("iri"));
-    let unit_i_mao = Unit::new_fleet(Power::Italy, p("mao"));
+    let unit_i_mao = Unit::new_fleet(Power::Italy, p("mid"));
     let unit_i_naf = Unit::new_army(Power::Italy, p("naf"));
     phase.data.orders.push(unit_e_lon.support_move(unit_e_wal, p("eng")));
     phase.data.orders.push(unit_e_wal.move_to(p("eng")));
@@ -771,15 +771,15 @@ fn test_datc_6_f_18() {
 fn test_datc_6_f_19() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_tun = Unit::new_army(Power::France, p("tun"));
-    let unit_f_tyr = Unit::new_fleet(Power::France, p("tys"));
+    let unit_f_tyr = Unit::new_fleet(Power::France, p("tyn"));
     let unit_f_ion = Unit::new_fleet(Power::France, p("ion"));
     let unit_i_nap = Unit::new_fleet(Power::Italy, p("nap"));
     let unit_i_rom = Unit::new_fleet(Power::Italy, p("rom"));
     phase.data.orders.push(unit_f_tun.move_to(p("nap")));
     phase.data.orders.push(unit_f_tyr.convoy(unit_f_tun, p("nap")));
     phase.data.orders.push(unit_f_ion.convoy(unit_f_tun, p("nap")));
-    phase.data.orders.push(unit_i_nap.support_move(unit_i_rom, p("tys")));
-    phase.data.orders.push(unit_i_rom.move_to(p("tys")));
+    phase.data.orders.push(unit_i_nap.support_move(unit_i_rom, p("tyn")));
+    phase.data.orders.push(unit_i_rom.move_to(p("tyn")));
     resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
@@ -836,7 +836,7 @@ fn test_datc_6_f_19() {
 fn test_datc_6_f_20() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_tun = Unit::new_army(Power::France, p("tun"));
-    let unit_f_tyr = Unit::new_fleet(Power::France, p("tys"));
+    let unit_f_tyr = Unit::new_fleet(Power::France, p("tyn"));
     let unit_i_nap = Unit::new_fleet(Power::Italy, p("nap"));
     let unit_i_ion = Unit::new_fleet(Power::Italy, p("ion"));
     let unit_t_aeg = Unit::new_fleet(Power::Turkey, p("aeg"));
@@ -899,18 +899,18 @@ fn test_datc_6_f_20() {
 fn test_datc_6_f_21() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_r_edi = Unit::new_army(Power::Russia, p("edi"));
-    let unit_r_nwg = Unit::new_fleet(Power::Russia, p("nwg"));
+    let unit_r_nwg = Unit::new_fleet(Power::Russia, p("nrg"));
     let unit_r_nwy = Unit::new_army(Power::Russia, p("nwy"));
     let unit_f_iri = Unit::new_fleet(Power::France, p("iri"));
-    let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
+    let unit_f_mao = Unit::new_fleet(Power::France, p("mid"));
     let unit_e_lvp = Unit::new_army(Power::England, p("lvp"));
-    let unit_e_nao = Unit::new_fleet(Power::England, p("nao"));
+    let unit_e_nao = Unit::new_fleet(Power::England, p("nat"));
     let unit_e_cly = Unit::new_fleet(Power::England, p("cly"));
     phase.data.orders.push(unit_r_edi.support_move(unit_r_nwy, p("cly")));
     phase.data.orders.push(unit_r_nwg.convoy(unit_r_nwy, p("cly")));
     phase.data.orders.push(unit_r_nwy.move_to(p("cly")));
-    phase.data.orders.push(unit_f_iri.support_move(unit_f_mao, p("nao")));
-    phase.data.orders.push(unit_f_mao.move_to(p("nao")));
+    phase.data.orders.push(unit_f_iri.support_move(unit_f_mao, p("nat")));
+    phase.data.orders.push(unit_f_mao.move_to(p("nat")));
     phase.data.orders.push(unit_e_lvp.move_to(p("cly")));
     phase.data.orders.push(unit_e_nao.convoy(unit_e_lvp, p("cly")));
     phase.data.orders.push(unit_e_cly.support_hold(unit_e_nao));
@@ -1040,7 +1040,7 @@ fn test_datc_6_f_23() {
     let unit_f_eng = Unit::new_fleet(Power::France, p("eng"));
     let unit_g_bel = Unit::new_fleet(Power::Germany, p("bel"));
     let unit_g_lon = Unit::new_fleet(Power::Germany, p("lon"));
-    let unit_i_mao = Unit::new_fleet(Power::Italy, p("mao"));
+    let unit_i_mao = Unit::new_fleet(Power::Italy, p("mid"));
     let unit_i_iri = Unit::new_fleet(Power::Italy, p("iri"));
     let unit_r_mwy = Unit::new_army(Power::Russia, p("nwy"));
     let unit_r_nth = Unit::new_fleet(Power::Russia, p("nth"));
@@ -1108,7 +1108,7 @@ fn test_datc_6_f_24() {
     let unit_e_edi = Unit::new_fleet(Power::England, p("edi"));
     let unit_e_lon = Unit::new_fleet(Power::England, p("lon"));
     let unit_e_iri = Unit::new_fleet(Power::England, p("iri"));
-    let unit_e_mao = Unit::new_fleet(Power::England, p("mao"));
+    let unit_e_mao = Unit::new_fleet(Power::England, p("mid"));
     let unit_f_bre = Unit::new_army(Power::France, p("bre"));
     let unit_f_eng = Unit::new_fleet(Power::France, p("eng"));
     let unit_f_bel = Unit::new_fleet(Power::France, p("bel"));
@@ -1175,7 +1175,7 @@ fn test_datc_6_f_25() {
     let unit_e_2_nth = Unit::new_fleet(Power::England, p("nth"));
     let unit_e_3_hel = Unit::new_fleet(Power::England, p("hel"));
     let unit_e_4_bel = Unit::new_army(Power::England, p("bel"));
-    let unit_r_1_nwg = Unit::new_fleet(Power::Russia, p("nwg"));
+    let unit_r_1_nwg = Unit::new_fleet(Power::Russia, p("nrg"));
     let unit_r_2_nwy = Unit::new_fleet(Power::Russia, p("nwy"));
     let unit_r_3_swe = Unit::new_fleet(Power::Russia, p("swe"));
     phase.data.orders.push(unit_g_1_ruh.move_to(p("bel")));

@@ -753,14 +753,14 @@ fn test_datc_6_d_22() {
 #[test]
 fn test_datc_6_d_23() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_i_lyo = Unit::new_fleet(Power::Italy, p("lyo"));
+    let unit_i_lyo = Unit::new_fleet(Power::Italy, p("gol"));
     let unit_i_wes = Unit::new_fleet(Power::Italy, p("wes"));
     let unit_f_spa_nc = Unit::new_fleet(Power::France, p("spa_nc"));
     let unit_f_mar = Unit::new_fleet(Power::France, p("mar"));
     phase.data.orders.push(unit_i_lyo.move_to(p("spa_sc")));
     phase.data.orders.push(unit_i_wes.support_move(unit_i_lyo, p("spa_sc")));
-    phase.data.orders.push(unit_f_spa_nc.move_to(p("lyo")));
-    phase.data.orders.push(unit_f_mar.support_move(unit_f_spa_nc, p("lyo")));
+    phase.data.orders.push(unit_f_spa_nc.move_to(p("gol")));
+    phase.data.orders.push(unit_f_mar.support_move(unit_f_spa_nc, p("gol")));
     resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
@@ -791,14 +791,14 @@ fn test_datc_6_d_24() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_mar = Unit::new_army(Power::France, p("mar"));
     let unit_f_spa_sc = Unit::new_fleet(Power::France, p("spa_sc"));
-    let unit_i_lyo = Unit::new_fleet(Power::Italy, p("lyo"));
-    let unit_t_tyr = Unit::new_fleet(Power::Turkey, p("tys"));
+    let unit_i_lyo = Unit::new_fleet(Power::Italy, p("gol"));
+    let unit_t_tyr = Unit::new_fleet(Power::Turkey, p("tyn"));
     let unit_t_wes = Unit::new_fleet(Power::Turkey, p("wes"));
-    phase.data.orders.push(unit_f_mar.move_to(p("lyo")));
-    phase.data.orders.push(unit_f_spa_sc.support_move(unit_f_mar, p("lyo")));
+    phase.data.orders.push(unit_f_mar.move_to(p("gol")));
+    phase.data.orders.push(unit_f_spa_sc.support_move(unit_f_mar, p("gol")));
     phase.data.orders.push(unit_i_lyo.hold());
-    phase.data.orders.push(unit_t_tyr.support_move(unit_t_wes, p("lyo")));
-    phase.data.orders.push(unit_t_wes.move_to(p("lyo")));
+    phase.data.orders.push(unit_t_tyr.support_move(unit_t_wes, p("gol")));
+    phase.data.orders.push(unit_t_wes.move_to(p("gol")));
     resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);

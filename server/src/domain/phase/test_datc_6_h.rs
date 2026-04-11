@@ -410,9 +410,9 @@ fn test_datc_6_h_11() {
     let context = &mut PhaseContext::new();
     let unit_f_mar = Unit::new_army(Power::France, p("mar"));
     let unit_f_bur = Unit::new_army(Power::France, p("bur"));
-    let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
+    let unit_f_mao = Unit::new_fleet(Power::France, p("mid"));
     let unit_f_wes = Unit::new_fleet(Power::France, p("wes"));
-    let unit_f_lyo = Unit::new_fleet(Power::France, p("lyo"));
+    let unit_f_lyo = Unit::new_fleet(Power::France, p("gol"));
     let unit_i_mar = Unit::new_army(Power::Italy, p("mar")).dislodged_via_convoy();
     context.last_resolved_units.push(unit_f_mar);
     context.last_resolved_units.push(unit_f_mar);
@@ -463,10 +463,10 @@ fn test_datc_6_h_12() {
     let unit_e_eng = Unit::new_fleet(Power::England, p("eng")).dislodged_from(p("bre"));
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     let unit_f_bre = Unit::new_fleet(Power::France, p("bre"));
-    let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
+    let unit_f_mao = Unit::new_fleet(Power::France, p("mid"));
     let unit_r_lvp = Unit::new_army(Power::Russia, p("lvp"));
-    let unit_r_nwg = Unit::new_fleet(Power::Russia, p("nwg"));
-    let unit_r_nao = Unit::new_fleet(Power::Russia, p("nao"));
+    let unit_r_nwg = Unit::new_fleet(Power::Russia, p("nrg"));
+    let unit_r_nao = Unit::new_fleet(Power::Russia, p("nat"));
     let unit_r_cly = Unit::new_army(Power::Russia, p("cly"));
     context.last_resolved_units.push(unit_e_lvp);
     context.last_resolved_units.push(unit_e_iri);
@@ -548,7 +548,7 @@ fn test_datc_6_h_15() {
     let context = &mut PhaseContext::new();
     let unit_e_por = Unit::new_fleet(Power::England, p("por")).dislodged_from(p("spa"));
     let unit_f_por = Unit::new_fleet(Power::France, p("por"));
-    let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
+    let unit_f_mao = Unit::new_fleet(Power::France, p("mid"));
     context.last_resolved_units.push(unit_e_por);
     context.last_resolved_units.push(unit_f_por);
     context.last_resolved_units.push(unit_f_mao);
@@ -574,7 +574,7 @@ fn test_datc_6_h_15() {
 fn test_datc_6_h_16() {
     let mut phase = Phase::new_spring_retreat(1901, 2);
     let context = &mut PhaseContext::new();
-    let unit_f_mao = Unit::new_fleet(Power::France, p("mao"));
+    let unit_f_mao = Unit::new_fleet(Power::France, p("mid"));
     let unit_f_gas = Unit::new_fleet(Power::France, p("gas"));
     let unit_f_wes = Unit::new_fleet(Power::France, p("wes")).dislodged_from(p("tyr"));
     let unit_i_tun = Unit::new_fleet(Power::Italy, p("tun"));
