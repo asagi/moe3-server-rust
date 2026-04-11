@@ -269,9 +269,21 @@ fn test_datc_6_j_9() {
 /// Italy owns Naples.
 /// Italy has armies in Greece and Piedmont.
 /// Italy does not order a disband.
-/// The distance from Greece to owned supply center is five over land. However, for distance calculation it can go over water and arrive in two steps. The army in Piedmont has to be removed.
+///
+/// The distance from Greece to owned supply center is five over land.
+/// However, for distance calculation it can go over water and arrive in two steps.
+/// The army in Piedmont has to be removed.
 #[test]
-fn test_datc_6_j_10() {}
+fn test_datc_6_j_10() {
+    let phase = &mut Phase::new_adjustment(1901, 5);
+    phase.data.territories.push(Territory::new(Power::Italy, "nap"));
+    phase.data.units.push(Unit::new_army(Power::Italy, p("gre")));
+    phase.data.units.push(Unit::new_army(Power::Italy, p("pie")));
+    let context = &mut PhaseContext::new();
+    resolve_orders_for_adjustment_phase(phase, context);
+    assert_eq!(phase.data.orders.len(), 1);
+    assert_eq!(phase.data.orders[0].to_string(), "Remove A pie");
+}
 
 /// 6.J.11. TEST CASE, DISTANCE TO OWNED SUPPLY CENTER
 /// The 2023 rules say that distance must be calculated to owned supply center instead of home supply center (as it was in the older rulebooks).
