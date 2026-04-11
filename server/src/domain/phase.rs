@@ -1,3 +1,6 @@
+mod adjustment_adjudicator;
+mod adjustment_order_helper;
+mod adjustment_order_resolution;
 mod main_adjudicator;
 mod main_order_helper;
 mod main_order_resolution;
@@ -8,7 +11,10 @@ mod retreat_order_resolution;
 use super::PhaseId;
 use super::TableId;
 use super::order::Order;
+use super::power::Power;
+use super::territory::Territory;
 use super::unit::Unit;
+use adjustment_order_resolution::resolve_orders_for_adjustment_phase;
 use chrono::DateTime;
 use chrono::Utc;
 use main_order_resolution::resolve_orders_for_main_phase;
@@ -35,8 +41,9 @@ pub struct PhaseData {
     #[serde(flatten)]
     pub kind: PhaseKind,
     pub orders: Vec<Order>,
-    pub resolved_units: Vec<Unit>,
-    pub standoff_province_codes: Vec<String>,
+    pub units: Vec<Unit>,
+    pub territories: Vec<Territory>,
+    pub standoff_codes: Vec<String>,
 }
 
 /// フェイズの種類
@@ -93,8 +100,9 @@ impl Phase {
                 year,
                 kind: phase_type,
                 orders: Vec::new(),
-                resolved_units: Vec::new(),
-                standoff_province_codes: Vec::new(),
+                units: Vec::new(),
+                territories: Vec::new(),
+                standoff_codes: Vec::new(),
             },
         }
     }
@@ -150,6 +158,16 @@ impl Phase {
     /// フェイズの種別を返す
     pub fn phase_type(&self) -> PhaseKind {
         self.data.kind
+    }
+
+    /// 指定した国が現在保有する補給都市数を取得する
+    pub fn count_supply_centers(&self, power: &Power) -> usize {
+        self.data.territories.iter().filter(|t| t.power() == power).count()
+    }
+
+    /// 指定した国が現在保有するユニット数を取得する
+    pub fn count_units(&self, power: &Power) -> usize {
+        self.data.units.iter().filter(|u| &u.power == power).count()
     }
 
     /// フェイズを締め切り命令を解決する。
@@ -342,6 +360,10 @@ impl PhaseCloseLogic for FallRetreatPhase {
 }
 
 impl PhaseCloseLogic for AdjustmentPhase {
+    fn resolve_orders(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
+        resolve_orders_for_adjustment_phase(current_phase, context);
+    }
+
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
         Some(Phase::new_spring_main(current_phase.year(), current_phase.index()))
     }
@@ -398,18 +420,20 @@ mod tests {
 }
 
 #[cfg(test)]
-mod main_order_resolution_tests_a;
+mod test_datc_6_a;
 #[cfg(test)]
-mod main_order_resolution_tests_b;
+mod test_datc_6_b;
 #[cfg(test)]
-mod main_order_resolution_tests_c;
+mod test_datc_6_c;
 #[cfg(test)]
-mod main_order_resolution_tests_d;
+mod test_datc_6_d;
 #[cfg(test)]
-mod main_order_resolution_tests_e;
+mod test_datc_6_e;
 #[cfg(test)]
-mod main_order_resolution_tests_f;
+mod test_datc_6_f;
 #[cfg(test)]
-mod main_order_resolution_tests_g;
+mod test_datc_6_g;
 #[cfg(test)]
-mod retreat_order_resolution_tests_h;
+mod test_datc_6_h;
+#[cfg(test)]
+mod test_datc_6_i;

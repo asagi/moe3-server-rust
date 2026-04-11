@@ -2,9 +2,6 @@
 //!
 //! 参照先: [DATC v3.0 Section 6][DATC_6D]
 //!
-//! * 6.A. TEST CASES, BASIC CHECKS
-//! * 6.B. TEST CASES, COASTAL ISSUES
-//! * 6.C. TEST CASES, CIRCULAR MOVEMENT
 //! * 6.D. TEST CASES, SUPPORTS AND DISLODGES
 //!
 //! [DATC_6D]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.D

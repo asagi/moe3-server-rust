@@ -463,6 +463,14 @@ impl Path {
         PATHS.iter().any(|p| p.origin == origin && p.dest == dest)
     }
 
+    /// ユニットが指定地点に存在可能かを判定する
+    pub fn can_unit_exist_at(unit: &Unit, code: &str) -> bool {
+        match unit.kind {
+            UnitKind::Army(_) => PATHS.iter().any(|p| p.origin == code && p.army),
+            UnitKind::Fleet(_) => PATHS.iter().any(|p| p.origin == code && p.fleet),
+        }
+    }
+
     /// ユニットが指定地点に移動可能かを判定する
     pub fn can_unit_move_to(unit: &Unit, dest: &str, via_convoy: bool) -> bool {
         match unit.kind {

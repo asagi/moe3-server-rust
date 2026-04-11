@@ -1,3 +1,4 @@
+use super::order::BuildOrder;
 use super::order::ConvoyOrder;
 use super::order::DisbandOrder;
 use super::order::HoldOrder;
@@ -162,6 +163,18 @@ impl Unit {
             dislodged_from: self.dislodged_from,
             status: OrderStatus::Unresolved,
             kind: OrderKind::Retreat(RetreatOrder { dest }),
+        }
+    }
+
+    /// 建造命令を生成
+    pub fn build(&self) -> Order {
+        Order {
+            id: None,
+            power: self.power,
+            unit: *self,
+            dislodged_from: None,
+            status: OrderStatus::Unresolved,
+            kind: OrderKind::Build(BuildOrder {}),
         }
     }
 
