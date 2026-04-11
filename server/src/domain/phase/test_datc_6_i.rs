@@ -147,7 +147,15 @@ fn test_datc_6_i_5() {
 ///
 /// Build fails.
 #[test]
-fn test_datc_6_i_6() {}
+fn test_datc_6_i_6() {
+    let phase = &mut Phase::new_adjustment(1901, 5);
+    phase.data.territories.push(Territory::new(Power::Germany, "war"));
+    let context = &mut PhaseContext::new();
+    let unit_g_war = Unit::new_army(Power::Germany, p("war"));
+    phase.data.orders.push(unit_g_war.build());
+    resolve_orders_for_adjustment_phase(phase, context);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+}
 
 /// 6.I.7. TEST CASE, ONLY ONE BUILD IN A HOME SUPPLY CENTER
 /// If you may build two units, you can still only build one in a supply center.
