@@ -234,43 +234,51 @@ impl Order {
     }
 
     /// ステータスを Unresolved に変更
-    pub fn set_unresolved(&mut self) {
+    pub fn set_unresolved(&mut self) -> Self {
         self.status = OrderStatus::Unresolved;
+        *self
     }
 
     /// ステータスを Failure に変更
-    pub fn set_failure(&mut self) {
+    pub fn set_failure(&mut self) -> Self {
         self.status = OrderStatus::Failure;
+        *self
     }
 
     /// ステータスを Success に変更
-    pub fn set_success(&mut self) {
+    pub fn set_success(&mut self) -> Self {
         self.status = OrderStatus::Success;
+        *self
     }
 
     /// ステータスを Dislodged に変更
-    pub fn set_dislodged(&mut self) {
+    pub fn set_dislodged(&mut self) -> Self {
         self.status = OrderStatus::Dislodged;
+        *self
     }
 
     /// ステータスを Cut に変更
-    pub fn set_cut(&mut self) {
+    pub fn set_cut(&mut self) -> Self {
         self.status = OrderStatus::Cut;
+        *self
     }
 
     /// ステータスを Valid に変更
-    pub fn set_valid(&mut self) {
+    pub fn set_valid(&mut self) -> Self {
         self.status = OrderStatus::Valid;
+        *self
     }
 
     /// ステータスを Invalid に変更
-    pub fn set_invalid(&mut self) {
+    pub fn set_invalid(&mut self) -> Self {
         self.status = OrderStatus::Invalid;
+        *self
     }
 
     /// ステータスを Unreachable に変更
-    pub fn set_unreachable(&mut self) {
+    pub fn set_unreachable(&mut self) -> Self {
         self.status = OrderStatus::Unreachable;
+        *self
     }
 
     /// ステータスが `Unresolved` かどうか

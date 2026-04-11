@@ -40,7 +40,7 @@ impl RetreatAdjudicator {
                     .as_ref()
                     .is_some_and(|from| from.code() == dest_code)
             }) {
-                orders[idx].set_invalid()
+                orders[idx].set_invalid();
             }
         }
     }

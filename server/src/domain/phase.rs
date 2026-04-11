@@ -360,8 +360,8 @@ impl PhaseCloseLogic for FallRetreatPhase {
 }
 
 impl PhaseCloseLogic for AdjustmentPhase {
-    fn resolve_orders(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
-        resolve_orders_for_adjustment_phase(current_phase, context);
+    fn resolve_orders(&self, current_phase: &mut Phase, _context: &mut PhaseContext) {
+        resolve_orders_for_adjustment_phase(current_phase);
     }
 
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
@@ -437,3 +437,5 @@ mod test_datc_6_g;
 mod test_datc_6_h;
 #[cfg(test)]
 mod test_datc_6_i;
+#[cfg(test)]
+mod test_datc_6_j;

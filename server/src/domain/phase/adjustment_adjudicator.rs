@@ -1,9 +1,9 @@
-use crate::domain::order::Order;
 use crate::domain::path::Path;
 use crate::domain::phase::Phase;
 use crate::domain::phase::adjustment_order_helper::AdjustmentOrderHelper;
 use crate::domain::power::Power;
 use crate::domain::province::Province;
+use crate::domain::unit::unit_helper::UnitHelper;
 use strum::IntoEnumIterator;
 
 pub struct AdjustmentAdjudicator;
@@ -24,7 +24,7 @@ impl AdjustmentAdjudicator {
 
             let mut remaining = adjustment_capacity as usize;
             while remaining > 0 {
-                let Some(i) = current_phase.data.orders.get_unresolved_order_idxs_by_power(&p) else {
+                let Some(i) = current_phase.data.orders.get_unresolved_build_idxs_by_power(&p) else {
                     break;
                 };
                 let build_order = current_phase.data.orders[i];
@@ -68,15 +68,56 @@ impl AdjustmentAdjudicator {
                 continue;
             }
         }
-
-        // 未処理命令をすべて無効判定
-        for idx in current_phase.data.orders.collect_unresolved_order_idxs() {
-            current_phase.data.orders[idx].set_invalid();
-        }
     }
 
     /// 解体命令の検証
-    pub(crate) fn validate_disband_orders(_orders: &mut [Order]) {
-        // TODO
+    pub(crate) fn validate_disband_orders(current_phase: &mut Phase) {
+        let copied_units = &mut current_phase.data.units.clone();
+
+        for p in Power::iter() {
+            // 解体必要数算出
+            let sc_count = current_phase.count_supply_centers(&p);
+            let unit_count = current_phase.count_units(&p);
+            let adjustment_capacity = unit_count as isize - sc_count as isize;
+
+            // 解体の必要がない場合はスキップ
+            if adjustment_capacity < 1 {
+                continue;
+            }
+
+            let mut remaining = adjustment_capacity as usize;
+            while remaining > 0 {
+                let Some(i) = current_phase.data.orders.get_unresolved_disband_idxs_by_power(&p) else {
+                    break;
+                };
+                let disband_order = current_phase.data.orders[i];
+
+                // 解体指定対象の自国ユニットが存在すること
+                if copied_units.iter().any(|u| u == &disband_order.unit) {
+                    copied_units.retain(|&u| u != disband_order.unit);
+                    current_phase.data.orders[i].set_valid();
+                    remaining -= 1;
+                    continue;
+                }
+
+                current_phase.data.orders[i].set_invalid();
+            }
+
+            // 解体命令が足りない場合の処理
+            let disband_candidates = &mut copied_units.collect_units_for_civil_disorder(&p, &current_phase.data.territories);
+            while remaining > 0 {
+                let unit = disband_candidates.remove(0);
+                current_phase.data.orders.push(unit.disband().set_valid());
+                remaining -= 1;
+                continue;
+            }
+        }
+    }
+
+    /// 未処理命令をすべて無効判定
+    pub(crate) fn invalidate_unresolved_orders(current_phase: &mut Phase) {
+        for idx in current_phase.data.orders.collect_unresolved_order_idxs() {
+            current_phase.data.orders[idx].set_invalid();
+        }
     }
 }

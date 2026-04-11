@@ -1,5 +1,9 @@
 use super::power::Power;
-use serde::{Deserialize, Serialize};
+use crate::domain::path::Path;
+use serde::Deserialize;
+use serde::Serialize;
+use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -156,6 +160,57 @@ impl Province {
             .iter()
             .any(|d| d.code == code && d.supply && d.home == Some(power.symbol()))
     }
+
+    /// 指定された二点の最短距離を返却する
+    pub fn distance(from: &str, to: &str) -> usize {
+        let from_base = from.get(..3).expect("valid province code");
+        let to_base = to.get(..3).expect("valid province code");
+
+        if from_base == to_base {
+            return 0;
+        }
+
+        let base_codes = PROVINCE_DATA
+            .iter()
+            .filter(|d| d.code.len() == 3)
+            .map(|d| d.code)
+            .collect::<Vec<_>>();
+
+        let mut visited = HashSet::new();
+        let mut queue = VecDeque::new();
+
+        visited.insert(from_base);
+        queue.push_back((from_base, 0usize));
+
+        while let Some((current, dist)) = queue.pop_front() {
+            for &next in &base_codes {
+                if visited.contains(next) || current == next {
+                    continue;
+                }
+
+                let current_variants = PROVINCE_DATA.iter().filter(|d| &d.code[..3] == current).map(|d| d.code);
+                let connected = current_variants.clone().any(|origin| Path::is_adjacent(origin, next))
+                    || PROVINCE_DATA
+                        .iter()
+                        .filter(|d| &d.code[..3] == next)
+                        .map(|d| d.code)
+                        .any(|origin| Path::is_adjacent(origin, current));
+
+                if !connected {
+                    continue;
+                }
+
+                if next == to_base {
+                    return dist + 1;
+                }
+
+                visited.insert(next);
+                queue.push_back((next, dist + 1));
+            }
+        }
+
+        unreachable!("province graph is expected to be fully connected")
+    }
 }
 
 impl fmt::Display for Province {
@@ -215,5 +270,15 @@ mod tests {
     fn test_home() {
         assert_eq!(p("lon").home(), Some("e"));
         assert_eq!(p("adr").home(), None);
+    }
+
+    #[test]
+    fn test_distance_ska_to_stp_is_two() {
+        assert_eq!(Province::distance("ska", "stp"), 2);
+    }
+
+    #[test]
+    fn test_distance_ber_to_stp_is_three() {
+        assert_eq!(Province::distance("ber", "stp"), 3);
     }
 }
