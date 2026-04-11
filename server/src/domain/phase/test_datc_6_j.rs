@@ -172,15 +172,30 @@ fn test_datc_6_j_6() {
 }
 
 /// 6.J.7. TEST CASE, CIVIL DISORDER TWO FLEETS AND ARMY WITH EQUAL DISTANCE
-/// In removal, the fleet has precedence over an army. In this case there are two fleets, to make the test more complex.
+/// In removal, the fleet has precedence over an army.
+/// In this case there are two fleets, to make the test more complex.
 ///
 /// Russia has to remove one.
 /// Russia owns St Petersburg and Warsaw.
 /// Russia has an army in Bohemia, a fleet in Skagerrak and a fleet in the North Sea.
 /// Russia does not order a disband.
-/// The distances of the army and the fleets to one of the owned supply centers are two. The fleets take precedence above the army (although the army is alphabetical first). The fleet in the North Sea is alphabetical first, compared to Skagerrak and has to be removed.
+///
+/// The distances of the army and the fleets to one of the owned supply centers are two.
+/// The fleets take precedence above the army (although the army is alphabetical first).
+/// The fleet in the North Sea is alphabetical first, compared to Skagerrak and has to be removed.
 #[test]
-fn test_datc_6_j_7() {}
+fn test_datc_6_j_7() {
+    let phase = &mut Phase::new_adjustment(1901, 5);
+    phase.data.territories.push(Territory::new(Power::Russia, "stp"));
+    phase.data.territories.push(Territory::new(Power::Russia, "war"));
+    phase.data.units.push(Unit::new_army(Power::Russia, p("boh")));
+    phase.data.units.push(Unit::new_fleet(Power::Russia, p("ska")));
+    phase.data.units.push(Unit::new_fleet(Power::Russia, p("nth")));
+    let context = &mut PhaseContext::new();
+    resolve_orders_for_adjustment_phase(phase, context);
+    assert_eq!(phase.data.orders.len(), 1);
+    assert_eq!(phase.data.orders[0].to_string(), "Remove F nth");
+}
 
 /// 6.J.8. TEST CASE, CIVIL DISORDER A FLEET WITH SHORTER DISTANCE THEN THE ARMY
 /// If the fleet has a shorter distance than the army, the army is removed.
