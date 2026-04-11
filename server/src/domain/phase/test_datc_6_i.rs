@@ -81,7 +81,16 @@ fn test_datc_6_i_2() {
 ///
 /// Build fails.
 #[test]
-fn test_datc_6_i_3() {}
+fn test_datc_6_i_3() {
+    let phase = &mut Phase::new_adjustment(1901, 5);
+    phase.data.territories.push(Territory::new(Power::Germany, "ber"));
+    phase.data.units.push(Unit::new_army(Power::Germany, p("ber")));
+    let context = &mut PhaseContext::new();
+    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
+    phase.data.orders.push(unit_g_ber.build());
+    resolve_orders_for_adjustment_phase(phase, context);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+}
 
 /// 6.I.4. TEST CASE, BOTH COASTS MUST BE EMPTY FOR BUILDING
 /// If a sector is occupied on one coast, the other coast cannot be used for building.
