@@ -9,6 +9,7 @@ use strum::IntoEnumIterator;
 pub struct AdjustmentAdjudicator;
 
 impl AdjustmentAdjudicator {
+    /// 増設命令の検証
     pub(crate) fn validate_build_orders(current_phase: &mut Phase) {
         for p in Power::iter() {
             // 増設余力算出
@@ -30,6 +31,17 @@ impl AdjustmentAdjudicator {
 
                 // 増設指定地域が本国補給都市であること
                 if !Province::is_home_sc(&build_order.location().code()[..3], &p) {
+                    current_phase.data.orders[i].set_invalid();
+                    continue;
+                }
+
+                // 増設指定地域が所有されていること
+                if !current_phase
+                    .data
+                    .territories
+                    .iter()
+                    .any(|t| t.code()[..3] == build_order.location().code()[..3] && t.power() == &p)
+                {
                     current_phase.data.orders[i].set_invalid();
                     continue;
                 }
@@ -63,6 +75,7 @@ impl AdjustmentAdjudicator {
         }
     }
 
+    /// 解体命令の検証
     pub(crate) fn validate_disband_orders(_orders: &mut [Order]) {
         // TODO
     }
