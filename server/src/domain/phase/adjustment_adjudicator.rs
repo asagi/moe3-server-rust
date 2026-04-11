@@ -71,6 +71,8 @@ impl AdjustmentAdjudicator {
 
     /// 解体命令の検証
     pub(crate) fn validate_disband_orders(current_phase: &mut Phase) {
+        let copied_units = &mut current_phase.data.units.clone();
+
         for p in Power::iter() {
             // 解体必要数算出
             let sc_count = current_phase.count_supply_centers(&p);
@@ -90,18 +92,25 @@ impl AdjustmentAdjudicator {
                 let disband_order = current_phase.data.orders[i];
 
                 // 解体指定対象の自国ユニットが存在すること
-                if current_phase
-                    .data
-                    .units
-                    .iter()
-                    .any(|u| u.province.code()[..3] == disband_order.location().code()[..3] && u.power == p)
-                {
+                if copied_units.iter().any(|u| u == &disband_order.unit) {
+                    copied_units.retain(|&u| u != disband_order.unit);
                     current_phase.data.orders[i].set_valid();
                     remaining -= 1;
                     continue;
                 }
 
                 current_phase.data.orders[i].set_invalid();
+            }
+
+            // 解体命令が足りない場合の処理
+            let disband_candidates = &mut current_phase.get_units_for_civil_disorder(&p);
+            while remaining > 0 {
+                if let Some(unit) = disband_candidates.pop() {
+                    current_phase.data.orders.push(unit.disband().set_valid());
+                    remaining -= 1;
+                    continue;
+                }
+                break;
             }
         }
     }

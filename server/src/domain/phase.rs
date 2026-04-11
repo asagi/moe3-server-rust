@@ -12,6 +12,7 @@ use super::PhaseId;
 use super::TableId;
 use super::order::Order;
 use super::power::Power;
+use super::province::Province;
 use super::territory::Territory;
 use super::unit::Unit;
 use adjustment_order_resolution::resolve_orders_for_adjustment_phase;
@@ -168,6 +169,39 @@ impl Phase {
     /// 指定した国が現在保有するユニット数を取得する
     pub fn count_units(&self, power: &Power) -> usize {
         self.data.units.iter().filter(|u| &u.power == power).count()
+    }
+
+    /// 指定した国がユニットについて下記の条件に基づいて取得する
+    /// - 直近の自国が保有する補給都市から距離が遠い順
+    /// - 距離が同じ場合は陸軍優先
+    /// - 距離と兵種が同じ場合は地域名降順
+    pub fn get_units_for_civil_disorder(&self, power: &Power) -> Vec<Unit> {
+        let mut units: Vec<Unit> = self.data.units.iter().filter(|u| &u.power == power).copied().collect();
+        units.sort_by(|&a, &b| {
+            let dist_a = self
+                .data
+                .territories
+                .iter()
+                .filter(|t| t.power() == power)
+                .map(|t| Province::distance(&a.province.code()[..3], &t.code()[..3]))
+                .min()
+                .unwrap_or(0);
+
+            let dist_b = self
+                .data
+                .territories
+                .iter()
+                .filter(|t| t.power() == power)
+                .map(|t| Province::distance(&b.province.code()[..3], &t.code()[..3]))
+                .min()
+                .unwrap_or(0);
+
+            dist_b
+                .cmp(&dist_a)
+                .then_with(|| b.is_army().cmp(&a.is_army()))
+                .then_with(|| b.province.code().cmp(a.province.code()))
+        });
+        units
     }
 
     /// フェイズを締め切り命令を解決する。
