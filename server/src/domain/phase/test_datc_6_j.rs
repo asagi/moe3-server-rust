@@ -153,9 +153,23 @@ fn test_datc_6_j_5() {
 /// Russia owns Munich.
 /// Russia has fleets in Gulf of Bothnia and North Sea.
 /// Russia does not order a disband.
-/// Note, that in 2023 rules distance is calculated to owned supply centers (instead of home supply centers). Also, for distance calculations both armies and fleets can take both land and sea. Both distances are three. The fleet in Gulf of Bothnia is removed, because it appears first in alphabetical order.
+///
+/// Note, that in 2023 rules distance is calculated to owned supply centers
+/// (instead of home supply centers).
+/// Also, for distance calculations both armies and fleets can take both land and sea.
+/// Both distances are three.
+/// The fleet in Gulf of Bothnia is removed, because it appears first in alphabetical order.
 #[test]
-fn test_datc_6_j_6() {}
+fn test_datc_6_j_6() {
+    let phase = &mut Phase::new_adjustment(1901, 5);
+    phase.data.territories.push(Territory::new(Power::Russia, "mun"));
+    phase.data.units.push(Unit::new_fleet(Power::Russia, p("bot")));
+    phase.data.units.push(Unit::new_fleet(Power::Russia, p("nth")));
+    let context = &mut PhaseContext::new();
+    resolve_orders_for_adjustment_phase(phase, context);
+    assert_eq!(phase.data.orders.len(), 1);
+    assert_eq!(phase.data.orders[0].to_string(), "Remove F bot");
+}
 
 /// 6.J.7. TEST CASE, CIVIL DISORDER TWO FLEETS AND ARMY WITH EQUAL DISTANCE
 /// In removal, the fleet has precedence over an army. In this case there are two fleets, to make the test more complex.
