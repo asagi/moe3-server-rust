@@ -8,9 +8,12 @@ pub fn resolve_orders_for_adjustment_phase(current_phase: &mut Phase, context: &
     AdjustmentAdjudicator::validate_build_orders(current_phase);
 
     // # 02. 解体命令検証
-    AdjustmentAdjudicator::validate_disband_orders(&mut current_phase.data.orders);
+    AdjustmentAdjudicator::validate_disband_orders(current_phase);
 
-    // # 03. 命令解決後のユニット配置情報をフェイズに反映
+    // # 03. 未処理命令をすべて無効判定
+    AdjustmentAdjudicator::invalidate_unresolved_orders(current_phase);
+
+    // # 04. 命令解決後のユニット配置情報をフェイズに反映
     apply_resolved_unit_locations(current_phase, context);
 }
 
