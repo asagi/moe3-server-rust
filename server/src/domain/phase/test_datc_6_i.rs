@@ -102,7 +102,16 @@ fn test_datc_6_i_3() {
 ///
 /// Build fails.
 #[test]
-fn test_datc_6_i_4() {}
+fn test_datc_6_i_4() {
+    let phase = &mut Phase::new_adjustment(1901, 5);
+    phase.data.territories.push(Territory::new(Power::Russia, "stp"));
+    phase.data.units.push(Unit::new_fleet(Power::Russia, p("stp_sc")));
+    let context = &mut PhaseContext::new();
+    let unit_r_stp_nc = Unit::new_army(Power::Russia, p("stp_nc"));
+    phase.data.orders.push(unit_r_stp_nc.build());
+    resolve_orders_for_adjustment_phase(phase, context);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+}
 
 /// 6.I.5. TEST CASE, BUILDING IN HOME SUPPLY CENTER THAT IS NOT OWNED
 /// Building a unit is only allowed when supply center is a home supply center and is owned.
