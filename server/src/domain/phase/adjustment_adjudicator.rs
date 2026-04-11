@@ -3,6 +3,7 @@ use crate::domain::phase::Phase;
 use crate::domain::phase::adjustment_order_helper::AdjustmentOrderHelper;
 use crate::domain::power::Power;
 use crate::domain::province::Province;
+use crate::domain::unit::unit_helper::UnitHelper;
 use strum::IntoEnumIterator;
 
 pub struct AdjustmentAdjudicator;
@@ -103,7 +104,7 @@ impl AdjustmentAdjudicator {
             }
 
             // 解体命令が足りない場合の処理
-            let disband_candidates = &mut current_phase.get_units_for_civil_disorder(&p);
+            let disband_candidates = &mut copied_units.collect_units_for_civil_disorder(&p, &current_phase.data.territories);
             while remaining > 0 {
                 if let Some(unit) = disband_candidates.pop() {
                     current_phase.data.orders.push(unit.disband().set_valid());
