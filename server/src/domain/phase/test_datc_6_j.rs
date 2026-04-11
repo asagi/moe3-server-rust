@@ -204,9 +204,20 @@ fn test_datc_6_j_7() {
 /// Russia has an army in Tyrolia and a fleet in the Baltic Sea.
 /// Russia owns Warsaw.
 /// Russia does not order a disband.
-/// The distance of the army to Warsaw is three while the distance of the fleet is two. So, the army is removed.
+///
+/// The distance of the army to Warsaw is three while the distance of the fleet is two.
+/// So, the army is removed.
 #[test]
-fn test_datc_6_j_8() {}
+fn test_datc_6_j_8() {
+    let phase = &mut Phase::new_adjustment(1901, 5);
+    phase.data.territories.push(Territory::new(Power::Russia, "war"));
+    phase.data.units.push(Unit::new_army(Power::Russia, p("tyr")));
+    phase.data.units.push(Unit::new_fleet(Power::Russia, p("bal")));
+    let context = &mut PhaseContext::new();
+    resolve_orders_for_adjustment_phase(phase, context);
+    assert_eq!(phase.data.orders.len(), 1);
+    assert_eq!(phase.data.orders[0].to_string(), "Remove A tyr");
+}
 
 /// 6.J.9. TEST CASE, CIVIL DISORDER MUST BE COUNTED FROM BOTH COASTS
 /// Distance must be calculated from both coasts.
