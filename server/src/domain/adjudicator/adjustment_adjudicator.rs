@@ -1,9 +1,9 @@
-use super::super::helper::adjustment_order_helper::AdjustmentOrderHelper;
-use super::super::helper::unit_helper::UnitHelper;
-use super::super::models::path::Path;
-use super::super::models::phase::Phase;
-use super::super::models::power::Power;
-use super::super::models::province::Province;
+use super::AdjustmentOrderHelper;
+use super::Path;
+use super::Phase;
+use super::Power;
+use super::Province;
+use super::UnitHelper;
 use strum::IntoEnumIterator;
 
 pub struct AdjustmentAdjudicator;
