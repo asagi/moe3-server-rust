@@ -6,11 +6,11 @@
 //!
 //! [DATC_6A]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.A
 
-use super::super::models::order::*;
-use super::super::models::phase::*;
-use super::super::models::power::*;
-use super::super::models::province::*;
-use super::super::models::unit::*;
+use crate::domain::models::order::*;
+use crate::domain::models::phase::*;
+use crate::domain::models::power::*;
+use crate::domain::models::province::*;
+use crate::domain::models::unit::*;
 
 fn p(code: &str) -> Province {
     Province::from_code(code).expect("valid province code")
@@ -27,9 +27,13 @@ fn p(code: &str) -> Province {
 fn test_datc_6_a_1() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
+    phase.data.units.push(unit_e_nth);
     phase.data.orders.push(unit_e_nth.move_to(p("pic")));
     resolve_orders_for_main_phase(&mut phase);
-    assert!(phase.data.orders[0].is_invalid());
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.units.len(), 1);
+    assert!(phase.data.units.contains(&unit_e_nth));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.A.2. TEST CASE, MOVE ARMY TO SEA
@@ -43,9 +47,13 @@ fn test_datc_6_a_1() {
 fn test_datc_6_a_2() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_lvp = Unit::new_army(Power::England, p("lvp"));
+    phase.data.units.push(unit_e_lvp);
     phase.data.orders.push(unit_e_lvp.move_to(p("iri")));
     resolve_orders_for_main_phase(&mut phase);
-    assert!(phase.data.orders[0].is_invalid());
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.units.len(), 1);
+    assert!(phase.data.units.contains(&unit_e_lvp));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.A.3. TEST CASE, MOVE FLEET TO LAND
@@ -59,9 +67,13 @@ fn test_datc_6_a_2() {
 fn test_datc_6_a_3() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
+    phase.data.units.push(unit_g_kie);
     phase.data.orders.push(unit_g_kie.move_to(p("mun")));
     resolve_orders_for_main_phase(&mut phase);
-    assert!(phase.data.orders[0].is_invalid());
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.units.len(), 1);
+    assert!(phase.data.units.contains(&unit_g_kie));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.A.4. TEST CASE, MOVE TO OWN SECTOR
@@ -76,9 +88,13 @@ fn test_datc_6_a_3() {
 fn test_datc_6_a_4() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
+    phase.data.units.push(unit_g_kie);
     phase.data.orders.push(unit_g_kie.move_to(p("kie")));
     resolve_orders_for_main_phase(&mut phase);
-    assert!(phase.data.orders[0].is_invalid());
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.units.len(), 1);
+    assert!(phase.data.units.contains(&unit_g_kie));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.A.5. TEST CASE, MOVE TO OWN SECTOR WITH CONVOY
@@ -105,6 +121,11 @@ fn test_datc_6_a_5() {
     let unit_e_lvp = Unit::new_army(Power::England, p("lvp"));
     let unit_g_lon = Unit::new_fleet(Power::Germany, p("lon"));
     let unit_g_wal = Unit::new_army(Power::Germany, p("wal"));
+    phase.data.units.push(unit_e_yor);
+    phase.data.units.push(unit_e_nth);
+    phase.data.units.push(unit_e_lvp);
+    phase.data.units.push(unit_g_lon);
+    phase.data.units.push(unit_g_wal);
     phase.data.orders.push(unit_e_yor.move_to(p("yor")));
     phase.data.orders.push(unit_e_nth.convoy(unit_e_yor, p("yor")));
     phase.data.orders.push(unit_e_lvp.support_move(unit_e_yor, p("yor")));
@@ -116,6 +137,13 @@ fn test_datc_6_a_5() {
     assert_eq!(phase.data.orders[2].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.data.units.len(), 5);
+    assert!(phase.data.units.contains(&unit_e_yor));
+    assert!(phase.data.units.contains(&unit_e_nth));
+    assert!(phase.data.units.contains(&unit_e_lvp));
+    assert!(phase.data.units.contains(&Unit::new_fleet(Power::Germany, p("yor"))));
+    assert!(phase.data.units.contains(&unit_g_wal));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.A.6. TEST CASE, ORDERING A UNIT OF ANOTHER COUNTRY
@@ -130,12 +158,16 @@ fn test_datc_6_a_5() {
 fn test_datc_6_a_6() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_lon = Unit::new_fleet(Power::England, p("lon"));
+    phase.data.units.push(unit_e_lon);
     phase
         .data
         .orders
         .push(unit_e_lon.move_to(p("nth")).assumed_by(Power::Germany));
     resolve_orders_for_main_phase(&mut phase);
     assert!(phase.data.orders[0].is_unresolved());
+    assert_eq!(phase.data.units.len(), 1);
+    assert!(phase.data.units.contains(&unit_e_lon));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.A.7. TEST CASE, ONLY ARMIES CAN BE CONVOYED
@@ -151,11 +183,17 @@ fn test_datc_6_a_7() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_lon = Unit::new_fleet(Power::England, p("lon"));
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
+    phase.data.units.push(unit_e_lon);
+    phase.data.units.push(unit_e_nth);
     phase.data.orders.push(unit_e_lon.move_to(p("bel")));
     phase.data.orders.push(unit_e_nth.convoy(unit_e_lon, p("bel")));
     resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.units.len(), 2);
+    assert!(phase.data.units.contains(&unit_e_lon));
+    assert!(phase.data.units.contains(&unit_e_nth));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.A.8. TEST CASE, SUPPORT TO HOLD YOURSELF IS NOT POSSIBLE
@@ -175,6 +213,9 @@ fn test_datc_6_a_8() {
     let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
     let unit_i_tyr = Unit::new_army(Power::Italy, p("tyr"));
     let unit_a_tri = Unit::new_fleet(Power::Austria, p("tri"));
+    phase.data.units.push(unit_i_ven);
+    phase.data.units.push(unit_i_tyr);
+    phase.data.units.push(unit_a_tri);
     phase.data.orders.push(unit_i_ven.move_to(p("tri")));
     phase.data.orders.push(unit_i_tyr.support_move(unit_i_ven, p("tri")));
     phase.data.orders.push(unit_a_tri.support_hold(unit_a_tri));
@@ -182,6 +223,11 @@ fn test_datc_6_a_8() {
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Dislodged);
+    assert_eq!(phase.data.units.len(), 3);
+    assert!(phase.data.units.contains(&Unit::new_army(Power::Italy, p("tri"))));
+    assert!(phase.data.units.contains(&unit_i_tyr));
+    assert!(phase.data.units.contains(&unit_a_tri));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.A.9. TEST CASE, FLEETS MUST FOLLOW COAST IF NOT ON SEA
@@ -196,9 +242,13 @@ fn test_datc_6_a_8() {
 fn test_datc_6_a_9() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_i_rom = Unit::new_fleet(Power::Italy, p("rom"));
+    phase.data.units.push(unit_i_rom);
     phase.data.orders.push(unit_i_rom.move_to(p("ven")));
     resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.units.len(), 1);
+    assert!(phase.data.units.contains(&unit_i_rom));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.A.10. TEST CASE, SUPPORT ON UNREACHABLE DESTINATION NOT POSSIBLE
@@ -219,6 +269,9 @@ fn test_datc_6_a_10() {
     let unit_a_ven = Unit::new_army(Power::Austria, p("ven"));
     let unit_i_rom = Unit::new_fleet(Power::Italy, p("rom"));
     let unit_i_apu = Unit::new_army(Power::Italy, p("apu"));
+    phase.data.units.push(unit_a_ven);
+    phase.data.units.push(unit_i_rom);
+    phase.data.units.push(unit_i_apu);
     phase.data.orders.push(unit_a_ven.hold());
     phase.data.orders.push(unit_i_rom.support_move(unit_i_apu, p("ven")));
     phase.data.orders.push(unit_i_apu.move_to(p("ven")));
@@ -226,6 +279,11 @@ fn test_datc_6_a_10() {
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.units.len(), 3);
+    assert!(phase.data.units.contains(&unit_a_ven));
+    assert!(phase.data.units.contains(&unit_i_rom));
+    assert!(phase.data.units.contains(&unit_i_apu));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.A.11. TEST CASE, SIMPLE BOUNCE
@@ -243,11 +301,17 @@ fn test_datc_6_a_11() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
     let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
+    phase.data.units.push(unit_a_vie);
+    phase.data.units.push(unit_i_ven);
     phase.data.orders.push(unit_a_vie.move_to(p("tyr")));
     phase.data.orders.push(unit_i_ven.move_to(p("tyr")));
     resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.units.len(), 2);
+    assert!(phase.data.units.contains(&unit_a_vie));
+    assert!(phase.data.units.contains(&unit_i_ven));
+    assert!(phase.data.standoff_codes.contains(&"tyr".to_string()));
 }
 
 /// 6.A.12. TEST CASE, BOUNCE OF THREE UNITS
@@ -270,6 +334,9 @@ fn test_datc_6_a_12() {
     let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
     let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
     let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
+    phase.data.units.push(unit_a_vie);
+    phase.data.units.push(unit_g_mun);
+    phase.data.units.push(unit_i_ven);
     phase.data.orders.push(unit_a_vie.move_to(p("tyr")));
     phase.data.orders.push(unit_g_mun.move_to(p("tyr")));
     phase.data.orders.push(unit_i_ven.move_to(p("tyr")));
@@ -277,4 +344,9 @@ fn test_datc_6_a_12() {
     assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.units.len(), 3);
+    assert!(phase.data.units.contains(&unit_a_vie));
+    assert!(phase.data.units.contains(&unit_g_mun));
+    assert!(phase.data.units.contains(&unit_i_ven));
+    assert!(phase.data.standoff_codes.contains(&"tyr".to_string()));
 }
