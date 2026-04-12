@@ -1,4 +1,4 @@
-use super::UserId;
+use super::super::UserId;
 use serde::Deserialize;
 use serde::Serialize;
 

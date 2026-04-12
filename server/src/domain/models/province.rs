@@ -1,5 +1,5 @@
+use super::path::Path;
 use super::power::Power;
-use crate::domain::path::Path;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::collections::VecDeque;

@@ -1,15 +1,15 @@
-use crate::domain::order::ConvoyOrder;
-use crate::domain::order::MoveOrder;
-use crate::domain::order::Order;
-use crate::domain::order::OrderKind;
-use crate::domain::power::Power;
-use crate::domain::province::Province;
+use super::super::models::order::ConvoyOrder;
+use super::super::models::order::MoveOrder;
+use super::super::models::order::Order;
+use super::super::models::order::OrderKind;
+use super::super::models::power::Power;
+use super::super::models::province::Province;
 use indexmap::IndexSet;
 use std::collections::HashSet;
 
 pub trait MainOrderHelper {
     fn collect_not_assumed_orders(&self) -> Vec<Order>;
-    fn collect_not_invalid_orders(&self) -> Vec<Order>;
+    fn collect_not_invalid_main_orders(&self) -> Vec<Order>;
     fn collect_unresolved_idxs(&self) -> Vec<usize>;
     fn collect_unresolved_move_idxs(&self) -> Vec<usize>;
     fn collect_valid_move_idxs(&self) -> Vec<usize>;
@@ -47,7 +47,7 @@ impl MainOrderHelper for [Order] {
     }
 
     /// 全ての命令のコレクションを作成
-    fn collect_not_invalid_orders(&self) -> Vec<Order> {
+    fn collect_not_invalid_main_orders(&self) -> Vec<Order> {
         self.collect_not_assumed_orders()
             .iter()
             .filter(|o| !o.is_invalid())

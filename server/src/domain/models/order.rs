@@ -1,4 +1,4 @@
-use super::OrderId;
+use super::super::OrderId;
 use super::power::Power;
 use super::province::Province;
 use super::unit::Unit;

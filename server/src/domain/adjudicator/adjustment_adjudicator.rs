@@ -1,9 +1,9 @@
-use crate::domain::path::Path;
-use crate::domain::phase::Phase;
-use crate::domain::phase::adjustment_order_helper::AdjustmentOrderHelper;
-use crate::domain::power::Power;
-use crate::domain::province::Province;
-use crate::domain::unit::unit_helper::UnitHelper;
+use super::super::helper::adjustment_order_helper::AdjustmentOrderHelper;
+use super::super::helper::unit_helper::UnitHelper;
+use super::super::models::path::Path;
+use super::super::models::phase::Phase;
+use super::super::models::power::Power;
+use super::super::models::province::Province;
 use strum::IntoEnumIterator;
 
 pub struct AdjustmentAdjudicator;
@@ -116,7 +116,7 @@ impl AdjustmentAdjudicator {
 
     /// 未処理命令をすべて無効判定
     pub(crate) fn invalidate_unresolved_orders(current_phase: &mut Phase) {
-        for idx in current_phase.data.orders.collect_unresolved_order_idxs() {
+        for idx in current_phase.data.orders.collect_unresolved_adjustment_idxs() {
             current_phase.data.orders[idx].set_invalid();
         }
     }

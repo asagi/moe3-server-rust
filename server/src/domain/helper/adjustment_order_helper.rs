@@ -1,12 +1,12 @@
-use crate::domain::order::Order;
-use crate::domain::order::OrderKind;
-use crate::domain::power::Power;
+use super::super::models::order::Order;
+use super::super::models::order::OrderKind;
+use super::super::models::power::Power;
 
 pub(crate) trait AdjustmentOrderHelper {
     fn get_unresolved_build_idxs_by_power(&self, power: &Power) -> Option<usize>;
-    fn collect_unresolved_order_idxs(&self) -> Vec<usize>;
+    fn collect_unresolved_adjustment_idxs(&self) -> Vec<usize>;
     fn get_unresolved_disband_idxs_by_power(&self, power: &Power) -> Option<usize>;
-    fn collect_valid_idxs(&self) -> Vec<usize>;
+    fn collect_valid_adjustment_idxs(&self) -> Vec<usize>;
 }
 
 impl AdjustmentOrderHelper for [Order] {
@@ -27,7 +27,7 @@ impl AdjustmentOrderHelper for [Order] {
     }
 
     /// 全ての未処理命令のインデックスを取得
-    fn collect_unresolved_order_idxs(&self) -> Vec<usize> {
+    fn collect_unresolved_adjustment_idxs(&self) -> Vec<usize> {
         self.iter()
             .enumerate()
             .filter(|(_, o)| o.is_unresolved())
@@ -36,7 +36,7 @@ impl AdjustmentOrderHelper for [Order] {
     }
 
     /// 全ての有効な命令のインデックスを取得
-    fn collect_valid_idxs(&self) -> Vec<usize> {
+    fn collect_valid_adjustment_idxs(&self) -> Vec<usize> {
         self.iter()
             .enumerate()
             .filter(|(_, o)| o.is_valid())

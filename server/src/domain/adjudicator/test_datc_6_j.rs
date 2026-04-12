@@ -6,11 +6,12 @@
 //!
 //! [DATC_6J]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.J
 
-use super::super::order::*;
-use super::super::phase::adjustment_order_resolution::*;
-use super::super::phase::*;
-use super::super::power::*;
-use super::super::province::*;
+use super::super::models::order::*;
+use super::super::models::phase::*;
+use super::super::models::power::*;
+use super::super::models::province::*;
+use super::super::models::territory::*;
+use super::super::models::unit::*;
 
 fn p(code: &str) -> Province {
     Province::from_code(code).expect("valid province code")

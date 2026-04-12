@@ -1,4 +1,4 @@
-use super::TableId;
+use super::super::TableId;
 use serde::Deserialize;
 use serde::Serialize;
 

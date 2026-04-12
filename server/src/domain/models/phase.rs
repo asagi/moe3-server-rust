@@ -1,24 +1,18 @@
-mod adjustment_adjudicator;
-mod adjustment_order_helper;
-mod adjustment_order_resolution;
-mod main_adjudicator;
-mod main_order_helper;
-mod main_order_resolution;
-mod retreat_adjudicator;
-mod retreat_order_helper;
-mod retreat_order_resolution;
-
-use super::PhaseId;
-use super::TableId;
+use super::super::PhaseId;
+use super::super::TableId;
+use super::super::adjudicator::adjustment_adjudicator::AdjustmentAdjudicator;
+use super::super::adjudicator::main_adjudicator::MainAdjudicator;
+use super::super::adjudicator::retreat_adjudicator::RetreatAdjudicator;
+use super::super::helper::adjustment_order_helper::AdjustmentOrderHelper;
+use super::super::helper::main_order_helper::MainOrderHelper;
+use super::super::helper::retreat_order_helper::RetreatOrderHelper;
 use super::order::Order;
+use super::order::OrderKind;
 use super::power::Power;
 use super::territory::Territory;
 use super::unit::Unit;
-use adjustment_order_resolution::resolve_orders_for_adjustment_phase;
 use chrono::DateTime;
 use chrono::Utc;
-use main_order_resolution::resolve_orders_for_main_phase;
-use retreat_order_resolution::resolve_orders_for_retreat_phase;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -278,13 +272,133 @@ fn occupy_for_retreat_phase(_current_phase: &mut Phase, _context: &mut PhaseCont
     // - 占領情報を current_phase に記録する
 }
 
-/// 各フェイズの終了ロジックの差分実装
+/// メインフェイズの命令解決処理
+pub fn resolve_orders_for_main_phase(current_phase: &mut Phase) {
+    let orders = &mut current_phase.data.orders;
+    let standoff_province_codes = &mut current_phase.data.standoff_codes;
+
+    // # 01. 移動命令検証
+    MainAdjudicator::validate_move_orders(orders);
+
+    // # 02. 支援命令検証
+    MainAdjudicator::validate_support_orders(orders);
+
+    // # 03. 輸送命令検証
+    MainAdjudicator::validate_convoy_orders(orders);
+
+    // # 04. 支援命令のカット
+    MainAdjudicator::handle_cutting_support_orders(orders);
+
+    // # 05 . 輸送妨害の優先解決
+    MainAdjudicator::handle_disruption_convoy_order(orders, standoff_province_codes);
+
+    // # 06. 交換移動命令解決
+    MainAdjudicator::handle_switch_orders(orders, standoff_province_codes);
+
+    // # 07. 支援命令撃退の優先解決
+    MainAdjudicator::handle_dislodging_support_orders(orders, standoff_province_codes);
+
+    // # 08. 未解決移動命令解決
+    MainAdjudicator::handle_remaining_move_orders(orders, standoff_province_codes);
+
+    // # 09. 未処理の命令を全て成功判定
+    MainAdjudicator::succeed_remaining_orders(orders);
+
+    // # 10. 命令解決後のユニット配置情報をフェイズに反映
+    for order in current_phase.data.orders.collect_not_invalid_main_orders() {
+        // 移動に成功した軍の保存
+        if let OrderKind::Move(m) = &order.kind
+            && order.is_success()
+        {
+            current_phase.data.units.push(Unit {
+                province: m.dest,
+                ..order.unit
+            });
+            continue;
+        }
+
+        // 撃退された軍の保存
+        if order.is_dislodged() {
+            current_phase.data.units.push(Unit {
+                dislodged_from: order.dislodged_from,
+                ..order.unit
+            });
+            continue;
+        }
+
+        // それ以外の軍は現状維持
+        current_phase.data.units.push(Unit { ..order.unit });
+    }
+}
+
+/// 撤退フェイズの命令解決処理
+pub fn resolve_orders_for_retreat_phase(current_phase: &mut Phase, context: &PhaseContext) {
+    let orders = &mut current_phase.data.orders;
+
+    // # 01. 撤退命令検証
+    RetreatAdjudicator::validate_retreat_orders(orders, context);
+
+    // # 02. 撤退命令処理
+    RetreatAdjudicator::handle_retreat_orders(orders);
+
+    // # 03. 命令解決後のユニット配置情報をフェイズに反映
+    for order in current_phase.data.orders.collect_not_invalid_retreat_orders() {
+        // 撤退に成功したユニットのみ保存
+        if let OrderKind::Retreat(r) = &order.kind
+            && order.is_success()
+        {
+            current_phase.data.units.push(Unit {
+                province: r.dest,
+                ..order.unit
+            });
+            continue;
+        }
+
+        // 撤退フェイズの影響を受けないユニットは現状維持
+        for unit in context.last_resolved_units.clone() {
+            if current_phase.data.orders.iter().find(|o| o.unit == unit).is_some() {
+                continue;
+            }
+            current_phase.data.units.push(Unit { ..unit });
+        }
+    }
+}
+
+/// 調整フェイズの命令解決処理
+pub fn resolve_orders_for_adjustment_phase(current_phase: &mut Phase) {
+    // # 01. 増設命令検証
+    AdjustmentAdjudicator::validate_build_orders(current_phase);
+
+    // # 02. 解体命令検証
+    AdjustmentAdjudicator::validate_disband_orders(current_phase);
+
+    // # 03. 未処理命令をすべて無効判定
+    AdjustmentAdjudicator::invalidate_unresolved_orders(current_phase);
+
+    // # 04. 命令解決後のユニット配置情報をフェイズに反映
+    for idx in current_phase.data.orders.collect_valid_adjustment_idxs() {
+        match current_phase.data.orders[idx].kind {
+            OrderKind::Build(_) => {
+                // 増設命令が有効な場合はユニットを追加
+                current_phase.data.units.push(current_phase.data.orders[idx].unit);
+            }
+            OrderKind::Disband(_) => {
+                // 解体命令が有効な場合はユニットを削除
+                current_phase.data.units.retain(|u| u != &current_phase.data.orders[idx].unit);
+            }
+            _ => {}
+        }
+    }
+}
+
+/// 準備フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for ReadyPhase {
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
         Some(Phase::new_spring_main(current_phase.year(), current_phase.index()))
     }
 }
 
+/// 春メインフェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for SpringMainPhase {
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
         Some(Phase::new_spring_retreat(current_phase.year(), current_phase.index()))
@@ -305,6 +419,7 @@ impl PhaseCloseLogic for SpringMainPhase {
     }
 }
 
+/// 春撤退フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for SpringRetreatPhase {
     fn resolve_orders(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
         resolve_orders_for_retreat_phase(current_phase, context);
@@ -319,6 +434,7 @@ impl PhaseCloseLogic for SpringRetreatPhase {
     }
 }
 
+/// 秋メインフェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for FallMainPhase {
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
         Some(Phase::new_fall_retreat(current_phase.year(), current_phase.index()))
@@ -339,6 +455,7 @@ impl PhaseCloseLogic for FallMainPhase {
     }
 }
 
+/// 秋撤退フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for FallRetreatPhase {
     fn resolve_orders(&self, _current_phase: &mut Phase, context: &mut PhaseContext) {
         resolve_orders_for_retreat_phase(_current_phase, context);
@@ -359,9 +476,32 @@ impl PhaseCloseLogic for FallRetreatPhase {
     }
 }
 
+/// 調整フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for AdjustmentPhase {
     fn resolve_orders(&self, current_phase: &mut Phase, _context: &mut PhaseContext) {
-        resolve_orders_for_adjustment_phase(current_phase);
+        // # 01. 増設命令検証
+        AdjustmentAdjudicator::validate_build_orders(current_phase);
+
+        // # 02. 解体命令検証
+        AdjustmentAdjudicator::validate_disband_orders(current_phase);
+
+        // # 03. 未処理命令をすべて無効判定
+        AdjustmentAdjudicator::invalidate_unresolved_orders(current_phase);
+
+        // # 04. 命令解決後のユニット配置情報をフェイズに反映
+        for idx in current_phase.data.orders.collect_valid_adjustment_idxs() {
+            match current_phase.data.orders[idx].kind {
+                OrderKind::Build(_) => {
+                    // 増設命令が有効な場合はユニットを追加
+                    current_phase.data.units.push(current_phase.data.orders[idx].unit);
+                }
+                OrderKind::Disband(_) => {
+                    // 解体命令が有効な場合はユニットを削除
+                    current_phase.data.units.retain(|u| u != &current_phase.data.orders[idx].unit);
+                }
+                _ => {}
+            }
+        }
     }
 
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
@@ -369,13 +509,14 @@ impl PhaseCloseLogic for AdjustmentPhase {
     }
 }
 
+/// 感想戦フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for DebriefPhase {
     fn create_next_phase(&self, _current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
         None
     }
 }
 
-/// フェイズのコンテキストと終了結果（必要に応じてフィールドを追加）
+/// フェイズのコンテキストと終了結果
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PhaseContext {
     pub phases: Vec<Phase>,
@@ -402,7 +543,7 @@ impl PhaseContext {
     }
 }
 
-/// フェイズの終了結果（必要に応じてフィールドを追加）
+/// フェイズの終了結果
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PhaseCloseResult {}
 
@@ -418,24 +559,3 @@ mod tests {
         assert!(matches!(p.phase_type(), PhaseKind::SpringMain(_)));
     }
 }
-
-#[cfg(test)]
-mod test_datc_6_a;
-#[cfg(test)]
-mod test_datc_6_b;
-#[cfg(test)]
-mod test_datc_6_c;
-#[cfg(test)]
-mod test_datc_6_d;
-#[cfg(test)]
-mod test_datc_6_e;
-#[cfg(test)]
-mod test_datc_6_f;
-#[cfg(test)]
-mod test_datc_6_g;
-#[cfg(test)]
-mod test_datc_6_h;
-#[cfg(test)]
-mod test_datc_6_i;
-#[cfg(test)]
-mod test_datc_6_j;
