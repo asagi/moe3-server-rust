@@ -86,7 +86,7 @@ pub struct AdjustmentPhase {}
 pub struct DebriefPhase {}
 
 impl Phase {
-    fn new(year: i32, index: i32, phase_type: PhaseKind) -> Self {
+    fn new(year: i32, index: i32, kind: PhaseKind) -> Self {
         Self {
             id: None,
             table_id: None,
@@ -94,7 +94,7 @@ impl Phase {
             data: PhaseData {
                 index,
                 year,
-                kind: phase_type,
+                kind,
                 orders: Vec::new(),
                 units: Vec::new(),
                 territories: Vec::new(),
