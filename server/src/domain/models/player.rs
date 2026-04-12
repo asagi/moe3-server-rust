@@ -1,5 +1,5 @@
-use super::PlayerId;
-use super::TableId;
+use super::super::PlayerId;
+use super::super::TableId;
 use super::power::Power;
 use super::user::User;
 use serde::Deserialize;

@@ -1,13 +1,6 @@
-pub mod order;
-pub mod path;
-pub mod phase;
-pub mod player;
-pub mod power;
-pub mod province;
-pub mod table;
-pub mod territory;
-pub mod unit;
-pub mod user;
+pub mod adjudicator;
+pub mod helper;
+pub mod models;
 
 pub type OrderId = i64;
 pub type PhaseId = i64;

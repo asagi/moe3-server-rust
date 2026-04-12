@@ -1,5 +1,5 @@
-use crate::domain::order::Order;
-use crate::domain::order::OrderKind;
+use super::super::models::order::Order;
+use super::super::models::order::OrderKind;
 use std::collections::HashSet;
 
 pub trait RetreatOrderHelper {
@@ -7,7 +7,7 @@ pub trait RetreatOrderHelper {
     fn collect_retreat_destination_code_set(&self) -> HashSet<&'static str>;
     fn collect_unresolved_retreat_idxs(&self) -> Vec<usize>;
     fn collect_unresolved_retreat_idxs_by_dest(&self, dest_code: &str) -> Vec<usize>;
-    fn collect_not_invalid_orders(&self) -> Vec<Order>;
+    fn collect_not_invalid_retreat_orders(&self) -> Vec<Order>;
 }
 
 impl RetreatOrderHelper for [Order] {
@@ -50,7 +50,7 @@ impl RetreatOrderHelper for [Order] {
     }
 
     /// 全ての無効でない命令のコレクションを作成
-    fn collect_not_invalid_orders(&self) -> Vec<Order> {
+    fn collect_not_invalid_retreat_orders(&self) -> Vec<Order> {
         self.iter().filter(|o| !o.is_invalid()).copied().collect()
     }
 }
