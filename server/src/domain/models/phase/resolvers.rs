@@ -41,13 +41,15 @@ pub fn resolve_orders_for_main_phase(current_phase: &mut Phase) {
     MainAdjudicator::succeed_remaining_orders(orders);
 
     // # 10. 命令解決後のユニット配置情報をフェイズに反映
-    for order in current_phase.data.orders.collect_not_invalid_main_orders() {
+    for order in orders.collect_not_invalid_main_orders() {
         // 移動に成功した軍のみ更新
         if let OrderKind::Move(m) = &order.kind
             && order.is_success()
         {
             // 対象ユニットを削除
-            current_phase.data.units.retain(|u| u != &order.unit);
+            if let Some(idx) = current_phase.data.units.iter().position(|u| u == &order.unit) {
+                current_phase.data.units.remove(idx);
+            }
 
             // 所在地を移動先に変更して保存
             current_phase.data.units.push(Unit {
