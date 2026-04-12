@@ -6,12 +6,15 @@ use super::Phase;
 use super::PhaseCloseResult;
 use super::PhaseContext;
 use super::PhaseKind;
+use super::Power;
 use super::ReadyPhase;
 use super::SpringMainPhase;
 use super::SpringRetreatPhase;
+use super::helper::unit_helper::UnitHelper;
 use super::resolvers::resolve_orders_for_adjustment_phase;
 use super::resolvers::resolve_orders_for_main_phase;
 use super::resolvers::resolve_orders_for_retreat_phase;
+use strum::IntoEnumIterator;
 
 /// フェイズのロジック
 impl Phase {
@@ -50,7 +53,7 @@ trait PhaseCloseLogic {
         }
 
         // 次フェイズ生成
-        if let Some(next_phase) = self.create_next_phase(current_phase, context) {
+        if let Some(next_phase) = self.create_next_phase(current_phase) {
             context.phases.push(current_phase.clone());
 
             // スキップ判定と再帰
@@ -99,7 +102,7 @@ trait PhaseCloseLogic {
         context.finalize(current_phase)
     }
 
-    fn create_next_phase(&self, current_phase: &Phase, context: &mut PhaseContext) -> Option<Phase>;
+    fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase>;
 
     /// 次フェイズがスキップ可能な場合に true を返す
     /// true を返す可能性のある場合にのみオーバーライドする
@@ -125,23 +128,40 @@ fn occupy_for_retreat_phase(_current_phase: &mut Phase, _context: &mut PhaseCont
 
 /// 準備フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for ReadyPhase {
-    fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(Phase::new_spring_main(current_phase.year(), current_phase.index()))
+    /// 次フェイズ生成
+    fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
+        let mut phase = Phase::new_spring_main(current_phase.year(), current_phase.index());
+        phase.data.territories = current_phase.data.territories.clone();
+        phase.data.units = current_phase.data.units.clone();
+        for unit in &mut phase.data.units {
+            phase.data.orders.push(unit.hold());
+        }
+        Some(phase)
     }
 }
 
 /// 春メインフェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for SpringMainPhase {
-    fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(Phase::new_spring_retreat(current_phase.year(), current_phase.index()))
-    }
-
     fn check_draw_condition(&self, _context: &PhaseContext) -> bool {
         check_draw_condition_for_main_phase(_context)
     }
 
     fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
         resolve_orders_for_main_phase(_current_phase);
+    }
+
+    /// 次フェイズ生成
+    fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
+        let mut phase = Phase::new_spring_retreat(current_phase.year(), current_phase.index());
+        phase.data.territories = current_phase.data.territories.clone();
+        phase.data.units = current_phase.data.units.clone();
+        for unit in &mut phase.data.units {
+            if unit.dislodged_from.is_some() {
+                phase.data.orders.push(unit.disband());
+            }
+        }
+        phase.data.standoff_codes = current_phase.data.standoff_codes.clone();
+        Some(phase)
     }
 
     /// 撤退指示が必要なユニットが存在しない場合に true を返す
@@ -153,31 +173,48 @@ impl PhaseCloseLogic for SpringMainPhase {
 
 /// 春撤退フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for SpringRetreatPhase {
-    fn resolve_orders(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
-        resolve_orders_for_retreat_phase(current_phase, context);
+    fn resolve_orders(&self, current_phase: &mut Phase, _context: &mut PhaseContext) {
+        resolve_orders_for_retreat_phase(current_phase);
     }
 
     fn occupy(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
         occupy_for_retreat_phase(_current_phase, _context);
     }
 
-    fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(Phase::new_fall_main(current_phase.year(), current_phase.index()))
+    /// 次フェイズ生成
+    fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
+        let mut phase = Phase::new_fall_main(current_phase.year(), current_phase.index());
+        phase.data.territories = current_phase.data.territories.clone();
+        phase.data.units = current_phase.data.units.clone();
+        for unit in &mut phase.data.units {
+            phase.data.orders.push(unit.hold());
+        }
+        Some(phase)
     }
 }
 
 /// 秋メインフェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for FallMainPhase {
-    fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(Phase::new_fall_retreat(current_phase.year(), current_phase.index()))
-    }
-
     fn check_draw_condition(&self, _context: &PhaseContext) -> bool {
         check_draw_condition_for_main_phase(_context)
     }
 
     fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
         resolve_orders_for_main_phase(_current_phase);
+    }
+
+    /// 次フェイズ生成
+    fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
+        let mut phase = Phase::new_fall_retreat(current_phase.year(), current_phase.index());
+        phase.data.territories = current_phase.data.territories.clone();
+        phase.data.units = current_phase.data.units.clone();
+        for unit in &mut phase.data.units {
+            if unit.dislodged_from.is_some() {
+                phase.data.orders.push(unit.disband());
+            }
+        }
+        phase.data.standoff_codes = current_phase.data.standoff_codes.clone();
+        Some(phase)
     }
 
     /// 撤退指示が必要なユニットが存在しない場合に true を返す
@@ -189,16 +226,44 @@ impl PhaseCloseLogic for FallMainPhase {
 
 /// 秋撤退フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for FallRetreatPhase {
-    fn resolve_orders(&self, _current_phase: &mut Phase, context: &mut PhaseContext) {
-        resolve_orders_for_retreat_phase(_current_phase, context);
+    fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
+        resolve_orders_for_retreat_phase(_current_phase);
     }
 
     fn occupy(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
         occupy_for_retreat_phase(_current_phase, _context);
     }
 
-    fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(Phase::new_adjustment(current_phase.year(), current_phase.index()))
+    /// 次フェイズ生成
+    fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
+        let mut phase = Phase::new_adjustment(current_phase.year(), current_phase.index());
+        phase.data.territories = current_phase.data.territories.clone();
+        phase.data.units = current_phase.data.units.clone();
+
+        for p in Power::iter() {
+            // 解体必要数算出
+            let sc_count = phase.count_supply_centers(&p);
+            let unit_count = phase.count_units(&p);
+            let adjustment_capacity = unit_count as isize - sc_count as isize;
+
+            // 解体の必要がない場合はスキップ
+            if adjustment_capacity < 1 {
+                continue;
+            }
+            let mut remaining = adjustment_capacity as usize;
+
+            // 解体命令登録
+            let disband_candidates = &mut phase.data.units.collect_units_for_civil_disorder(&p, &phase.data.territories);
+            disband_candidates.reverse();
+            while remaining > 0 {
+                let unit = disband_candidates.pop().unwrap();
+                phase.data.orders.push(unit.disband().set_valid());
+                remaining -= 1;
+                continue;
+            }
+        }
+
+        Some(phase)
     }
 
     /// 調整が不要な場合に true を返す
@@ -214,14 +279,21 @@ impl PhaseCloseLogic for AdjustmentPhase {
         resolve_orders_for_adjustment_phase(current_phase);
     }
 
-    fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
-        Some(Phase::new_spring_main(current_phase.year(), current_phase.index()))
+    /// 次フェイズ生成
+    fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
+        let mut phase = Phase::new_spring_main(current_phase.year(), current_phase.index());
+        phase.data.territories = current_phase.data.territories.clone();
+        phase.data.units = current_phase.data.units.clone();
+        for unit in &mut phase.data.units {
+            phase.data.orders.push(unit.hold());
+        }
+        Some(phase)
     }
 }
 
 /// 感想戦フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for DebriefPhase {
-    fn create_next_phase(&self, _current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
+    fn create_next_phase(&self, _current_phase: &Phase) -> Option<Phase> {
         None
     }
 }

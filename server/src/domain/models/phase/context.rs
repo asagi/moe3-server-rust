@@ -1,5 +1,4 @@
 use super::Phase;
-use super::Unit;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -7,17 +6,11 @@ use serde::Serialize;
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PhaseContext {
     pub phases: Vec<Phase>,
-    pub(crate) standoff_codes: Vec<&'static str>,
-    pub(crate) last_resolved_units: Vec<Unit>,
 }
 
 impl PhaseContext {
     pub fn new() -> Self {
-        Self {
-            phases: Vec::new(),
-            standoff_codes: Vec::new(),
-            last_resolved_units: Vec::new(),
-        }
+        Self { phases: Vec::new() }
     }
 
     pub fn finalize(&mut self, latest_phase: &Phase) -> PhaseCloseResult {
