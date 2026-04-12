@@ -479,29 +479,7 @@ impl PhaseCloseLogic for FallRetreatPhase {
 /// 調整フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for AdjustmentPhase {
     fn resolve_orders(&self, current_phase: &mut Phase, _context: &mut PhaseContext) {
-        // # 01. 増設命令検証
-        AdjustmentAdjudicator::validate_build_orders(current_phase);
-
-        // # 02. 解体命令検証
-        AdjustmentAdjudicator::validate_disband_orders(current_phase);
-
-        // # 03. 未処理命令をすべて無効判定
-        AdjustmentAdjudicator::invalidate_unresolved_orders(current_phase);
-
-        // # 04. 命令解決後のユニット配置情報をフェイズに反映
-        for idx in current_phase.data.orders.collect_valid_adjustment_idxs() {
-            match current_phase.data.orders[idx].kind {
-                OrderKind::Build(_) => {
-                    // 増設命令が有効な場合はユニットを追加
-                    current_phase.data.units.push(current_phase.data.orders[idx].unit);
-                }
-                OrderKind::Disband(_) => {
-                    // 解体命令が有効な場合はユニットを削除
-                    current_phase.data.units.retain(|u| u != &current_phase.data.orders[idx].unit);
-                }
-                _ => {}
-            }
-        }
+        resolve_orders_for_adjustment_phase(current_phase);
     }
 
     fn create_next_phase(&self, current_phase: &Phase, _context: &mut PhaseContext) -> Option<Phase> {
