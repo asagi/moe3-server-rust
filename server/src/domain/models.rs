@@ -8,3 +8,7 @@ pub mod table;
 pub mod territory;
 pub mod unit;
 pub mod user;
+
+pub use super::PhaseId;
+pub use super::TableId;
+pub use super::helper;

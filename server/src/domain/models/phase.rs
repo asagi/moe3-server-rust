@@ -2,22 +2,24 @@ mod close_logic;
 mod context;
 mod resolvers;
 
-use super::super::PhaseId;
-use super::super::TableId;
+pub use super::helper;
+pub use super::power::Power;
+pub use context::PhaseCloseResult;
+pub use context::PhaseContext;
+pub use resolvers::resolve_orders_for_adjustment_phase;
+pub use resolvers::resolve_orders_for_main_phase;
+pub use resolvers::resolve_orders_for_retreat_phase;
+
+use super::PhaseId;
+use super::TableId;
 use super::order::Order;
-use super::power::Power;
+use super::province::Province;
 use super::territory::Territory;
 use super::unit::Unit;
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
-
-pub use context::PhaseCloseResult;
-pub use context::PhaseContext;
-pub use resolvers::resolve_orders_for_adjustment_phase;
-pub use resolvers::resolve_orders_for_main_phase;
-pub use resolvers::resolve_orders_for_retreat_phase;
 
 /// フェイズの定義
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -105,7 +107,61 @@ impl Phase {
 
     /// 準備フェイズを生成する。
     pub fn new_ready() -> Self {
-        Self::new(1900, 0, PhaseKind::Ready(ReadyPhase {}))
+        let mut phase = Self::new(1900, 0, PhaseKind::Ready(ReadyPhase {}));
+
+        // 初期ユニット生成
+        phase.data.units = vec![
+            Unit::new_army(Power::Austria, Province::from_code("vie").unwrap()),
+            Unit::new_army(Power::Austria, Province::from_code("bud").unwrap()),
+            Unit::new_fleet(Power::Austria, Province::from_code("tri").unwrap()),
+            Unit::new_fleet(Power::England, Province::from_code("lon").unwrap()),
+            Unit::new_fleet(Power::England, Province::from_code("edi").unwrap()),
+            Unit::new_army(Power::England, Province::from_code("lvp").unwrap()),
+            Unit::new_army(Power::France, Province::from_code("par").unwrap()),
+            Unit::new_army(Power::France, Province::from_code("mar").unwrap()),
+            Unit::new_fleet(Power::France, Province::from_code("bre").unwrap()),
+            Unit::new_army(Power::Germany, Province::from_code("ber").unwrap()),
+            Unit::new_army(Power::Germany, Province::from_code("mun").unwrap()),
+            Unit::new_fleet(Power::Germany, Province::from_code("kie").unwrap()),
+            Unit::new_army(Power::Italy, Province::from_code("rom").unwrap()),
+            Unit::new_army(Power::Italy, Province::from_code("ven").unwrap()),
+            Unit::new_fleet(Power::Italy, Province::from_code("nap").unwrap()),
+            Unit::new_army(Power::Russia, Province::from_code("mos").unwrap()),
+            Unit::new_fleet(Power::Russia, Province::from_code("sev").unwrap()),
+            Unit::new_army(Power::Russia, Province::from_code("war").unwrap()),
+            Unit::new_fleet(Power::Russia, Province::from_code("stp_sc").unwrap()),
+            Unit::new_fleet(Power::Turkey, Province::from_code("ank").unwrap()),
+            Unit::new_army(Power::Turkey, Province::from_code("con").unwrap()),
+            Unit::new_army(Power::Turkey, Province::from_code("smy").unwrap()),
+        ];
+
+        // 初期領土生成
+        phase.data.territories = vec![
+            Territory::new(Power::Austria, "vie"),
+            Territory::new(Power::Austria, "bud"),
+            Territory::new(Power::Austria, "tri"),
+            Territory::new(Power::England, "lon"),
+            Territory::new(Power::England, "edi"),
+            Territory::new(Power::England, "lvp"),
+            Territory::new(Power::France, "par"),
+            Territory::new(Power::France, "mar"),
+            Territory::new(Power::France, "bre"),
+            Territory::new(Power::Germany, "ber"),
+            Territory::new(Power::Germany, "mun"),
+            Territory::new(Power::Germany, "kie"),
+            Territory::new(Power::Italy, "rom"),
+            Territory::new(Power::Italy, "ven"),
+            Territory::new(Power::Italy, "nap"),
+            Territory::new(Power::Russia, "mos"),
+            Territory::new(Power::Russia, "sev"),
+            Territory::new(Power::Russia, "war"),
+            Territory::new(Power::Russia, "stp"),
+            Territory::new(Power::Turkey, "ank"),
+            Territory::new(Power::Turkey, "con"),
+            Territory::new(Power::Turkey, "smy"),
+        ];
+
+        phase
     }
 
     /// 春メインフェイズを生成する。
