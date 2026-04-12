@@ -173,8 +173,8 @@ impl PhaseCloseLogic for SpringMainPhase {
 
 /// 春撤退フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for SpringRetreatPhase {
-    fn resolve_orders(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
-        resolve_orders_for_retreat_phase(current_phase, context);
+    fn resolve_orders(&self, current_phase: &mut Phase, _context: &mut PhaseContext) {
+        resolve_orders_for_retreat_phase(current_phase);
     }
 
     fn occupy(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
@@ -226,8 +226,8 @@ impl PhaseCloseLogic for FallMainPhase {
 
 /// 秋撤退フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for FallRetreatPhase {
-    fn resolve_orders(&self, _current_phase: &mut Phase, context: &mut PhaseContext) {
-        resolve_orders_for_retreat_phase(_current_phase, context);
+    fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
+        resolve_orders_for_retreat_phase(_current_phase);
     }
 
     fn occupy(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {

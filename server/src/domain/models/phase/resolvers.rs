@@ -6,7 +6,6 @@ use super::super::super::helper::main_order_helper::MainOrderHelper;
 use super::super::super::helper::retreat_order_helper::RetreatOrderHelper;
 use super::super::order::OrderKind;
 use super::Phase;
-use super::PhaseContext;
 use super::Unit;
 
 /// メインフェイズの命令解決処理
@@ -69,34 +68,36 @@ pub fn resolve_orders_for_main_phase(current_phase: &mut Phase) {
 }
 
 /// 撤退フェイズの命令解決処理
-pub fn resolve_orders_for_retreat_phase(current_phase: &mut Phase, context: &PhaseContext) {
+pub fn resolve_orders_for_retreat_phase(current_phase: &mut Phase) {
     let orders = &mut current_phase.data.orders;
+    let units = &current_phase.data.units;
+    let standoff_codes = &current_phase.data.standoff_codes;
 
     // # 01. 撤退命令検証
-    RetreatAdjudicator::validate_retreat_orders(orders, context);
+    RetreatAdjudicator::validate_retreat_orders(orders, units, standoff_codes);
 
     // # 02. 撤退命令処理
     RetreatAdjudicator::handle_retreat_orders(orders);
 
     // # 03. 命令解決後のユニット配置情報をフェイズに反映
-    for order in current_phase.data.orders.collect_not_invalid_retreat_orders() {
-        // 撤退に成功したユニットのみ保存
-        if let OrderKind::Retreat(r) = &order.kind
-            && order.is_success()
-        {
-            current_phase.data.units.push(Unit {
-                province: r.dest,
-                ..order.unit
-            });
-            continue;
-        }
+    for order in orders.collect_not_invalid_retreat_orders() {
+        match &order.kind {
+            // 撤退に成功した軍の保存
+            OrderKind::Retreat(r) => {
+                // 対象ユニットを削除
+                current_phase.data.units.retain(|u| u != &order.unit);
 
-        // 撤退フェイズの影響を受けないユニットは現状維持
-        for unit in context.last_resolved_units.clone() {
-            if current_phase.data.orders.iter().find(|o| o.unit == unit).is_some() {
-                continue;
+                // 撤退に成功した軍のみ再保存
+                if order.is_success() {
+                    current_phase.data.units.push(Unit {
+                        province: r.dest,
+                        ..order.unit
+                    });
+                }
             }
-            current_phase.data.units.push(Unit { ..unit });
+            _ => {
+                // それ以外の軍は現状維持
+            }
         }
     }
 }

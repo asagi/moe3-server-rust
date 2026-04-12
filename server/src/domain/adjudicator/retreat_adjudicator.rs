@@ -1,23 +1,18 @@
-use super::super::helper::retreat_order_helper::RetreatOrderHelper;
-use super::super::models::order::Order;
-use super::super::models::phase::PhaseContext;
+use super::Order;
+use super::RetreatOrderHelper;
+use super::Unit;
 
 pub struct RetreatAdjudicator;
 
 impl RetreatAdjudicator {
     /// 撤退命令の妥当性を検査
-    pub(crate) fn validate_retreat_orders(orders: &mut [Order], context: &PhaseContext) {
+    pub(crate) fn validate_retreat_orders(orders: &mut [Order], units: &[Unit], standoff_codes: &[String]) {
         for &dest_code in orders.collect_retreat_destination_code_set().iter() {
             // 指定地域に対する未処理の撤退命令のインデックスを取得
             let conflict_idxs: Vec<usize> = orders.collect_unresolved_retreat_idxs_by_dest(dest_code);
 
             // 撤退先先にユニットがいる場合は無効
-            if context
-                .last_resolved_units
-                .iter()
-                .find(|u| u.location().code() == dest_code)
-                .is_some()
-            {
+            if units.iter().find(|u| u.location().code() == dest_code).is_some() {
                 for idx in conflict_idxs {
                     orders[idx].set_invalid();
                 }
@@ -25,7 +20,7 @@ impl RetreatAdjudicator {
             }
 
             // 撤退先がスタンドオフエリアの場合は無効
-            if context.standoff_codes.iter().find(|&&c| c == &dest_code[..3]).is_some() {
+            if standoff_codes.iter().find(|&c| c == &dest_code[..3]).is_some() {
                 for idx in conflict_idxs {
                     orders[idx].set_invalid();
                 }
