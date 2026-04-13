@@ -326,15 +326,15 @@ impl Order {
         self.power != self.unit.power()
     }
 
-    // /// ユニットがどこから追い出されたかを記録
-    // pub(crate) fn set_dislodged_from(&mut self, winner_location: &Province) {
-    //     self.status = OrderStatus::Dislodged;
-    //     self.dislodged_from = Some(*winner_location);
-    // }
-
-    pub(crate) fn set_dislodged_by(&mut self, winner: &Order) {
+    pub(crate) fn set_dislodged_by(&mut self, attacker: &Order) {
         self.status = OrderStatus::Dislodged;
-        self.dislodged_from = if winner.via_convoy() { None } else { Some(winner.location()) };
+        self.dislodged_from = if attacker.via_convoy() {
+            None
+        } else {
+            Some(attacker.location())
+        };
+        self.unit.dislodged_from = self.dislodged_from;
+        self.unit.dislodged = true;
     }
 
     /// 命令を仮定命令に変換

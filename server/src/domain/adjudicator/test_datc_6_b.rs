@@ -6,11 +6,11 @@
 //!
 //! [DATC_6B]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.B
 
-use super::super::models::order::*;
-use super::super::models::phase::*;
-use super::super::models::power::*;
-use super::super::models::province::*;
-use super::super::models::unit::*;
+use crate::domain::models::order::*;
+use crate::domain::models::phase::*;
+use crate::domain::models::power::*;
+use crate::domain::models::province::*;
+use crate::domain::models::unit::*;
 
 fn p(code: &str) -> Province {
     Province::from_code(code).expect("valid province code")
@@ -27,9 +27,13 @@ fn p(code: &str) -> Province {
 fn test_datc_6_b_1() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_por = Unit::new_fleet(Power::France, p("por"));
+    phase.data.units.push(unit_f_por);
     phase.data.orders.push(unit_f_por.move_to(p("spa")));
     resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.units.len(), 1);
+    assert!(phase.data.units.contains(&unit_f_por));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.B.2. TEST CASE, MOVING WITH UNSPECIFIED COAST WHEN COAST IS NOT NECESSARY
@@ -59,9 +63,13 @@ fn test_datc_6_b_2() {
 fn test_datc_6_b_3() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_gas = Unit::new_fleet(Power::France, p("gas"));
+    phase.data.units.push(unit_f_gas);
     phase.data.orders.push(unit_f_gas.move_to(p("spa_sc")));
     resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.units.len(), 1);
+    assert!(phase.data.units.contains(&unit_f_gas));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.B.4. TEST CASE, SUPPORT TO UNREACHABLE COAST ALLOWED
@@ -82,6 +90,9 @@ fn test_datc_6_b_4() {
     let unit_f_gas = Unit::new_fleet(Power::France, p("gas"));
     let unit_f_mar = Unit::new_fleet(Power::France, p("mar"));
     let unit_i_spa_nc = Unit::new_fleet(Power::Italy, p("wes"));
+    phase.data.units.push(unit_f_gas);
+    phase.data.units.push(unit_f_mar);
+    phase.data.units.push(unit_i_spa_nc);
     phase.data.orders.push(unit_f_gas.move_to(p("spa_nc")));
     phase.data.orders.push(unit_f_mar.support_move(unit_f_gas, p("spa_nc")));
     phase.data.orders.push(unit_i_spa_nc.move_to(p("spa_sc")));
@@ -89,6 +100,11 @@ fn test_datc_6_b_4() {
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.data.units.len(), 3);
+    assert!(phase.data.units.contains(&Unit::new_fleet(Power::France, p("spa_nc"))));
+    assert!(phase.data.units.contains(&unit_f_mar));
+    assert!(phase.data.units.contains(&unit_i_spa_nc));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.B.5. TEST CASE, SUPPORT FROM UNREACHABLE COAST NOT ALLOWED
@@ -108,14 +124,22 @@ fn test_datc_6_b_5() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_mar = Unit::new_fleet(Power::France, p("mar"));
     let unit_f_spa_nc = Unit::new_fleet(Power::France, p("spa_nc"));
-    let unit_i_lyo = Unit::new_fleet(Power::Italy, p("gol"));
+    let unit_i_gol = Unit::new_fleet(Power::Italy, p("gol"));
+    phase.data.units.push(unit_f_mar);
+    phase.data.units.push(unit_f_spa_nc);
+    phase.data.units.push(unit_i_gol);
     phase.data.orders.push(unit_f_mar.move_to(p("gol")));
     phase.data.orders.push(unit_f_spa_nc.support_move(unit_f_mar, p("gol")));
-    phase.data.orders.push(unit_i_lyo.hold());
+    phase.data.orders.push(unit_i_gol.hold());
     resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.units.len(), 3);
+    assert!(phase.data.units.contains(&unit_f_mar));
+    assert!(phase.data.units.contains(&unit_f_spa_nc));
+    assert!(phase.data.units.contains(&unit_i_gol));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.B.6. TEST CASE, SUPPORT CAN BE CUT WITH OTHER COAST
@@ -139,21 +163,33 @@ fn test_datc_6_b_5() {
 fn test_datc_6_b_6() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_iri = Unit::new_fleet(Power::England, p("iri"));
-    let unit_e_nao = Unit::new_fleet(Power::England, p("nat"));
+    let unit_e_nat = Unit::new_fleet(Power::England, p("nat"));
     let unit_f_spa_nc = Unit::new_fleet(Power::France, p("spa_nc"));
-    let unit_f_mao = Unit::new_fleet(Power::France, p("mid"));
-    let unit_i_lyo = Unit::new_fleet(Power::Italy, p("gol"));
-    phase.data.orders.push(unit_e_iri.support_move(unit_e_nao, p("mid")));
-    phase.data.orders.push(unit_e_nao.move_to(p("mid")));
-    phase.data.orders.push(unit_f_spa_nc.support_hold(unit_f_mao));
-    phase.data.orders.push(unit_f_mao.hold());
-    phase.data.orders.push(unit_i_lyo.move_to(p("spa_sc")));
+    let mut unit_f_mid = Unit::new_fleet(Power::France, p("mid"));
+    let unit_i_gol = Unit::new_fleet(Power::Italy, p("gol"));
+    phase.data.units.push(unit_e_iri);
+    phase.data.units.push(unit_e_nat);
+    phase.data.units.push(unit_f_spa_nc);
+    phase.data.units.push(unit_f_mid);
+    phase.data.units.push(unit_i_gol);
+    phase.data.orders.push(unit_e_iri.support_move(unit_e_nat, p("mid")));
+    phase.data.orders.push(unit_e_nat.move_to(p("mid")));
+    phase.data.orders.push(unit_f_spa_nc.support_hold(unit_f_mid));
+    phase.data.orders.push(unit_f_mid.hold());
+    phase.data.orders.push(unit_i_gol.move_to(p("spa_sc")));
     resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Cut);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
     assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
+    assert_eq!(phase.data.units.len(), 5);
+    assert!(phase.data.units.contains(&unit_e_iri));
+    assert!(phase.data.units.contains(&Unit::new_fleet(Power::England, p("mid"))));
+    assert!(phase.data.units.contains(&unit_f_spa_nc));
+    assert!(phase.data.units.contains(&unit_f_mid.dislodged_from(p("nat"))));
+    assert!(phase.data.units.contains(&unit_i_gol));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.B.7. TEST CASE, SUPPORTING OWN UNIT WITH UNSPECIFIED COAST
@@ -211,19 +247,29 @@ fn test_datc_6_b_8() {
 #[test]
 fn test_datc_6_b_9() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_f_mao = Unit::new_fleet(Power::France, p("mid"));
+    let unit_f_mid = Unit::new_fleet(Power::France, p("mid"));
     let unit_f_por = Unit::new_fleet(Power::France, p("por"));
+    let unit_i_gol = Unit::new_fleet(Power::Italy, p("gol"));
     let unit_i_wes = Unit::new_fleet(Power::Italy, p("wes"));
-    let unit_i_lyo = Unit::new_fleet(Power::Italy, p("gol"));
-    phase.data.orders.push(unit_f_por.support_move(unit_f_mao, p("spa_nc")));
-    phase.data.orders.push(unit_f_mao.move_to(p("spa_sc")));
-    phase.data.orders.push(unit_i_lyo.support_move(unit_i_wes, p("spa_sc")));
+    phase.data.units.push(unit_f_mid);
+    phase.data.units.push(unit_f_por);
+    phase.data.units.push(unit_i_gol);
+    phase.data.units.push(unit_i_wes);
+    phase.data.orders.push(unit_f_por.support_move(unit_f_mid, p("spa_nc")));
+    phase.data.orders.push(unit_f_mid.move_to(p("spa_sc")));
+    phase.data.orders.push(unit_i_gol.support_move(unit_i_wes, p("spa_sc")));
     phase.data.orders.push(unit_i_wes.move_to(p("spa_sc")));
     resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
+    assert_eq!(phase.data.units.len(), 4);
+    assert!(phase.data.units.contains(&unit_f_mid));
+    assert!(phase.data.units.contains(&unit_f_por));
+    assert!(phase.data.units.contains(&unit_i_gol));
+    assert!(phase.data.units.contains(&Unit::new_fleet(Power::Italy, p("spa_sc"))));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.B.10. TEST CASE, UNIT ORDERED WITH WRONG COAST
@@ -285,11 +331,17 @@ fn test_datc_6_b_13() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_t_bul_sc = Unit::new_fleet(Power::Turkey, p("bul_sc"));
     let unit_t_con = Unit::new_fleet(Power::Turkey, p("con"));
+    phase.data.units.push(unit_t_bul_sc);
+    phase.data.units.push(unit_t_con);
     phase.data.orders.push(unit_t_bul_sc.move_to(p("con")));
     phase.data.orders.push(unit_t_con.move_to(p("bul_ec")));
     resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.data.units.len(), 2);
+    assert!(phase.data.units.contains(&unit_t_bul_sc));
+    assert!(phase.data.units.contains(&unit_t_con));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.B.14. TEST CASE, BUILDING WITH UNSPECIFIED COAST

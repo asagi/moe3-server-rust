@@ -156,7 +156,7 @@ impl PhaseCloseLogic for SpringMainPhase {
         phase.data.territories = current_phase.data.territories.clone();
         phase.data.units = current_phase.data.units.clone();
         for unit in &mut phase.data.units {
-            if unit.dislodged_from.is_some() {
+            if unit.dislodged {
                 phase.data.orders.push(unit.disband());
             }
         }

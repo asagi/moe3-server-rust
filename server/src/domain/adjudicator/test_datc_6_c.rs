@@ -6,11 +6,11 @@
 //!
 //! [DATC_6C]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.C
 
-use super::super::models::order::*;
-use super::super::models::phase::*;
-use super::super::models::power::*;
-use super::super::models::province::*;
-use super::super::models::unit::*;
+use crate::domain::models::order::*;
+use crate::domain::models::phase::*;
+use crate::domain::models::power::*;
+use crate::domain::models::province::*;
+use crate::domain::models::unit::*;
 
 fn p(code: &str) -> Province {
     Province::from_code(code).expect("valid province code")
@@ -31,6 +31,9 @@ fn test_datc_6_c_1() {
     let unit_t_ank = Unit::new_fleet(Power::Turkey, p("ank"));
     let unit_t_con = Unit::new_army(Power::Turkey, p("con"));
     let unit_t_smy = Unit::new_army(Power::Turkey, p("smy"));
+    phase.data.units.push(unit_t_ank);
+    phase.data.units.push(unit_t_con);
+    phase.data.units.push(unit_t_smy);
     phase.data.orders.push(unit_t_ank.move_to(p("con")));
     phase.data.orders.push(unit_t_con.move_to(p("smy")));
     phase.data.orders.push(unit_t_smy.move_to(p("ank")));
@@ -38,6 +41,11 @@ fn test_datc_6_c_1() {
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.data.units.len(), 3);
+    assert!(phase.data.units.contains(&Unit::new_fleet(Power::Turkey, p("con"))));
+    assert!(phase.data.units.contains(&Unit::new_army(Power::Turkey, p("smy"))));
+    assert!(phase.data.units.contains(&Unit::new_army(Power::Turkey, p("ank"))));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.C.2. TEST CASE, THREE ARMY CIRCULAR MOVEMENT WITH SUPPORT
@@ -58,6 +66,10 @@ fn test_datc_6_c_2() {
     let unit_t_con = Unit::new_army(Power::Turkey, p("con"));
     let unit_t_smy = Unit::new_army(Power::Turkey, p("smy"));
     let unit_t_bul = Unit::new_army(Power::Turkey, p("bul"));
+    phase.data.units.push(unit_t_ank);
+    phase.data.units.push(unit_t_con);
+    phase.data.units.push(unit_t_smy);
+    phase.data.units.push(unit_t_bul);
     phase.data.orders.push(unit_t_ank.move_to(p("con")));
     phase.data.orders.push(unit_t_con.move_to(p("smy")));
     phase.data.orders.push(unit_t_smy.move_to(p("ank")));
@@ -67,6 +79,12 @@ fn test_datc_6_c_2() {
     assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
+    assert_eq!(phase.data.units.len(), 4);
+    assert!(phase.data.units.contains(&Unit::new_fleet(Power::Turkey, p("con"))));
+    assert!(phase.data.units.contains(&Unit::new_army(Power::Turkey, p("smy"))));
+    assert!(phase.data.units.contains(&Unit::new_army(Power::Turkey, p("ank"))));
+    assert!(phase.data.units.contains(&unit_t_bul));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.C.3. TEST CASE, A DISRUPTED THREE ARMY CIRCULAR MOVEMENT
@@ -86,6 +104,10 @@ fn test_datc_6_c_3() {
     let unit_t_con = Unit::new_army(Power::Turkey, p("con"));
     let unit_t_smy = Unit::new_army(Power::Turkey, p("smy"));
     let unit_t_bul = Unit::new_army(Power::Turkey, p("bul"));
+    phase.data.units.push(unit_t_ank);
+    phase.data.units.push(unit_t_con);
+    phase.data.units.push(unit_t_smy);
+    phase.data.units.push(unit_t_bul);
     phase.data.orders.push(unit_t_ank.move_to(p("con")));
     phase.data.orders.push(unit_t_con.move_to(p("smy")));
     phase.data.orders.push(unit_t_smy.move_to(p("ank")));
@@ -95,6 +117,12 @@ fn test_datc_6_c_3() {
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
+    assert_eq!(phase.data.units.len(), 4);
+    assert!(phase.data.units.contains(&unit_t_ank));
+    assert!(phase.data.units.contains(&unit_t_con));
+    assert!(phase.data.units.contains(&unit_t_smy));
+    assert!(phase.data.units.contains(&unit_t_bul));
+    assert!(phase.data.standoff_codes.contains(&"con".to_string()));
 }
 
 /// 6.C.4. TEST CASE, A CIRCULAR MOVEMENT WITH ATTACKED CONVOY
@@ -127,6 +155,13 @@ fn test_datc_6_c_4() {
     let unit_t_ion = Unit::new_fleet(Power::Turkey, p("ion"));
     let unit_t_adr = Unit::new_fleet(Power::Turkey, p("adr"));
     let unit_i_nap = Unit::new_fleet(Power::Italy, p("nap"));
+    phase.data.units.push(unit_a_tri);
+    phase.data.units.push(unit_a_ser);
+    phase.data.units.push(unit_t_bul);
+    phase.data.units.push(unit_t_aeg);
+    phase.data.units.push(unit_t_ion);
+    phase.data.units.push(unit_t_adr);
+    phase.data.units.push(unit_i_nap);
     phase.data.orders.push(unit_a_tri.move_to(p("ser")));
     phase.data.orders.push(unit_a_ser.move_to(p("bul")));
     phase.data.orders.push(unit_t_bul.move_to(p("tri")));
@@ -142,6 +177,14 @@ fn test_datc_6_c_4() {
     assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[6].status, OrderStatus::Failure);
+    assert_eq!(phase.data.units.len(), 7);
+    assert!(phase.data.units.contains(&Unit::new_army(Power::Austria, p("ser"))));
+    assert!(phase.data.units.contains(&Unit::new_army(Power::Turkey, p("tri"))));
+    assert!(phase.data.units.contains(&unit_t_aeg));
+    assert!(phase.data.units.contains(&unit_t_ion));
+    assert!(phase.data.units.contains(&unit_t_adr));
+    assert!(phase.data.units.contains(&unit_i_nap));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.C.5. TEST CASE, A DISRUPTED CIRCULAR MOVEMENT DUE TO DISLODGED CONVOY
@@ -171,10 +214,18 @@ fn test_datc_6_c_5() {
     let unit_a_ser = Unit::new_army(Power::Austria, p("ser"));
     let unit_t_bul = Unit::new_army(Power::Turkey, p("bul"));
     let unit_t_aeg = Unit::new_fleet(Power::Turkey, p("aeg"));
-    let unit_t_ion = Unit::new_fleet(Power::Turkey, p("ion"));
+    let mut unit_t_ion = Unit::new_fleet(Power::Turkey, p("ion"));
     let unit_t_adr = Unit::new_fleet(Power::Turkey, p("adr"));
     let unit_i_nap = Unit::new_fleet(Power::Italy, p("nap"));
     let unit_i_tun = Unit::new_fleet(Power::Italy, p("tun"));
+    phase.data.units.push(unit_a_tri);
+    phase.data.units.push(unit_a_ser);
+    phase.data.units.push(unit_t_bul);
+    phase.data.units.push(unit_t_aeg);
+    phase.data.units.push(unit_t_ion);
+    phase.data.units.push(unit_t_adr);
+    phase.data.units.push(unit_i_nap);
+    phase.data.units.push(unit_i_tun);
     phase.data.orders.push(unit_a_tri.move_to(p("ser")));
     phase.data.orders.push(unit_a_ser.move_to(p("bul")));
     phase.data.orders.push(unit_t_bul.move_to(p("tri")));
@@ -192,6 +243,16 @@ fn test_datc_6_c_5() {
     assert_eq!(phase.data.orders[5].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[6].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[7].status, OrderStatus::Valid);
+    assert_eq!(phase.data.units.len(), 8);
+    assert!(phase.data.units.contains(&unit_a_tri));
+    assert!(phase.data.units.contains(&unit_a_ser));
+    assert!(phase.data.units.contains(&unit_t_bul));
+    assert!(phase.data.units.contains(&unit_t_aeg));
+    assert!(phase.data.units.contains(&unit_t_ion.dislodged_from(p("nap"))));
+    assert!(phase.data.units.contains(&unit_t_adr));
+    assert!(phase.data.units.contains(&Unit::new_fleet(Power::Italy, p("ion"))));
+    assert!(phase.data.units.contains(&unit_i_tun));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.C.6. TEST CASE, TWO ARMIES WITH TWO CONVOYS
@@ -213,6 +274,10 @@ fn test_datc_6_c_6() {
     let unit_e_lon = Unit::new_army(Power::England, p("lon"));
     let unit_f_eng = Unit::new_fleet(Power::France, p("eng"));
     let unit_f_bel = Unit::new_army(Power::France, p("bel"));
+    phase.data.units.push(unit_e_nth);
+    phase.data.units.push(unit_e_lon);
+    phase.data.units.push(unit_f_eng);
+    phase.data.units.push(unit_f_bel);
     phase.data.orders.push(unit_e_nth.convoy(unit_e_lon, p("bel")));
     phase.data.orders.push(unit_e_lon.move_to(p("bel")));
     phase.data.orders.push(unit_f_eng.convoy(unit_f_bel, p("lon")));
@@ -222,6 +287,12 @@ fn test_datc_6_c_6() {
     assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
+    assert_eq!(phase.data.units.len(), 4);
+    assert!(phase.data.units.contains(&unit_e_nth));
+    assert!(phase.data.units.contains(&Unit::new_army(Power::England, p("bel"))));
+    assert!(phase.data.units.contains(&unit_f_eng));
+    assert!(phase.data.units.contains(&Unit::new_army(Power::France, p("lon"))));
+    assert!(phase.data.standoff_codes.is_empty());
 }
 
 /// 6.C.7. TEST CASE, DISRUPTED UNIT SWAP
@@ -245,6 +316,11 @@ fn test_datc_6_c_7() {
     let unit_f_eng = Unit::new_fleet(Power::France, p("eng"));
     let unit_f_bel = Unit::new_army(Power::France, p("bel"));
     let unit_f_bur = Unit::new_army(Power::France, p("bur"));
+    phase.data.units.push(unit_e_nth);
+    phase.data.units.push(unit_e_lon);
+    phase.data.units.push(unit_f_eng);
+    phase.data.units.push(unit_f_bel);
+    phase.data.units.push(unit_f_bur);
     phase.data.orders.push(unit_e_nth.convoy(unit_e_lon, p("bel")));
     phase.data.orders.push(unit_e_lon.move_to(p("bel")));
     phase.data.orders.push(unit_f_eng.convoy(unit_f_bel, p("lon")));
@@ -256,6 +332,13 @@ fn test_datc_6_c_7() {
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
+    assert_eq!(phase.data.units.len(), 5);
+    assert!(phase.data.units.contains(&unit_e_nth));
+    assert!(phase.data.units.contains(&unit_e_lon));
+    assert!(phase.data.units.contains(&unit_f_eng));
+    assert!(phase.data.units.contains(&unit_f_bel));
+    assert!(phase.data.units.contains(&unit_f_bur));
+    assert!(phase.data.standoff_codes.contains(&"bel".to_string()));
 }
 
 /// 6.C.8. TEST CASE, NO SELF DISLODGEMENT IN DISRUPTED CIRCULAR MOVEMENT
@@ -276,22 +359,34 @@ fn test_datc_6_c_7() {
 #[test]
 fn test_datc_6_c_8() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_t_1 = Unit::new_fleet(Power::Turkey, p("con"));
-    let unit_t_2 = Unit::new_army(Power::Turkey, p("bul"));
-    let unit_t_3 = Unit::new_army(Power::Turkey, p("smy"));
-    let unit_r_1 = Unit::new_fleet(Power::Russia, p("bla"));
-    let unit_a_1 = Unit::new_army(Power::Austria, p("ser"));
-    phase.data.orders.push(unit_t_1.move_to(p("bla")));
-    phase.data.orders.push(unit_t_2.move_to(p("con")));
-    phase.data.orders.push(unit_t_3.support_move(unit_t_2, p("con")));
-    phase.data.orders.push(unit_r_1.move_to(p("bul_ec")));
-    phase.data.orders.push(unit_a_1.move_to(p("bul")));
+    let unit_t_con = Unit::new_fleet(Power::Turkey, p("con"));
+    let unit_t_bul = Unit::new_army(Power::Turkey, p("bul"));
+    let unit_t_smy = Unit::new_army(Power::Turkey, p("smy"));
+    let unit_r_bla = Unit::new_fleet(Power::Russia, p("bla"));
+    let unit_a_ser = Unit::new_army(Power::Austria, p("ser"));
+    phase.data.units.push(unit_t_con);
+    phase.data.units.push(unit_t_bul);
+    phase.data.units.push(unit_t_smy);
+    phase.data.units.push(unit_r_bla);
+    phase.data.units.push(unit_a_ser);
+    phase.data.orders.push(unit_t_con.move_to(p("bla")));
+    phase.data.orders.push(unit_t_bul.move_to(p("con")));
+    phase.data.orders.push(unit_t_smy.support_move(unit_t_bul, p("con")));
+    phase.data.orders.push(unit_r_bla.move_to(p("bul_ec")));
+    phase.data.orders.push(unit_a_ser.move_to(p("bul")));
     resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
+    assert_eq!(phase.data.units.len(), 5);
+    assert!(phase.data.units.contains(&unit_t_con));
+    assert!(phase.data.units.contains(&unit_t_bul));
+    assert!(phase.data.units.contains(&unit_t_smy));
+    assert!(phase.data.units.contains(&unit_r_bla));
+    assert!(phase.data.units.contains(&unit_a_ser));
+    assert!(phase.data.standoff_codes.contains(&"bul".to_string()));
 }
 
 /// 6.C.9. TEST CASE, NO HELP IN DISLODGEMENT OF OWN UNIT IN DISRUPTED CIRCULAR MOVEMENT
@@ -317,6 +412,11 @@ fn test_datc_6_c_9() {
     let unit_r_bla = Unit::new_fleet(Power::Russia, p("bla"));
     let unit_a_ser = Unit::new_army(Power::Austria, p("ser"));
     let unit_a_bul = Unit::new_army(Power::Austria, p("bul"));
+    phase.data.units.push(unit_t_con);
+    phase.data.units.push(unit_t_smy);
+    phase.data.units.push(unit_r_bla);
+    phase.data.units.push(unit_a_ser);
+    phase.data.units.push(unit_a_bul);
     phase.data.orders.push(unit_t_con.move_to(p("bla")));
     phase.data.orders.push(unit_t_smy.support_move(unit_a_bul, p("con")));
     phase.data.orders.push(unit_r_bla.move_to(p("bul_ec")));
@@ -328,4 +428,11 @@ fn test_datc_6_c_9() {
     assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
+    assert_eq!(phase.data.units.len(), 5);
+    assert!(phase.data.units.contains(&unit_t_con));
+    assert!(phase.data.units.contains(&unit_t_smy));
+    assert!(phase.data.units.contains(&unit_r_bla));
+    assert!(phase.data.units.contains(&unit_a_ser));
+    assert!(phase.data.units.contains(&unit_a_bul));
+    assert!(phase.data.standoff_codes.contains(&"bul".to_string()));
 }
