@@ -713,16 +713,30 @@ fn test_datc_6_h_14() {
 /// The English fleet in Portugal is destroyed and cannot retreat to Spain(nc).
 #[test]
 fn test_datc_6_h_15() {
-    let mut phase = Phase::new_spring_retreat(1901, 2);
-    let unit_e_por = Unit::new_fleet(Power::England, p("por")).dislodged_from(p("spa"));
-    let unit_f_por = Unit::new_fleet(Power::France, p("por"));
+    let mut main_phase = Phase::new_spring_main(1901, 1);
+    let mut context = PhaseContext::new();
+    let mut unit_e_por = Unit::new_fleet(Power::England, p("por"));
+    let unit_f_spa_sc = Unit::new_fleet(Power::France, p("spa_sc"));
     let unit_f_mid = Unit::new_fleet(Power::France, p("mid"));
-    phase.data.units.push(unit_e_por);
-    phase.data.units.push(unit_f_por);
-    phase.data.units.push(unit_f_mid);
-    phase.data.orders.push(unit_e_por.retreat_to(p("spa")));
-    resolve_orders_for_retreat_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    main_phase.data.units.push(unit_e_por);
+    main_phase.data.units.push(unit_f_spa_sc);
+    main_phase.data.units.push(unit_f_mid);
+    main_phase.data.orders.push(unit_e_por.hold());
+    main_phase.data.orders.push(unit_f_spa_sc.move_to(p("por")));
+    main_phase.data.orders.push(unit_f_mid.support_move(unit_f_spa_sc, p("por")));
+
+    main_phase.close(&mut context);
+    let mut retreat_phase = context.phases.pop().unwrap();
+    retreat_phase.data.orders.clear();
+    retreat_phase
+        .data
+        .orders
+        .push(unit_e_por.dislodged_from(p("spa_sc")).retreat_to(p("spa_nc")));
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
+    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(retreat_phase.data.units.len(), 2);
+    assert!(retreat_phase.data.units.contains(&Unit::new_fleet(Power::France, p("por"))));
+    assert!(retreat_phase.data.units.contains(&unit_f_mid));
 }
 
 /// 6.H.16. TEST CASE, CONTESTED FOR BOTH COASTS
@@ -740,19 +754,36 @@ fn test_datc_6_h_15() {
 /// The French fleet in the Western Mediterranean cannot retreat to Spain(sc).
 #[test]
 fn test_datc_6_h_16() {
-    let mut phase = Phase::new_spring_retreat(1901, 2);
+    let mut main_phase = Phase::new_spring_main(1901, 1);
+    let mut context = PhaseContext::new();
     let unit_f_mid = Unit::new_fleet(Power::France, p("mid"));
     let unit_f_gas = Unit::new_fleet(Power::France, p("gas"));
-    let unit_f_wes = Unit::new_fleet(Power::France, p("wes")).dislodged_from(p("tyr"));
+    let mut unit_f_wes = Unit::new_fleet(Power::France, p("wes"));
     let unit_i_tun = Unit::new_fleet(Power::Italy, p("tun"));
-    let unit_i_wes = Unit::new_fleet(Power::Italy, p("wes"));
-    phase.data.units.push(unit_f_mid);
-    phase.data.units.push(unit_f_gas);
-    phase.data.units.push(unit_f_wes);
-    phase.data.units.push(unit_i_tun);
-    phase.data.units.push(unit_i_wes);
-    phase.data.standoff_codes.push("spa".to_string());
-    phase.data.orders.push(unit_f_wes.retreat_to(p("spa_sc")));
-    resolve_orders_for_retreat_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    let unit_i_tyn = Unit::new_fleet(Power::Italy, p("tyn"));
+    main_phase.data.units.push(unit_f_mid);
+    main_phase.data.units.push(unit_f_gas);
+    main_phase.data.units.push(unit_f_wes);
+    main_phase.data.units.push(unit_i_tun);
+    main_phase.data.units.push(unit_i_tyn);
+    main_phase.data.orders.push(unit_f_mid.move_to(p("spa_nc")));
+    main_phase.data.orders.push(unit_f_gas.move_to(p("spa_nc")));
+    main_phase.data.orders.push(unit_f_wes.hold());
+    main_phase.data.orders.push(unit_i_tun.support_move(unit_i_tyn, p("wes")));
+    main_phase.data.orders.push(unit_i_tyn.move_to(p("wes")));
+
+    main_phase.close(&mut context);
+    let mut retreat_phase = context.phases.pop().unwrap();
+    retreat_phase.data.orders.clear();
+    retreat_phase
+        .data
+        .orders
+        .push(unit_f_wes.dislodged_from(p("tyn")).retreat_to(p("spa_sc")));
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
+    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(retreat_phase.data.units.len(), 4);
+    assert!(retreat_phase.data.units.contains(&unit_f_mid));
+    assert!(retreat_phase.data.units.contains(&unit_f_gas));
+    assert!(retreat_phase.data.units.contains(&unit_i_tun));
+    assert!(retreat_phase.data.units.contains(&Unit::new_fleet(Power::Italy, p("wes"))));
 }
