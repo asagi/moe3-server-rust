@@ -138,7 +138,14 @@ pub fn resolve_orders_for_adjustment_phase(current_phase: &mut Phase) {
             }
             OrderKind::Disband(_) => {
                 // 解体命令が有効な場合はユニットを削除
-                current_phase.data.units.retain(|u| u != &current_phase.data.orders[idx].unit);
+                if let Some(idx) = current_phase
+                    .data
+                    .units
+                    .iter()
+                    .position(|u| u == &current_phase.data.orders[idx].unit)
+                {
+                    current_phase.data.units.remove(idx);
+                }
             }
             _ => {}
         }
