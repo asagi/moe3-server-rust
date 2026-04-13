@@ -33,7 +33,7 @@ impl RetreatAdjudicator {
                     .unit
                     .dislodged_from
                     .as_ref()
-                    .is_some_and(|from| from.code() == dest_code)
+                    .is_some_and(|from| from.code()[..3] == dest_code[..3])
             }) {
                 orders[idx].set_invalid();
             }
