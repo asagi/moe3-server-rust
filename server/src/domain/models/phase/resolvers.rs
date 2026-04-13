@@ -67,7 +67,7 @@ pub fn resolve_orders_for_main_phase(current_phase: &mut Phase) {
             .data
             .units
             .iter_mut()
-            .find(|u| u.kind == order.unit.kind && u.province == order.unit.province)
+            .find(|u| u.power == order.unit.power && u.kind == order.unit.kind && u.province == order.unit.province)
         else {
             continue;
         };
@@ -97,7 +97,9 @@ pub fn resolve_orders_for_retreat_phase(current_phase: &mut Phase) {
             // 撤退に成功した軍の保存
             OrderKind::Retreat(r) => {
                 // 対象ユニットを削除
-                current_phase.data.units.retain(|u| u != &order.unit);
+                if let Some(idx) = current_phase.data.units.iter().position(|u| u == &order.unit) {
+                    current_phase.data.units.remove(idx);
+                }
 
                 // 撤退に成功した軍のみ再保存
                 if order.is_success() {
