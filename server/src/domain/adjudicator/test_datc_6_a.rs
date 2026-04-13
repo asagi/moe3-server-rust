@@ -108,38 +108,38 @@ fn test_datc_6_a_4() {
 ///
 /// Germany:
 ///     F London - Yorkshire
+///     A Wales Supports F London - Yorkshire
 ///
-/// A Wales Supports F London - Yorkshire
 /// The move of the army in Yorkshire is illegal.
 /// This makes the support of Liverpool also illegal and without the support,
 /// the Germans have a stronger force. The army in London dislodges the army in Yorkshire.
 #[test]
 fn test_datc_6_a_5() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_e_yor = Unit::new_army(Power::England, p("yor"));
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
+    let mut unit_e_yor = Unit::new_army(Power::England, p("yor"));
     let unit_e_lvp = Unit::new_army(Power::England, p("lvp"));
     let unit_g_lon = Unit::new_fleet(Power::Germany, p("lon"));
     let unit_g_wal = Unit::new_army(Power::Germany, p("wal"));
-    phase.data.units.push(unit_e_yor);
     phase.data.units.push(unit_e_nth);
+    phase.data.units.push(unit_e_yor);
     phase.data.units.push(unit_e_lvp);
     phase.data.units.push(unit_g_lon);
     phase.data.units.push(unit_g_wal);
-    phase.data.orders.push(unit_e_yor.move_to(p("yor")));
     phase.data.orders.push(unit_e_nth.convoy(unit_e_yor, p("yor")));
+    phase.data.orders.push(unit_e_yor.move_to(p("yor")));
     phase.data.orders.push(unit_e_lvp.support_move(unit_e_yor, p("yor")));
     phase.data.orders.push(unit_g_lon.move_to(p("yor")));
     phase.data.orders.push(unit_g_wal.support_move(unit_g_lon, p("yor")));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Dislodged);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.data.orders[1].status, OrderStatus::Dislodged);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
     assert_eq!(phase.data.units.len(), 5);
-    assert!(phase.data.units.contains(&unit_e_yor));
     assert!(phase.data.units.contains(&unit_e_nth));
+    assert!(phase.data.units.contains(&unit_e_yor.dislodged_from(p("lon"))));
     assert!(phase.data.units.contains(&unit_e_lvp));
     assert!(phase.data.units.contains(&Unit::new_fleet(Power::Germany, p("yor"))));
     assert!(phase.data.units.contains(&unit_g_wal));
@@ -212,7 +212,7 @@ fn test_datc_6_a_8() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
     let unit_i_tyr = Unit::new_army(Power::Italy, p("tyr"));
-    let unit_a_tri = Unit::new_fleet(Power::Austria, p("tri"));
+    let mut unit_a_tri = Unit::new_fleet(Power::Austria, p("tri"));
     phase.data.units.push(unit_i_ven);
     phase.data.units.push(unit_i_tyr);
     phase.data.units.push(unit_a_tri);
@@ -226,7 +226,7 @@ fn test_datc_6_a_8() {
     assert_eq!(phase.data.units.len(), 3);
     assert!(phase.data.units.contains(&Unit::new_army(Power::Italy, p("tri"))));
     assert!(phase.data.units.contains(&unit_i_tyr));
-    assert!(phase.data.units.contains(&unit_a_tri));
+    assert!(phase.data.units.contains(&unit_a_tri.dislodged_from(p("ven"))));
     assert!(phase.data.standoff_codes.is_empty());
 }
 

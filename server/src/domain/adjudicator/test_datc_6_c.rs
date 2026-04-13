@@ -214,7 +214,7 @@ fn test_datc_6_c_5() {
     let unit_a_ser = Unit::new_army(Power::Austria, p("ser"));
     let unit_t_bul = Unit::new_army(Power::Turkey, p("bul"));
     let unit_t_aeg = Unit::new_fleet(Power::Turkey, p("aeg"));
-    let unit_t_ion = Unit::new_fleet(Power::Turkey, p("ion"));
+    let mut unit_t_ion = Unit::new_fleet(Power::Turkey, p("ion"));
     let unit_t_adr = Unit::new_fleet(Power::Turkey, p("adr"));
     let unit_i_nap = Unit::new_fleet(Power::Italy, p("nap"));
     let unit_i_tun = Unit::new_fleet(Power::Italy, p("tun"));
@@ -248,7 +248,7 @@ fn test_datc_6_c_5() {
     assert!(phase.data.units.contains(&unit_a_ser));
     assert!(phase.data.units.contains(&unit_t_bul));
     assert!(phase.data.units.contains(&unit_t_aeg));
-    assert!(phase.data.units.contains(&unit_t_ion));
+    assert!(phase.data.units.contains(&unit_t_ion.dislodged_from(p("nap"))));
     assert!(phase.data.units.contains(&unit_t_adr));
     assert!(phase.data.units.contains(&Unit::new_fleet(Power::Italy, p("ion"))));
     assert!(phase.data.units.contains(&unit_i_tun));

@@ -20,6 +20,7 @@ pub struct Unit {
     pub province: Province,
     pub kind: UnitKind,
     pub dislodged_from: Option<Province>,
+    pub dislodged: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,6 +46,7 @@ impl Unit {
             province,
             kind: UnitKind::Army(Army {}),
             dislodged_from: None,
+            dislodged: false,
         }
     }
 
@@ -54,6 +56,7 @@ impl Unit {
             province,
             kind: UnitKind::Fleet(Fleet {}),
             dislodged_from: None,
+            dislodged: false,
         }
     }
 
@@ -193,11 +196,13 @@ impl Unit {
     /// ユニットがどこから撃退されたかを設定
     pub fn dislodged_from(&mut self, province: Province) -> Self {
         self.dislodged_from = Some(province);
+        self.dislodged = true;
         *self
     }
 
     pub fn dislodged_via_convoy(&mut self) -> Self {
         self.dislodged_from = None;
+        self.dislodged = true;
         *self
     }
 }

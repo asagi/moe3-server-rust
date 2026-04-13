@@ -315,6 +315,15 @@ impl MainAdjudicator {
             if handle_conflicting(orders, orders[loser_idx].location().code(), standoff_codes, true) == Some(winner_idx) {
                 orders[winner_idx].set_success();
                 orders[loser_idx].set_dislodged_by(&orders[winner_idx].clone());
+                if orders[loser_idx].via_convoy() {
+                    let blocked_code = &orders[winner_idx].location().code()[..3];
+                    for idx in orders.collect_valid_move_idxs() {
+                        if idx != loser_idx && orders[idx].dest().code()[..3] == *blocked_code {
+                            orders[idx].set_failure();
+                        }
+                    }
+                    continue;
+                }
 
                 // 海路迂回移動が絡む場合はスタンドオフの無効化はしない
                 let a_can = can_reach_via_convoy(orders, winner_idx);

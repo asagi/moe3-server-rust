@@ -6,11 +6,11 @@
 //!
 //! [DATC_6H]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.H
 
-use super::super::models::order::*;
-use super::super::models::phase::*;
-use super::super::models::power::*;
-use super::super::models::province::*;
-use super::super::models::unit::*;
+use crate::domain::models::order::*;
+use crate::domain::models::phase::*;
+use crate::domain::models::power::*;
+use crate::domain::models::province::*;
+use crate::domain::models::unit::*;
 
 fn p(code: &str) -> Province {
     Province::from_code(code).expect("valid province code")
@@ -140,16 +140,30 @@ fn test_datc_6_h_4() {
 /// Fleet in Ankara is dislodged and may not retreat to Black Sea.
 #[test]
 fn test_datc_6_h_5() {
-    let mut phase = Phase::new_spring_retreat(1901, 2);
+    let mut main_phase = Phase::new_spring_main(1901, 1);
+    let mut context = PhaseContext::new();
     let unit_r_con = Unit::new_fleet(Power::Russia, p("con"));
-    let unit_r_ank = Unit::new_fleet(Power::Russia, p("ank"));
-    let unit_t_ank = Unit::new_fleet(Power::Turkey, p("ank")).dislodged_from(p("bla"));
-    phase.data.units.push(unit_r_con);
-    phase.data.units.push(unit_r_ank);
-    phase.data.units.push(unit_t_ank);
-    phase.data.orders.push(unit_t_ank.retreat_to(p("bla")));
-    resolve_orders_for_retreat_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    let unit_r_bla = Unit::new_fleet(Power::Russia, p("bla"));
+    let mut unit_t_ank = Unit::new_fleet(Power::Turkey, p("ank"));
+    main_phase.data.units.push(unit_r_con);
+    main_phase.data.units.push(unit_r_bla);
+    main_phase.data.units.push(unit_t_ank);
+    main_phase.data.orders.push(unit_r_con.support_move(unit_r_bla, p("ank")));
+    main_phase.data.orders.push(unit_r_bla.move_to(p("ank")));
+    main_phase.data.orders.push(unit_t_ank.hold());
+
+    main_phase.close(&mut context);
+    let mut retreat_phase = context.phases.pop().unwrap();
+    retreat_phase.data.orders.clear();
+    retreat_phase
+        .data
+        .orders
+        .push(unit_t_ank.dislodged_from(p("bla")).retreat_to(p("bla")));
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
+    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(retreat_phase.data.units.len(), 2);
+    assert!(retreat_phase.data.units.contains(&unit_r_con));
+    assert!(retreat_phase.data.units.contains(&Unit::new_fleet(Power::Russia, p("ank"))));
 }
 
 /// 6.H.6. TEST CASE, UNIT MAY NOT RETREAT TO A CONTESTED AREA
@@ -169,21 +183,38 @@ fn test_datc_6_h_5() {
 /// The Italian army in Vienna is dislodged. It may not retreat to Bohemia.
 #[test]
 fn test_datc_6_h_6() {
-    let mut phase = Phase::new_spring_retreat(1901, 2);
+    let mut main_phase = Phase::new_spring_main(1901, 1);
+    let mut context = PhaseContext::new();
     let unit_a_bud = Unit::new_army(Power::Austria, p("bud"));
-    let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
+    let unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
     let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
     let unit_g_sil = Unit::new_army(Power::Germany, p("sil"));
-    let unit_i_vie = Unit::new_army(Power::Italy, p("vie")).dislodged_from(p("tri"));
-    phase.data.units.push(unit_a_bud);
-    phase.data.units.push(unit_a_vie);
-    phase.data.units.push(unit_i_vie);
-    phase.data.units.push(unit_g_mun);
-    phase.data.units.push(unit_g_sil);
-    phase.data.standoff_codes.push("boh".to_string());
-    phase.data.orders.push(unit_i_vie.retreat_to(p("boh")));
-    resolve_orders_for_retreat_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    let mut unit_i_vie = Unit::new_army(Power::Italy, p("vie"));
+    main_phase.data.units.push(unit_a_bud);
+    main_phase.data.units.push(unit_a_tri);
+    main_phase.data.units.push(unit_g_mun);
+    main_phase.data.units.push(unit_g_sil);
+    main_phase.data.units.push(unit_i_vie);
+    main_phase.data.orders.push(unit_a_bud.support_move(unit_a_tri, p("vie")));
+    main_phase.data.orders.push(unit_a_tri.move_to(p("vie")));
+    main_phase.data.orders.push(unit_g_mun.move_to(p("boh")));
+    main_phase.data.orders.push(unit_g_sil.move_to(p("boh")));
+    main_phase.data.orders.push(unit_i_vie.hold());
+
+    main_phase.close(&mut context);
+    let mut retreat_phase = context.phases.pop().unwrap();
+    retreat_phase.data.orders.clear();
+    retreat_phase
+        .data
+        .orders
+        .push(unit_i_vie.dislodged_from(p("tri")).retreat_to(p("boh")));
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
+    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(retreat_phase.data.units.len(), 4);
+    assert!(retreat_phase.data.units.contains(&unit_a_bud));
+    assert!(retreat_phase.data.units.contains(&Unit::new_army(Power::Austria, p("vie"))));
+    assert!(retreat_phase.data.units.contains(&unit_g_mun));
+    assert!(retreat_phase.data.units.contains(&unit_g_sil));
 }
 
 /// 6.H.7. TEST CASE, MULTIPLE RETREAT TO SAME AREA WILL DISBAND UNITS
@@ -210,24 +241,46 @@ fn test_datc_6_h_6() {
 /// Both armies will be disbanded.
 #[test]
 fn test_datc_6_h_7() {
-    let mut phase = Phase::new_spring_retreat(1901, 2);
-    let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
+    let mut main_phase = Phase::new_spring_main(1901, 1);
+    let mut context = PhaseContext::new();
+    let unit_a_bud = Unit::new_army(Power::Austria, p("bud"));
     let unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
     let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
-    let unit_g_boh = Unit::new_army(Power::Germany, p("boh"));
-    let unit_i_vie = Unit::new_army(Power::Italy, p("vie")).dislodged_from(p("tri"));
-    let unit_i_boh = Unit::new_army(Power::Italy, p("boh")).dislodged_from(p("sil"));
-    phase.data.units.push(unit_a_tri);
-    phase.data.units.push(unit_a_vie);
-    phase.data.units.push(unit_g_mun);
-    phase.data.units.push(unit_g_boh);
-    phase.data.units.push(unit_i_vie);
-    phase.data.units.push(unit_i_boh);
-    phase.data.orders.push(unit_i_vie.retreat_to(p("tyr")));
-    phase.data.orders.push(unit_i_boh.retreat_to(p("tyr")));
-    resolve_orders_for_retreat_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
+    let unit_g_sil = Unit::new_army(Power::Germany, p("sil"));
+    let mut unit_i_vie = Unit::new_army(Power::Italy, p("vie"));
+    let mut unit_i_boh = Unit::new_army(Power::Italy, p("boh"));
+    main_phase.data.units.push(unit_a_bud);
+    main_phase.data.units.push(unit_a_tri);
+    main_phase.data.units.push(unit_g_mun);
+    main_phase.data.units.push(unit_g_sil);
+    main_phase.data.units.push(unit_i_vie);
+    main_phase.data.units.push(unit_i_boh);
+    main_phase.data.orders.push(unit_a_bud.support_move(unit_a_tri, p("vie")));
+    main_phase.data.orders.push(unit_a_tri.move_to(p("vie")));
+    main_phase.data.orders.push(unit_g_mun.support_move(unit_g_sil, p("boh")));
+    main_phase.data.orders.push(unit_g_sil.move_to(p("boh")));
+    main_phase.data.orders.push(unit_i_vie.hold());
+    main_phase.data.orders.push(unit_i_boh.hold());
+
+    main_phase.close(&mut context);
+    let mut retreat_phase = context.phases.pop().unwrap();
+    retreat_phase.data.orders.clear();
+    retreat_phase
+        .data
+        .orders
+        .push(unit_i_vie.dislodged_from(p("tri")).retreat_to(p("tyr")));
+    retreat_phase
+        .data
+        .orders
+        .push(unit_i_boh.dislodged_from(p("sil")).retreat_to(p("tyr")));
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
+    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(retreat_phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(retreat_phase.data.units.len(), 4);
+    assert!(retreat_phase.data.units.contains(&unit_a_bud));
+    assert!(retreat_phase.data.units.contains(&Unit::new_army(Power::Austria, p("vie"))));
+    assert!(retreat_phase.data.units.contains(&unit_g_mun));
+    assert!(retreat_phase.data.units.contains(&Unit::new_army(Power::Germany, p("boh"))));
 }
 
 /// 6.H.8. TEST CASE, TRIPLE RETREAT TO SAME AREA WILL DISBAND UNITS
@@ -260,32 +313,62 @@ fn test_datc_6_h_7() {
 /// All three units are disbanded.
 #[test]
 fn test_datc_6_h_8() {
-    let mut phase = Phase::new_spring_retreat(1901, 2);
-    let unit_e_edi = Unit::new_army(Power::England, p("edi"));
+    let mut main_phase = Phase::new_spring_main(1901, 1);
+    let mut context = PhaseContext::new();
+    let unit_e_lvp = Unit::new_army(Power::England, p("lvp"));
     let unit_e_yor = Unit::new_fleet(Power::England, p("yor"));
-    let unit_e_nwy = Unit::new_fleet(Power::England, p("nwy")).dislodged_from(p("fin"));
-    let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
-    let unit_g_hol = Unit::new_fleet(Power::Germany, p("hol"));
-    let unit_r_edi = Unit::new_fleet(Power::Russia, p("edi")).dislodged_from(p("lvp"));
+    let mut unit_e_nwy = Unit::new_fleet(Power::England, p("nwy"));
+    let unit_g_kie = Unit::new_army(Power::Germany, p("kie"));
+    let unit_g_ruh = Unit::new_army(Power::Germany, p("ruh"));
+    let mut unit_r_edi = Unit::new_fleet(Power::Russia, p("edi"));
     let unit_r_swe = Unit::new_army(Power::Russia, p("swe"));
-    let unit_r_nwy = Unit::new_army(Power::Russia, p("nwy"));
-    let unit_r_hol = Unit::new_fleet(Power::Russia, p("hol")).dislodged_from(p("ruh"));
-    phase.data.units.push(unit_e_edi);
-    phase.data.units.push(unit_e_yor);
-    phase.data.units.push(unit_e_nwy);
-    phase.data.units.push(unit_g_kie);
-    phase.data.units.push(unit_g_hol);
-    phase.data.units.push(unit_r_edi);
-    phase.data.units.push(unit_r_swe);
-    phase.data.units.push(unit_r_nwy);
-    phase.data.units.push(unit_r_hol);
-    phase.data.orders.push(unit_e_nwy.retreat_to(p("nth")));
-    phase.data.orders.push(unit_r_edi.retreat_to(p("nth")));
-    phase.data.orders.push(unit_r_hol.retreat_to(p("nth")));
-    resolve_orders_for_retreat_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
-    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
+    let unit_r_fin = Unit::new_army(Power::Russia, p("fin"));
+    let mut unit_r_hol = Unit::new_fleet(Power::Russia, p("hol"));
+    main_phase.data.units.push(unit_e_lvp);
+    main_phase.data.units.push(unit_e_yor);
+    main_phase.data.units.push(unit_e_nwy);
+    main_phase.data.units.push(unit_g_kie);
+    main_phase.data.units.push(unit_g_ruh);
+    main_phase.data.units.push(unit_r_edi);
+    main_phase.data.units.push(unit_r_swe);
+    main_phase.data.units.push(unit_r_fin);
+    main_phase.data.units.push(unit_r_hol);
+    main_phase.data.orders.push(unit_e_lvp.move_to(p("edi")));
+    main_phase.data.orders.push(unit_e_yor.support_move(unit_e_lvp, p("edi")));
+    main_phase.data.orders.push(unit_e_nwy.hold());
+    main_phase.data.orders.push(unit_g_kie.support_move(unit_g_ruh, p("hol")));
+    main_phase.data.orders.push(unit_g_ruh.move_to(p("hol")));
+    main_phase.data.orders.push(unit_r_edi.hold());
+    main_phase.data.orders.push(unit_r_swe.support_move(unit_r_fin, p("nwy")));
+    main_phase.data.orders.push(unit_r_fin.move_to(p("nwy")));
+    main_phase.data.orders.push(unit_r_hol.hold());
+
+    main_phase.close(&mut context);
+    let mut retreat_phase = context.phases.pop().unwrap();
+    retreat_phase.data.orders.clear();
+    retreat_phase
+        .data
+        .orders
+        .push(unit_e_nwy.dislodged_from(p("fin")).retreat_to(p("nth")));
+    retreat_phase
+        .data
+        .orders
+        .push(unit_r_edi.dislodged_from(p("lvp")).retreat_to(p("nth")));
+    retreat_phase
+        .data
+        .orders
+        .push(unit_r_hol.dislodged_from(p("ruh")).retreat_to(p("nth")));
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
+    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Failure);
+    assert_eq!(retreat_phase.data.orders[1].status, OrderStatus::Failure);
+    assert_eq!(retreat_phase.data.orders[2].status, OrderStatus::Failure);
+    assert_eq!(retreat_phase.data.units.len(), 6);
+    assert!(retreat_phase.data.units.contains(&Unit::new_army(Power::England, p("edi"))));
+    assert!(retreat_phase.data.units.contains(&unit_e_yor));
+    assert!(retreat_phase.data.units.contains(&unit_g_kie));
+    assert!(retreat_phase.data.units.contains(&Unit::new_army(Power::Germany, p("hol"))));
+    assert!(retreat_phase.data.units.contains(&unit_r_swe));
+    assert!(retreat_phase.data.units.contains(&Unit::new_army(Power::Russia, p("nwy"))));
 }
 
 /// 6.H.9. TEST CASE, DISLODGED UNIT WILL NOT MAKE ATTACKERS AREA CONTESTED
@@ -306,24 +389,47 @@ fn test_datc_6_h_8() {
 /// The fleet in Kiel can retreat to Berlin.
 #[test]
 fn test_datc_6_h_9() {
-    let mut phase = Phase::new_spring_retreat(1901, 2);
-    let unit_e_kie = Unit::new_fleet(Power::England, p("kie"));
+    let mut main_phase = Phase::new_spring_main(1901, 1);
+    let mut context = PhaseContext::new();
+    let unit_e_hel = Unit::new_fleet(Power::England, p("hel"));
     let unit_e_den = Unit::new_fleet(Power::England, p("den"));
-    let unit_g_pru = Unit::new_army(Power::Germany, p("pru"));
-    let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie")).dislodged_from(p("hel"));
+    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
+    let mut unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
     let unit_g_sil = Unit::new_army(Power::Germany, p("sil"));
-    let unit_r_pru = Unit::new_army(Power::Russia, p("pru")).dislodged_from(p("ber"));
-    phase.data.units.push(unit_e_kie);
-    phase.data.units.push(unit_e_den);
-    phase.data.units.push(unit_g_pru);
-    phase.data.units.push(unit_g_kie);
-    phase.data.units.push(unit_g_sil);
-    phase.data.units.push(unit_r_pru);
-    phase.data.orders.push(unit_g_kie.retreat_to(p("ber")));
-    phase.data.orders.push(unit_r_pru.retreat_to(p("ber")));
-    resolve_orders_for_retreat_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+    let mut unit_r_pru = Unit::new_army(Power::Russia, p("pru"));
+    main_phase.data.units.push(unit_e_hel);
+    main_phase.data.units.push(unit_e_den);
+    main_phase.data.units.push(unit_g_ber);
+    main_phase.data.units.push(unit_g_kie);
+    main_phase.data.units.push(unit_g_sil);
+    main_phase.data.units.push(unit_r_pru);
+    main_phase.data.orders.push(unit_e_hel.move_to(p("kie")));
+    main_phase.data.orders.push(unit_e_den.support_move(unit_e_hel, p("kie")));
+    main_phase.data.orders.push(unit_g_ber.move_to(p("pru")));
+    main_phase.data.orders.push(unit_g_kie.hold());
+    main_phase.data.orders.push(unit_g_sil.support_move(unit_g_ber, p("pru")));
+    main_phase.data.orders.push(unit_r_pru.move_to(p("ber")));
+
+    main_phase.close(&mut context);
+    let mut retreat_phase = context.phases.pop().unwrap();
+    retreat_phase.data.orders.clear();
+    retreat_phase
+        .data
+        .orders
+        .push(unit_g_kie.dislodged_from(p("hel")).retreat_to(p("ber")));
+    retreat_phase
+        .data
+        .orders
+        .push(unit_r_pru.dislodged_from(p("ber")).retreat_to(p("ber")));
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
+    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(retreat_phase.data.orders[1].status, OrderStatus::Invalid);
+    assert_eq!(retreat_phase.data.units.len(), 5);
+    assert!(retreat_phase.data.units.contains(&Unit::new_fleet(Power::England, p("kie"))));
+    assert!(retreat_phase.data.units.contains(&unit_e_den));
+    assert!(retreat_phase.data.units.contains(&Unit::new_army(Power::Germany, p("pru"))));
+    assert!(retreat_phase.data.units.contains(&unit_g_sil));
+    assert!(retreat_phase.data.units.contains(&Unit::new_fleet(Power::Germany, p("ber"))));
 }
 
 /// 6.H.10. TEST CASE, NOT RETREATING TO ATTACKER DOES NOT MEAN CONTESTED
@@ -357,24 +463,47 @@ fn test_datc_6_h_9() {
 /// The German retreat to Berlin is successful and does not bounce on the English unit.
 #[test]
 fn test_datc_6_h_10() {
-    let mut phase = Phase::new_spring_retreat(1901, 2);
-    let unit_e_kie = Unit::new_army(Power::England, p("kie")).dislodged_from(p("ber"));
-    let unit_g_kie = Unit::new_army(Power::Germany, p("kie"));
+    let mut main_phase = Phase::new_spring_main(1901, 1);
+    let mut context = PhaseContext::new();
+    let mut unit_e_kie = Unit::new_army(Power::England, p("kie"));
+    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
     let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
-    let unit_g_pru = Unit::new_army(Power::Germany, p("pru")).dislodged_from(p("war"));
-    let unit_r_pru = Unit::new_army(Power::Russia, p("pru"));
+    let mut unit_g_pru = Unit::new_army(Power::Germany, p("pru"));
+    let unit_r_war = Unit::new_army(Power::Russia, p("war"));
     let unit_r_sil = Unit::new_army(Power::Russia, p("sil"));
-    phase.data.units.push(unit_e_kie);
-    phase.data.units.push(unit_g_kie);
-    phase.data.units.push(unit_g_mun);
-    phase.data.units.push(unit_g_pru);
-    phase.data.units.push(unit_r_pru);
-    phase.data.units.push(unit_r_sil);
-    phase.data.orders.push(unit_e_kie.retreat_to(p("ber")));
-    phase.data.orders.push(unit_g_pru.retreat_to(p("ber")));
-    resolve_orders_for_retreat_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
+    main_phase.data.units.push(unit_e_kie);
+    main_phase.data.units.push(unit_g_ber);
+    main_phase.data.units.push(unit_g_mun);
+    main_phase.data.units.push(unit_g_pru);
+    main_phase.data.units.push(unit_r_war);
+    main_phase.data.units.push(unit_r_sil);
+    main_phase.data.orders.push(unit_e_kie.hold());
+    main_phase.data.orders.push(unit_g_ber.move_to(p("kie")));
+    main_phase.data.orders.push(unit_g_mun.support_move(unit_g_ber, p("kie")));
+    main_phase.data.orders.push(unit_g_pru.hold());
+    main_phase.data.orders.push(unit_r_war.move_to(p("pru")));
+    main_phase.data.orders.push(unit_r_sil.support_move(unit_r_war, p("pru")));
+
+    main_phase.close(&mut context);
+    let mut retreat_phase = context.phases.pop().unwrap();
+    retreat_phase.data.orders.clear();
+    retreat_phase
+        .data
+        .orders
+        .push(unit_e_kie.dislodged_from(p("ber")).retreat_to(p("ber")));
+    retreat_phase
+        .data
+        .orders
+        .push(unit_g_pru.dislodged_from(p("war")).retreat_to(p("ber")));
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
+    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(retreat_phase.data.orders[1].status, OrderStatus::Success);
+    assert_eq!(retreat_phase.data.units.len(), 5);
+    assert!(retreat_phase.data.units.contains(&Unit::new_army(Power::Germany, p("kie"))));
+    assert!(retreat_phase.data.units.contains(&unit_g_mun));
+    assert!(retreat_phase.data.units.contains(&Unit::new_army(Power::Russia, p("pru"))));
+    assert!(retreat_phase.data.units.contains(&unit_r_sil));
+    assert!(retreat_phase.data.units.contains(&Unit::new_army(Power::Germany, p("ber"))));
 }
 
 /// 6.H.11. TEST CASE, RETREAT WHEN DISLODGED BY ADJACENT CONVOY
@@ -399,23 +528,43 @@ fn test_datc_6_h_10() {
 /// The 2023 rules explicitly allow this. So, I prefer that Marseilles may retreat to Gascony.
 #[test]
 fn test_datc_6_h_11() {
-    let mut phase = Phase::new_spring_retreat(1901, 2);
-    let unit_f_mar = Unit::new_army(Power::France, p("mar"));
+    let mut main_phase = Phase::new_spring_main(1901, 1);
+    let mut context = PhaseContext::new();
+    let unit_f_gas = Unit::new_army(Power::France, p("gas"));
     let unit_f_bur = Unit::new_army(Power::France, p("bur"));
-    let unit_f_mao = Unit::new_fleet(Power::France, p("mid"));
+    let unit_f_mid = Unit::new_fleet(Power::France, p("mid"));
     let unit_f_wes = Unit::new_fleet(Power::France, p("wes"));
-    let unit_f_lyo = Unit::new_fleet(Power::France, p("gol"));
-    let unit_i_mar = Unit::new_army(Power::Italy, p("mar")).dislodged_via_convoy();
-    phase.data.units.push(unit_f_mar);
-    phase.data.units.push(unit_f_mar);
-    phase.data.units.push(unit_f_bur);
-    phase.data.units.push(unit_f_mao);
-    phase.data.units.push(unit_f_wes);
-    phase.data.units.push(unit_f_lyo);
-    phase.data.units.push(unit_i_mar);
-    phase.data.orders.push(unit_i_mar.retreat_to(p("gas")));
-    resolve_orders_for_retreat_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    let unit_f_gol = Unit::new_fleet(Power::France, p("gol"));
+    let mut unit_i_mar = Unit::new_army(Power::Italy, p("mar"));
+    main_phase.data.units.push(unit_f_gas);
+    main_phase.data.units.push(unit_f_bur);
+    main_phase.data.units.push(unit_f_mid);
+    main_phase.data.units.push(unit_f_wes);
+    main_phase.data.units.push(unit_f_gol);
+    main_phase.data.units.push(unit_i_mar);
+    main_phase.data.orders.push(unit_f_gas.move_to(p("mar")).set_via_convoy());
+    main_phase.data.orders.push(unit_f_bur.support_move(unit_f_gas, p("mar")));
+    main_phase.data.orders.push(unit_f_mid.convoy(unit_f_gas, p("mar")));
+    main_phase.data.orders.push(unit_f_wes.convoy(unit_f_gas, p("mar")));
+    main_phase.data.orders.push(unit_f_gol.convoy(unit_f_gas, p("mar")));
+    main_phase.data.orders.push(unit_i_mar.hold());
+
+    main_phase.close(&mut context);
+    let mut retreat_phase = context.phases.pop().unwrap();
+    retreat_phase.data.orders.clear();
+    retreat_phase
+        .data
+        .orders
+        .push(unit_i_mar.dislodged_via_convoy().retreat_to(p("gas")));
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
+    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(retreat_phase.data.units.len(), 6);
+    assert!(retreat_phase.data.units.contains(&Unit::new_army(Power::France, p("mar"))));
+    assert!(retreat_phase.data.units.contains(&unit_f_bur));
+    assert!(retreat_phase.data.units.contains(&unit_f_mid));
+    assert!(retreat_phase.data.units.contains(&unit_f_wes));
+    assert!(retreat_phase.data.units.contains(&unit_f_gol));
+    assert!(retreat_phase.data.units.contains(&Unit::new_army(Power::Italy, p("gas"))));
 }
 
 /// 6.H.12. TEST CASE, RETREAT WHEN DISLODGED BY ADJACENT CONVOY WHILE TRYING TO DO THE SAME
@@ -448,30 +597,59 @@ fn test_datc_6_h_11() {
 /// explicitly allow that the army in Liverpool may retreat to Edinburgh.
 #[test]
 fn test_datc_6_h_12() {
-    let mut phase = Phase::new_spring_retreat(1901, 2);
-    let unit_e_lvp = Unit::new_army(Power::England, p("lvp")).dislodged_via_convoy();
+    let mut main_phase = Phase::new_spring_main(1901, 1);
+    let mut context = PhaseContext::new();
+    let mut unit_e_lvp = Unit::new_army(Power::England, p("lvp"));
     let unit_e_iri = Unit::new_fleet(Power::England, p("iri"));
-    let unit_e_eng = Unit::new_fleet(Power::England, p("eng")).dislodged_from(p("bre"));
+    let unit_e_eng = Unit::new_fleet(Power::England, p("eng"));
     let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
     let unit_f_bre = Unit::new_fleet(Power::France, p("bre"));
-    let unit_f_mao = Unit::new_fleet(Power::France, p("mid"));
-    let unit_r_lvp = Unit::new_army(Power::Russia, p("lvp"));
-    let unit_r_nwg = Unit::new_fleet(Power::Russia, p("nrg"));
-    let unit_r_nao = Unit::new_fleet(Power::Russia, p("nat"));
+    let unit_f_mid = Unit::new_fleet(Power::France, p("mid"));
+    let unit_r_edi = Unit::new_army(Power::Russia, p("edi"));
+    let unit_r_nrg = Unit::new_fleet(Power::Russia, p("nrg"));
+    let unit_r_nat = Unit::new_fleet(Power::Russia, p("nat"));
     let unit_r_cly = Unit::new_army(Power::Russia, p("cly"));
-    phase.data.units.push(unit_e_lvp);
-    phase.data.units.push(unit_e_iri);
-    phase.data.units.push(unit_e_eng);
-    phase.data.units.push(unit_e_nth);
-    phase.data.units.push(unit_f_bre);
-    phase.data.units.push(unit_f_mao);
-    phase.data.units.push(unit_r_lvp);
-    phase.data.units.push(unit_r_nwg);
-    phase.data.units.push(unit_r_nao);
-    phase.data.units.push(unit_r_cly);
-    phase.data.orders.push(unit_r_lvp.retreat_to(p("edi")));
-    resolve_orders_for_retreat_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
+    main_phase.data.units.push(unit_e_lvp);
+    main_phase.data.units.push(unit_e_iri);
+    main_phase.data.units.push(unit_e_eng);
+    main_phase.data.units.push(unit_e_nth);
+    main_phase.data.units.push(unit_f_bre);
+    main_phase.data.units.push(unit_f_mid);
+    main_phase.data.units.push(unit_r_edi);
+    main_phase.data.units.push(unit_r_nrg);
+    main_phase.data.units.push(unit_r_nat);
+    main_phase.data.units.push(unit_r_cly);
+    main_phase.data.orders.push(unit_e_lvp.move_to(p("edi")).set_via_convoy());
+    main_phase.data.orders.push(unit_e_iri.convoy(unit_e_lvp, p("edi")));
+    main_phase.data.orders.push(unit_e_eng.convoy(unit_e_lvp, p("edi")));
+    main_phase.data.orders.push(unit_e_nth.convoy(unit_e_lvp, p("edi")));
+    main_phase.data.orders.push(unit_f_bre.move_to(p("eng")));
+    main_phase.data.orders.push(unit_f_mid.support_move(unit_f_bre, p("eng")));
+    main_phase.data.orders.push(unit_r_edi.move_to(p("lvp")).set_via_convoy());
+    main_phase.data.orders.push(unit_r_nrg.convoy(unit_r_edi, p("lvp")));
+    main_phase.data.orders.push(unit_r_nat.convoy(unit_r_edi, p("lvp")));
+    main_phase.data.orders.push(unit_r_cly.support_move(unit_r_edi, p("lvp")));
+
+    main_phase.close(&mut context);
+    let mut retreat_phase = context.phases.pop().unwrap();
+    retreat_phase.data.orders.clear();
+    retreat_phase
+        .data
+        .orders
+        .push(unit_e_lvp.dislodged_via_convoy().retreat_to(p("edi")));
+    retreat_phase.data.orders.push(unit_e_eng.disband());
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
+    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Success);
+    assert_eq!(retreat_phase.data.units.len(), 10);
+    assert!(retreat_phase.data.units.contains(&Unit::new_army(Power::England, p("edi"))));
+    assert!(retreat_phase.data.units.contains(&unit_e_iri));
+    assert!(retreat_phase.data.units.contains(&unit_e_nth));
+    assert!(retreat_phase.data.units.contains(&Unit::new_fleet(Power::France, p("eng"))));
+    assert!(retreat_phase.data.units.contains(&unit_f_mid));
+    assert!(retreat_phase.data.units.contains(&Unit::new_army(Power::Russia, p("lvp"))));
+    assert!(retreat_phase.data.units.contains(&unit_r_nrg));
+    assert!(retreat_phase.data.units.contains(&unit_r_nat));
+    assert!(retreat_phase.data.units.contains(&unit_r_cly));
 }
 
 /// 6.H.13. TEST CASE, NO RETREAT WITH CONVOY IN MOVEMENT PHASE
@@ -538,10 +716,10 @@ fn test_datc_6_h_15() {
     let mut phase = Phase::new_spring_retreat(1901, 2);
     let unit_e_por = Unit::new_fleet(Power::England, p("por")).dislodged_from(p("spa"));
     let unit_f_por = Unit::new_fleet(Power::France, p("por"));
-    let unit_f_mao = Unit::new_fleet(Power::France, p("mid"));
+    let unit_f_mid = Unit::new_fleet(Power::France, p("mid"));
     phase.data.units.push(unit_e_por);
     phase.data.units.push(unit_f_por);
-    phase.data.units.push(unit_f_mao);
+    phase.data.units.push(unit_f_mid);
     phase.data.orders.push(unit_e_por.retreat_to(p("spa")));
     resolve_orders_for_retreat_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
@@ -563,12 +741,12 @@ fn test_datc_6_h_15() {
 #[test]
 fn test_datc_6_h_16() {
     let mut phase = Phase::new_spring_retreat(1901, 2);
-    let unit_f_mao = Unit::new_fleet(Power::France, p("mid"));
+    let unit_f_mid = Unit::new_fleet(Power::France, p("mid"));
     let unit_f_gas = Unit::new_fleet(Power::France, p("gas"));
     let unit_f_wes = Unit::new_fleet(Power::France, p("wes")).dislodged_from(p("tyr"));
     let unit_i_tun = Unit::new_fleet(Power::Italy, p("tun"));
     let unit_i_wes = Unit::new_fleet(Power::Italy, p("wes"));
-    phase.data.units.push(unit_f_mao);
+    phase.data.units.push(unit_f_mid);
     phase.data.units.push(unit_f_gas);
     phase.data.units.push(unit_f_wes);
     phase.data.units.push(unit_i_tun);
