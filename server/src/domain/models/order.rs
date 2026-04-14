@@ -412,14 +412,13 @@ impl fmt::Display for Order {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn p(code: &str) -> Province {
-        Province::from_code(code).expect("valid province code")
-    }
+    use crate::domain::tests::a;
+    use crate::domain::tests::f;
+    use crate::domain::tests::p;
 
     #[test]
     fn test_order_creation() {
-        let unit = Unit::new_army(Power::England, p("lon"));
+        let unit = a("e", "lon");
         let order = Order::new_move(Power::England, unit, p("lon"));
         assert_eq!(order.unit, unit);
         assert_eq!(order.power, Power::England);
@@ -427,14 +426,14 @@ mod tests {
 
     #[test]
     fn test_hold_creation() {
-        let unit = Unit::new_fleet(Power::England, p("lon"));
+        let unit = f("e", "lon");
         let order = Order::new_hold(Power::Austria, unit);
         assert_eq!(order.unit, unit);
     }
 
     #[test]
     fn test_display_hold() {
-        let unit = Unit::new_army(Power::Austria, p("vie"));
+        let unit = a("a", "vie");
         let order = Order::new_hold(Power::Austria, unit);
 
         assert_eq!(order.to_string(), "A Vie Holds");
@@ -442,7 +441,7 @@ mod tests {
 
     #[test]
     fn test_display_move() {
-        let unit = Unit::new_army(Power::England, p("lon"));
+        let unit = a("e", "lon");
         let order = Order::new_move(Power::England, unit, p("wal"));
 
         assert_eq!(order.to_string(), "A Lon - Wal");
@@ -450,24 +449,24 @@ mod tests {
 
     #[test]
     fn test_display_support_hold() {
-        let unit = Unit::new_army(Power::Germany, p("ber"));
-        let target_unit = Unit::new_army(Power::Germany, p("sil"));
+        let unit = a("g", "ber");
+        let target_unit = a("g", "sil");
         let order = Order::new_support(Power::Germany, unit, target_unit, None);
         assert_eq!(order.to_string(), "A Ber S A Sil");
     }
 
     #[test]
     fn test_display_support_move() {
-        let unit = Unit::new_fleet(Power::France, p("gol"));
-        let target_unit = Unit::new_fleet(Power::France, p("tyn"));
+        let unit = f("f", "gol");
+        let target_unit = f("f", "tyn");
         let order = Order::new_support(Power::France, unit, target_unit, Some(p("nap")));
         assert_eq!(order.to_string(), "F GoL S F Tyn - Nap");
     }
 
     #[test]
     fn test_display_convoy() {
-        let unit = Unit::new_fleet(Power::England, p("nth"));
-        let target_unit = Unit::new_army(Power::England, p("lon"));
+        let unit = f("e", "nth");
+        let target_unit = a("e", "lon");
         let order = Order::new_convoy(Power::England, unit, target_unit, p("bel"));
         assert_eq!(order.to_string(), "F Nth C A Lon - Bel");
     }

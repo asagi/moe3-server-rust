@@ -209,19 +209,16 @@ impl Unit {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    fn p(code: &str) -> Province {
-        Province::from_code(code).expect("valid province code")
-    }
+    use crate::domain::tests::a;
+    use crate::domain::tests::f;
 
     #[test]
     fn test_unit_creation() {
-        let army = Unit::new_army(Power::France, p("par"));
+        let army = a("f", "par");
         assert_eq!(army.symbol(), "A");
         assert_eq!(army.label(), "A Par");
 
-        let fleet = Unit::new_fleet(Power::England, p("lon"));
+        let fleet = f("e", "lon");
         assert_eq!(fleet.symbol(), "F");
         assert_eq!(fleet.label(), "F Lon");
     }

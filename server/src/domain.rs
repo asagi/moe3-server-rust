@@ -2,6 +2,9 @@ pub mod adjudicator;
 pub mod helper;
 pub mod models;
 
+#[cfg(test)]
+pub mod tests;
+
 pub type OrderId = i64;
 pub type PhaseId = i64;
 pub type UserId = i64;

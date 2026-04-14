@@ -9,13 +9,9 @@
 use crate::domain::models::order::*;
 use crate::domain::models::phase::*;
 use crate::domain::models::power::*;
-use crate::domain::models::province::*;
 use crate::domain::models::territory::*;
-use crate::domain::models::unit::*;
-
-fn p(code: &str) -> Province {
-    Province::from_code(code).expect("valid province code")
-}
+use crate::domain::tests::a;
+use crate::domain::tests::f;
 
 /// 6.I.1. TEST CASE, TOO MANY BUILD ORDERS
 /// Check how program reacts when someone orders too many builds.
@@ -36,10 +32,10 @@ fn test_datc_6_i_1() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Germany, "kie"));
     phase.data.territories.push(Territory::new(Power::Germany, "mun"));
-    phase.data.units.push(Unit::new_army(Power::Germany, p("ber")));
-    let unit_g_war = Unit::new_army(Power::Germany, p("war"));
-    let unit_g_kie = Unit::new_army(Power::Germany, p("kie"));
-    let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
+    phase.data.units.push(a("g", "ber"));
+    let unit_g_war = a("g", "war");
+    let unit_g_kie = a("g", "kie");
+    let unit_g_mun = a("g", "mun");
     phase.data.orders.push(unit_g_war.build());
     phase.data.orders.push(unit_g_kie.build());
     phase.data.orders.push(unit_g_mun.build());
@@ -63,7 +59,7 @@ fn test_datc_6_i_1() {
 fn test_datc_6_i_2() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Russia, "mos"));
-    let unit_r_mos = Unit::new_fleet(Power::Russia, p("mos"));
+    let unit_r_mos = f("r", "mos");
     phase.data.orders.push(unit_r_mos.build());
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
@@ -83,8 +79,8 @@ fn test_datc_6_i_2() {
 fn test_datc_6_i_3() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Germany, "ber"));
-    phase.data.units.push(Unit::new_army(Power::Germany, p("ber")));
-    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
+    phase.data.units.push(a("g", "ber"));
+    let unit_g_ber = a("g", "ber");
     phase.data.orders.push(unit_g_ber.build());
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
@@ -103,8 +99,8 @@ fn test_datc_6_i_3() {
 fn test_datc_6_i_4() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Russia, "stp"));
-    phase.data.units.push(Unit::new_fleet(Power::Russia, p("stp_sc")));
-    let unit_r_stp_nc = Unit::new_army(Power::Russia, p("stp_nc"));
+    phase.data.units.push(f("r", "stp_sc"));
+    let unit_r_stp_nc = a("r", "stp_nc");
     phase.data.orders.push(unit_r_stp_nc.build());
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
@@ -126,7 +122,7 @@ fn test_datc_6_i_5() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Russia, "ber"));
     phase.data.territories.push(Territory::new(Power::Germany, "bel"));
-    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
+    let unit_g_ber = a("g", "ber");
     phase.data.orders.push(unit_g_ber.build());
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
@@ -146,7 +142,7 @@ fn test_datc_6_i_5() {
 fn test_datc_6_i_6() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Germany, "war"));
-    let unit_g_war = Unit::new_army(Power::Germany, p("war"));
+    let unit_g_war = a("g", "war");
     phase.data.orders.push(unit_g_war.build());
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
@@ -166,8 +162,8 @@ fn test_datc_6_i_6() {
 fn test_datc_6_i_7() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Russia, "mos"));
-    let unit_r_mos_1 = Unit::new_army(Power::Russia, p("mos"));
-    let unit_r_mos_2 = Unit::new_army(Power::Russia, p("mos"));
+    let unit_r_mos_1 = a("r", "mos");
+    let unit_r_mos_2 = a("r", "mos");
     phase.data.orders.push(unit_r_mos_1.build());
     phase.data.orders.push(unit_r_mos_2.build());
     resolve_orders_for_adjustment_phase(phase);
