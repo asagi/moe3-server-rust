@@ -8,13 +8,9 @@
 
 use crate::domain::models::order::*;
 use crate::domain::models::phase::*;
-use crate::domain::models::power::*;
-use crate::domain::models::province::*;
-use crate::domain::models::unit::*;
-
-fn p(code: &str) -> Province {
-    Province::from_code(code).expect("valid province code")
-}
+use crate::domain::tests::a;
+use crate::domain::tests::f;
+use crate::domain::tests::p;
 
 /// 6.D.1. TEST CASE, SUPPORTED HOLD CAN PREVENT DISLODGEMENT
 /// The simplest support to hold order.
@@ -32,10 +28,10 @@ fn p(code: &str) -> Province {
 #[test]
 fn test_datc_6_d_1() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_a_adr = Unit::new_fleet(Power::Austria, p("adr"));
-    let unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
-    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
-    let unit_i_tyr = Unit::new_army(Power::Italy, p("tyr"));
+    let unit_a_adr = f("a", "adr");
+    let unit_a_tri = a("a", "tri");
+    let unit_i_ven = a("i", "ven");
+    let unit_i_tyr = a("i", "tyr");
     phase.data.units.push(unit_a_adr);
     phase.data.units.push(unit_a_tri);
     phase.data.units.push(unit_i_ven);
@@ -74,11 +70,11 @@ fn test_datc_6_d_1() {
 #[test]
 fn test_datc_6_d_2() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_a_adr = Unit::new_fleet(Power::Austria, p("adr"));
-    let unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
-    let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
-    let mut unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
-    let unit_i_tyr = Unit::new_army(Power::Italy, p("tyr"));
+    let unit_a_adr = f("a", "adr");
+    let unit_a_tri = a("a", "tri");
+    let unit_a_vie = a("a", "vie");
+    let mut unit_i_ven = a("i", "ven");
+    let unit_i_tyr = a("i", "tyr");
     phase.data.units.push(unit_a_adr);
     phase.data.units.push(unit_a_tri);
     phase.data.units.push(unit_a_vie);
@@ -97,7 +93,7 @@ fn test_datc_6_d_2() {
     assert_eq!(phase.data.orders[4].status, OrderStatus::Cut);
     assert_eq!(phase.data.units.len(), 5);
     assert!(phase.data.units.contains(&unit_a_adr));
-    assert!(phase.data.units.contains(&Unit::new_army(Power::Austria, p("ven"))));
+    assert!(phase.data.units.contains(&a("a", "ven")));
     assert!(phase.data.units.contains(&unit_a_vie));
     assert!(phase.data.units.contains(&unit_i_ven.dislodged_from(p("tri"))));
     assert!(phase.data.units.contains(&unit_i_tyr));
@@ -120,10 +116,10 @@ fn test_datc_6_d_2() {
 #[test]
 fn test_datc_6_d_3() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_a_adr = Unit::new_fleet(Power::Austria, p("adr"));
-    let unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
-    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
-    let unit_i_ion = Unit::new_fleet(Power::Italy, p("ion"));
+    let unit_a_adr = f("a", "adr");
+    let unit_a_tri = a("a", "tri");
+    let unit_i_ven = a("i", "ven");
+    let unit_i_ion = f("i", "ion");
     phase.data.units.push(unit_a_adr);
     phase.data.units.push(unit_a_tri);
     phase.data.units.push(unit_i_ven);
@@ -140,7 +136,7 @@ fn test_datc_6_d_3() {
     assert_eq!(phase.data.units.len(), 4);
     assert!(phase.data.units.contains(&unit_a_adr));
     assert!(phase.data.units.contains(&unit_a_tri));
-    assert!(phase.data.units.contains(&Unit::new_army(Power::Italy, p("ven"))));
+    assert!(phase.data.units.contains(&a("i", "ven")));
     assert!(phase.data.units.contains(&unit_i_ion));
     assert!(phase.data.standoff_codes.is_empty());
 }
@@ -160,10 +156,10 @@ fn test_datc_6_d_3() {
 #[test]
 fn test_datc_6_d_4() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
-    let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
-    let unit_r_bal = Unit::new_fleet(Power::Russia, p("bal"));
-    let unit_r_pru = Unit::new_army(Power::Russia, p("pru"));
+    let unit_g_ber = a("g", "ber");
+    let unit_g_kie = f("g", "kie");
+    let unit_r_bal = f("r", "bal");
+    let unit_r_pru = a("r", "pru");
     phase.data.units.push(unit_g_ber);
     phase.data.units.push(unit_g_kie);
     phase.data.units.push(unit_r_bal);
@@ -201,11 +197,11 @@ fn test_datc_6_d_4() {
 #[test]
 fn test_datc_6_d_5() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
-    let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
-    let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
-    let unit_r_bal = Unit::new_fleet(Power::Russia, p("bal"));
-    let unit_r_pru = Unit::new_army(Power::Russia, p("pru"));
+    let unit_g_ber = a("g", "ber");
+    let unit_g_kie = f("g", "kie");
+    let unit_g_mun = a("g", "mun");
+    let unit_r_bal = f("r", "bal");
+    let unit_r_pru = a("r", "pru");
     phase.data.units.push(unit_g_ber);
     phase.data.units.push(unit_g_kie);
     phase.data.units.push(unit_g_mun);
@@ -225,7 +221,7 @@ fn test_datc_6_d_5() {
     assert_eq!(phase.data.units.len(), 5);
     assert!(phase.data.units.contains(&unit_g_ber));
     assert!(phase.data.units.contains(&unit_g_kie));
-    assert!(phase.data.units.contains(&Unit::new_army(Power::Germany, p("sil"))));
+    assert!(phase.data.units.contains(&a("g", "sil")));
     assert!(phase.data.units.contains(&unit_r_bal));
     assert!(phase.data.units.contains(&unit_r_pru));
     assert!(phase.data.standoff_codes.is_empty());
@@ -247,11 +243,11 @@ fn test_datc_6_d_5() {
 #[test]
 fn test_datc_6_d_6() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
-    let unit_g_bal = Unit::new_fleet(Power::Germany, p("bal"));
-    let unit_g_pru = Unit::new_fleet(Power::Germany, p("pru"));
-    let unit_r_lvn = Unit::new_fleet(Power::Russia, p("lvn"));
-    let unit_r_bot = Unit::new_fleet(Power::Russia, p("bot"));
+    let unit_g_ber = a("g", "ber");
+    let unit_g_bal = f("g", "bal");
+    let unit_g_pru = f("g", "pru");
+    let unit_r_lvn = f("r", "lvn");
+    let unit_r_bot = f("r", "bot");
     phase.data.units.push(unit_g_ber);
     phase.data.units.push(unit_g_bal);
     phase.data.units.push(unit_g_pru);
@@ -269,7 +265,7 @@ fn test_datc_6_d_6() {
     assert_eq!(phase.data.orders[3].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
     assert_eq!(phase.data.units.len(), 5);
-    assert!(phase.data.units.contains(&Unit::new_army(Power::Germany, p("swe"))));
+    assert!(phase.data.units.contains(&a("g", "swe")));
     assert!(phase.data.units.contains(&unit_g_bal));
     assert!(phase.data.units.contains(&unit_g_pru));
     assert!(phase.data.units.contains(&unit_r_lvn));
@@ -295,11 +291,11 @@ fn test_datc_6_d_6() {
 #[test]
 fn test_datc_6_d_7() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let mut unit_g_bal = Unit::new_fleet(Power::Germany, p("bal"));
-    let unit_g_pru = Unit::new_fleet(Power::Germany, p("pru"));
-    let unit_r_lvn = Unit::new_fleet(Power::Russia, p("lvn"));
-    let unit_r_bot = Unit::new_fleet(Power::Russia, p("bot"));
-    let unit_r_fin = Unit::new_army(Power::Russia, p("fin"));
+    let mut unit_g_bal = f("g", "bal");
+    let unit_g_pru = f("g", "pru");
+    let unit_r_lvn = f("r", "lvn");
+    let unit_r_bot = f("r", "bot");
+    let unit_r_fin = a("r", "fin");
     phase.data.units.push(unit_g_bal);
     phase.data.units.push(unit_g_pru);
     phase.data.units.push(unit_r_lvn);
@@ -319,7 +315,7 @@ fn test_datc_6_d_7() {
     assert_eq!(phase.data.units.len(), 5);
     assert!(phase.data.units.contains(&unit_g_bal.dislodged_from(p("lvn"))));
     assert!(phase.data.units.contains(&unit_g_pru));
-    assert!(phase.data.units.contains(&Unit::new_fleet(Power::Russia, p("bal"))));
+    assert!(phase.data.units.contains(&f("r", "bal")));
     assert!(phase.data.units.contains(&unit_r_bot));
     assert!(phase.data.units.contains(&unit_r_fin));
     assert!(phase.data.standoff_codes.contains(&"swe".to_string()));
@@ -345,11 +341,11 @@ fn test_datc_6_d_7() {
 #[test]
 fn test_datc_6_d_8() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_a_ion = Unit::new_fleet(Power::Austria, p("ion"));
-    let unit_a_ser = Unit::new_army(Power::Austria, p("ser"));
-    let unit_a_alb = Unit::new_army(Power::Austria, p("alb"));
-    let mut unit_t_gre = Unit::new_army(Power::Turkey, p("gre"));
-    let unit_t_bul = Unit::new_army(Power::Turkey, p("bul"));
+    let unit_a_ion = f("a", "ion");
+    let unit_a_ser = a("a", "ser");
+    let unit_a_alb = a("a", "alb");
+    let mut unit_t_gre = a("t", "gre");
+    let unit_t_bul = a("t", "bul");
     phase.data.units.push(unit_a_ion);
     phase.data.units.push(unit_a_ser);
     phase.data.units.push(unit_a_alb);
@@ -369,7 +365,7 @@ fn test_datc_6_d_8() {
     assert_eq!(phase.data.units.len(), 5);
     assert!(phase.data.units.contains(&unit_a_ion));
     assert!(phase.data.units.contains(&unit_a_ser));
-    assert!(phase.data.units.contains(&Unit::new_army(Power::Austria, p("gre"))));
+    assert!(phase.data.units.contains(&a("a", "gre")));
     assert!(phase.data.units.contains(&unit_t_gre.dislodged_from(p("alb"))));
     assert!(phase.data.units.contains(&unit_t_bul));
     assert!(phase.data.standoff_codes.is_empty());
@@ -390,10 +386,10 @@ fn test_datc_6_d_8() {
 #[test]
 fn test_datc_6_d_9() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
-    let unit_i_tyr = Unit::new_army(Power::Italy, p("tyr"));
-    let unit_a_alb = Unit::new_army(Power::Austria, p("alb"));
-    let mut unit_a_tri = Unit::new_army(Power::Austria, p("tri"));
+    let unit_i_ven = a("i", "ven");
+    let unit_i_tyr = a("i", "tyr");
+    let unit_a_alb = a("a", "alb");
+    let mut unit_a_tri = a("a", "tri");
     phase.data.units.push(unit_i_ven);
     phase.data.units.push(unit_i_tyr);
     phase.data.units.push(unit_a_alb);
@@ -408,7 +404,7 @@ fn test_datc_6_d_9() {
     assert_eq!(phase.data.orders[2].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
     assert_eq!(phase.data.units.len(), 4);
-    assert!(phase.data.units.contains(&Unit::new_army(Power::Italy, p("tri"))));
+    assert!(phase.data.units.contains(&a("i", "tri")));
     assert!(phase.data.units.contains(&unit_i_tyr));
     assert!(phase.data.units.contains(&unit_a_alb));
     assert!(phase.data.units.contains(&unit_a_tri.dislodged_from(p("ven"))));
@@ -427,9 +423,9 @@ fn test_datc_6_d_9() {
 #[test]
 fn test_datc_6_d_10() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
-    let unit_g_kie = Unit::new_army(Power::Germany, p("kie"));
-    let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
+    let unit_g_ber = a("g", "ber");
+    let unit_g_kie = a("g", "kie");
+    let unit_g_mun = a("g", "mun");
     phase.data.units.push(unit_g_ber);
     phase.data.units.push(unit_g_kie);
     phase.data.units.push(unit_g_mun);
@@ -462,10 +458,10 @@ fn test_datc_6_d_10() {
 #[test]
 fn test_datc_6_d_11() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
-    let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
-    let unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
-    let unit_r_war = Unit::new_army(Power::Russia, p("war"));
+    let unit_g_ber = a("g", "ber");
+    let unit_g_kie = f("g", "kie");
+    let unit_g_mun = a("g", "mun");
+    let unit_r_war = a("r", "war");
     phase.data.units.push(unit_g_ber);
     phase.data.units.push(unit_g_kie);
     phase.data.units.push(unit_g_mun);
@@ -501,9 +497,9 @@ fn test_datc_6_d_11() {
 #[test]
 fn test_datc_6_d_12() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_a_tri = Unit::new_fleet(Power::Austria, p("tri"));
-    let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
-    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
+    let unit_a_tri = f("a", "tri");
+    let unit_a_vie = a("a", "vie");
+    let unit_i_ven = a("i", "ven");
     phase.data.units.push(unit_a_tri);
     phase.data.units.push(unit_a_vie);
     phase.data.units.push(unit_i_ven);
@@ -536,10 +532,10 @@ fn test_datc_6_d_12() {
 #[test]
 fn test_datc_6_d_13() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_a_tri = Unit::new_fleet(Power::Austria, p("tri"));
-    let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
-    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
-    let unit_i_apu = Unit::new_fleet(Power::Italy, p("apu"));
+    let unit_a_tri = f("a", "tri");
+    let unit_a_vie = a("a", "vie");
+    let unit_i_ven = a("i", "ven");
+    let unit_i_apu = f("i", "apu");
     phase.data.units.push(unit_a_tri);
     phase.data.units.push(unit_a_vie);
     phase.data.units.push(unit_i_ven);
@@ -578,11 +574,11 @@ fn test_datc_6_d_13() {
 #[test]
 fn test_datc_6_d_14() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let mut unit_a_tri = Unit::new_fleet(Power::Austria, p("tri"));
-    let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
-    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
-    let unit_i_tyr = Unit::new_army(Power::Italy, p("tyr"));
-    let unit_i_adr = Unit::new_fleet(Power::Italy, p("adr"));
+    let mut unit_a_tri = f("a", "tri");
+    let unit_a_vie = a("a", "vie");
+    let unit_i_ven = a("i", "ven");
+    let unit_i_tyr = a("i", "tyr");
+    let unit_i_adr = f("i", "adr");
     phase.data.units.push(unit_a_tri);
     phase.data.units.push(unit_a_vie);
     phase.data.units.push(unit_i_ven);
@@ -602,7 +598,7 @@ fn test_datc_6_d_14() {
     assert_eq!(phase.data.units.len(), 5);
     assert!(phase.data.units.contains(&unit_a_tri.dislodged_from(p("ven"))));
     assert!(phase.data.units.contains(&unit_a_vie));
-    assert!(phase.data.units.contains(&Unit::new_army(Power::Italy, p("tri"))));
+    assert!(phase.data.units.contains(&a("i", "tri")));
     assert!(phase.data.units.contains(&unit_i_tyr));
     assert!(phase.data.units.contains(&unit_i_adr));
     assert!(phase.data.standoff_codes.is_empty());
@@ -624,9 +620,9 @@ fn test_datc_6_d_14() {
 #[test]
 fn test_datc_6_d_15() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_r_con = Unit::new_fleet(Power::Russia, p("con"));
-    let unit_r_bla = Unit::new_fleet(Power::Russia, p("bla"));
-    let mut unit_t_ank = Unit::new_fleet(Power::Turkey, p("ank"));
+    let unit_r_con = f("r", "con");
+    let unit_r_bla = f("r", "bla");
+    let mut unit_t_ank = f("t", "ank");
     phase.data.units.push(unit_r_con);
     phase.data.units.push(unit_r_bla);
     phase.data.units.push(unit_t_ank);
@@ -639,7 +635,7 @@ fn test_datc_6_d_15() {
     assert_eq!(phase.data.orders[2].status, OrderStatus::Dislodged);
     assert_eq!(phase.data.units.len(), 3);
     assert!(phase.data.units.contains(&unit_r_con));
-    assert!(phase.data.units.contains(&Unit::new_fleet(Power::Russia, p("ank"))));
+    assert!(phase.data.units.contains(&f("r", "ank")));
     assert!(phase.data.units.contains(&unit_t_ank.dislodged_from(p("bla"))));
     assert!(phase.data.standoff_codes.is_empty());
 }
@@ -659,10 +655,10 @@ fn test_datc_6_d_15() {
 #[test]
 fn test_datc_6_d_16() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let mut unit_e_lon = Unit::new_army(Power::England, p("lon"));
-    let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
-    let unit_f_eng = Unit::new_fleet(Power::France, p("eng"));
-    let unit_f_bel = Unit::new_army(Power::France, p("bel"));
+    let mut unit_e_lon = a("e", "lon");
+    let unit_e_nth = f("e", "nth");
+    let unit_f_eng = f("f", "eng");
+    let unit_f_bel = a("f", "bel");
     phase.data.units.push(unit_e_lon);
     phase.data.units.push(unit_e_nth);
     phase.data.units.push(unit_f_eng);
@@ -680,7 +676,7 @@ fn test_datc_6_d_16() {
     assert!(phase.data.units.contains(&unit_e_lon.dislodged_from(p("bel"))));
     assert!(phase.data.units.contains(&unit_e_nth));
     assert!(phase.data.units.contains(&unit_f_eng));
-    assert!(phase.data.units.contains(&Unit::new_army(Power::France, p("lon"))));
+    assert!(phase.data.units.contains(&a("f", "lon")));
     assert!(phase.data.standoff_codes.is_empty());
 }
 
@@ -702,11 +698,11 @@ fn test_datc_6_d_16() {
 #[test]
 fn test_datc_6_d_17() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let mut unit_r_con = Unit::new_fleet(Power::Russia, p("con"));
-    let unit_r_bla = Unit::new_fleet(Power::Russia, p("bla"));
-    let unit_t_ank = Unit::new_fleet(Power::Turkey, p("ank"));
-    let unit_t_smy = Unit::new_army(Power::Turkey, p("smy"));
-    let unit_t_arm = Unit::new_army(Power::Turkey, p("arm"));
+    let mut unit_r_con = f("r", "con");
+    let unit_r_bla = f("r", "bla");
+    let unit_t_ank = f("t", "ank");
+    let unit_t_smy = a("t", "smy");
+    let unit_t_arm = a("t", "arm");
     phase.data.units.push(unit_r_con);
     phase.data.units.push(unit_r_bla);
     phase.data.units.push(unit_t_ank);
@@ -726,7 +722,7 @@ fn test_datc_6_d_17() {
     assert_eq!(phase.data.units.len(), 5);
     assert!(phase.data.units.contains(&unit_r_con.dislodged_from(p("ank"))));
     assert!(phase.data.units.contains(&unit_r_bla));
-    assert!(phase.data.units.contains(&Unit::new_fleet(Power::Turkey, p("con"))));
+    assert!(phase.data.units.contains(&f("t", "con")));
     assert!(phase.data.units.contains(&unit_t_smy));
     assert!(phase.data.units.contains(&unit_t_arm));
     assert!(phase.data.standoff_codes.contains(&"ank".to_string()));
@@ -749,12 +745,12 @@ fn test_datc_6_d_17() {
 #[test]
 fn test_datc_6_d_18() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_r_con = Unit::new_fleet(Power::Russia, p("con"));
-    let unit_r_bla = Unit::new_fleet(Power::Russia, p("bla"));
-    let unit_r_bul = Unit::new_army(Power::Russia, p("bul"));
-    let mut unit_t_ank = Unit::new_fleet(Power::Turkey, p("ank"));
-    let unit_t_smy = Unit::new_army(Power::Turkey, p("smy"));
-    let unit_t_arm = Unit::new_army(Power::Turkey, p("arm"));
+    let unit_r_con = f("r", "con");
+    let unit_r_bla = f("r", "bla");
+    let unit_r_bul = a("r", "bul");
+    let mut unit_t_ank = f("t", "ank");
+    let unit_t_smy = a("t", "smy");
+    let unit_t_arm = a("t", "arm");
     phase.data.units.push(unit_r_con);
     phase.data.units.push(unit_r_bla);
     phase.data.units.push(unit_r_bul);
@@ -776,7 +772,7 @@ fn test_datc_6_d_18() {
     assert_eq!(phase.data.orders[5].status, OrderStatus::Failure);
     assert_eq!(phase.data.units.len(), 6);
     assert!(phase.data.units.contains(&unit_r_con));
-    assert!(phase.data.units.contains(&Unit::new_fleet(Power::Russia, p("ank"))));
+    assert!(phase.data.units.contains(&f("r", "ank")));
     assert!(phase.data.units.contains(&unit_r_bul));
     assert!(phase.data.units.contains(&unit_t_ank.dislodged_from(p("bla"))));
     assert!(phase.data.units.contains(&unit_t_smy));
@@ -801,10 +797,10 @@ fn test_datc_6_d_18() {
 #[test]
 fn test_datc_6_d_19() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_r_con = Unit::new_fleet(Power::Russia, p("con"));
-    let unit_r_bla = Unit::new_fleet(Power::Russia, p("bla"));
-    let unit_r_smy = Unit::new_army(Power::Russia, p("smy"));
-    let mut unit_t_ank = Unit::new_fleet(Power::Turkey, p("ank"));
+    let unit_r_con = f("r", "con");
+    let unit_r_bla = f("r", "bla");
+    let unit_r_smy = a("r", "smy");
+    let mut unit_t_ank = f("t", "ank");
     phase.data.units.push(unit_r_con);
     phase.data.units.push(unit_r_bla);
     phase.data.units.push(unit_r_smy);
@@ -820,7 +816,7 @@ fn test_datc_6_d_19() {
     assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
     assert_eq!(phase.data.units.len(), 4);
     assert!(phase.data.units.contains(&unit_r_con));
-    assert!(phase.data.units.contains(&Unit::new_fleet(Power::Russia, p("ank"))));
+    assert!(phase.data.units.contains(&f("r", "ank")));
     assert!(phase.data.units.contains(&unit_r_smy));
     assert!(phase.data.units.contains(&unit_t_ank.dislodged_from(p("bla"))));
     assert!(phase.data.standoff_codes.is_empty());
@@ -844,10 +840,10 @@ fn test_datc_6_d_19() {
 #[test]
 fn test_datc_6_d_20() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_e_lon = Unit::new_fleet(Power::England, p("lon"));
-    let unit_e_nth = Unit::new_fleet(Power::England, p("nth"));
-    let unit_e_yor = Unit::new_army(Power::England, p("yor"));
-    let mut unit_f_eng = Unit::new_fleet(Power::France, p("eng"));
+    let unit_e_lon = f("e", "lon");
+    let unit_e_nth = f("e", "nth");
+    let unit_e_yor = a("e", "yor");
+    let mut unit_f_eng = f("f", "eng");
     phase.data.units.push(unit_e_lon);
     phase.data.units.push(unit_e_nth);
     phase.data.units.push(unit_e_yor);
@@ -863,7 +859,7 @@ fn test_datc_6_d_20() {
     assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
     assert_eq!(phase.data.units.len(), 4);
     assert!(phase.data.units.contains(&unit_e_lon));
-    assert!(phase.data.units.contains(&Unit::new_fleet(Power::England, p("eng"))));
+    assert!(phase.data.units.contains(&f("e", "eng")));
     assert!(phase.data.units.contains(&unit_e_yor));
     assert!(phase.data.units.contains(&unit_f_eng.dislodged_from(p("nth"))));
     assert!(phase.data.standoff_codes.is_empty());
@@ -893,12 +889,12 @@ fn test_datc_6_d_20() {
 #[test]
 fn test_datc_6_d_21() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_a_tri = Unit::new_fleet(Power::Austria, p("tri"));
-    let unit_i_ven = Unit::new_army(Power::Italy, p("ven"));
-    let unit_i_tyr = Unit::new_army(Power::Italy, p("tyr"));
-    let mut unit_g_mun = Unit::new_army(Power::Germany, p("mun"));
-    let unit_r_sil = Unit::new_army(Power::Russia, p("sil"));
-    let unit_r_ber = Unit::new_army(Power::Russia, p("ber"));
+    let unit_a_tri = f("a", "tri");
+    let unit_i_ven = a("i", "ven");
+    let unit_i_tyr = a("i", "tyr");
+    let mut unit_g_mun = a("g", "mun");
+    let unit_r_sil = a("r", "sil");
+    let unit_r_ber = a("r", "ber");
     phase.data.units.push(unit_a_tri);
     phase.data.units.push(unit_i_ven);
     phase.data.units.push(unit_i_tyr);
@@ -923,7 +919,7 @@ fn test_datc_6_d_21() {
     assert!(phase.data.units.contains(&unit_i_ven));
     assert!(phase.data.units.contains(&unit_i_tyr));
     assert!(phase.data.units.contains(&unit_g_mun.dislodged_from(p("sil"))));
-    assert!(phase.data.units.contains(&Unit::new_army(Power::Russia, p("mun"))));
+    assert!(phase.data.units.contains(&a("r", "mun")));
     assert!(phase.data.units.contains(&unit_r_ber));
     assert!(phase.data.standoff_codes.is_empty());
 }
@@ -947,10 +943,10 @@ fn test_datc_6_d_21() {
 #[test]
 fn test_datc_6_d_22() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let mut unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
-    let unit_g_bur = Unit::new_army(Power::Germany, p("bur"));
-    let unit_r_mun = Unit::new_army(Power::Russia, p("mun"));
-    let unit_r_ber = Unit::new_army(Power::Russia, p("ber"));
+    let mut unit_g_kie = f("g", "kie");
+    let unit_g_bur = a("g", "bur");
+    let unit_r_mun = a("r", "mun");
+    let unit_r_ber = a("r", "ber");
     phase.data.units.push(unit_g_kie);
     phase.data.units.push(unit_g_bur);
     phase.data.units.push(unit_r_mun);
@@ -967,7 +963,7 @@ fn test_datc_6_d_22() {
     assert_eq!(phase.data.units.len(), 4);
     assert!(phase.data.units.contains(&unit_g_kie.dislodged_from(p("mun"))));
     assert!(phase.data.units.contains(&unit_g_bur));
-    assert!(phase.data.units.contains(&Unit::new_army(Power::Russia, p("kie"))));
+    assert!(phase.data.units.contains(&a("r", "kie")));
     assert!(phase.data.units.contains(&unit_r_ber));
     assert!(phase.data.standoff_codes.is_empty());
 }
@@ -988,10 +984,10 @@ fn test_datc_6_d_22() {
 #[test]
 fn test_datc_6_d_23() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_i_gol = Unit::new_fleet(Power::Italy, p("gol"));
-    let unit_i_wes = Unit::new_fleet(Power::Italy, p("wes"));
-    let mut unit_f_spa_nc = Unit::new_fleet(Power::France, p("spa_nc"));
-    let unit_f_mar = Unit::new_fleet(Power::France, p("mar"));
+    let unit_i_gol = f("i", "gol");
+    let unit_i_wes = f("i", "wes");
+    let mut unit_f_spa_nc = f("f", "spa_nc");
+    let unit_f_mar = f("f", "mar");
     phase.data.units.push(unit_i_gol);
     phase.data.units.push(unit_i_wes);
     phase.data.units.push(unit_f_spa_nc);
@@ -1006,7 +1002,7 @@ fn test_datc_6_d_23() {
     assert_eq!(phase.data.orders[2].status, OrderStatus::Dislodged);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Invalid);
     assert_eq!(phase.data.units.len(), 4);
-    assert!(phase.data.units.contains(&Unit::new_fleet(Power::Italy, p("spa_sc"))));
+    assert!(phase.data.units.contains(&f("i", "spa_sc")));
     assert!(phase.data.units.contains(&unit_i_wes));
     assert!(phase.data.units.contains(&unit_f_spa_nc.dislodged_from(p("gol"))));
     assert!(phase.data.units.contains(&unit_f_mar));
@@ -1034,11 +1030,11 @@ fn test_datc_6_d_23() {
 #[test]
 fn test_datc_6_d_24() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_f_mar = Unit::new_army(Power::France, p("mar"));
-    let unit_f_spa_sc = Unit::new_fleet(Power::France, p("spa_sc"));
-    let mut unit_i_gol = Unit::new_fleet(Power::Italy, p("gol"));
-    let unit_t_tyr = Unit::new_fleet(Power::Turkey, p("tyn"));
-    let unit_t_wes = Unit::new_fleet(Power::Turkey, p("wes"));
+    let unit_f_mar = a("f", "mar");
+    let unit_f_spa_sc = f("f", "spa_sc");
+    let mut unit_i_gol = f("i", "gol");
+    let unit_t_tyr = f("t", "tyn");
+    let unit_t_wes = f("t", "wes");
     phase.data.units.push(unit_f_mar);
     phase.data.units.push(unit_f_spa_sc);
     phase.data.units.push(unit_i_gol);
@@ -1060,7 +1056,7 @@ fn test_datc_6_d_24() {
     assert!(phase.data.units.contains(&unit_f_spa_sc));
     assert!(phase.data.units.contains(&unit_i_gol.dislodged_from(p("wes"))));
     assert!(phase.data.units.contains(&unit_t_tyr));
-    assert!(phase.data.units.contains(&Unit::new_fleet(Power::Turkey, p("gol"))));
+    assert!(phase.data.units.contains(&f("t", "gol")));
     assert!(phase.data.standoff_codes.is_empty());
 }
 
@@ -1083,10 +1079,10 @@ fn test_datc_6_d_24() {
 #[test]
 fn test_datc_6_d_25() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
-    let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
-    let unit_r_bal = Unit::new_fleet(Power::Russia, p("bal"));
-    let unit_r_pru = Unit::new_army(Power::Russia, p("pru"));
+    let unit_g_ber = a("g", "ber");
+    let unit_g_kie = f("g", "kie");
+    let unit_r_bal = f("r", "bal");
+    let unit_r_pru = a("r", "pru");
     phase.data.units.push(unit_g_ber);
     phase.data.units.push(unit_g_kie);
     phase.data.units.push(unit_r_bal);
@@ -1123,10 +1119,10 @@ fn test_datc_6_d_25() {
 #[test]
 fn test_datc_6_d_26() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
-    let unit_g_kie = Unit::new_fleet(Power::Germany, p("kie"));
-    let unit_r_bal = Unit::new_fleet(Power::Russia, p("bal"));
-    let unit_r_pru = Unit::new_army(Power::Russia, p("pru"));
+    let unit_g_ber = a("g", "ber");
+    let unit_g_kie = f("g", "kie");
+    let unit_r_bal = f("r", "bal");
+    let unit_r_pru = a("r", "pru");
     phase.data.units.push(unit_g_ber);
     phase.data.units.push(unit_g_kie);
     phase.data.units.push(unit_r_bal);
@@ -1168,11 +1164,11 @@ fn test_datc_6_d_26() {
 #[test]
 fn test_datc_6_d_27() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_e_swe = Unit::new_fleet(Power::England, p("swe"));
-    let unit_e_den = Unit::new_fleet(Power::England, p("den"));
-    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
-    let unit_r_bal = Unit::new_fleet(Power::Russia, p("bal"));
-    let unit_r_pru = Unit::new_fleet(Power::Russia, p("pru"));
+    let unit_e_swe = f("e", "swe");
+    let unit_e_den = f("e", "den");
+    let unit_g_ber = a("g", "ber");
+    let unit_r_bal = f("r", "bal");
+    let unit_r_pru = f("r", "pru");
     phase.data.units.push(unit_e_swe);
     phase.data.units.push(unit_e_den);
     phase.data.units.push(unit_g_ber);
@@ -1283,8 +1279,8 @@ fn test_datc_6_d_30() {
 #[test]
 fn test_datc_6_d_31() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_a_rum = Unit::new_army(Power::Austria, p("rum"));
-    let unit_t_bla = Unit::new_fleet(Power::Turkey, p("bla"));
+    let unit_a_rum = a("a", "rum");
+    let unit_t_bla = f("t", "bla");
     phase.data.units.push(unit_a_rum);
     phase.data.units.push(unit_t_bla);
     phase.data.orders.push(unit_a_rum.move_to(p("arm")));
@@ -1343,10 +1339,10 @@ fn test_datc_6_d_32() {
 #[test]
 fn test_datc_6_d_33() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_a_ser = Unit::new_army(Power::Austria, p("ser"));
-    let unit_a_vie = Unit::new_army(Power::Austria, p("vie"));
-    let unit_r_gal = Unit::new_army(Power::Russia, p("gal"));
-    let unit_t_bul = Unit::new_army(Power::Turkey, p("bul"));
+    let unit_a_ser = a("a", "ser");
+    let unit_a_vie = a("a", "vie");
+    let unit_r_gal = a("r", "gal");
+    let unit_t_bul = a("t", "bul");
     phase.data.units.push(unit_a_ser);
     phase.data.units.push(unit_a_vie);
     phase.data.units.push(unit_r_gal);
@@ -1361,10 +1357,10 @@ fn test_datc_6_d_33() {
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
     assert_eq!(phase.data.units.len(), 4);
-    assert!(phase.data.units.contains(&Unit::new_army(Power::Austria, p("bud"))));
+    assert!(phase.data.units.contains(&a("a", "bud")));
     assert!(phase.data.units.contains(&unit_a_vie));
     assert!(phase.data.units.contains(&unit_r_gal));
-    assert!(phase.data.units.contains(&Unit::new_army(Power::Turkey, p("ser"))));
+    assert!(phase.data.units.contains(&a("t", "ser")));
     assert!(phase.data.standoff_codes.is_empty());
 }
 
@@ -1398,12 +1394,12 @@ fn test_datc_6_d_33() {
 #[test]
 fn test_datc_6_d_34() {
     let mut phase = Phase::new_spring_main(1900, 1);
-    let unit_g_ber = Unit::new_army(Power::Germany, p("ber"));
-    let unit_g_sil = Unit::new_army(Power::Germany, p("sil"));
-    let unit_g_bal = Unit::new_fleet(Power::Germany, p("bal"));
-    let mut unit_i_pru = Unit::new_army(Power::Italy, p("pru"));
-    let unit_r_war = Unit::new_army(Power::Russia, p("war"));
-    let unit_r_lvn = Unit::new_army(Power::Russia, p("lvn"));
+    let unit_g_ber = a("g", "ber");
+    let unit_g_sil = a("g", "sil");
+    let unit_g_bal = f("g", "bal");
+    let mut unit_i_pru = a("i", "pru");
+    let unit_r_war = a("r", "war");
+    let unit_r_lvn = a("r", "lvn");
     phase.data.units.push(unit_g_ber);
     phase.data.units.push(unit_g_sil);
     phase.data.units.push(unit_g_bal);
@@ -1424,7 +1420,7 @@ fn test_datc_6_d_34() {
     assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[5].status, OrderStatus::Failure);
     assert_eq!(phase.data.units.len(), 6);
-    assert!(phase.data.units.contains(&Unit::new_army(Power::Germany, p("pru"))));
+    assert!(phase.data.units.contains(&a("g", "pru")));
     assert!(phase.data.units.contains(&unit_g_sil));
     assert!(phase.data.units.contains(&unit_g_bal));
     assert!(phase.data.units.contains(&unit_i_pru.dislodged_from(p("ber"))));

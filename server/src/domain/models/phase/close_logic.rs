@@ -310,13 +310,10 @@ mod tests {
     use crate::domain::models::order::OrderKind;
     use crate::domain::models::phase::Phase;
     use crate::domain::models::power::Power;
-    use crate::domain::models::province::Province;
     use crate::domain::models::territory::Territory;
-    use crate::domain::models::unit::Unit;
-
-    fn p(code: &str) -> Province {
-        Province::from_code(code).expect("valid province code")
-    }
+    use crate::domain::tests::a;
+    use crate::domain::tests::f;
+    use crate::domain::tests::p;
 
     /// Ready → SpringMain: ユニットと領土が引き継がれ、全ユニットにホールド命令が生成される
     #[test]
@@ -339,8 +336,8 @@ mod tests {
     #[test]
     fn test_initialize_spring_main_to_spring_retreat() {
         let mut spring_main = Phase::new_spring_main(1901, 1);
-        let unit_normal = Unit::new_army(Power::France, p("par"));
-        let mut unit_dislodged = Unit::new_army(Power::Austria, p("vie"));
+        let unit_normal = a("f", "par");
+        let mut unit_dislodged = a("a", "vie");
         unit_dislodged.dislodged_from(p("boh"));
         spring_main.data.units = vec![unit_normal, unit_dislodged];
         spring_main.data.territories = vec![Territory::new(Power::France, "par")];
@@ -362,7 +359,7 @@ mod tests {
     #[test]
     fn test_initialize_spring_retreat_to_fall_main() {
         let mut spring_retreat = Phase::new_spring_retreat(1901, 2);
-        spring_retreat.data.units = vec![Unit::new_army(Power::France, p("par"))];
+        spring_retreat.data.units = vec![a("f", "par")];
         spring_retreat.data.territories = vec![Territory::new(Power::France, "par")];
         spring_retreat.data.standoff_codes = vec!["boh".to_string()];
 
@@ -380,8 +377,8 @@ mod tests {
     #[test]
     fn test_initialize_fall_main_to_fall_retreat() {
         let mut fall_main = Phase::new_fall_main(1901, 3);
-        let unit_normal = Unit::new_fleet(Power::England, p("nth"));
-        let mut unit_dislodged = Unit::new_army(Power::Germany, p("ber"));
+        let unit_normal = f("e", "nth");
+        let mut unit_dislodged = a("g", "ber");
         unit_dislodged.dislodged_from(p("sil"));
         fall_main.data.units = vec![unit_normal, unit_dislodged];
         fall_main.data.territories = vec![Territory::new(Power::England, "lon")];
@@ -405,8 +402,8 @@ mod tests {
         let mut fall_retreat = Phase::new_fall_retreat(1901, 4);
         // Austria has 1 supply center but 2 units → needs 1 civil disorder disband
         fall_retreat.data.units = vec![
-            Unit::new_army(Power::Austria, p("vie")),
-            Unit::new_army(Power::Austria, p("boh")),
+            a("a", "vie"),
+            a("a", "boh"),
         ];
         fall_retreat.data.territories = vec![Territory::new(Power::Austria, "vie")];
 
@@ -425,8 +422,8 @@ mod tests {
     fn test_initialize_adjustment_to_spring_main() {
         let mut adjustment = Phase::new_adjustment(1901, 5);
         adjustment.data.units = vec![
-            Unit::new_army(Power::France, p("par")),
-            Unit::new_fleet(Power::England, p("lon")),
+            a("f", "par"),
+            f("e", "lon"),
         ];
         adjustment.data.territories = vec![
             Territory::new(Power::France, "par"),

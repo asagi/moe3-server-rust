@@ -9,13 +9,9 @@
 use crate::domain::models::order::*;
 use crate::domain::models::phase::*;
 use crate::domain::models::power::*;
-use crate::domain::models::province::*;
 use crate::domain::models::territory::*;
-use crate::domain::models::unit::*;
-
-fn p(code: &str) -> Province {
-    Province::from_code(code).expect("valid province code")
-}
+use crate::domain::tests::a;
+use crate::domain::tests::f;
 
 /// 6.J.1. TEST CASE, TOO MANY DISBAND ORDERS
 /// Check how program reacts when someone orders too many disbands.
@@ -35,11 +31,11 @@ fn p(code: &str) -> Province {
 fn test_datc_6_j_1() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::France, "par"));
-    phase.data.units.push(Unit::new_army(Power::France, p("par")));
-    phase.data.units.push(Unit::new_army(Power::France, p("pic")));
-    let unit_f_lyo = Unit::new_fleet(Power::France, p("gol"));
-    let unit_a_pic = Unit::new_army(Power::France, p("pic"));
-    let unit_a_par = Unit::new_army(Power::France, p("par"));
+    phase.data.units.push(a("f", "par"));
+    phase.data.units.push(a("f", "pic"));
+    let unit_f_lyo = f("f", "gol");
+    let unit_a_pic = a("f", "pic");
+    let unit_a_par = a("f", "par");
     phase.data.orders.push(unit_f_lyo.disband());
     phase.data.orders.push(unit_a_pic.disband());
     phase.data.orders.push(unit_a_par.disband());
@@ -63,9 +59,9 @@ fn test_datc_6_j_1() {
 #[test]
 fn test_datc_6_j_2() {
     let phase = &mut Phase::new_adjustment(1901, 5);
-    phase.data.units.push(Unit::new_army(Power::France, p("par")));
-    phase.data.units.push(Unit::new_army(Power::France, p("bre")));
-    let unit_a_par = Unit::new_army(Power::France, p("par"));
+    phase.data.units.push(a("f", "par"));
+    phase.data.units.push(a("f", "bre"));
+    let unit_a_par = a("f", "par");
     phase.data.orders.push(unit_a_par.disband());
     phase.data.orders.push(unit_a_par.disband());
     resolve_orders_for_adjustment_phase(phase);
@@ -89,8 +85,8 @@ fn test_datc_6_j_2() {
 fn test_datc_6_j_3() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Russia, "stp"));
-    phase.data.units.push(Unit::new_army(Power::Russia, p("lvn")));
-    phase.data.units.push(Unit::new_army(Power::Russia, p("swe")));
+    phase.data.units.push(a("r", "lvn"));
+    phase.data.units.push(a("r", "swe"));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove A Swe");
@@ -111,8 +107,8 @@ fn test_datc_6_j_3() {
 fn test_datc_6_j_4() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Russia, "mos"));
-    phase.data.units.push(Unit::new_army(Power::Russia, p("lvn")));
-    phase.data.units.push(Unit::new_army(Power::Russia, p("ukr")));
+    phase.data.units.push(a("r", "lvn"));
+    phase.data.units.push(a("r", "ukr"));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove A Lvn");
@@ -135,8 +131,8 @@ fn test_datc_6_j_4() {
 fn test_datc_6_j_5() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Russia, "stp"));
-    phase.data.units.push(Unit::new_fleet(Power::Russia, p("ska")));
-    phase.data.units.push(Unit::new_fleet(Power::Russia, p("ber")));
+    phase.data.units.push(f("r", "ska"));
+    phase.data.units.push(f("r", "ber"));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove F Ber");
@@ -159,8 +155,8 @@ fn test_datc_6_j_5() {
 fn test_datc_6_j_6() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Russia, "mun"));
-    phase.data.units.push(Unit::new_fleet(Power::Russia, p("bot")));
-    phase.data.units.push(Unit::new_fleet(Power::Russia, p("nth")));
+    phase.data.units.push(f("r", "bot"));
+    phase.data.units.push(f("r", "nth"));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove F Bot");
@@ -183,9 +179,9 @@ fn test_datc_6_j_7() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Russia, "stp"));
     phase.data.territories.push(Territory::new(Power::Russia, "war"));
-    phase.data.units.push(Unit::new_army(Power::Russia, p("boh")));
-    phase.data.units.push(Unit::new_fleet(Power::Russia, p("ska")));
-    phase.data.units.push(Unit::new_fleet(Power::Russia, p("nth")));
+    phase.data.units.push(a("r", "boh"));
+    phase.data.units.push(f("r", "ska"));
+    phase.data.units.push(f("r", "nth"));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove F Nth");
@@ -205,8 +201,8 @@ fn test_datc_6_j_7() {
 fn test_datc_6_j_8() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Russia, "war"));
-    phase.data.units.push(Unit::new_army(Power::Russia, p("tyr")));
-    phase.data.units.push(Unit::new_fleet(Power::Russia, p("bal")));
+    phase.data.units.push(a("r", "tyr"));
+    phase.data.units.push(f("r", "bal"));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove A Tyr");
@@ -235,9 +231,9 @@ fn test_datc_6_j_9() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Russia, "stp"));
     phase.data.territories.push(Territory::new(Power::Russia, "sev"));
-    phase.data.units.push(Unit::new_army(Power::Russia, p("gre")));
-    phase.data.units.push(Unit::new_army(Power::Russia, p("sev")));
-    phase.data.units.push(Unit::new_fleet(Power::Russia, p("bal")));
+    phase.data.units.push(a("r", "gre"));
+    phase.data.units.push(a("r", "sev"));
+    phase.data.units.push(f("r", "bal"));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove A Gre");
@@ -245,9 +241,9 @@ fn test_datc_6_j_9() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Russia, "stp"));
     phase.data.territories.push(Territory::new(Power::Russia, "sev"));
-    phase.data.units.push(Unit::new_army(Power::Russia, p("gre")));
-    phase.data.units.push(Unit::new_army(Power::Russia, p("sev")));
-    phase.data.units.push(Unit::new_fleet(Power::Russia, p("ska")));
+    phase.data.units.push(a("r", "gre"));
+    phase.data.units.push(a("r", "sev"));
+    phase.data.units.push(f("r", "ska"));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove A Gre");
@@ -268,8 +264,8 @@ fn test_datc_6_j_9() {
 fn test_datc_6_j_10() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Italy, "nap"));
-    phase.data.units.push(Unit::new_army(Power::Italy, p("gre")));
-    phase.data.units.push(Unit::new_army(Power::Italy, p("pie")));
+    phase.data.units.push(a("i", "gre"));
+    phase.data.units.push(a("i", "pie"));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove A Pie");
@@ -290,8 +286,8 @@ fn test_datc_6_j_10() {
 fn test_datc_6_j_11() {
     let phase = &mut Phase::new_adjustment(1901, 5);
     phase.data.territories.push(Territory::new(Power::Italy, "war"));
-    phase.data.units.push(Unit::new_army(Power::Italy, p("war")));
-    phase.data.units.push(Unit::new_army(Power::Italy, p("tus")));
+    phase.data.units.push(a("i", "war"));
+    phase.data.units.push(a("i", "tus"));
     resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove A Tus");
