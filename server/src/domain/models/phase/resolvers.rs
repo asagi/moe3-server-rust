@@ -94,10 +94,10 @@ pub fn resolve_orders_for_retreat_phase(current_phase: &mut Phase) {
     // # 03. 命令解決後のユニット配置情報をフェイズに反映
     for order in orders.collect_not_assumed_retreats() {
         // 撤退フェイズでの処理対象の軍をいったん削除
-        if matches!(&order.kind, OrderKind::Retreat(_) | OrderKind::Disband(_)) {
-            if let Some(idx) = current_phase.data.units.iter().position(|u| u == &order.unit) {
-                current_phase.data.units.remove(idx);
-            }
+        if matches!(&order.kind, OrderKind::Retreat(_) | OrderKind::Disband(_))
+            && let Some(idx) = current_phase.data.units.iter().position(|u| u == &order.unit)
+        {
+            current_phase.data.units.remove(idx);
         }
 
         if let OrderKind::Retreat(r) = &order.kind
