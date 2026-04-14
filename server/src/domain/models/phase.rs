@@ -1,37 +1,37 @@
 // modules
-mod close_logic;
-mod context;
+pub mod close_logic;
+pub mod context;
 
 // types
-use super::Order;
-use super::OrderKind;
-use super::Power;
-use super::Province;
-use super::Territory;
-use super::Unit;
-use context::PhaseCloseResult;
-use context::PhaseContext;
+pub(crate) use super::Order;
+pub(crate) use super::OrderKind;
+pub(crate) use super::Power;
+pub(crate) use super::Province;
+pub(crate) use super::Territory;
+pub(crate) use super::Unit;
+pub(crate) use context::PhaseCloseResult;
+pub(crate) use context::PhaseContext;
 
 // type aliases
-use super::PhaseId;
-use super::TableId;
+pub(crate) use super::PhaseId;
+pub(crate) use super::TableId;
 
 // adjudicators
-use super::AdjustmentAdjudicator;
-use super::MainAdjudicator;
-use super::RetreatAdjudicator;
+pub(crate) use super::AdjustmentAdjudicator;
+pub(crate) use super::MainAdjudicator;
+pub(crate) use super::RetreatAdjudicator;
 
 // helpers
-use super::AdjustmentOrderHelper;
-use super::MainOrderHelper;
-use super::RetreatOrderHelper;
-use super::UnitHelper;
+pub(crate) use super::AdjustmentOrderHelper;
+pub(crate) use super::MainOrderHelper;
+pub(crate) use super::RetreatOrderHelper;
+pub(crate) use super::UnitHelper;
 
 // external crates
-use chrono::DateTime;
-use chrono::Utc;
-use serde::Deserialize;
-use serde::Serialize;
+pub(crate) use chrono::DateTime;
+pub(crate) use chrono::Utc;
+pub(crate) use serde::Deserialize;
+pub(crate) use serde::Serialize;
 
 /// フェイズの定義
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
