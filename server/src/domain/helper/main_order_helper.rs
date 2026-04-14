@@ -1,10 +1,17 @@
-use super::super::models::order::ConvoyOrder;
-use super::super::models::order::MoveOrder;
-use super::super::models::order::Order;
-use super::super::models::order::OrderKind;
-use super::super::models::power::Power;
-use super::super::models::province::Province;
+// models
+use super::ConvoyOrder;
+use super::MoveOrder;
+use super::Order;
+use super::Power;
+use super::Province;
+
+// enums
+use super::OrderKind;
+
+// external crates
 use indexmap::IndexSet;
+
+// standard library
 use std::collections::HashSet;
 
 pub trait MainOrderHelper {

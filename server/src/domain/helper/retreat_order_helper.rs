@@ -1,5 +1,10 @@
-use super::super::models::order::Order;
-use super::super::models::order::OrderKind;
+// models
+use super::Order;
+
+// enums
+use super::OrderKind;
+
+// standard library
 use std::collections::HashSet;
 
 pub trait RetreatOrderHelper {

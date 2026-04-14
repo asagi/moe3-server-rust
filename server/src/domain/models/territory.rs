@@ -1,4 +1,7 @@
-use super::power::Power;
+// models
+use super::Power;
+
+// external crates
 use serde::Deserialize;
 use serde::Serialize;
 

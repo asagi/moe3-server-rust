@@ -1,4 +1,7 @@
-use super::super::UserId;
+// type aliases
+use super::UserId;
+
+// external crates
 use serde::Deserialize;
 use serde::Serialize;
 

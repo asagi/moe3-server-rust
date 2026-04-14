@@ -1,6 +1,9 @@
-use super::super::models::order::Order;
-use super::super::models::order::OrderKind;
-use super::super::models::power::Power;
+// models
+use super::Order;
+use super::Power;
+
+// enums
+use super::OrderKind;
 
 pub(crate) trait AdjustmentOrderHelper {
     fn get_unresolved_build_idxs_by_power(&self, power: &Power) -> Option<usize>;

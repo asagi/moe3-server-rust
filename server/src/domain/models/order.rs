@@ -1,9 +1,14 @@
-use super::super::OrderId;
-use super::power::Power;
-use super::province::Province;
-use super::unit::Unit;
+// models
+use super::OrderId;
+use super::Power;
+use super::Province;
+use super::Unit;
+
+// external crates
 use serde::Deserialize;
 use serde::Serialize;
+
+// standard library
 use std::fmt;
 
 /// 命令の定義

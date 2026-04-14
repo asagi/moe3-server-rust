@@ -1,11 +1,18 @@
-use super::MainOrderHelper;
-use super::Order;
-use super::OrderKind;
-use super::OrderStatus;
+// models
 use super::Path;
 use super::Power;
 use super::Province;
+
+// enums
+use super::OrderKind;
+use super::OrderStatus;
 use super::UnitKind;
+
+// helpers
+use super::MainOrderHelper;
+use super::Order;
+
+// standard library
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::iter::successors;
