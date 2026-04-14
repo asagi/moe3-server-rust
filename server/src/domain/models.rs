@@ -1,14 +1,11 @@
-// FIXME: 開発中は pub としておく
-pub mod phase;
-pub mod player;
-pub mod table;
-pub use phase::Phase;
-
 // modules
 mod order;
 mod path;
+mod phase;
+mod player;
 mod power;
 mod province;
+mod table;
 mod territory;
 mod unit;
 mod user;
@@ -23,6 +20,7 @@ pub(crate) use order::Order;
 pub(crate) use order::RetreatOrder;
 pub(crate) use order::SupportOrder;
 pub(crate) use path::Path;
+pub(crate) use phase::Phase;
 pub(crate) use power::Power;
 pub(crate) use province::Province;
 pub(crate) use territory::Territory;

@@ -95,7 +95,7 @@ fn test_datc_6_d_2() {
     assert!(phase.data.units.contains(&unit_a_adr));
     assert!(phase.data.units.contains(&a("a", "ven")));
     assert!(phase.data.units.contains(&unit_a_vie));
-    assert!(phase.data.units.contains(&unit_i_ven.dislodged_from(p("tri"))));
+    assert!(phase.data.units.contains(&unit_i_ven.set_dislodged_from(Some(p("tri")))));
     assert!(phase.data.units.contains(&unit_i_tyr));
     assert!(phase.data.standoff_codes.is_empty());
 }
@@ -313,7 +313,7 @@ fn test_datc_6_d_7() {
     assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
     assert_eq!(phase.data.units.len(), 5);
-    assert!(phase.data.units.contains(&unit_g_bal.dislodged_from(p("lvn"))));
+    assert!(phase.data.units.contains(&unit_g_bal.set_dislodged_from(Some(p("lvn")))));
     assert!(phase.data.units.contains(&unit_g_pru));
     assert!(phase.data.units.contains(&f("r", "bal")));
     assert!(phase.data.units.contains(&unit_r_bot));
@@ -366,7 +366,7 @@ fn test_datc_6_d_8() {
     assert!(phase.data.units.contains(&unit_a_ion));
     assert!(phase.data.units.contains(&unit_a_ser));
     assert!(phase.data.units.contains(&a("a", "gre")));
-    assert!(phase.data.units.contains(&unit_t_gre.dislodged_from(p("alb"))));
+    assert!(phase.data.units.contains(&unit_t_gre.set_dislodged_from(Some(p("alb")))));
     assert!(phase.data.units.contains(&unit_t_bul));
     assert!(phase.data.standoff_codes.is_empty());
 }
@@ -407,7 +407,7 @@ fn test_datc_6_d_9() {
     assert!(phase.data.units.contains(&a("i", "tri")));
     assert!(phase.data.units.contains(&unit_i_tyr));
     assert!(phase.data.units.contains(&unit_a_alb));
-    assert!(phase.data.units.contains(&unit_a_tri.dislodged_from(p("ven"))));
+    assert!(phase.data.units.contains(&unit_a_tri.set_dislodged_from(Some(p("ven")))));
     assert!(phase.data.standoff_codes.is_empty());
 }
 
@@ -596,7 +596,7 @@ fn test_datc_6_d_14() {
     assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
     assert_eq!(phase.data.units.len(), 5);
-    assert!(phase.data.units.contains(&unit_a_tri.dislodged_from(p("ven"))));
+    assert!(phase.data.units.contains(&unit_a_tri.set_dislodged_from(Some(p("ven")))));
     assert!(phase.data.units.contains(&unit_a_vie));
     assert!(phase.data.units.contains(&a("i", "tri")));
     assert!(phase.data.units.contains(&unit_i_tyr));
@@ -636,7 +636,7 @@ fn test_datc_6_d_15() {
     assert_eq!(phase.data.units.len(), 3);
     assert!(phase.data.units.contains(&unit_r_con));
     assert!(phase.data.units.contains(&f("r", "ank")));
-    assert!(phase.data.units.contains(&unit_t_ank.dislodged_from(p("bla"))));
+    assert!(phase.data.units.contains(&unit_t_ank.set_dislodged_from(Some(p("bla")))));
     assert!(phase.data.standoff_codes.is_empty());
 }
 
@@ -673,7 +673,7 @@ fn test_datc_6_d_16() {
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
     assert_eq!(phase.data.units.len(), 4);
-    assert!(phase.data.units.contains(&unit_e_lon.dislodged_from(p("bel"))));
+    assert!(phase.data.units.contains(&unit_e_lon.set_dislodged_from(Some(p("bel")))));
     assert!(phase.data.units.contains(&unit_e_nth));
     assert!(phase.data.units.contains(&unit_f_eng));
     assert!(phase.data.units.contains(&a("f", "lon")));
@@ -720,7 +720,7 @@ fn test_datc_6_d_17() {
     assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
     assert_eq!(phase.data.units.len(), 5);
-    assert!(phase.data.units.contains(&unit_r_con.dislodged_from(p("ank"))));
+    assert!(phase.data.units.contains(&unit_r_con.set_dislodged_from(Some(p("ank")))));
     assert!(phase.data.units.contains(&unit_r_bla));
     assert!(phase.data.units.contains(&f("t", "con")));
     assert!(phase.data.units.contains(&unit_t_smy));
@@ -774,7 +774,7 @@ fn test_datc_6_d_18() {
     assert!(phase.data.units.contains(&unit_r_con));
     assert!(phase.data.units.contains(&f("r", "ank")));
     assert!(phase.data.units.contains(&unit_r_bul));
-    assert!(phase.data.units.contains(&unit_t_ank.dislodged_from(p("bla"))));
+    assert!(phase.data.units.contains(&unit_t_ank.set_dislodged_from(Some(p("bla")))));
     assert!(phase.data.units.contains(&unit_t_smy));
     assert!(phase.data.units.contains(&unit_t_arm));
     assert!(phase.data.standoff_codes.is_empty());
@@ -818,7 +818,7 @@ fn test_datc_6_d_19() {
     assert!(phase.data.units.contains(&unit_r_con));
     assert!(phase.data.units.contains(&f("r", "ank")));
     assert!(phase.data.units.contains(&unit_r_smy));
-    assert!(phase.data.units.contains(&unit_t_ank.dislodged_from(p("bla"))));
+    assert!(phase.data.units.contains(&unit_t_ank.set_dislodged_from(Some(p("bla")))));
     assert!(phase.data.standoff_codes.is_empty());
 }
 
@@ -861,7 +861,7 @@ fn test_datc_6_d_20() {
     assert!(phase.data.units.contains(&unit_e_lon));
     assert!(phase.data.units.contains(&f("e", "eng")));
     assert!(phase.data.units.contains(&unit_e_yor));
-    assert!(phase.data.units.contains(&unit_f_eng.dislodged_from(p("nth"))));
+    assert!(phase.data.units.contains(&unit_f_eng.set_dislodged_from(Some(p("nth")))));
     assert!(phase.data.standoff_codes.is_empty());
 }
 
@@ -918,7 +918,7 @@ fn test_datc_6_d_21() {
     assert!(phase.data.units.contains(&unit_a_tri));
     assert!(phase.data.units.contains(&unit_i_ven));
     assert!(phase.data.units.contains(&unit_i_tyr));
-    assert!(phase.data.units.contains(&unit_g_mun.dislodged_from(p("sil"))));
+    assert!(phase.data.units.contains(&unit_g_mun.set_dislodged_from(Some(p("sil")))));
     assert!(phase.data.units.contains(&a("r", "mun")));
     assert!(phase.data.units.contains(&unit_r_ber));
     assert!(phase.data.standoff_codes.is_empty());
@@ -961,7 +961,7 @@ fn test_datc_6_d_22() {
     assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Valid);
     assert_eq!(phase.data.units.len(), 4);
-    assert!(phase.data.units.contains(&unit_g_kie.dislodged_from(p("mun"))));
+    assert!(phase.data.units.contains(&unit_g_kie.set_dislodged_from(Some(p("mun")))));
     assert!(phase.data.units.contains(&unit_g_bur));
     assert!(phase.data.units.contains(&a("r", "kie")));
     assert!(phase.data.units.contains(&unit_r_ber));
@@ -1004,7 +1004,7 @@ fn test_datc_6_d_23() {
     assert_eq!(phase.data.units.len(), 4);
     assert!(phase.data.units.contains(&f("i", "spa_sc")));
     assert!(phase.data.units.contains(&unit_i_wes));
-    assert!(phase.data.units.contains(&unit_f_spa_nc.dislodged_from(p("gol"))));
+    assert!(phase.data.units.contains(&unit_f_spa_nc.set_dislodged_from(Some(p("gol")))));
     assert!(phase.data.units.contains(&unit_f_mar));
     assert!(phase.data.standoff_codes.is_empty());
 }
@@ -1054,7 +1054,7 @@ fn test_datc_6_d_24() {
     assert_eq!(phase.data.units.len(), 5);
     assert!(phase.data.units.contains(&unit_f_mar));
     assert!(phase.data.units.contains(&unit_f_spa_sc));
-    assert!(phase.data.units.contains(&unit_i_gol.dislodged_from(p("wes"))));
+    assert!(phase.data.units.contains(&unit_i_gol.set_dislodged_from(Some(p("wes")))));
     assert!(phase.data.units.contains(&unit_t_tyr));
     assert!(phase.data.units.contains(&f("t", "gol")));
     assert!(phase.data.standoff_codes.is_empty());
@@ -1423,7 +1423,7 @@ fn test_datc_6_d_34() {
     assert!(phase.data.units.contains(&a("g", "pru")));
     assert!(phase.data.units.contains(&unit_g_sil));
     assert!(phase.data.units.contains(&unit_g_bal));
-    assert!(phase.data.units.contains(&unit_i_pru.dislodged_from(p("ber"))));
+    assert!(phase.data.units.contains(&unit_i_pru.set_dislodged_from(Some(p("ber")))));
     assert!(phase.data.units.contains(&unit_r_war));
     assert!(phase.data.units.contains(&unit_r_lvn));
     assert!(phase.data.standoff_codes.is_empty());

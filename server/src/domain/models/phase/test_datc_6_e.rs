@@ -48,7 +48,7 @@ fn test_datc_6_e_1() {
     assert!(phase.data.units.contains(&a("g", "pru")));
     assert!(phase.data.units.contains(&f("g", "ber")));
     assert!(phase.data.units.contains(&unit_g_sil));
-    assert!(phase.data.units.contains(&unit_r_pru.dislodged_from(p("ber"))));
+    assert!(phase.data.units.contains(&unit_r_pru.set_dislodged_from(Some(p("ber")))));
     assert!(phase.data.standoff_codes.is_empty());
 }
 
@@ -278,7 +278,7 @@ fn test_datc_6_e_5() {
     assert!(phase.data.units.contains(&unit_g_hol));
     assert!(phase.data.units.contains(&unit_g_hel));
     assert!(phase.data.units.contains(&unit_g_ska));
-    assert!(phase.data.units.contains(&unit_f_nth.dislodged_from(p("nrg"))));
+    assert!(phase.data.units.contains(&unit_f_nth.set_dislodged_from(Some(p("nrg")))));
     assert!(phase.data.units.contains(&unit_f_bel));
     assert!(phase.data.units.contains(&unit_e_edi));
     assert!(phase.data.units.contains(&unit_e_yor));

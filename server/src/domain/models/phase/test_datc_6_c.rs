@@ -244,7 +244,7 @@ fn test_datc_6_c_5() {
     assert!(phase.data.units.contains(&unit_a_ser));
     assert!(phase.data.units.contains(&unit_t_bul));
     assert!(phase.data.units.contains(&unit_t_aeg));
-    assert!(phase.data.units.contains(&unit_t_ion.dislodged_from(p("nap"))));
+    assert!(phase.data.units.contains(&unit_t_ion.set_dislodged_from(Some(p("nap")))));
     assert!(phase.data.units.contains(&unit_t_adr));
     assert!(phase.data.units.contains(&f("i", "ion")));
     assert!(phase.data.units.contains(&unit_i_tun));

@@ -10,11 +10,11 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Path {
-    pub origin: &'static str,
-    pub dest: &'static str,
-    pub army: bool,
-    pub fleet: bool,
+pub(crate) struct Path {
+    origin: &'static str,
+    dest: &'static str,
+    army: bool,
+    fleet: bool,
 }
 
 #[rustfmt::skip]
@@ -465,7 +465,7 @@ impl Path {
 
     /// ユニットが指定地点に存在可能かを判定する
     pub fn can_unit_exist_at(unit: &Unit, code: &str) -> bool {
-        match unit.kind {
+        match unit.kind() {
             UnitKind::Army(_) => PATHS.iter().any(|p| p.origin == code && p.army),
             UnitKind::Fleet(_) => PATHS.iter().any(|p| p.origin == code && p.fleet),
         }
@@ -473,7 +473,7 @@ impl Path {
 
     /// ユニットが指定地点に移動可能かを判定する
     pub fn can_unit_move_to(unit: &Unit, dest: &str, via_convoy: bool) -> bool {
-        match unit.kind {
+        match unit.kind() {
             UnitKind::Army(_) => PATHS
                 .iter()
                 .any(|p| p.origin == unit.location().code() && p.dest == dest && p.army && !via_convoy),
@@ -485,7 +485,7 @@ impl Path {
 
     /// ユニットが指定地点へのサポートが可能かを判定する
     pub fn can_unit_support_to(unit: &Unit, origin: &str, dest: &str) -> bool {
-        match unit.kind {
+        match unit.kind() {
             UnitKind::Army(_) => PATHS.iter().any(|p| p.origin == origin && p.dest == dest && p.army),
             UnitKind::Fleet(_) => PATHS
                 .iter()

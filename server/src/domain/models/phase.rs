@@ -8,8 +8,8 @@ pub(crate) use super::Power;
 pub(crate) use super::Province;
 pub(crate) use super::Territory;
 pub(crate) use super::Unit;
-pub use context::PhaseCloseResult;
-pub use context::PhaseContext;
+pub(crate) use context::PhaseCloseResult;
+pub(crate) use context::PhaseContext;
 
 // enums
 pub(crate) use super::OrderKind;
@@ -120,6 +120,7 @@ impl Phase {
     }
 
     /// 準備フェイズを生成する。
+    #[allow(dead_code)]
     pub fn new_ready() -> Self {
         let mut phase = Self::new(1900, 0, PhaseKind::Ready(ReadyPhase {}));
 
@@ -207,6 +208,7 @@ impl Phase {
     }
 
     /// 感想戦フェイズを生成する。
+    #[allow(dead_code)]
     pub fn new_debrief(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseKind::Debrief(DebriefPhase {}))
     }
@@ -222,6 +224,7 @@ impl Phase {
     }
 
     /// フェイズの種別を返す
+    #[allow(dead_code)]
     pub fn phase_type(&self) -> PhaseKind {
         self.data.kind
     }
@@ -233,7 +236,7 @@ impl Phase {
 
     /// 指定した国が現在保有するユニット数を取得する
     pub fn count_units(&self, power: &Power) -> usize {
-        self.data.units.iter().filter(|u| &u.power == power).count()
+        self.data.units.iter().filter(|u| &u.power() == power).count()
     }
 }
 

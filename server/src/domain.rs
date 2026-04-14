@@ -1,14 +1,7 @@
-// FIXME: 開発中は pub としておく
-pub mod models;
-pub type OrderId = i64;
-pub type PhaseId = i64;
-pub type UserId = i64;
-pub type PlayerId = i64;
-pub type TableId = i64;
-
 // modules
 mod adjudicator;
 mod helper;
+mod models;
 
 // types
 pub(crate) use models::ConvoyOrder;
@@ -19,6 +12,13 @@ pub(crate) use models::Power;
 pub(crate) use models::Province;
 pub(crate) use models::Territory;
 pub(crate) use models::Unit;
+
+// type aliases
+pub(crate) type OrderId = i64;
+pub(crate) type PhaseId = i64;
+pub(crate) type UserId = i64;
+pub(crate) type PlayerId = i64;
+pub(crate) type TableId = i64;
 
 // adjudicators
 pub(crate) use adjudicator::AdjustmentAdjudicator;
