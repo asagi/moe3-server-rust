@@ -1,6 +1,6 @@
-use crate::domain::models::power::*;
-use crate::domain::models::province::*;
-use crate::domain::models::unit::*;
+use crate::domain::models::Power;
+use crate::domain::models::Province;
+use crate::domain::models::Unit;
 
 /// 地域オブジェクト生成
 pub(crate) fn p(code: &str) -> Province {

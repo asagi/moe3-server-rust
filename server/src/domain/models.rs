@@ -2,15 +2,16 @@
 pub mod phase;
 pub mod player;
 pub mod table;
+pub use phase::Phase;
 
 // modules
-pub(crate) mod order;
-pub(crate) mod path;
-pub(crate) mod power;
-pub(crate) mod province;
-pub(crate) mod territory;
-pub(crate) mod unit;
-pub(crate) mod user;
+mod order;
+mod path;
+mod power;
+mod province;
+mod territory;
+mod unit;
+mod user;
 
 // types
 pub(crate) use order::BuildOrder;

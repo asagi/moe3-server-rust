@@ -1,5 +1,5 @@
+// FIXME: 開発中は pub としておく
 pub mod models;
-
 pub type OrderId = i64;
 pub type PhaseId = i64;
 pub type UserId = i64;
@@ -7,8 +7,8 @@ pub type PlayerId = i64;
 pub type TableId = i64;
 
 // modules
-pub(crate) mod adjudicator;
-pub(crate) mod helper;
+mod adjudicator;
+mod helper;
 
 // types
 pub(crate) use models::ConvoyOrder;
