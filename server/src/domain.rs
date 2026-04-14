@@ -21,15 +21,15 @@ pub(crate) use models::Territory;
 pub(crate) use models::Unit;
 
 // adjudicators
-pub(crate) use adjudicator::adjustment_adjudicator::AdjustmentAdjudicator;
-pub(crate) use adjudicator::main_adjudicator::MainAdjudicator;
-pub(crate) use adjudicator::retreat_adjudicator::RetreatAdjudicator;
+pub(crate) use adjudicator::AdjustmentAdjudicator;
+pub(crate) use adjudicator::MainAdjudicator;
+pub(crate) use adjudicator::RetreatAdjudicator;
 
 // helpers
-pub(crate) use helper::adjustment_order_helper::AdjustmentOrderHelper;
-pub(crate) use helper::main_order_helper::MainOrderHelper;
-pub(crate) use helper::retreat_order_helper::RetreatOrderHelper;
-pub(crate) use helper::unit_helper::UnitHelper;
+pub(crate) use helper::AdjustmentOrderHelper;
+pub(crate) use helper::MainOrderHelper;
+pub(crate) use helper::RetreatOrderHelper;
+pub(crate) use helper::UnitHelper;
 
 #[cfg(test)]
 mod tests;

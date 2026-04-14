@@ -1,7 +1,7 @@
 // models
 use super::Power;
 
-// type aliases
+// external crates
 use serde::Deserialize;
 use serde::Serialize;
 

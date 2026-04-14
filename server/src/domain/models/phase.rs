@@ -1,16 +1,18 @@
 // modules
-pub mod close_logic;
-pub mod context;
+mod close_logic;
+mod context;
 
 // types
 pub(crate) use super::Order;
-pub(crate) use super::OrderKind;
 pub(crate) use super::Power;
 pub(crate) use super::Province;
 pub(crate) use super::Territory;
 pub(crate) use super::Unit;
-pub(crate) use context::PhaseCloseResult;
-pub(crate) use context::PhaseContext;
+pub use context::PhaseCloseResult;
+pub use context::PhaseContext;
+
+// enums
+pub(crate) use super::OrderKind;
 
 // type aliases
 pub(crate) use super::PhaseId;
@@ -28,10 +30,10 @@ pub(crate) use super::RetreatOrderHelper;
 pub(crate) use super::UnitHelper;
 
 // external crates
-pub(crate) use chrono::DateTime;
-pub(crate) use chrono::Utc;
-pub(crate) use serde::Deserialize;
-pub(crate) use serde::Serialize;
+use chrono::DateTime;
+use chrono::Utc;
+use serde::Deserialize;
+use serde::Serialize;
 
 /// フェイズの定義
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

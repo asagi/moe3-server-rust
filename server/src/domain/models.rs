@@ -1,3 +1,4 @@
+// FIXME: 開発中は pub としておく
 pub mod phase;
 pub mod player;
 pub mod table;

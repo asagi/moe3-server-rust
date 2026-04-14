@@ -4,7 +4,7 @@ use super::Order;
 // enums
 use super::OrderKind;
 
-// external crates
+// standard library
 use std::collections::HashSet;
 
 pub trait RetreatOrderHelper {

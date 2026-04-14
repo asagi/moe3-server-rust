@@ -5,7 +5,7 @@ use super::Unit;
 // enums
 use super::UnitKind;
 
-// external crates
+// standard library
 use std::collections::HashSet;
 use std::collections::VecDeque;
 

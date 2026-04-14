@@ -4,11 +4,11 @@ use super::Power;
 use super::Province;
 use super::Unit;
 
-// type aliases
+// external crates
 use serde::Deserialize;
 use serde::Serialize;
 
-// external crates
+// standard library
 use std::fmt;
 
 /// 命令の定義

@@ -12,7 +12,7 @@ use super::UnitKind;
 use super::MainOrderHelper;
 use super::Order;
 
-// external crates
+// standard library
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::iter::successors;
