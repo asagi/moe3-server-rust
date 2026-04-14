@@ -30,6 +30,65 @@ impl Phase {
             PhaseKind::Debrief(d) => d.close(&mut self, context),
         }
     }
+
+    /// フェイズ初期化処理
+    fn initialize(&mut self, prev_phase: &Phase) {
+        self.data.territories = prev_phase.data.territories.clone();
+        self.data.units = prev_phase.data.units.clone();
+
+        // 初期命令生成
+        match self.data.kind {
+            PhaseKind::SpringMain(_) | PhaseKind::FallMain(_) => self.init_main_phase_orders(),
+            PhaseKind::SpringRetreat(_) | PhaseKind::FallRetreat(_) => {
+                self.init_retreat_phase_orders();
+                self.data.standoff_codes = prev_phase.data.standoff_codes.clone();
+            }
+            PhaseKind::Adjustment(_) => self.init_adjustment_phase_orders(),
+            _ => {}
+        }
+    }
+
+    /// メインフェイズの初期命令を生成する
+    fn init_main_phase_orders(&mut self) {
+        for unit in &mut self.data.units {
+            self.data.orders.push(unit.hold());
+        }
+    }
+
+    /// 撤退フェイズの初期命令を生成する
+    fn init_retreat_phase_orders(&mut self) {
+        for unit in &mut self.data.units {
+            if unit.dislodged {
+                self.data.orders.push(unit.disband());
+            }
+        }
+    }
+
+    /// 調整フェイズの初期命令を生成する
+    fn init_adjustment_phase_orders(&mut self) {
+        for p in Power::iter() {
+            // 解体必要数算出
+            let sc_count = self.count_supply_centers(&p);
+            let unit_count = self.count_units(&p);
+            let adjustment_capacity = unit_count as isize - sc_count as isize;
+
+            // 解体の必要がない場合はスキップ
+            if adjustment_capacity < 1 {
+                continue;
+            }
+            let mut remaining = adjustment_capacity as usize;
+
+            // 解体命令登録
+            let disband_candidates = &mut self.data.units.collect_units_for_civil_disorder(&p, &self.data.territories);
+            disband_candidates.reverse();
+            while remaining > 0 {
+                let unit = disband_candidates.pop().unwrap();
+                self.data.orders.push(unit.disband().set_valid());
+                remaining -= 1;
+                continue;
+            }
+        }
+    }
 }
 
 /// フェイズの終了ロジック
@@ -111,31 +170,12 @@ trait PhaseCloseLogic {
     }
 }
 
-/// メインフェイズの和平合意条件の判定
-fn check_draw_condition_for_main_phase(_context: &PhaseContext) -> bool {
-    // TODO: 和平合意条件の判定
-    // - 有効な勢力のうち、和平に同意しているプレイヤーが過半数を超えたら true を返す
-
-    false
-}
-
-/// 撤退フェイズの占領処理
-fn occupy_for_retreat_phase(_current_phase: &mut Phase, _context: &mut PhaseContext) {
-    // TODO: 占領処理
-    // - 撤退命令を解決し、占領が発生した地域を記録する
-    // - 占領情報を current_phase に記録する
-}
-
 /// 準備フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for ReadyPhase {
     /// 次フェイズ生成
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
         let mut phase = Phase::new_spring_main(current_phase.year(), current_phase.index());
-        phase.data.territories = current_phase.data.territories.clone();
-        phase.data.units = current_phase.data.units.clone();
-        for unit in &mut phase.data.units {
-            phase.data.orders.push(unit.hold());
-        }
+        phase.initialize(current_phase);
         Some(phase)
     }
 }
@@ -153,14 +193,7 @@ impl PhaseCloseLogic for SpringMainPhase {
     /// 次フェイズ生成
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
         let mut phase = Phase::new_spring_retreat(current_phase.year(), current_phase.index());
-        phase.data.territories = current_phase.data.territories.clone();
-        phase.data.units = current_phase.data.units.clone();
-        for unit in &mut phase.data.units {
-            if unit.dislodged {
-                phase.data.orders.push(unit.disband());
-            }
-        }
-        phase.data.standoff_codes = current_phase.data.standoff_codes.clone();
+        phase.initialize(current_phase);
         Some(phase)
     }
 
@@ -184,11 +217,7 @@ impl PhaseCloseLogic for SpringRetreatPhase {
     /// 次フェイズ生成
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
         let mut phase = Phase::new_fall_main(current_phase.year(), current_phase.index());
-        phase.data.territories = current_phase.data.territories.clone();
-        phase.data.units = current_phase.data.units.clone();
-        for unit in &mut phase.data.units {
-            phase.data.orders.push(unit.hold());
-        }
+        phase.initialize(current_phase);
         Some(phase)
     }
 }
@@ -206,14 +235,7 @@ impl PhaseCloseLogic for FallMainPhase {
     /// 次フェイズ生成
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
         let mut phase = Phase::new_fall_retreat(current_phase.year(), current_phase.index());
-        phase.data.territories = current_phase.data.territories.clone();
-        phase.data.units = current_phase.data.units.clone();
-        for unit in &mut phase.data.units {
-            if unit.dislodged_from.is_some() {
-                phase.data.orders.push(unit.disband());
-            }
-        }
-        phase.data.standoff_codes = current_phase.data.standoff_codes.clone();
+        phase.initialize(current_phase);
         Some(phase)
     }
 
@@ -237,32 +259,7 @@ impl PhaseCloseLogic for FallRetreatPhase {
     /// 次フェイズ生成
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
         let mut phase = Phase::new_adjustment(current_phase.year(), current_phase.index());
-        phase.data.territories = current_phase.data.territories.clone();
-        phase.data.units = current_phase.data.units.clone();
-
-        for p in Power::iter() {
-            // 解体必要数算出
-            let sc_count = phase.count_supply_centers(&p);
-            let unit_count = phase.count_units(&p);
-            let adjustment_capacity = unit_count as isize - sc_count as isize;
-
-            // 解体の必要がない場合はスキップ
-            if adjustment_capacity < 1 {
-                continue;
-            }
-            let mut remaining = adjustment_capacity as usize;
-
-            // 解体命令登録
-            let disband_candidates = &mut phase.data.units.collect_units_for_civil_disorder(&p, &phase.data.territories);
-            disband_candidates.reverse();
-            while remaining > 0 {
-                let unit = disband_candidates.pop().unwrap();
-                phase.data.orders.push(unit.disband().set_valid());
-                remaining -= 1;
-                continue;
-            }
-        }
-
+        phase.initialize(current_phase);
         Some(phase)
     }
 
@@ -282,11 +279,7 @@ impl PhaseCloseLogic for AdjustmentPhase {
     /// 次フェイズ生成
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
         let mut phase = Phase::new_spring_main(current_phase.year(), current_phase.index());
-        phase.data.territories = current_phase.data.territories.clone();
-        phase.data.units = current_phase.data.units.clone();
-        for unit in &mut phase.data.units {
-            phase.data.orders.push(unit.hold());
-        }
+        phase.initialize(current_phase);
         Some(phase)
     }
 }
@@ -296,4 +289,19 @@ impl PhaseCloseLogic for DebriefPhase {
     fn create_next_phase(&self, _current_phase: &Phase) -> Option<Phase> {
         None
     }
+}
+
+/// メインフェイズの和平合意条件の判定
+fn check_draw_condition_for_main_phase(_context: &PhaseContext) -> bool {
+    // TODO: 和平合意条件の判定
+    // - 有効な勢力のうち、和平に同意しているプレイヤーが過半数を超えたら true を返す
+
+    false
+}
+
+/// 撤退フェイズの占領処理
+fn occupy_for_retreat_phase(_current_phase: &mut Phase, _context: &mut PhaseContext) {
+    // TODO: 占領処理
+    // - 撤退命令を解決し、占領が発生した地域を記録する
+    // - 占領情報を current_phase に記録する
 }
