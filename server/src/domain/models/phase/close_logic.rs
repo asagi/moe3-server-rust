@@ -85,7 +85,6 @@ impl Phase {
                 let unit = disband_candidates.pop().unwrap();
                 self.data.orders.push(unit.disband().set_valid());
                 remaining -= 1;
-                continue;
             }
         }
     }
