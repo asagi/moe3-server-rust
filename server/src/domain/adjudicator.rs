@@ -4,17 +4,17 @@ mod main_adjudicator;
 mod retreat_adjudicator;
 
 // types
-pub(crate) use super::models::order::Order;
-pub(crate) use super::models::path::Path;
-pub(crate) use super::models::phase::Phase;
-pub(crate) use super::models::power::Power;
-pub(crate) use super::models::province::Province;
-pub(crate) use super::models::unit::Unit;
+pub(crate) use super::models::Order;
+pub(crate) use super::models::Path;
+pub(crate) use super::models::Phase;
+pub(crate) use super::models::Power;
+pub(crate) use super::models::Province;
+pub(crate) use super::models::Unit;
 
 // enums
-pub(crate) use super::models::order::OrderKind;
-pub(crate) use super::models::order::OrderStatus;
-pub(crate) use super::models::unit::UnitKind;
+pub(crate) use super::models::OrderKind;
+pub(crate) use super::models::OrderStatus;
+pub(crate) use super::models::UnitKind;
 
 // adjudicators
 pub(crate) use adjustment_adjudicator::AdjustmentAdjudicator;
