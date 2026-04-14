@@ -1,21 +1,33 @@
+// modules
 mod close_logic;
 mod context;
-mod resolvers;
 
-pub use super::helper;
-pub use super::power::Power;
-pub use context::PhaseCloseResult;
-pub use context::PhaseContext;
-pub use resolvers::resolve_orders_for_adjustment_phase;
-pub use resolvers::resolve_orders_for_main_phase;
-pub use resolvers::resolve_orders_for_retreat_phase;
+// types
+use super::Order;
+use super::OrderKind;
+use super::Power;
+use super::Province;
+use super::Territory;
+use super::Unit;
+use context::PhaseCloseResult;
+use context::PhaseContext;
 
+// type aliases
 use super::PhaseId;
 use super::TableId;
-use super::order::Order;
-use super::province::Province;
-use super::territory::Territory;
-use super::unit::Unit;
+
+// adjudicators
+use super::AdjustmentAdjudicator;
+use super::MainAdjudicator;
+use super::RetreatAdjudicator;
+
+// helpers
+use super::AdjustmentOrderHelper;
+use super::MainOrderHelper;
+use super::RetreatOrderHelper;
+use super::UnitHelper;
+
+// external crates
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
@@ -235,3 +247,24 @@ mod tests {
         assert!(matches!(p.phase_type(), PhaseKind::SpringMain(_)));
     }
 }
+
+#[cfg(test)]
+mod test_datc_6_a;
+#[cfg(test)]
+mod test_datc_6_b;
+#[cfg(test)]
+mod test_datc_6_c;
+#[cfg(test)]
+mod test_datc_6_d;
+#[cfg(test)]
+mod test_datc_6_e;
+#[cfg(test)]
+mod test_datc_6_f;
+#[cfg(test)]
+mod test_datc_6_g;
+#[cfg(test)]
+mod test_datc_6_h;
+#[cfg(test)]
+mod test_datc_6_i;
+#[cfg(test)]
+mod test_datc_6_j;

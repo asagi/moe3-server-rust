@@ -1,6 +1,11 @@
-use super::province::Province;
-use super::unit::Unit;
-use super::unit::UnitKind;
+// models
+use super::Province;
+use super::Unit;
+
+// enums
+use super::UnitKind;
+
+// external crates
 use std::collections::HashSet;
 use std::collections::VecDeque;
 
@@ -458,11 +463,6 @@ impl Path {
         PATHS.iter().any(|p| p.origin == origin && p.dest[..3] == dest[..3])
     }
 
-    /// Check if a direct path exists between two provinces
-    pub fn can_move(origin: &str, dest: &str) -> bool {
-        PATHS.iter().any(|p| p.origin == origin && p.dest == dest)
-    }
-
     /// ユニットが指定地点に存在可能かを判定する
     pub fn can_unit_exist_at(unit: &Unit, code: &str) -> bool {
         match unit.kind {
@@ -491,16 +491,6 @@ impl Path {
                 .iter()
                 .any(|p| p.origin == origin && p.dest[..3] == dest[..3] && p.fleet),
         }
-    }
-
-    /// Check if an army can move from origin to dest
-    pub fn can_army_move(origin: &str, dest: &str) -> bool {
-        PATHS.iter().any(|p| p.origin == origin && p.dest == dest && p.army)
-    }
-
-    /// Check if a fleet can move from origin to dest
-    pub fn can_fleet_move(origin: &str, dest: &str) -> bool {
-        PATHS.iter().any(|p| p.origin == origin && p.dest == dest && p.fleet)
     }
 
     /// Check if a convoy can move from origin to dest
@@ -552,29 +542,6 @@ mod tests {
 
     fn count_paths() -> usize {
         PATHS.len()
-    }
-
-    #[test]
-    fn test_can_move() {
-        assert!(Path::can_move("adr", "apu"));
-        assert!(Path::can_move("adr", "ion"));
-        assert!(!Path::can_move("adr", "xyz"));
-    }
-
-    #[test]
-    fn test_can_army_move() {
-        // adr -> apu is fleet only (not army)
-        assert!(!Path::can_army_move("adr", "apu"));
-        // alb -> gre is both
-        assert!(Path::can_army_move("alb", "gre"));
-    }
-
-    #[test]
-    fn test_can_fleet_move() {
-        // adr -> apu is fleet only
-        assert!(Path::can_fleet_move("adr", "apu"));
-        // alb -> ser is army only (not fleet)
-        assert!(!Path::can_fleet_move("alb", "ser"));
     }
 
     #[test]

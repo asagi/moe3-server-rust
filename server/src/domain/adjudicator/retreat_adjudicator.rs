@@ -1,6 +1,9 @@
+// models
 use super::Order;
-use super::RetreatOrderHelper;
 use super::Unit;
+
+// helpers
+use super::RetreatOrderHelper;
 
 pub struct RetreatAdjudicator;
 

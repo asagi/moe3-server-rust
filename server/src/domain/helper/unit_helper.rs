@@ -1,7 +1,8 @@
-use super::super::models::power::Power;
-use super::super::models::province::Province;
-use super::super::models::territory::Territory;
-use super::super::models::unit::Unit;
+// models
+use super::Power;
+use super::Province;
+use super::Territory;
+use super::Unit;
 
 pub trait UnitHelper {
     fn collect_units_for_civil_disorder(&self, power: &Power, territories: &[Territory]) -> Vec<Unit>;

@@ -1,7 +1,12 @@
-use super::super::PlayerId;
-use super::super::TableId;
-use super::power::Power;
-use super::user::User;
+// models
+use super::Power;
+use super::User;
+
+// type aliases
+use super::PlayerId;
+use super::TableId;
+
+// external crates
 use serde::Deserialize;
 use serde::Serialize;
 

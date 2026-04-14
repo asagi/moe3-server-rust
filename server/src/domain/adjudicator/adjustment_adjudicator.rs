@@ -1,9 +1,14 @@
-use super::AdjustmentOrderHelper;
+// models
 use super::Path;
 use super::Phase;
 use super::Power;
 use super::Province;
+
+// helpers
+use super::AdjustmentOrderHelper;
 use super::UnitHelper;
+
+// external crates
 use strum::IntoEnumIterator;
 
 pub struct AdjustmentAdjudicator;

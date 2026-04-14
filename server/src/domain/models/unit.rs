@@ -1,15 +1,20 @@
-use super::order::BuildOrder;
-use super::order::ConvoyOrder;
-use super::order::DisbandOrder;
-use super::order::HoldOrder;
-use super::order::MoveOrder;
-use super::order::Order;
-use super::order::OrderKind;
-use super::order::OrderStatus;
-use super::order::RetreatOrder;
-use super::order::SupportOrder;
-use super::power::Power;
-use super::province::Province;
+// models
+use super::BuildOrder;
+use super::ConvoyOrder;
+use super::DisbandOrder;
+use super::HoldOrder;
+use super::MoveOrder;
+use super::Order;
+use super::Power;
+use super::Province;
+use super::RetreatOrder;
+use super::SupportOrder;
+
+// enums
+use super::OrderKind;
+use super::OrderStatus;
+
+// external crates
 use serde::Deserialize;
 use serde::Serialize;
 

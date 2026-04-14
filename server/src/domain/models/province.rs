@@ -1,5 +1,8 @@
-use super::path::Path;
-use super::power::Power;
+// models
+use super::Path;
+use super::Power;
+
+// external crates
 use serde::Serialize;
 use std::collections::HashSet;
 use std::collections::VecDeque;

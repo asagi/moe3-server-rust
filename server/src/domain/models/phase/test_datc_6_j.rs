@@ -39,7 +39,7 @@ fn test_datc_6_j_1() {
     phase.data.orders.push(unit_f_lyo.disband());
     phase.data.orders.push(unit_a_pic.disband());
     phase.data.orders.push(unit_a_par.disband());
-    resolve_orders_for_adjustment_phase(phase);
+    Phase::resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Invalid);
@@ -64,7 +64,7 @@ fn test_datc_6_j_2() {
     let unit_a_par = a("f", "par");
     phase.data.orders.push(unit_a_par.disband());
     phase.data.orders.push(unit_a_par.disband());
-    resolve_orders_for_adjustment_phase(phase);
+    Phase::resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
@@ -87,7 +87,7 @@ fn test_datc_6_j_3() {
     phase.data.territories.push(Territory::new(Power::Russia, "stp"));
     phase.data.units.push(a("r", "lvn"));
     phase.data.units.push(a("r", "swe"));
-    resolve_orders_for_adjustment_phase(phase);
+    Phase::resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove A Swe");
 }
@@ -109,7 +109,7 @@ fn test_datc_6_j_4() {
     phase.data.territories.push(Territory::new(Power::Russia, "mos"));
     phase.data.units.push(a("r", "lvn"));
     phase.data.units.push(a("r", "ukr"));
-    resolve_orders_for_adjustment_phase(phase);
+    Phase::resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove A Lvn");
 }
@@ -133,7 +133,7 @@ fn test_datc_6_j_5() {
     phase.data.territories.push(Territory::new(Power::Russia, "stp"));
     phase.data.units.push(f("r", "ska"));
     phase.data.units.push(f("r", "ber"));
-    resolve_orders_for_adjustment_phase(phase);
+    Phase::resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove F Ber");
 }
@@ -157,7 +157,7 @@ fn test_datc_6_j_6() {
     phase.data.territories.push(Territory::new(Power::Russia, "mun"));
     phase.data.units.push(f("r", "bot"));
     phase.data.units.push(f("r", "nth"));
-    resolve_orders_for_adjustment_phase(phase);
+    Phase::resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove F Bot");
 }
@@ -182,7 +182,7 @@ fn test_datc_6_j_7() {
     phase.data.units.push(a("r", "boh"));
     phase.data.units.push(f("r", "ska"));
     phase.data.units.push(f("r", "nth"));
-    resolve_orders_for_adjustment_phase(phase);
+    Phase::resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove F Nth");
 }
@@ -203,7 +203,7 @@ fn test_datc_6_j_8() {
     phase.data.territories.push(Territory::new(Power::Russia, "war"));
     phase.data.units.push(a("r", "tyr"));
     phase.data.units.push(f("r", "bal"));
-    resolve_orders_for_adjustment_phase(phase);
+    Phase::resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove A Tyr");
 }
@@ -234,7 +234,7 @@ fn test_datc_6_j_9() {
     phase.data.units.push(a("r", "gre"));
     phase.data.units.push(a("r", "sev"));
     phase.data.units.push(f("r", "bal"));
-    resolve_orders_for_adjustment_phase(phase);
+    Phase::resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove A Gre");
 
@@ -244,7 +244,7 @@ fn test_datc_6_j_9() {
     phase.data.units.push(a("r", "gre"));
     phase.data.units.push(a("r", "sev"));
     phase.data.units.push(f("r", "ska"));
-    resolve_orders_for_adjustment_phase(phase);
+    Phase::resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove A Gre");
 }
@@ -266,7 +266,7 @@ fn test_datc_6_j_10() {
     phase.data.territories.push(Territory::new(Power::Italy, "nap"));
     phase.data.units.push(a("i", "gre"));
     phase.data.units.push(a("i", "pie"));
-    resolve_orders_for_adjustment_phase(phase);
+    Phase::resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove A Pie");
 }
@@ -288,7 +288,7 @@ fn test_datc_6_j_11() {
     phase.data.territories.push(Territory::new(Power::Italy, "war"));
     phase.data.units.push(a("i", "war"));
     phase.data.units.push(a("i", "tus"));
-    resolve_orders_for_adjustment_phase(phase);
+    Phase::resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders.len(), 1);
     assert_eq!(phase.data.orders[0].to_string(), "Remove A Tus");
 }

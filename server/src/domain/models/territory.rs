@@ -1,4 +1,7 @@
-use super::power::Power;
+// models
+use super::Power;
+
+// type aliases
 use serde::Deserialize;
 use serde::Serialize;
 
