@@ -9,10 +9,12 @@ pub(crate) fn p(code: &str) -> Province {
 
 /// 陸軍オブジェクト生成
 pub(crate) fn a(symbol: &str, location_code: &str) -> Unit {
-    Unit::new_army(Power::from_symbol(symbol).expect("valid power symobl"), p(location_code))
+    let power = Power::from_symbol(symbol).unwrap_or_else(|| panic!("invalid power symbol: {}", symbol));
+    Unit::new_army(power, p(location_code))
 }
 
 /// 海軍オブジェクト生成
 pub(crate) fn f(symbol: &str, location_code: &str) -> Unit {
-    Unit::new_fleet(Power::from_symbol(symbol).expect("valid power symobl"), p(location_code))
+    let power = Power::from_symbol(symbol).unwrap_or_else(|| panic!("invalid power symbol: {}", symbol));
+    Unit::new_fleet(power, p(location_code))
 }
