@@ -182,7 +182,7 @@ fn test_datc_6_b_6() {
     assert!(phase.data.units.contains(&unit_e_iri));
     assert!(phase.data.units.contains(&f("e", "mid")));
     assert!(phase.data.units.contains(&unit_f_spa_nc));
-    assert!(phase.data.units.contains(&unit_f_mid.dislodged_from(p("nat"))));
+    assert!(phase.data.units.contains(&unit_f_mid.set_dislodged_from(Some(p("nat")))));
     assert!(phase.data.units.contains(&unit_i_gol));
     assert!(phase.data.standoff_codes.is_empty());
 }

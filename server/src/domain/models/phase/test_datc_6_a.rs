@@ -136,7 +136,7 @@ fn test_datc_6_a_5() {
     assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
     assert_eq!(phase.data.units.len(), 5);
     assert!(phase.data.units.contains(&unit_e_nth));
-    assert!(phase.data.units.contains(&unit_e_yor.dislodged_from(p("lon"))));
+    assert!(phase.data.units.contains(&unit_e_yor.set_dislodged_from(Some(p("lon")))));
     assert!(phase.data.units.contains(&unit_e_lvp));
     assert!(phase.data.units.contains(&f("g", "yor")));
     assert!(phase.data.units.contains(&unit_g_wal));
@@ -223,7 +223,7 @@ fn test_datc_6_a_8() {
     assert_eq!(phase.data.units.len(), 3);
     assert!(phase.data.units.contains(&a("i", "tri")));
     assert!(phase.data.units.contains(&unit_i_tyr));
-    assert!(phase.data.units.contains(&unit_a_tri.dislodged_from(p("ven"))));
+    assert!(phase.data.units.contains(&unit_a_tri.set_dislodged_from(Some(p("ven")))));
     assert!(phase.data.standoff_codes.is_empty());
 }
 

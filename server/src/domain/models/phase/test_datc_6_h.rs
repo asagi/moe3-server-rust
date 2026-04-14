@@ -149,12 +149,12 @@ fn test_datc_6_h_5() {
     main_phase.data.orders.push(unit_t_ank.hold());
 
     main_phase.close(&mut context);
-    let mut retreat_phase = context.phases.pop().unwrap();
+    let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.data.orders.clear();
     retreat_phase
         .data
         .orders
-        .push(unit_t_ank.dislodged_from(p("bla")).retreat_to(p("bla")));
+        .push(unit_t_ank.set_dislodged_from(Some(p("bla"))).retreat_to(p("bla")));
     Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(retreat_phase.data.units.len(), 2);
@@ -198,12 +198,12 @@ fn test_datc_6_h_6() {
     main_phase.data.orders.push(unit_i_vie.hold());
 
     main_phase.close(&mut context);
-    let mut retreat_phase = context.phases.pop().unwrap();
+    let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.data.orders.clear();
     retreat_phase
         .data
         .orders
-        .push(unit_i_vie.dislodged_from(p("tri")).retreat_to(p("boh")));
+        .push(unit_i_vie.set_dislodged_from(Some(p("tri"))).retreat_to(p("boh")));
     Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(retreat_phase.data.units.len(), 4);
@@ -259,16 +259,16 @@ fn test_datc_6_h_7() {
     main_phase.data.orders.push(unit_i_boh.hold());
 
     main_phase.close(&mut context);
-    let mut retreat_phase = context.phases.pop().unwrap();
+    let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.data.orders.clear();
     retreat_phase
         .data
         .orders
-        .push(unit_i_vie.dislodged_from(p("tri")).retreat_to(p("tyr")));
+        .push(unit_i_vie.set_dislodged_from(Some(p("tri"))).retreat_to(p("tyr")));
     retreat_phase
         .data
         .orders
-        .push(unit_i_boh.dislodged_from(p("sil")).retreat_to(p("tyr")));
+        .push(unit_i_boh.set_dislodged_from(Some(p("sil"))).retreat_to(p("tyr")));
     Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(retreat_phase.data.orders[1].status, OrderStatus::Failure);
@@ -340,20 +340,20 @@ fn test_datc_6_h_8() {
     main_phase.data.orders.push(unit_r_hol.hold());
 
     main_phase.close(&mut context);
-    let mut retreat_phase = context.phases.pop().unwrap();
+    let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.data.orders.clear();
     retreat_phase
         .data
         .orders
-        .push(unit_e_nwy.dislodged_from(p("fin")).retreat_to(p("nth")));
+        .push(unit_e_nwy.set_dislodged_from(Some(p("fin"))).retreat_to(p("nth")));
     retreat_phase
         .data
         .orders
-        .push(unit_r_edi.dislodged_from(p("lvp")).retreat_to(p("nth")));
+        .push(unit_r_edi.set_dislodged_from(Some(p("lvp"))).retreat_to(p("nth")));
     retreat_phase
         .data
         .orders
-        .push(unit_r_hol.dislodged_from(p("ruh")).retreat_to(p("nth")));
+        .push(unit_r_hol.set_dislodged_from(Some(p("ruh"))).retreat_to(p("nth")));
     Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(retreat_phase.data.orders[1].status, OrderStatus::Failure);
@@ -407,16 +407,16 @@ fn test_datc_6_h_9() {
     main_phase.data.orders.push(unit_r_pru.move_to(p("ber")));
 
     main_phase.close(&mut context);
-    let mut retreat_phase = context.phases.pop().unwrap();
+    let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.data.orders.clear();
     retreat_phase
         .data
         .orders
-        .push(unit_g_kie.dislodged_from(p("hel")).retreat_to(p("ber")));
+        .push(unit_g_kie.set_dislodged_from(Some(p("hel"))).retreat_to(p("ber")));
     retreat_phase
         .data
         .orders
-        .push(unit_r_pru.dislodged_from(p("ber")).retreat_to(p("ber")));
+        .push(unit_r_pru.set_dislodged_from(Some(p("ber"))).retreat_to(p("ber")));
     Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(retreat_phase.data.orders[1].status, OrderStatus::Invalid);
@@ -481,16 +481,16 @@ fn test_datc_6_h_10() {
     main_phase.data.orders.push(unit_r_sil.support_move(unit_r_war, p("pru")));
 
     main_phase.close(&mut context);
-    let mut retreat_phase = context.phases.pop().unwrap();
+    let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.data.orders.clear();
     retreat_phase
         .data
         .orders
-        .push(unit_e_kie.dislodged_from(p("ber")).retreat_to(p("ber")));
+        .push(unit_e_kie.set_dislodged_from(Some(p("ber"))).retreat_to(p("ber")));
     retreat_phase
         .data
         .orders
-        .push(unit_g_pru.dislodged_from(p("war")).retreat_to(p("ber")));
+        .push(unit_g_pru.set_dislodged_from(Some(p("war"))).retreat_to(p("ber")));
     Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(retreat_phase.data.orders[1].status, OrderStatus::Success);
@@ -546,12 +546,12 @@ fn test_datc_6_h_11() {
     main_phase.data.orders.push(unit_i_mar.hold());
 
     main_phase.close(&mut context);
-    let mut retreat_phase = context.phases.pop().unwrap();
+    let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.data.orders.clear();
     retreat_phase
         .data
         .orders
-        .push(unit_i_mar.dislodged_via_convoy().retreat_to(p("gas")));
+        .push(unit_i_mar.set_dislodged_via_convoy().retreat_to(p("gas")));
     Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(retreat_phase.data.units.len(), 6);
@@ -627,12 +627,12 @@ fn test_datc_6_h_12() {
     main_phase.data.orders.push(unit_r_cly.support_move(unit_r_edi, p("lvp")));
 
     main_phase.close(&mut context);
-    let mut retreat_phase = context.phases.pop().unwrap();
+    let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.data.orders.clear();
     retreat_phase
         .data
         .orders
-        .push(unit_e_lvp.dislodged_via_convoy().retreat_to(p("edi")));
+        .push(unit_e_lvp.set_dislodged_via_convoy().retreat_to(p("edi")));
     retreat_phase.data.orders.push(unit_e_eng.disband());
     Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Success);
@@ -722,12 +722,12 @@ fn test_datc_6_h_15() {
     main_phase.data.orders.push(unit_f_mid.support_move(unit_f_spa_sc, p("por")));
 
     main_phase.close(&mut context);
-    let mut retreat_phase = context.phases.pop().unwrap();
+    let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.data.orders.clear();
     retreat_phase
         .data
         .orders
-        .push(unit_e_por.dislodged_from(p("spa_sc")).retreat_to(p("spa_nc")));
+        .push(unit_e_por.set_dislodged_from(Some(p("spa_sc"))).retreat_to(p("spa_nc")));
     Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(retreat_phase.data.units.len(), 2);
@@ -769,12 +769,12 @@ fn test_datc_6_h_16() {
     main_phase.data.orders.push(unit_i_tyn.move_to(p("wes")));
 
     main_phase.close(&mut context);
-    let mut retreat_phase = context.phases.pop().unwrap();
+    let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.data.orders.clear();
     retreat_phase
         .data
         .orders
-        .push(unit_f_wes.dislodged_from(p("tyn")).retreat_to(p("spa_sc")));
+        .push(unit_f_wes.set_dislodged_from(Some(p("tyn"))).retreat_to(p("spa_sc")));
     Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(retreat_phase.data.units.len(), 4);

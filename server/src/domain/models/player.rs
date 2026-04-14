@@ -11,11 +11,12 @@ use serde::Deserialize;
 use serde::Serialize;
 
 /// プレイヤーの定義
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-pub struct Player {
-    pub id: Option<PlayerId>,      // プレイヤー ID
-    pub user: User,                // ユーザ ID
-    pub table_id: Option<TableId>, // 対戦テーブル ID
-    pub power: Option<Power>,      // 担当している国
-    pub is_accepting_draw: bool,   // 停戦合意フラグ
+pub(crate) struct Player {
+    id: Option<PlayerId>,      // プレイヤー ID
+    user: User,                // ユーザ ID
+    table_id: Option<TableId>, // 対戦テーブル ID
+    power: Option<Power>,      // 担当している国
+    is_accepting_draw: bool,   // 停戦合意フラグ
 }

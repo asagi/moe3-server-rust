@@ -34,7 +34,7 @@ impl MainAdjudicator {
             }
 
             // 海軍は遠隔移動不可
-            if let UnitKind::Fleet(_) = &orders[move_idx].unit.kind {
+            if let UnitKind::Fleet(_) = &orders[move_idx].unit.kind() {
                 orders[move_idx].set_invalid();
                 continue;
             }
@@ -470,7 +470,7 @@ fn can_move_via_valid_matched_convoy(orders: &[Order], move_idx: usize, exclude:
 /// 輸送命令の存在によって移動命令に海路利用の意図が示されていたかを判定する。
 fn is_convoy_intended(orders: &[Order], convoy_idx: usize) -> bool {
     // 輸送命令と移動命令の勢力が異なる場合は海路利用の意図の明示とは認めない
-    if orders[convoy_idx].power != orders[convoy_idx].target_unit().power {
+    if orders[convoy_idx].power != orders[convoy_idx].target_unit().power() {
         return false;
     }
 

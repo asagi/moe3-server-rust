@@ -33,6 +33,7 @@ use strum::IntoEnumIterator;
 /// フェイズのロジック
 impl Phase {
     /// フェイズを締め切り命令を解決する。
+    #[allow(dead_code)]
     pub fn close(mut self, context: &mut PhaseContext) -> PhaseCloseResult {
         match self.data.kind {
             PhaseKind::Ready(r) => r.close(&mut self, context),
@@ -115,7 +116,7 @@ impl Phase {
 
                 // 所在地を移動先に変更して保存
                 current_phase.data.units.push(Unit {
-                    province: m.dest,
+                    location: m.dest,
                     ..order.unit
                 });
                 continue;
@@ -129,14 +130,14 @@ impl Phase {
                 .data
                 .units
                 .iter_mut()
-                .find(|u| u.power == order.unit.power && u.kind == order.unit.kind && u.province == order.unit.province)
+                .find(|u| u.power == order.unit.power && u.kind == order.unit.kind && u.location == order.unit.location)
             else {
                 continue;
             };
-            if let Some(dislodged_from) = order.unit.dislodged_from {
-                dislodged_unit.dislodged_from(dislodged_from);
+            if order.unit.dislodged_from.is_some() {
+                dislodged_unit.set_dislodged_from(order.unit.dislodged_from);
             } else {
-                dislodged_unit.dislodged_via_convoy();
+                dislodged_unit.set_dislodged_via_convoy();
             }
         }
     }
@@ -167,7 +168,7 @@ impl Phase {
             {
                 // 撤退に成功した軍のみ所在を移動先に変更して再配置
                 current_phase.data.units.push(Unit {
-                    province: r.dest,
+                    location: r.dest,
                     dislodged_from: None,
                     dislodged: false,
                     ..order.unit
@@ -246,10 +247,7 @@ impl Phase {
 
 /// フェイズの終了ロジック
 trait PhaseCloseLogic {
-    fn close(&self, current_phase: &mut Phase, context: &mut PhaseContext) -> PhaseCloseResult
-    where
-        Self: Sized,
-    {
+    fn close(&self, current_phase: &mut Phase, context: &mut PhaseContext) -> PhaseCloseResult {
         // 和平判定
         if self.check_draw_condition(context) {
             return self.close_on_draw(current_phase, context);
@@ -266,7 +264,7 @@ trait PhaseCloseLogic {
 
         // 次フェイズ生成
         if let Some(next_phase) = self.create_next_phase(current_phase) {
-            context.phases.push(current_phase.clone());
+            context.push_phase(current_phase.clone());
 
             // スキップ判定と再帰
             if self.should_skip_next_phase(context, &next_phase) {
@@ -492,7 +490,7 @@ mod tests {
         let mut spring_main = Phase::new_spring_main(1901, 1);
         let unit_normal = a("f", "par");
         let mut unit_dislodged = a("a", "vie");
-        unit_dislodged.dislodged_from(p("boh"));
+        unit_dislodged.set_dislodged_from(Some(p("boh")));
         spring_main.data.units = vec![unit_normal, unit_dislodged];
         spring_main.data.territories = vec![Territory::new(Power::France, "par")];
         spring_main.data.standoff_codes = vec!["boh".to_string()];
@@ -533,7 +531,7 @@ mod tests {
         let mut fall_main = Phase::new_fall_main(1901, 3);
         let unit_normal = f("e", "nth");
         let mut unit_dislodged = a("g", "ber");
-        unit_dislodged.dislodged_from(p("sil"));
+        unit_dislodged.set_dislodged_from(Some(p("sil")));
         fall_main.data.units = vec![unit_normal, unit_dislodged];
         fall_main.data.territories = vec![Territory::new(Power::England, "lon")];
         fall_main.data.standoff_codes = vec!["sil".to_string()];
