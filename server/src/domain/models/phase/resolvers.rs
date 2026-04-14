@@ -93,27 +93,23 @@ pub fn resolve_orders_for_retreat_phase(current_phase: &mut Phase) {
 
     // # 03. 命令解決後のユニット配置情報をフェイズに反映
     for order in orders.collect_not_assumed_retreats() {
-        match &order.kind {
-            // 撤退に成功した軍の保存
-            OrderKind::Retreat(r) => {
-                // 対象ユニットを削除
-                if let Some(idx) = current_phase.data.units.iter().position(|u| u == &order.unit) {
-                    current_phase.data.units.remove(idx);
-                }
+        // 撤退フェイズでの処理対象の軍をいったん削除
+        if matches!(&order.kind, OrderKind::Retreat(_) | OrderKind::Disband(_)) {
+            if let Some(idx) = current_phase.data.units.iter().position(|u| u == &order.unit) {
+                current_phase.data.units.remove(idx);
+            }
+        }
 
-                // 撤退に成功した軍のみ再保存
-                if order.is_success() {
-                    current_phase.data.units.push(Unit {
-                        province: r.dest,
-                        dislodged_from: None,
-                        dislodged: false,
-                        ..order.unit
-                    });
-                }
-            }
-            _ => {
-                // それ以外の軍は現状維持
-            }
+        if let OrderKind::Retreat(r) = &order.kind
+            && order.is_success()
+        {
+            // 撤退に成功した軍のみ所在を移動先に変更して再配置
+            current_phase.data.units.push(Unit {
+                province: r.dest,
+                dislodged_from: None,
+                dislodged: false,
+                ..order.unit
+            });
         }
     }
 }
