@@ -304,3 +304,142 @@ fn occupy_for_retreat_phase(_current_phase: &mut Phase, _context: &mut PhaseCont
     // - 撤退命令を解決し、占領が発生した地域を記録する
     // - 占領情報を current_phase に記録する
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::domain::models::order::OrderKind;
+    use crate::domain::models::phase::Phase;
+    use crate::domain::models::power::Power;
+    use crate::domain::models::province::Province;
+    use crate::domain::models::territory::Territory;
+    use crate::domain::models::unit::Unit;
+
+    fn p(code: &str) -> Province {
+        Province::from_code(code).expect("valid province code")
+    }
+
+    /// Ready → SpringMain: ユニットと領土が引き継がれ、全ユニットにホールド命令が生成される
+    #[test]
+    fn test_initialize_ready_to_spring_main() {
+        let ready = Phase::new_ready();
+        let expected_units = ready.data.units.clone();
+        let expected_territories = ready.data.territories.clone();
+
+        let mut spring_main = Phase::new_spring_main(ready.year(), ready.index());
+        spring_main.initialize(&ready);
+
+        assert_eq!(spring_main.data.units, expected_units);
+        assert_eq!(spring_main.data.territories, expected_territories);
+        assert_eq!(spring_main.data.orders.len(), expected_units.len());
+        assert!(spring_main.data.orders.iter().all(|o| matches!(o.kind, OrderKind::Hold(_))));
+        assert!(spring_main.data.standoff_codes.is_empty());
+    }
+
+    /// SpringMain → SpringRetreat: 撃退ユニットにのみ解体命令が生成され standoff_codes が引き継がれる
+    #[test]
+    fn test_initialize_spring_main_to_spring_retreat() {
+        let mut spring_main = Phase::new_spring_main(1901, 1);
+        let unit_normal = Unit::new_army(Power::France, p("par"));
+        let mut unit_dislodged = Unit::new_army(Power::Austria, p("vie"));
+        unit_dislodged.dislodged_from(p("boh"));
+        spring_main.data.units = vec![unit_normal, unit_dislodged];
+        spring_main.data.territories = vec![Territory::new(Power::France, "par")];
+        spring_main.data.standoff_codes = vec!["boh".to_string()];
+
+        let mut spring_retreat = Phase::new_spring_retreat(spring_main.year(), spring_main.index());
+        spring_retreat.initialize(&spring_main);
+
+        assert_eq!(spring_retreat.data.units, spring_main.data.units);
+        assert_eq!(spring_retreat.data.territories, spring_main.data.territories);
+        assert_eq!(spring_retreat.data.standoff_codes, spring_main.data.standoff_codes);
+        // 撃退ユニットにのみ解体命令が生成される
+        assert_eq!(spring_retreat.data.orders.len(), 1);
+        assert!(matches!(spring_retreat.data.orders[0].kind, OrderKind::Disband(_)));
+        assert_eq!(spring_retreat.data.orders[0].unit, unit_dislodged);
+    }
+
+    /// SpringRetreat → FallMain: ユニットと領土が引き継がれ、standoff_codes は引き継がれない
+    #[test]
+    fn test_initialize_spring_retreat_to_fall_main() {
+        let mut spring_retreat = Phase::new_spring_retreat(1901, 2);
+        spring_retreat.data.units = vec![Unit::new_army(Power::France, p("par"))];
+        spring_retreat.data.territories = vec![Territory::new(Power::France, "par")];
+        spring_retreat.data.standoff_codes = vec!["boh".to_string()];
+
+        let mut fall_main = Phase::new_fall_main(spring_retreat.year(), spring_retreat.index());
+        fall_main.initialize(&spring_retreat);
+
+        assert_eq!(fall_main.data.units, spring_retreat.data.units);
+        assert_eq!(fall_main.data.territories, spring_retreat.data.territories);
+        assert!(fall_main.data.standoff_codes.is_empty());
+        assert_eq!(fall_main.data.orders.len(), 1);
+        assert!(matches!(fall_main.data.orders[0].kind, OrderKind::Hold(_)));
+    }
+
+    /// FallMain → FallRetreat: 撃退ユニットにのみ解体命令が生成され standoff_codes が引き継がれる
+    #[test]
+    fn test_initialize_fall_main_to_fall_retreat() {
+        let mut fall_main = Phase::new_fall_main(1901, 3);
+        let unit_normal = Unit::new_fleet(Power::England, p("nth"));
+        let mut unit_dislodged = Unit::new_army(Power::Germany, p("ber"));
+        unit_dislodged.dislodged_from(p("sil"));
+        fall_main.data.units = vec![unit_normal, unit_dislodged];
+        fall_main.data.territories = vec![Territory::new(Power::England, "lon")];
+        fall_main.data.standoff_codes = vec!["sil".to_string()];
+
+        let mut fall_retreat = Phase::new_fall_retreat(fall_main.year(), fall_main.index());
+        fall_retreat.initialize(&fall_main);
+
+        assert_eq!(fall_retreat.data.units, fall_main.data.units);
+        assert_eq!(fall_retreat.data.territories, fall_main.data.territories);
+        assert_eq!(fall_retreat.data.standoff_codes, fall_main.data.standoff_codes);
+        // 撃退ユニットにのみ解体命令が生成される
+        assert_eq!(fall_retreat.data.orders.len(), 1);
+        assert!(matches!(fall_retreat.data.orders[0].kind, OrderKind::Disband(_)));
+        assert_eq!(fall_retreat.data.orders[0].unit, unit_dislodged);
+    }
+
+    /// FallRetreat → Adjustment: 余剰ユニットに市民的混乱解体命令が生成される
+    #[test]
+    fn test_initialize_fall_retreat_to_adjustment() {
+        let mut fall_retreat = Phase::new_fall_retreat(1901, 4);
+        // Austria has 1 supply center but 2 units → needs 1 civil disorder disband
+        fall_retreat.data.units = vec![
+            Unit::new_army(Power::Austria, p("vie")),
+            Unit::new_army(Power::Austria, p("boh")),
+        ];
+        fall_retreat.data.territories = vec![Territory::new(Power::Austria, "vie")];
+
+        let mut adjustment = Phase::new_adjustment(fall_retreat.year(), fall_retreat.index());
+        adjustment.initialize(&fall_retreat);
+
+        assert_eq!(adjustment.data.units, fall_retreat.data.units);
+        assert_eq!(adjustment.data.territories, fall_retreat.data.territories);
+        // ユニット数 (2) が補給都市数 (1) を超えるため 1 つ解体命令が生成される
+        assert_eq!(adjustment.data.orders.len(), 1);
+        assert!(matches!(adjustment.data.orders[0].kind, OrderKind::Disband(_)));
+    }
+
+    /// Adjustment → SpringMain: ユニットと領土が引き継がれ、全ユニットにホールド命令が生成される
+    #[test]
+    fn test_initialize_adjustment_to_spring_main() {
+        let mut adjustment = Phase::new_adjustment(1901, 5);
+        adjustment.data.units = vec![
+            Unit::new_army(Power::France, p("par")),
+            Unit::new_fleet(Power::England, p("lon")),
+        ];
+        adjustment.data.territories = vec![
+            Territory::new(Power::France, "par"),
+            Territory::new(Power::England, "lon"),
+        ];
+
+        let mut spring_main = Phase::new_spring_main(adjustment.year(), adjustment.index());
+        spring_main.initialize(&adjustment);
+
+        assert_eq!(spring_main.data.units, adjustment.data.units);
+        assert_eq!(spring_main.data.territories, adjustment.data.territories);
+        assert_eq!(spring_main.data.orders.len(), 2);
+        assert!(spring_main.data.orders.iter().all(|o| matches!(o.kind, OrderKind::Hold(_))));
+        assert!(spring_main.data.standoff_codes.is_empty());
+    }
+}
