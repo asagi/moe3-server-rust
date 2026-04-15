@@ -355,9 +355,8 @@ impl PhaseCloseLogic for SpringMainPhase {
     }
 
     /// 撤退指示が必要なユニットが存在しない場合に true を返す
-    fn should_skip_next_phase(&self, _context: &PhaseContext, _next_phase: &Phase) -> bool {
-        // TODO
-        false
+    fn should_skip_next_phase(&self, _context: &PhaseContext, next_phase: &Phase) -> bool {
+        !next_phase.data.units.iter().any(|u| u.dislodged)
     }
 }
 
@@ -397,9 +396,8 @@ impl PhaseCloseLogic for FallMainPhase {
     }
 
     /// 撤退指示が必要なユニットが存在しない場合に true を返す
-    fn should_skip_next_phase(&self, _context: &PhaseContext, _next_phase: &Phase) -> bool {
-        // TODO
-        false
+    fn should_skip_next_phase(&self, _context: &PhaseContext, next_phase: &Phase) -> bool {
+        !next_phase.data.units.iter().any(|u| u.dislodged)
     }
 }
 
@@ -422,7 +420,7 @@ impl PhaseCloseLogic for FallRetreatPhase {
 
     /// 調整が不要な場合に true を返す
     fn should_skip_next_phase(&self, _context: &PhaseContext, _next_phase: &Phase) -> bool {
-        // TODO
+        //TODO
         false
     }
 }
@@ -486,17 +484,18 @@ fn resolve_orders_for_main_phase(current_phase: &mut Phase) {
         if let OrderKind::Move(m) = &order.kind
             && order.is_success()
         {
-            // 対象ユニットを削除
             if let Some(idx) = current_phase.data.units.iter().position(|u| u == &order.unit) {
+                // 対象ユニットを削除
                 current_phase.data.units.remove(idx);
-            }
 
-            // 所在地を移動先に変更して保存
-            current_phase.data.units.push(Unit {
-                location: m.dest,
-                ..order.unit
-            });
-            continue;
+                // 所在地を移動先に変更して保存
+                current_phase.data.units.push(Unit {
+                    location: m.dest,
+                    ..order.unit
+                });
+                continue;
+            }
+            unreachable!("A move order succeeded, but the target unit could not be found.");
         }
 
         // 撃退された軍に攻撃元情報を記録
@@ -535,7 +534,11 @@ fn resolve_orders_for_retreat_phase(current_phase: &mut Phase) {
     for order in orders.collect_not_assumed_retreats() {
         // 撤退フェイズでの処理対象の軍をいったん削除
         if matches!(&order.kind, OrderKind::Retreat(_) | OrderKind::Disband(_))
-            && let Some(idx) = current_phase.data.units.iter().position(|u| u == &order.unit)
+            && let Some(idx) = current_phase
+                .data
+                .units
+                .iter()
+                .position(|u| u.power == order.unit.power && u.kind == order.unit.kind && u.location == order.unit.location)
         {
             current_phase.data.units.remove(idx);
         }
@@ -732,6 +735,28 @@ mod tests {
         assert_eq!(p.year(), 1901);
         assert_eq!(p.index(), 8);
         assert!(matches!(p.phase_type(), PhaseKind::SpringMain(_)));
+    }
+
+    #[test]
+    fn close_on_spring_main_skips_empty_retreat_and_advances_to_fall_main() {
+        let current_phase = Phase::new_spring_main(1900, 0);
+        let mut context = PhaseContext::default();
+        current_phase.close(&mut context);
+        let tail_phase = &context.pop_phase().unwrap();
+        assert_eq!(tail_phase.year(), 1901);
+        assert_eq!(tail_phase.index(), 3);
+        assert!(matches!(tail_phase.phase_type(), PhaseKind::FallMain(_)));
+    }
+
+    #[test]
+    fn close_on_fall_main_skips_empty_retreat_and_advances_past_retreat() {
+        let current_phase = Phase::new_fall_main(1901, 3);
+        let mut context = PhaseContext::default();
+        current_phase.close(&mut context);
+        let tail_phase = &context.pop_phase().unwrap();
+        assert_eq!(tail_phase.year(), 1901);
+        assert_eq!(tail_phase.index(), 6);
+        assert!(matches!(tail_phase.phase_type(), PhaseKind::Adjustment(_)));
     }
 }
 

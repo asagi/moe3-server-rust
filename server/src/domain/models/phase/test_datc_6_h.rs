@@ -636,7 +636,7 @@ fn test_datc_6_h_12() {
     retreat_phase.data.orders.push(unit_e_eng.disband());
     resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Success);
-    assert_eq!(retreat_phase.data.units.len(), 10);
+    assert_eq!(retreat_phase.data.units.len(), 9);
     assert!(retreat_phase.data.units.contains(&a("e", "edi")));
     assert!(retreat_phase.data.units.contains(&unit_e_iri));
     assert!(retreat_phase.data.units.contains(&unit_e_nth));
