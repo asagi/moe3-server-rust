@@ -48,31 +48,6 @@ impl Phase {
         }
     }
 
-    /// 調整フェイズの初期命令を生成する
-    fn init_adjustment_phase_orders(&mut self) {
-        for p in Power::iter() {
-            // 解体必要数算出
-            let sc_count = self.count_supply_centers(&p);
-            let unit_count = self.count_units(&p);
-            let adjustment_capacity = unit_count as isize - sc_count as isize;
-
-            // 解体の必要がない場合はスキップ
-            if adjustment_capacity < 1 {
-                continue;
-            }
-            let mut remaining = adjustment_capacity as usize;
-
-            // 解体命令登録
-            let disband_candidates = &mut self.data.units.collect_units_for_civil_disorder(&p, &self.data.territories);
-            disband_candidates.reverse();
-            while remaining > 0 {
-                let unit = disband_candidates.pop().unwrap();
-                self.data.orders.push(unit.disband().set_valid());
-                remaining -= 1;
-            }
-        }
-    }
-
     /// フェイズ初期化処理
     fn initialize(&mut self, prev_phase: &Phase) {
         self.data.territories = prev_phase.data.territories.clone();
@@ -102,6 +77,31 @@ impl Phase {
         for unit in &mut self.data.units {
             if unit.dislodged {
                 self.data.orders.push(unit.disband());
+            }
+        }
+    }
+
+    /// 調整フェイズの初期命令を生成する
+    fn init_adjustment_phase_orders(&mut self) {
+        for p in Power::iter() {
+            // 解体必要数算出
+            let sc_count = self.count_supply_centers(&p);
+            let unit_count = self.count_units(&p);
+            let adjustment_capacity = unit_count as isize - sc_count as isize;
+
+            // 解体の必要がない場合はスキップ
+            if adjustment_capacity < 1 {
+                continue;
+            }
+            let mut remaining = adjustment_capacity as usize;
+
+            // 解体命令登録
+            let disband_candidates = &mut self.data.units.collect_units_for_civil_disorder(&p, &self.data.territories);
+            disband_candidates.reverse();
+            while remaining > 0 {
+                let unit = disband_candidates.pop().unwrap();
+                self.data.orders.push(unit.disband().set_valid());
+                remaining -= 1;
             }
         }
     }
@@ -419,9 +419,17 @@ impl PhaseCloseLogic for FallRetreatPhase {
     }
 
     /// 調整が不要な場合に true を返す
-    fn should_skip_next_phase(&self, _context: &PhaseContext, _next_phase: &Phase) -> bool {
-        //TODO
-        false
+    fn should_skip_next_phase(&self, _context: &PhaseContext, next_phase: &Phase) -> bool {
+        for p in Power::iter() {
+            // 解体必要数算出
+            let sc_count = next_phase.count_supply_centers(&p);
+            let unit_count = next_phase.count_units(&p);
+            if unit_count as isize == sc_count as isize {
+                continue;
+            }
+            return false;
+        }
+        true
     }
 }
 
@@ -749,14 +757,14 @@ mod tests {
     }
 
     #[test]
-    fn close_on_fall_main_skips_empty_retreat_and_advances_past_retreat() {
+    fn close_on_fall_main_skips_empty_retreat_and_advances_past_retreat_and_adjustment() {
         let current_phase = Phase::new_fall_main(1901, 3);
         let mut context = PhaseContext::default();
         current_phase.close(&mut context);
         let tail_phase = &context.pop_phase().unwrap();
-        assert_eq!(tail_phase.year(), 1901);
-        assert_eq!(tail_phase.index(), 6);
-        assert!(matches!(tail_phase.phase_type(), PhaseKind::Adjustment(_)));
+        assert_eq!(tail_phase.year(), 1902);
+        assert_eq!(tail_phase.index(), 7);
+        assert!(matches!(tail_phase.phase_type(), PhaseKind::SpringMain(_)));
     }
 }
 
