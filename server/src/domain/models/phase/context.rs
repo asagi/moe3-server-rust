@@ -25,7 +25,7 @@ impl PhaseContext {
         self.phases.pop_front()
     }
 
-    #[cfg(test)]
+    #[allow(dead_code)]
     pub(crate) fn get(&self, idx: usize) -> Option<&Phase> {
         self.phases.get(idx)
     }

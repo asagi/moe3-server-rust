@@ -769,7 +769,7 @@ fn test_datc_6_h_16() {
     main_phase.data.orders.push(unit_i_tyn.move_to(p("wes")));
 
     main_phase.close(&mut context);
-    let mut retreat_phase = context.get(1).unwrap().clone();
+    let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.data.orders.clear();
     retreat_phase
         .data
