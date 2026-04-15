@@ -4,7 +4,6 @@ use super::DebriefPhase;
 use super::FallMainPhase;
 use super::FallRetreatPhase;
 use super::Phase;
-use super::PhaseCloseResult;
 use super::PhaseContext;
 use super::PhaseData;
 use super::Power;
@@ -37,7 +36,7 @@ use strum::IntoEnumIterator;
 impl Phase {
     /// フェイズを締め切り命令を解決する。
     #[allow(dead_code)]
-    pub fn close(mut self, context: &mut PhaseContext) -> PhaseCloseResult {
+    pub fn close(mut self, context: &mut PhaseContext) {
         match self.data.kind {
             PhaseKind::Ready(r) => r.close(&mut self, context),
             PhaseKind::SpringMain(s) => s.close(&mut self, context),
@@ -248,10 +247,11 @@ impl Phase {
 
 /// フェイズの終了ロジック
 trait PhaseCloseLogic {
-    fn close(&self, current_phase: &mut Phase, context: &mut PhaseContext) -> PhaseCloseResult {
+    fn close(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
         // 和平判定
         if self.check_draw_condition(context) {
-            return self.close_on_draw(current_phase, context);
+            self.close_on_draw(current_phase, context);
+            return;
         }
 
         // 解決
@@ -260,7 +260,8 @@ trait PhaseCloseLogic {
 
         // 制覇判定
         if self.check_resolved_condition(context) {
-            return self.close_on_resolution(current_phase, context);
+            self.close_on_resolution(current_phase, context);
+            return;
         }
 
         // 次フェイズ生成
@@ -269,18 +270,22 @@ trait PhaseCloseLogic {
 
             // スキップ判定と再帰
             if self.should_skip_next_phase(context, &next_phase) {
-                return next_phase.close(context);
+                next_phase.close(context);
+                return;
             }
-            return context.finalize(&next_phase);
+
+            context.push_phase(next_phase.clone());
+            return;
         }
-        context.finalize(current_phase)
+
+        context.push_phase(current_phase.clone());
     }
 
     fn check_draw_condition(&self, _context: &PhaseContext) -> bool {
         false
     }
 
-    fn close_on_draw(&self, current_phase: &mut Phase, context: &mut PhaseContext) -> PhaseCloseResult {
+    fn close_on_draw(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
         // TODO: 和平合意による終了処理
         // - テーブルのステータスを DRAW に変更する
         // - 現在のフェイズ種別に応じて後続フェイズを生成して context.phases に積む
@@ -289,8 +294,8 @@ trait PhaseCloseLogic {
         // - 期限時刻を考慮して感想戦フェイズの due_time を設定する
 
         // TODO: 暫定実装
-        // 本来は後続フェイズと Debrief を context.phases に積んだうえで結果化する
-        context.finalize(current_phase)
+        // 本来は後続フェイズと Debrief を context.phases に積む
+        context.push_phase(current_phase.clone());
     }
 
     fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {}
@@ -301,7 +306,7 @@ trait PhaseCloseLogic {
         false
     }
 
-    fn close_on_resolution(&self, current_phase: &mut Phase, context: &mut PhaseContext) -> PhaseCloseResult {
+    fn close_on_resolution(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
         // TODO: 制覇勝利による終了処理
         // - テーブルのステータスを RESOLVED に変更する
         // - 現在のフェイズ種別に応じて後続フェイズを生成して context.phases に積む
@@ -309,8 +314,8 @@ trait PhaseCloseLogic {
         // - 最後に感想戦フェイズを生成して積む
 
         // TODO: 暫定実装
-        // 本来は後続フェイズと Debrief を context.phases に積んだうえで結果化する
-        context.finalize(current_phase)
+        // 本来は後続フェイズと Debrief を context.phases に積む
+        context.push_phase(current_phase.clone());
     }
 
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase>;
