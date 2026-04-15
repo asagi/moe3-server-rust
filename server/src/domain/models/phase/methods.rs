@@ -274,11 +274,11 @@ trait PhaseCloseLogic {
                 return;
             }
 
-            context.push_phase(next_phase);
+            context.push_phase(next_phase.clone());
             return;
         }
 
-        context.push_phase(current_phase.clone())
+        context.push_phase(current_phase.clone());
     }
 
     fn check_draw_condition(&self, _context: &PhaseContext) -> bool {
@@ -295,7 +295,7 @@ trait PhaseCloseLogic {
 
         // TODO: 暫定実装
         // 本来は後続フェイズと Debrief を context.phases に積む
-        context.push_phase(current_phase.clone())
+        context.push_phase(current_phase.clone());
     }
 
     fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {}
@@ -315,7 +315,7 @@ trait PhaseCloseLogic {
 
         // TODO: 暫定実装
         // 本来は後続フェイズと Debrief を context.phases に積む
-        context.push_phase(current_phase.clone())
+        context.push_phase(current_phase.clone());
     }
 
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase>;
