@@ -7,7 +7,7 @@
 //! [DATC_6H]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.H
 
 use crate::domain::models::order::*;
-use crate::domain::models::phase::*;
+use crate::domain::models::phase::methods::*;
 use crate::domain::tests::a;
 use crate::domain::tests::f;
 use crate::domain::tests::p;
@@ -155,7 +155,7 @@ fn test_datc_6_h_5() {
         .data
         .orders
         .push(unit_t_ank.set_dislodged_from(Some(p("bla"))).retreat_to(p("bla")));
-    Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(retreat_phase.data.units.len(), 2);
     assert!(retreat_phase.data.units.contains(&unit_r_con));
@@ -204,7 +204,7 @@ fn test_datc_6_h_6() {
         .data
         .orders
         .push(unit_i_vie.set_dislodged_from(Some(p("tri"))).retreat_to(p("boh")));
-    Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(retreat_phase.data.units.len(), 4);
     assert!(retreat_phase.data.units.contains(&unit_a_bud));
@@ -269,7 +269,7 @@ fn test_datc_6_h_7() {
         .data
         .orders
         .push(unit_i_boh.set_dislodged_from(Some(p("sil"))).retreat_to(p("tyr")));
-    Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(retreat_phase.data.orders[1].status, OrderStatus::Failure);
     assert_eq!(retreat_phase.data.units.len(), 4);
@@ -354,7 +354,7 @@ fn test_datc_6_h_8() {
         .data
         .orders
         .push(unit_r_hol.set_dislodged_from(Some(p("ruh"))).retreat_to(p("nth")));
-    Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(retreat_phase.data.orders[1].status, OrderStatus::Failure);
     assert_eq!(retreat_phase.data.orders[2].status, OrderStatus::Failure);
@@ -417,7 +417,7 @@ fn test_datc_6_h_9() {
         .data
         .orders
         .push(unit_r_pru.set_dislodged_from(Some(p("ber"))).retreat_to(p("ber")));
-    Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(retreat_phase.data.orders[1].status, OrderStatus::Invalid);
     assert_eq!(retreat_phase.data.units.len(), 5);
@@ -491,7 +491,7 @@ fn test_datc_6_h_10() {
         .data
         .orders
         .push(unit_g_pru.set_dislodged_from(Some(p("war"))).retreat_to(p("ber")));
-    Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(retreat_phase.data.orders[1].status, OrderStatus::Success);
     assert_eq!(retreat_phase.data.units.len(), 5);
@@ -552,7 +552,7 @@ fn test_datc_6_h_11() {
         .data
         .orders
         .push(unit_i_mar.set_dislodged_via_convoy().retreat_to(p("gas")));
-    Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(retreat_phase.data.units.len(), 6);
     assert!(retreat_phase.data.units.contains(&a("f", "mar")));
@@ -634,7 +634,7 @@ fn test_datc_6_h_12() {
         .orders
         .push(unit_e_lvp.set_dislodged_via_convoy().retreat_to(p("edi")));
     retreat_phase.data.orders.push(unit_e_eng.disband());
-    Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(retreat_phase.data.units.len(), 10);
     assert!(retreat_phase.data.units.contains(&a("e", "edi")));
@@ -728,7 +728,7 @@ fn test_datc_6_h_15() {
         .data
         .orders
         .push(unit_e_por.set_dislodged_from(Some(p("spa_sc"))).retreat_to(p("spa_nc")));
-    Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(retreat_phase.data.units.len(), 2);
     assert!(retreat_phase.data.units.contains(&f("f", "por")));
@@ -775,7 +775,7 @@ fn test_datc_6_h_16() {
         .data
         .orders
         .push(unit_f_wes.set_dislodged_from(Some(p("tyn"))).retreat_to(p("spa_sc")));
-    Phase::resolve_orders_for_retreat_phase(&mut retreat_phase);
+    resolve_orders_for_retreat_phase(&mut retreat_phase);
     assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(retreat_phase.data.units.len(), 4);
     assert!(retreat_phase.data.units.contains(&unit_f_mid));

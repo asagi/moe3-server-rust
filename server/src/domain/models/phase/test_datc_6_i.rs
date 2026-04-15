@@ -7,7 +7,7 @@
 //! [DATC_6I]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.I
 
 use crate::domain::models::order::*;
-use crate::domain::models::phase::*;
+use crate::domain::models::phase::methods::*;
 use crate::domain::models::power::*;
 use crate::domain::models::territory::*;
 use crate::domain::tests::a;
@@ -39,7 +39,7 @@ fn test_datc_6_i_1() {
     phase.data.orders.push(unit_g_war.build());
     phase.data.orders.push(unit_g_kie.build());
     phase.data.orders.push(unit_g_mun.build());
-    Phase::resolve_orders_for_adjustment_phase(phase);
+    resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Invalid);
@@ -61,7 +61,7 @@ fn test_datc_6_i_2() {
     phase.data.territories.push(Territory::new(Power::Russia, "mos"));
     let unit_r_mos = f("r", "mos");
     phase.data.orders.push(unit_r_mos.build());
-    Phase::resolve_orders_for_adjustment_phase(phase);
+    resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
 }
 
@@ -82,7 +82,7 @@ fn test_datc_6_i_3() {
     phase.data.units.push(a("g", "ber"));
     let unit_g_ber = a("g", "ber");
     phase.data.orders.push(unit_g_ber.build());
-    Phase::resolve_orders_for_adjustment_phase(phase);
+    resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
 }
 
@@ -102,7 +102,7 @@ fn test_datc_6_i_4() {
     phase.data.units.push(f("r", "stp_sc"));
     let unit_r_stp_nc = a("r", "stp_nc");
     phase.data.orders.push(unit_r_stp_nc.build());
-    Phase::resolve_orders_for_adjustment_phase(phase);
+    resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
 }
 
@@ -124,7 +124,7 @@ fn test_datc_6_i_5() {
     phase.data.territories.push(Territory::new(Power::Germany, "bel"));
     let unit_g_ber = a("g", "ber");
     phase.data.orders.push(unit_g_ber.build());
-    Phase::resolve_orders_for_adjustment_phase(phase);
+    resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
 }
 
@@ -144,7 +144,7 @@ fn test_datc_6_i_6() {
     phase.data.territories.push(Territory::new(Power::Germany, "war"));
     let unit_g_war = a("g", "war");
     phase.data.orders.push(unit_g_war.build());
-    Phase::resolve_orders_for_adjustment_phase(phase);
+    resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
 }
 
@@ -166,7 +166,7 @@ fn test_datc_6_i_7() {
     let unit_r_mos_2 = a("r", "mos");
     phase.data.orders.push(unit_r_mos_1.build());
     phase.data.orders.push(unit_r_mos_2.build());
-    Phase::resolve_orders_for_adjustment_phase(phase);
+    resolve_orders_for_adjustment_phase(phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
 }
