@@ -8,7 +8,6 @@ pub(crate) use super::Power;
 pub(crate) use super::Province;
 pub(crate) use super::Territory;
 pub(crate) use super::Unit;
-pub(crate) use context::PhaseCloseResult;
 pub(crate) use context::PhaseContext;
 
 // enums
