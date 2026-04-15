@@ -100,7 +100,7 @@ impl Phase {
             disband_candidates.reverse();
             while remaining > 0 {
                 let unit = disband_candidates.pop().unwrap();
-                self.data.orders.push(unit.disband().set_valid());
+                self.data.orders.push(unit.disband());
                 remaining -= 1;
             }
         }
@@ -424,7 +424,7 @@ impl PhaseCloseLogic for FallRetreatPhase {
             // 解体必要数算出
             let sc_count = next_phase.count_supply_centers(&p);
             let unit_count = next_phase.count_units(&p);
-            if unit_count as isize == sc_count as isize {
+            if unit_count == sc_count {
                 continue;
             }
             return false;
