@@ -1,6 +1,6 @@
 // modules
-mod adjudicator;
-mod helper;
+mod adjudicators;
+mod helpers;
 mod models;
 
 // types
@@ -21,15 +21,15 @@ pub(crate) type PlayerId = i64;
 pub(crate) type TableId = i64;
 
 // adjudicators
-pub(crate) use adjudicator::AdjustmentAdjudicator;
-pub(crate) use adjudicator::MainAdjudicator;
-pub(crate) use adjudicator::RetreatAdjudicator;
+pub(crate) use adjudicators::AdjustmentAdjudicator;
+pub(crate) use adjudicators::MainAdjudicator;
+pub(crate) use adjudicators::RetreatAdjudicator;
 
 // helpers
-pub(crate) use helper::AdjustmentOrderHelper;
-pub(crate) use helper::MainOrderHelper;
-pub(crate) use helper::RetreatOrderHelper;
-pub(crate) use helper::UnitHelper;
+pub(crate) use helpers::AdjustmentOrderHelper;
+pub(crate) use helpers::MainOrderHelper;
+pub(crate) use helpers::RetreatOrderHelper;
+pub(crate) use helpers::UnitHelper;
 
 #[cfg(test)]
 mod tests;
