@@ -7,7 +7,7 @@
 //! [DATC_6G]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.G
 
 use crate::domain::models::order::*;
-use crate::domain::models::phase::*;
+use crate::domain::models::phase::methods::*;
 use crate::domain::tests::a;
 use crate::domain::tests::f;
 use crate::domain::tests::p;
@@ -39,7 +39,7 @@ fn test_datc_6_g_1() {
     phase.data.orders.push(unit_e_1_nwy.move_to(p("swe")));
     phase.data.orders.push(unit_e_2_ska.convoy(unit_e_1_nwy, p("swe")));
     phase.data.orders.push(unit_r_1_swe.move_to(p("nwy")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
@@ -80,7 +80,7 @@ fn test_datc_6_g_2() {
     phase.data.orders.push(unit_e_nwy.move_to(p("swe")));
     phase.data.orders.push(unit_r_swe.move_to(p("nwy")));
     phase.data.orders.push(unit_g_ska.convoy(unit_e_nwy, p("swe")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
@@ -128,7 +128,7 @@ fn test_datc_6_g_3() {
     phase.data.orders.push(unit_f_bur.support_move(unit_f_pic, p("bel")));
     phase.data.orders.push(unit_f_mid.support_move(unit_f_bre, p("eng")));
     phase.data.orders.push(unit_e_eng.convoy(unit_f_pic, p("bel")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
@@ -186,7 +186,7 @@ fn test_datc_6_g_4() {
     phase.data.orders.push(unit_f_mid.support_move(unit_f_bre, p("eng")));
     phase.data.orders.push(unit_e_eng.convoy(unit_f_pic, p("bel")));
     phase.data.orders.push(unit_e_bel.move_to(p("pic")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
@@ -234,7 +234,7 @@ fn test_datc_6_g_5() {
     phase.data.orders.push(unit_i_tyn.convoy(unit_t_apu, p("rom")));
     phase.data.orders.push(unit_t_apu.move_to(p("rom")));
     phase.data.orders.push(unit_t_ion.convoy(unit_t_apu, p("rom")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
@@ -301,7 +301,7 @@ fn test_datc_6_g_6() {
     phase.data.orders.push(unit_f_nth.hold());
     phase.data.orders.push(unit_r_nrg.convoy(unit_e_lvp, p("edi")));
     phase.data.orders.push(unit_r_nat.convoy(unit_e_lvp, p("edi")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
@@ -353,7 +353,7 @@ fn test_datc_6_g_7() {
     phase.data.orders.push(unit_e_nwy.move_to(p("swe")));
     phase.data.orders.push(unit_r_swe.move_to(p("nwy")));
     phase.data.orders.push(unit_r_bot.convoy(unit_r_swe, p("nwy")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
@@ -396,7 +396,7 @@ fn test_datc_6_g_8() {
     phase.data.orders.push(unit_f_bel.move_to(p("hol")).set_via_convoy());
     phase.data.orders.push(unit_e_nth.move_to(p("hel")));
     phase.data.orders.push(unit_e_hol.move_to(p("kie")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
@@ -441,7 +441,7 @@ fn test_datc_6_g_9() {
     phase.data.orders.push(unit_e_ska.convoy(unit_e_nwy, p("swe")));
     phase.data.orders.push(unit_e_fin.support_move(unit_e_nwy, p("swe")));
     phase.data.orders.push(unit_r_swe.move_to(p("nwy")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
@@ -517,7 +517,7 @@ fn test_datc_6_g_10() {
     phase.data.orders.push(unit_r_bar.support_move(unit_r_swe, p("nwy")));
     phase.data.orders.push(unit_f_nrg.move_to(p("nwy")));
     phase.data.orders.push(unit_f_nth.support_move(unit_f_nrg, p("nwy")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
@@ -582,7 +582,7 @@ fn test_datc_6_g_11() {
     phase.data.orders.push(unit_r_swe.move_to(p("nwy")));
     phase.data.orders.push(unit_r_ska.convoy(unit_r_swe, p("nwy")));
     phase.data.orders.push(unit_r_bar.support_move(unit_r_swe, p("nwy")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Unreachable);
@@ -636,7 +636,7 @@ fn test_datc_6_g_12() {
     phase.data.orders.push(unit_g_nth.convoy(unit_g_edi, p("lvp")));
     phase.data.orders.push(unit_g_eng.convoy(unit_g_edi, p("lvp")));
     phase.data.orders.push(unit_g_iri.convoy(unit_g_edi, p("lvp")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
@@ -700,7 +700,7 @@ fn test_datc_6_g_13() {
     phase.data.orders.push(unit_a_tri.move_to(p("ven")).set_via_convoy());
     phase.data.orders.push(unit_i_ven.support_move(unit_i_alb, p("tri")));
     phase.data.orders.push(unit_i_alb.move_to(p("tri")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Dislodged);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
@@ -764,7 +764,7 @@ fn test_datc_6_g_14() {
     phase.data.orders.push(unit_g_ska.convoy(unit_r_swe, p("nwy")));
     phase.data.orders.push(unit_r_swe.move_to(p("nwy")).set_via_convoy());
     phase.data.orders.push(unit_r_bar.support_move(unit_r_swe, p("nwy")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
@@ -825,7 +825,7 @@ fn test_datc_6_g_15() {
     phase.data.orders.push(unit_e_lon.move_to(p("bel")).set_via_convoy());
     phase.data.orders.push(unit_f_eng.convoy(unit_f_bel, p("lon")));
     phase.data.orders.push(unit_f_bel.move_to(p("lon")).set_via_convoy());
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
@@ -891,7 +891,7 @@ fn test_datc_6_g_16() {
     phase.data.orders.push(unit_r_swe.move_to(p("nwy")).set_via_convoy());
     phase.data.orders.push(unit_r_ska.convoy(unit_r_swe, p("nwy")));
     phase.data.orders.push(unit_r_nrg.support_move(unit_r_swe, p("nwy")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
@@ -949,7 +949,7 @@ fn test_datc_6_g_17() {
     phase.data.orders.push(unit_e_nth.move_to(p("nwy")));
     phase.data.orders.push(unit_r_swe.move_to(p("nwy")));
     phase.data.orders.push(unit_r_nrg.support_move(unit_r_swe, p("nwy")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
@@ -1011,7 +1011,7 @@ fn test_datc_6_g_18() {
     phase.data.orders.push(unit_f_eng.convoy(unit_f_bel, p("lon")));
     phase.data.orders.push(unit_f_bel.move_to(p("lon")));
     phase.data.orders.push(unit_f_wal.support_move(unit_f_bel, p("lon")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
@@ -1071,7 +1071,7 @@ fn test_datc_6_g_19() {
     phase.data.orders.push(unit_f_wes.convoy(unit_f_mar, p("spa")));
     phase.data.orders.push(unit_i_gol.convoy(unit_f_mar, p("spa")));
     phase.data.orders.push(unit_i_spa.move_to(p("mar")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
@@ -1121,7 +1121,7 @@ fn test_datc_6_g_20() {
     phase.data.orders.push(unit_f_bur.support_move(unit_f_pic, p("bel")));
     phase.data.orders.push(unit_a_mid.support_move(unit_f_bre, p("eng")));
     phase.data.orders.push(unit_a_eng.convoy(unit_f_pic, p("bel")));
-    Phase::resolve_orders_for_main_phase(&mut phase);
+    resolve_orders_for_main_phase(&mut phase);
     assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
     assert_eq!(phase.data.orders[1].status, OrderStatus::Unreachable);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
