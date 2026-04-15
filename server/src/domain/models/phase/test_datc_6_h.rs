@@ -198,7 +198,7 @@ fn test_datc_6_h_6() {
     main_phase.data.orders.push(unit_i_vie.hold());
 
     main_phase.close(&mut context);
-    let mut retreat_phase = context.get(1).unwrap().clone();
+    let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.data.orders.clear();
     retreat_phase
         .data
@@ -627,7 +627,7 @@ fn test_datc_6_h_12() {
     main_phase.data.orders.push(unit_r_cly.support_move(unit_r_edi, p("lvp")));
 
     main_phase.close(&mut context);
-    let mut retreat_phase = context.get(1).unwrap().clone();
+    let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.data.orders.clear();
     retreat_phase
         .data
