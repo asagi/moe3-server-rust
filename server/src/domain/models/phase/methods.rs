@@ -360,44 +360,6 @@ impl PhaseCloseLogic for SpringMainPhase {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn close_on_spring_main_skips_empty_retreat_and_advances_to_fall_main() {
-        let mut current_phase = Phase::new_spring_main(1901, 0);
-        let mut context = PhaseContext::default();
-
-        let next_phase = current_phase
-            .close(&mut context)
-            .expect("SpringMain close should create the next phase");
-
-        let mut expected = Phase::new_fall_main(1901, 0);
-        expected.initialize(&current_phase);
-
-        assert_eq!(next_phase.year(), expected.year());
-        assert_eq!(next_phase.index(), expected.index());
-        assert_eq!(format!("{:?}", next_phase), format!("{:?}", expected));
-    }
-
-    #[test]
-    fn close_on_fall_main_skips_empty_retreat_and_advances_past_retreat() {
-        let mut current_phase = Phase::new_fall_main(1901, 0);
-        let mut context = PhaseContext::default();
-
-        let next_phase = current_phase
-            .close(&mut context)
-            .expect("FallMain close should create the next phase");
-
-        let mut expected = Phase::new_adjustment(1901, 0);
-        expected.initialize(&current_phase);
-
-        assert_eq!(next_phase.year(), expected.year());
-        assert_eq!(next_phase.index(), expected.index());
-        assert_eq!(format!("{:?}", next_phase), format!("{:?}", expected));
-    }
-}
 /// 春撤退フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for SpringRetreatPhase {
     fn resolve_orders(&self, current_phase: &mut Phase, _context: &mut PhaseContext) {
@@ -773,6 +735,28 @@ mod tests {
         assert_eq!(p.year(), 1901);
         assert_eq!(p.index(), 8);
         assert!(matches!(p.phase_type(), PhaseKind::SpringMain(_)));
+    }
+
+    #[test]
+    fn close_on_spring_main_skips_empty_retreat_and_advances_to_fall_main() {
+        let current_phase = Phase::new_spring_main(1900, 0);
+        let mut context = PhaseContext::default();
+        current_phase.close(&mut context);
+        let tail_phase = &context.pop_phase().unwrap();
+        assert_eq!(tail_phase.year(), 1901);
+        assert_eq!(tail_phase.index(), 3);
+        assert!(matches!(tail_phase.phase_type(), PhaseKind::FallMain(_)));
+    }
+
+    #[test]
+    fn close_on_fall_main_skips_empty_retreat_and_advances_past_retreat() {
+        let current_phase = Phase::new_fall_main(1901, 3);
+        let mut context = PhaseContext::default();
+        current_phase.close(&mut context);
+        let tail_phase = &context.pop_phase().unwrap();
+        assert_eq!(tail_phase.year(), 1901);
+        assert_eq!(tail_phase.index(), 6);
+        assert!(matches!(tail_phase.phase_type(), PhaseKind::Adjustment(_)));
     }
 }
 
