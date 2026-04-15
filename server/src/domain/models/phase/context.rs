@@ -24,4 +24,9 @@ impl PhaseContext {
     pub(crate) fn pop_phase(&mut self) -> Option<Phase> {
         self.phases.pop_front()
     }
+
+    #[cfg(test)]
+    pub(crate) fn get(&self, idx: usize) -> Option<&Phase> {
+        self.phases.get(idx)
+    }
 }
