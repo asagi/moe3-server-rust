@@ -250,7 +250,7 @@ trait PhaseCloseLogic {
     /// フェイズ終了処理
     fn close(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
         // 和平判定
-        if context.is_draw() {
+        if context.is_draw() && matches!(current_phase.phase_kind(), PhaseKind::SpringMain(_) | PhaseKind::FallMain(_)) {
             self.finish_on_draw(current_phase, context);
             return;
         }
