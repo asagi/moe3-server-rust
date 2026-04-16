@@ -8,12 +8,16 @@ use std::collections::VecDeque;
 #[derive(Debug, Clone, PartialEq, Default)]
 pub(crate) struct PhaseContext {
     phases: VecDeque<Phase>,
+    is_draw: bool,
 }
 
 impl PhaseContext {
     #[allow(dead_code)]
     pub(crate) fn new() -> Self {
-        Self { phases: VecDeque::new() }
+        Self {
+            phases: VecDeque::new(),
+            is_draw: false,
+        }
     }
 
     pub(crate) fn push_phase(&mut self, phase: Phase) {
@@ -28,5 +32,14 @@ impl PhaseContext {
     #[allow(dead_code)]
     pub(crate) fn get(&self, idx: usize) -> Option<&Phase> {
         self.phases.get(idx)
+    }
+
+    pub(crate) fn is_draw(&self) -> bool {
+        self.is_draw
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn set_draw(&mut self) {
+        self.is_draw = true;
     }
 }

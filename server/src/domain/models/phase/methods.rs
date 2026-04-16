@@ -230,7 +230,7 @@ impl Phase {
 
     /// フェイズの種別を返す
     #[allow(dead_code)]
-    pub fn phase_type(&self) -> PhaseKind {
+    pub fn phase_kind(&self) -> PhaseKind {
         self.data.kind
     }
 
@@ -247,20 +247,23 @@ impl Phase {
 
 /// フェイズの終了ロジック
 trait PhaseCloseLogic {
+    /// フェイズ終了処理
     fn close(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
         // 和平判定
-        if self.check_draw_condition(context) {
-            self.close_on_draw(current_phase, context);
+        if context.is_draw() {
+            self.finish_on_draw(current_phase, context);
             return;
         }
 
-        // 解決
+        // 命令解決
         self.resolve_orders(current_phase, context);
+
+        // 占領処理
         self.occupy(current_phase, context);
 
         // 制覇判定
-        if self.check_resolved_condition(context) {
-            self.close_on_resolution(current_phase, context);
+        if self.check_solo_condition(context) {
+            self.finish_on_solo(current_phase, context);
             return;
         }
 
@@ -281,32 +284,51 @@ trait PhaseCloseLogic {
         context.push_phase(current_phase.clone());
     }
 
-    fn check_draw_condition(&self, _context: &PhaseContext) -> bool {
-        false
-    }
-
-    fn close_on_draw(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
-        // TODO: 和平合意による終了処理
-        // - テーブルのステータスを DRAW に変更する
-        // - 現在のフェイズ種別に応じて後続フェイズを生成して context.phases に積む
-        //   （春命令中なら撤退フェイズ、秋命令中なら撤退→調整フェイズ）
-        // - 最後に感想戦フェイズを生成して積む
-        // - 期限時刻を考慮して感想戦フェイズの due_time を設定する
-
-        // TODO: 暫定実装
-        // 本来は後続フェイズと Debrief を context.phases に積む
+    /// 和平合意による終了処理
+    fn finish_on_draw(&self, current_phase: &Phase, context: &mut PhaseContext) {
+        // メインフェイズ格納
         context.push_phase(current_phase.clone());
+
+        // 撤退フェイズ格納
+        let Some(retreat_phase) = self.create_next_phase(current_phase) else {
+            unreachable!("draw: create_next_phase must not return None");
+        };
+        context.push_phase(retreat_phase.clone());
+
+        let last_phase = if matches!(retreat_phase.phase_kind(), PhaseKind::SpringRetreat(_)) {
+            retreat_phase
+        } else {
+            // 秋の場合のみ調整フェイズ格納
+            let Some(adjustment_phase) = self.create_next_phase(&retreat_phase) else {
+                unreachable!("draw: create_next_phase must not return None");
+            };
+            context.push_phase(adjustment_phase.clone());
+            adjustment_phase
+        };
+
+        // 感想戦フェイズ格納
+        let mut debrief_phase = Phase::new_debrief(last_phase.year(), last_phase.index());
+        debrief_phase.initialize(&last_phase);
+        context.push_phase(debrief_phase);
     }
 
-    fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {}
+    /// 命令解決処理
+    fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
+        // 準備フェイズと感想戦フェイズでは何もしない
+    }
 
-    fn occupy(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {}
+    /// 占領処理
+    fn occupy(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
+        // 春秋の撤退フェイズ以外では何もしない
+    }
 
-    fn check_resolved_condition(&self, _context: &PhaseContext) -> bool {
+    /// 制覇判定処理
+    fn check_solo_condition(&self, _context: &PhaseContext) -> bool {
         false
     }
 
-    fn close_on_resolution(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
+    /// 制覇勝利による終了処理
+    fn finish_on_solo(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
         // TODO: 制覇勝利による終了処理
         // - テーブルのステータスを RESOLVED に変更する
         // - 現在のフェイズ種別に応じて後続フェイズを生成して context.phases に積む
@@ -339,10 +361,6 @@ impl PhaseCloseLogic for ReadyPhase {
 
 /// 春メインフェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for SpringMainPhase {
-    fn check_draw_condition(&self, _context: &PhaseContext) -> bool {
-        check_draw_condition_for_main_phase(_context)
-    }
-
     fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
         resolve_orders_for_main_phase(_current_phase);
     }
@@ -380,10 +398,6 @@ impl PhaseCloseLogic for SpringRetreatPhase {
 
 /// 秋メインフェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for FallMainPhase {
-    fn check_draw_condition(&self, _context: &PhaseContext) -> bool {
-        check_draw_condition_for_main_phase(_context)
-    }
-
     fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
         resolve_orders_for_main_phase(_current_phase);
     }
@@ -599,14 +613,6 @@ fn resolve_orders_for_adjustment_phase(current_phase: &mut Phase) {
     }
 }
 
-/// メインフェイズの和平合意条件の判定
-fn check_draw_condition_for_main_phase(_context: &PhaseContext) -> bool {
-    // TODO: 和平合意条件の判定
-    // - 有効な勢力のうち、和平に同意しているプレイヤーが過半数を超えたら true を返す
-
-    false
-}
-
 /// 撤退フェイズの占領処理
 fn occupy_for_retreat_phase(_current_phase: &mut Phase, _context: &mut PhaseContext) {
     // TODO: 占領処理
@@ -742,7 +748,7 @@ mod tests {
         let p = Phase::new_spring_main(1900, 7);
         assert_eq!(p.year(), 1901);
         assert_eq!(p.index(), 8);
-        assert!(matches!(p.phase_type(), PhaseKind::SpringMain(_)));
+        assert!(matches!(p.phase_kind(), PhaseKind::SpringMain(_)));
     }
 
     #[test]
@@ -753,7 +759,7 @@ mod tests {
         let tail_phase = &context.pop_phase().unwrap();
         assert_eq!(tail_phase.year(), 1901);
         assert_eq!(tail_phase.index(), 3);
-        assert!(matches!(tail_phase.phase_type(), PhaseKind::FallMain(_)));
+        assert!(matches!(tail_phase.phase_kind(), PhaseKind::FallMain(_)));
     }
 
     #[test]
@@ -764,7 +770,7 @@ mod tests {
         let tail_phase = &context.pop_phase().unwrap();
         assert_eq!(tail_phase.year(), 1902);
         assert_eq!(tail_phase.index(), 7);
-        assert!(matches!(tail_phase.phase_type(), PhaseKind::SpringMain(_)));
+        assert!(matches!(tail_phase.phase_kind(), PhaseKind::SpringMain(_)));
     }
 }
 
