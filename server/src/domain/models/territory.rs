@@ -12,18 +12,26 @@ pub struct Territory {
 }
 
 impl Territory {
-    pub fn new(power: Power, code: &str) -> Self {
+    /// Territory オブジェクトを生成する
+    pub(crate) fn new(power: Power, code: &str) -> Self {
         Self {
             power,
             code: code.to_string(),
         }
     }
 
-    pub fn power(&self) -> &Power {
+    /// 占領国を取得する
+    pub(crate) fn power(&self) -> &Power {
         &self.power
     }
 
-    pub fn code(&self) -> &str {
+    /// 占領国を設定する
+    pub(crate) fn set_power(&mut self, power: Power) {
+        self.power = power;
+    }
+
+    /// 地域コードを取得する
+    pub(crate) fn code(&self) -> &str {
         &self.code
     }
 }
