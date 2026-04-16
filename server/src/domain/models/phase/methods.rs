@@ -338,7 +338,7 @@ trait PhaseCloseLogic {
 
         // 調整フェイズ格納
         let Some(adjustment_phase) = self.create_next_phase(current_phase) else {
-            unreachable!("draw: create_next_phase must not return None");
+            unreachable!("solo: create_next_phase must not return None");
         };
         context.push_phase(adjustment_phase.clone());
 
@@ -825,6 +825,73 @@ mod tests {
         assert!(matches!(phases[3].phase_kind(), PhaseKind::Debrief(_)));
     }
 
+    #[test]
+    fn close_on_fall_retreat_with_solo_pushes_adjustment_and_debrief() {
+        let mut current_phase = Phase::new_fall_retreat(1901, 4);
+        current_phase.data.units = vec![a("f", "par")];
+        current_phase.data.territories = vec![
+            Territory::new(Power::France, "par"),
+            Territory::new(Power::France, "bre"),
+            Territory::new(Power::France, "mar"),
+            Territory::new(Power::France, "lon"),
+            Territory::new(Power::France, "edi"),
+            Territory::new(Power::France, "lvp"),
+            Territory::new(Power::France, "ber"),
+            Territory::new(Power::France, "mun"),
+            Territory::new(Power::France, "kie"),
+            Territory::new(Power::France, "vie"),
+            Territory::new(Power::France, "bud"),
+            Territory::new(Power::France, "tri"),
+            Territory::new(Power::France, "rom"),
+            Territory::new(Power::France, "ven"),
+            Territory::new(Power::France, "nap"),
+            Territory::new(Power::France, "mos"),
+            Territory::new(Power::France, "war"),
+            Territory::new(Power::France, "sev"),
+        ];
+
+        let mut context = PhaseContext::default();
+        current_phase.close(&mut context);
+
+        let phases = context.phases();
+        assert_eq!(phases.len(), 3);
+        assert!(matches!(phases[0].phase_kind(), PhaseKind::FallRetreat(_)));
+        assert!(matches!(phases[1].phase_kind(), PhaseKind::Adjustment(_)));
+        assert!(matches!(phases[2].phase_kind(), PhaseKind::Debrief(_)));
+    }
+
+    #[test]
+    fn close_on_fall_retreat_without_solo_follows_normal_transition() {
+        let mut current_phase = Phase::new_fall_retreat(1901, 4);
+        current_phase.data.units = vec![a("f", "par")];
+        current_phase.data.territories = vec![
+            Territory::new(Power::France, "par"),
+            Territory::new(Power::France, "bre"),
+            Territory::new(Power::France, "mar"),
+            Territory::new(Power::France, "lon"),
+            Territory::new(Power::France, "edi"),
+            Territory::new(Power::France, "lvp"),
+            Territory::new(Power::France, "ber"),
+            Territory::new(Power::France, "mun"),
+            Territory::new(Power::France, "kie"),
+            Territory::new(Power::France, "vie"),
+            Territory::new(Power::France, "bud"),
+            Territory::new(Power::France, "tri"),
+            Territory::new(Power::France, "rom"),
+            Territory::new(Power::France, "ven"),
+            Territory::new(Power::France, "nap"),
+            Territory::new(Power::France, "mos"),
+            Territory::new(Power::France, "war"),
+        ];
+
+        let mut context = PhaseContext::default();
+        current_phase.close(&mut context);
+
+        let phases = context.phases();
+        assert_eq!(phases.len(), 2);
+        assert!(matches!(phases[0].phase_kind(), PhaseKind::FallRetreat(_)));
+        assert!(matches!(phases[1].phase_kind(), PhaseKind::Adjustment(_)));
+    }
     #[test]
     fn occupy_overwrites_existing_territory_owner() {
         let mut fall_retreat = Phase::new_fall_retreat(1901, 4);
