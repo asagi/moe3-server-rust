@@ -5,10 +5,16 @@ use super::Territory;
 use super::Unit;
 
 pub trait UnitHelper {
+    fn collect_all_idxs(&self) -> Vec<usize>;
     fn collect_units_for_civil_disorder(&self, power: &Power, territories: &[Territory]) -> Vec<Unit>;
 }
 
 impl UnitHelper for [Unit] {
+    /// すべてのユニットのインデックスを取得する
+    fn collect_all_idxs(&self) -> Vec<usize> {
+        (0..self.len()).collect()
+    }
+
     /// 指定した国のユニットについて下記の条件に基づいて取得する
     /// - 直近の自国が保有する補給都市から距離が遠い順
     /// - 距離が同じ場合は海軍優先
