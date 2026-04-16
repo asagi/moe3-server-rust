@@ -235,7 +235,13 @@ impl Phase {
 
     /// 指定した国が現在保有する補給都市数を取得する
     pub fn count_supply_centers(&self, power: &Power) -> usize {
-        self.data.territories.iter().filter(|t| t.power() == power).count()
+        self
+            .data
+            .territories
+            .iter()
+            .filter(|t| t.power() == power)
+            .filter(|t| Province::from_code(t.code()).is_some_and(Province::is_supply_center))
+            .count()
     }
 
     /// 指定した国が現在保有するユニット数を取得する
@@ -802,6 +808,50 @@ mod tests {
         assert!(matches!(phases[1].phase_kind(), PhaseKind::FallRetreat(_)));
         assert!(matches!(phases[2].phase_kind(), PhaseKind::Adjustment(_)));
         assert!(matches!(phases[3].phase_kind(), PhaseKind::Debrief(_)));
+    }
+
+    #[test]
+    fn occupy_overwrites_existing_territory_owner() {
+        let mut fall_retreat = Phase::new_fall_retreat(1901, 4);
+        fall_retreat.data.units = vec![a("g", "par")];
+        fall_retreat.data.territories = vec![Territory::new(Power::France, "par")];
+
+        FallRetreatPhase {}.occupy(&mut fall_retreat);
+
+        assert_eq!(fall_retreat.data.territories.len(), 1);
+        assert_eq!(fall_retreat.data.territories[0], Territory::new(Power::Germany, "par"));
+    }
+
+    #[test]
+    fn occupy_adds_unoccupied_land_territory() {
+        let mut fall_retreat = Phase::new_fall_retreat(1901, 4);
+        fall_retreat.data.units = vec![a("g", "gas")];
+
+        FallRetreatPhase {}.occupy(&mut fall_retreat);
+
+        assert_eq!(fall_retreat.data.territories, vec![Territory::new(Power::Germany, "gas")]);
+    }
+
+    #[test]
+    fn occupy_does_not_add_water_territory() {
+        let mut fall_retreat = Phase::new_fall_retreat(1901, 4);
+        fall_retreat.data.units = vec![f("e", "nth")];
+
+        FallRetreatPhase {}.occupy(&mut fall_retreat);
+
+        assert!(fall_retreat.data.territories.is_empty());
+    }
+
+    #[test]
+    fn count_supply_centers_excludes_non_supply_territories() {
+        let mut phase = Phase::new_fall_retreat(1901, 4);
+        phase.data.territories = vec![
+            Territory::new(Power::France, "par"),
+            Territory::new(Power::France, "gas"),
+            Territory::new(Power::France, "pic"),
+        ];
+
+        assert_eq!(phase.count_supply_centers(&Power::France), 1);
     }
 }
 
