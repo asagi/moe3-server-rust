@@ -256,6 +256,13 @@ impl Phase {
 trait PhaseCloseLogic {
     /// フェイズ終了処理
     fn close(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
+        // context.active_powers から全滅した国を除外する
+        for p in Power::iter() {
+            if current_phase.count_supply_centers(&p) == 0 {
+                context.remove_power(&p);
+            }
+        }
+
         // 和平判定
         if context.is_draw() && matches!(current_phase.phase_kind(), PhaseKind::SpringMain(_) | PhaseKind::FallMain(_)) {
             self.finish_on_draw(current_phase, context);
@@ -278,7 +285,7 @@ trait PhaseCloseLogic {
         context.push_phase(current_phase.clone());
         if let Some(next_phase) = self.create_next_phase(current_phase) {
             // スキップ判定と再帰
-            if self.should_skip_next_phase(&next_phase) {
+            if self.should_skip_next_phase(&next_phase, context) {
                 next_phase.close(context);
                 return;
             }
@@ -352,7 +359,7 @@ trait PhaseCloseLogic {
 
     /// 次フェイズがスキップ可能な場合に true を返す
     /// true を返す可能性のある場合にのみオーバーライドする
-    fn should_skip_next_phase(&self, _next_phase: &Phase) -> bool {
+    fn should_skip_next_phase(&self, _next_phase: &Phase, _context: &PhaseContext) -> bool {
         false
     }
 }
@@ -382,8 +389,12 @@ impl PhaseCloseLogic for SpringMainPhase {
     }
 
     /// 撤退指示が必要なユニットが存在しない場合に true を返す
-    fn should_skip_next_phase(&self, next_phase: &Phase) -> bool {
-        !next_phase.data.units.iter().any(|u| u.dislodged)
+    fn should_skip_next_phase(&self, next_phase: &Phase, context: &PhaseContext) -> bool {
+        !next_phase
+            .data
+            .units
+            .iter()
+            .any(|u| u.dislodged && context.active_powers().contains(&u.power))
     }
 }
 
@@ -417,8 +428,12 @@ impl PhaseCloseLogic for FallMainPhase {
     }
 
     /// 撤退指示が必要なユニットが存在しない場合に true を返す
-    fn should_skip_next_phase(&self, next_phase: &Phase) -> bool {
-        !next_phase.data.units.iter().any(|u| u.dislodged)
+    fn should_skip_next_phase(&self, next_phase: &Phase, context: &PhaseContext) -> bool {
+        !next_phase
+            .data
+            .units
+            .iter()
+            .any(|u| u.dislodged && context.active_powers().contains(&u.power))
     }
 }
 
@@ -466,8 +481,13 @@ impl PhaseCloseLogic for FallRetreatPhase {
     }
 
     /// 調整が不要な場合に true を返す
-    fn should_skip_next_phase(&self, next_phase: &Phase) -> bool {
+    fn should_skip_next_phase(&self, next_phase: &Phase, context: &PhaseContext) -> bool {
         for p in Power::iter() {
+            if !context.active_powers().contains(&p) {
+                // 全滅した国や無政府の国は考慮しない
+                continue;
+            }
+
             let sc_count = next_phase.count_supply_centers(&p);
             let unit_count = next_phase.count_units(&p);
             if unit_count == sc_count {
@@ -651,6 +671,7 @@ mod tests {
     use crate::domain::tests::a;
     use crate::domain::tests::f;
     use crate::domain::tests::p;
+    use crate::domain::tests::t;
 
     /// Ready → SpringMain: ユニットと領土が引き継がれ、全ユニットにホールド命令が生成される
     #[test]
@@ -779,7 +800,7 @@ mod tests {
     #[test]
     fn close_on_spring_main_skips_empty_retreat_and_advances_to_fall_main() {
         let current_phase = Phase::new_spring_main(1900, 0);
-        let mut context = PhaseContext::default();
+        let mut context = PhaseContext::new();
         current_phase.close(&mut context);
         let tail_phase = &context.pop_phase().unwrap();
         assert_eq!(tail_phase.year(), 1901);
@@ -790,7 +811,7 @@ mod tests {
     #[test]
     fn close_on_fall_main_skips_empty_retreat_and_advances_past_retreat_and_adjustment() {
         let current_phase = Phase::new_fall_main(1901, 3);
-        let mut context = PhaseContext::default();
+        let mut context = PhaseContext::new();
         current_phase.close(&mut context);
         let tail_phase = &context.pop_phase().unwrap();
         assert_eq!(tail_phase.year(), 1902);
@@ -799,9 +820,43 @@ mod tests {
     }
 
     #[test]
+    fn close_on_spring_main_with_inactive_dislodged_power_skips_retreat() {
+        let mut current_phase = Phase::new_spring_main(1900, 0);
+        let mut dislodged = a("f", "par");
+        dislodged.set_dislodged_from(Some(p("gas")));
+        current_phase.data.units = vec![dislodged];
+
+        let mut context = PhaseContext::new();
+        context.remove_power(&Power::France);
+        current_phase.close(&mut context);
+
+        let tail_phase = context.pop_phase().unwrap();
+        assert_eq!(tail_phase.year(), 1901);
+        assert_eq!(tail_phase.index(), 3);
+        assert!(matches!(tail_phase.phase_kind(), PhaseKind::FallMain(_)));
+    }
+
+    #[test]
+    fn close_on_spring_main_with_active_dislodged_power_keeps_retreat() {
+        let mut current_phase = Phase::new_spring_main(1900, 0);
+        let mut dislodged = a("f", "par");
+        dislodged.set_dislodged_from(Some(p("gas")));
+        current_phase.data.units = vec![dislodged];
+        current_phase.data.territories = vec![t("f", "par")];
+
+        let mut context = PhaseContext::new();
+        current_phase.close(&mut context);
+
+        let tail_phase = context.pop_phase().unwrap();
+        assert_eq!(tail_phase.year(), 1901);
+        assert_eq!(tail_phase.index(), 2);
+        assert!(matches!(tail_phase.phase_kind(), PhaseKind::SpringRetreat(_)));
+    }
+
+    #[test]
     fn close_pushes_spring_draw_phase_sequence_into_context() {
         let current_phase = Phase::new_spring_main(1901, 0);
-        let mut context = PhaseContext::default();
+        let mut context = PhaseContext::new();
         context.set_draw();
         current_phase.close(&mut context);
         let phases = context.phases();
@@ -814,7 +869,7 @@ mod tests {
     #[test]
     fn close_pushes_fall_draw_phase_sequence_into_context() {
         let current_phase = Phase::new_fall_main(1901, 0);
-        let mut context = PhaseContext::default();
+        let mut context = PhaseContext::new();
         context.set_draw();
         current_phase.close(&mut context);
         let phases = context.phases();
@@ -850,7 +905,7 @@ mod tests {
             Territory::new(Power::France, "sev"),
         ];
 
-        let mut context = PhaseContext::default();
+        let mut context = PhaseContext::new();
         current_phase.close(&mut context);
 
         let phases = context.phases();
@@ -884,13 +939,29 @@ mod tests {
             Territory::new(Power::France, "war"),
         ];
 
-        let mut context = PhaseContext::default();
+        let mut context = PhaseContext::new();
         current_phase.close(&mut context);
 
         let phases = context.phases();
         assert_eq!(phases.len(), 2);
         assert!(matches!(phases[0].phase_kind(), PhaseKind::FallRetreat(_)));
         assert!(matches!(phases[1].phase_kind(), PhaseKind::Adjustment(_)));
+    }
+
+    #[test]
+    fn close_on_fall_retreat_skips_adjustment_for_inactive_power_only() {
+        let mut current_phase = Phase::new_fall_retreat(1901, 4);
+        current_phase.data.units = vec![a("f", "par"), a("f", "gas")];
+        current_phase.data.territories = vec![Territory::new(Power::France, "par")];
+
+        let mut context = PhaseContext::new();
+        context.remove_power(&Power::France);
+        current_phase.close(&mut context);
+
+        let tail_phase = context.pop_phase().unwrap();
+        assert_eq!(tail_phase.year(), 1902);
+        assert_eq!(tail_phase.index(), 7);
+        assert!(matches!(tail_phase.phase_kind(), PhaseKind::SpringMain(_)));
     }
     #[test]
     fn occupy_overwrites_existing_territory_owner() {

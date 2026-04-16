@@ -1,12 +1,17 @@
 // models
 use super::Phase;
+use super::Power;
+
+// external crates
+use strum::IntoEnumIterator;
 
 // standard library
 use std::collections::VecDeque;
 
 /// フェイズ遷移のコンテキスト
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct PhaseContext {
+    active_powers: Vec<Power>,
     phases: VecDeque<Phase>,
     is_draw: bool,
 }
@@ -15,9 +20,19 @@ impl PhaseContext {
     #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Self {
+            active_powers: Power::iter().collect(),
             phases: VecDeque::new(),
             is_draw: false,
         }
+    }
+
+    /// 全滅した国や無政府の国を指定し除外する
+    pub(crate) fn remove_power(&mut self, power: &Power) {
+        self.active_powers.retain(|p| p != power);
+    }
+
+    pub(crate) fn active_powers(&self) -> &Vec<Power> {
+        &self.active_powers
     }
 
     pub(crate) fn push_phase(&mut self, phase: Phase) {
