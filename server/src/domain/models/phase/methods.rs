@@ -185,7 +185,6 @@ impl Phase {
     }
 
     /// 春メインフェイズを生成する。
-    ///
     /// - 春命令は「次年の開始フェイズ」なので、必ず `year = prev_year + 1`。
     /// - このルールは Ready -> SpringOrder / Adjustment -> SpringOrder の両方で共通。
     pub fn new_spring_main(current_year: i32, current_index: i32) -> Self {
@@ -236,7 +235,13 @@ impl Phase {
 
     /// 指定した国が現在保有する補給都市数を取得する
     pub fn count_supply_centers(&self, power: &Power) -> usize {
-        self.data.territories.iter().filter(|t| t.power() == power).count()
+        self
+            .data
+            .territories
+            .iter()
+            .filter(|t| t.power() == power)
+            .filter(|t| Province::from_code(t.code()).is_some_and(Province::is_supply_center))
+            .count()
     }
 
     /// 指定した国が現在保有するユニット数を取得する
@@ -256,10 +261,10 @@ trait PhaseCloseLogic {
         }
 
         // 命令解決
-        self.resolve_orders(current_phase, context);
+        self.resolve_orders(current_phase);
 
         // 占領処理
-        self.occupy(current_phase, context);
+        self.occupy(current_phase);
 
         // 制覇判定
         if self.check_solo_condition(context) {
@@ -268,20 +273,16 @@ trait PhaseCloseLogic {
         }
 
         // 次フェイズ生成
+        context.push_phase(current_phase.clone());
         if let Some(next_phase) = self.create_next_phase(current_phase) {
-            context.push_phase(current_phase.clone());
-
             // スキップ判定と再帰
-            if self.should_skip_next_phase(context, &next_phase) {
+            if self.should_skip_next_phase(&next_phase) {
                 next_phase.close(context);
                 return;
             }
 
             context.push_phase(next_phase.clone());
-            return;
         }
-
-        context.push_phase(current_phase.clone());
     }
 
     /// 和平合意による終了処理
@@ -313,17 +314,18 @@ trait PhaseCloseLogic {
     }
 
     /// 命令解決処理
-    fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
+    fn resolve_orders(&self, _current_phase: &mut Phase) {
         // 準備フェイズと感想戦フェイズでは何もしない
     }
 
     /// 占領処理
-    fn occupy(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
-        // 春秋の撤退フェイズ以外では何もしない
+    fn occupy(&self, _current_phase: &mut Phase) {
+        // 秋の撤退フェイズ以外では何もしない
     }
 
     /// 制覇判定処理
     fn check_solo_condition(&self, _context: &PhaseContext) -> bool {
+        // 秋の撤退フェイズ以外では常に false
         false
     }
 
@@ -344,7 +346,7 @@ trait PhaseCloseLogic {
 
     /// 次フェイズがスキップ可能な場合に true を返す
     /// true を返す可能性のある場合にのみオーバーライドする
-    fn should_skip_next_phase(&self, _context: &PhaseContext, _next_phase: &Phase) -> bool {
+    fn should_skip_next_phase(&self, _next_phase: &Phase) -> bool {
         false
     }
 }
@@ -361,8 +363,9 @@ impl PhaseCloseLogic for ReadyPhase {
 
 /// 春メインフェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for SpringMainPhase {
-    fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
-        resolve_orders_for_main_phase(_current_phase);
+    /// 命令解決処理
+    fn resolve_orders(&self, current_phase: &mut Phase) {
+        resolve_orders_for_main_phase(current_phase);
     }
 
     /// 次フェイズ生成
@@ -373,19 +376,16 @@ impl PhaseCloseLogic for SpringMainPhase {
     }
 
     /// 撤退指示が必要なユニットが存在しない場合に true を返す
-    fn should_skip_next_phase(&self, _context: &PhaseContext, next_phase: &Phase) -> bool {
+    fn should_skip_next_phase(&self, next_phase: &Phase) -> bool {
         !next_phase.data.units.iter().any(|u| u.dislodged)
     }
 }
 
 /// 春撤退フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for SpringRetreatPhase {
-    fn resolve_orders(&self, current_phase: &mut Phase, _context: &mut PhaseContext) {
+    /// 命令解決処理
+    fn resolve_orders(&self, current_phase: &mut Phase) {
         resolve_orders_for_retreat_phase(current_phase);
-    }
-
-    fn occupy(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
-        occupy_for_retreat_phase(_current_phase, _context);
     }
 
     /// 次フェイズ生成
@@ -398,8 +398,9 @@ impl PhaseCloseLogic for SpringRetreatPhase {
 
 /// 秋メインフェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for FallMainPhase {
-    fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
-        resolve_orders_for_main_phase(_current_phase);
+    /// 命令解決処理
+    fn resolve_orders(&self, current_phase: &mut Phase) {
+        resolve_orders_for_main_phase(current_phase);
     }
 
     /// 次フェイズ生成
@@ -410,19 +411,35 @@ impl PhaseCloseLogic for FallMainPhase {
     }
 
     /// 撤退指示が必要なユニットが存在しない場合に true を返す
-    fn should_skip_next_phase(&self, _context: &PhaseContext, next_phase: &Phase) -> bool {
+    fn should_skip_next_phase(&self, next_phase: &Phase) -> bool {
         !next_phase.data.units.iter().any(|u| u.dislodged)
     }
 }
 
 /// 秋撤退フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for FallRetreatPhase {
-    fn resolve_orders(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
-        resolve_orders_for_retreat_phase(_current_phase);
+    /// 命令解決処理
+    fn resolve_orders(&self, current_phase: &mut Phase) {
+        resolve_orders_for_retreat_phase(current_phase);
     }
 
-    fn occupy(&self, _current_phase: &mut Phase, _context: &mut PhaseContext) {
-        occupy_for_retreat_phase(_current_phase, _context);
+    /// 占領処理
+    fn occupy(&self, current_phase: &mut Phase) {
+        for idx in current_phase.data.units.collect_all_idxs() {
+            let code = current_phase.data.units[idx].location.code()[..3].to_string();
+
+            if let Some(occupied_idx) = current_phase.data.territories.iter().position(|t| t.code() == code) {
+                // すでに占領されている場合は占領国を更新
+                current_phase.data.territories[occupied_idx].set_power(current_phase.data.units[idx].power);
+                continue;
+            } else if !current_phase.data.units[idx].location.is_water() {
+                // 水域以外の未占領地は占領情報を新規に登録
+                current_phase
+                    .data
+                    .territories
+                    .push(Territory::new(current_phase.data.units[idx].power, &code));
+            }
+        }
     }
 
     /// 次フェイズ生成
@@ -433,7 +450,7 @@ impl PhaseCloseLogic for FallRetreatPhase {
     }
 
     /// 調整が不要な場合に true を返す
-    fn should_skip_next_phase(&self, _context: &PhaseContext, next_phase: &Phase) -> bool {
+    fn should_skip_next_phase(&self, next_phase: &Phase) -> bool {
         for p in Power::iter() {
             // 解体必要数算出
             let sc_count = next_phase.count_supply_centers(&p);
@@ -449,7 +466,7 @@ impl PhaseCloseLogic for FallRetreatPhase {
 
 /// 調整フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for AdjustmentPhase {
-    fn resolve_orders(&self, current_phase: &mut Phase, _context: &mut PhaseContext) {
+    fn resolve_orders(&self, current_phase: &mut Phase) {
         resolve_orders_for_adjustment_phase(current_phase);
     }
 
@@ -611,13 +628,6 @@ fn resolve_orders_for_adjustment_phase(current_phase: &mut Phase) {
             _ => {}
         }
     }
-}
-
-/// 撤退フェイズの占領処理
-fn occupy_for_retreat_phase(_current_phase: &mut Phase, _context: &mut PhaseContext) {
-    // TODO: 占領処理
-    // - 撤退命令を解決し、占領が発生した地域を記録する
-    // - 占領情報を current_phase に記録する
 }
 
 #[cfg(test)]
@@ -798,6 +808,50 @@ mod tests {
         assert!(matches!(phases[1].phase_kind(), PhaseKind::FallRetreat(_)));
         assert!(matches!(phases[2].phase_kind(), PhaseKind::Adjustment(_)));
         assert!(matches!(phases[3].phase_kind(), PhaseKind::Debrief(_)));
+    }
+
+    #[test]
+    fn occupy_overwrites_existing_territory_owner() {
+        let mut fall_retreat = Phase::new_fall_retreat(1901, 4);
+        fall_retreat.data.units = vec![a("g", "par")];
+        fall_retreat.data.territories = vec![Territory::new(Power::France, "par")];
+
+        FallRetreatPhase {}.occupy(&mut fall_retreat);
+
+        assert_eq!(fall_retreat.data.territories.len(), 1);
+        assert_eq!(fall_retreat.data.territories[0], Territory::new(Power::Germany, "par"));
+    }
+
+    #[test]
+    fn occupy_adds_unoccupied_land_territory() {
+        let mut fall_retreat = Phase::new_fall_retreat(1901, 4);
+        fall_retreat.data.units = vec![a("g", "gas")];
+
+        FallRetreatPhase {}.occupy(&mut fall_retreat);
+
+        assert_eq!(fall_retreat.data.territories, vec![Territory::new(Power::Germany, "gas")]);
+    }
+
+    #[test]
+    fn occupy_does_not_add_water_territory() {
+        let mut fall_retreat = Phase::new_fall_retreat(1901, 4);
+        fall_retreat.data.units = vec![f("e", "nth")];
+
+        FallRetreatPhase {}.occupy(&mut fall_retreat);
+
+        assert!(fall_retreat.data.territories.is_empty());
+    }
+
+    #[test]
+    fn count_supply_centers_excludes_non_supply_territories() {
+        let mut phase = Phase::new_fall_retreat(1901, 4);
+        phase.data.territories = vec![
+            Territory::new(Power::France, "par"),
+            Territory::new(Power::France, "gas"),
+            Territory::new(Power::France, "pic"),
+        ];
+
+        assert_eq!(phase.count_supply_centers(&Power::France), 1);
     }
 }
 
