@@ -5,6 +5,7 @@ use strum::Display;
 use strum::EnumIter;
 use strum::EnumProperty;
 use strum::EnumString;
+#[cfg(test)]
 use strum::IntoEnumIterator;
 
 /// 国の定義
@@ -29,10 +30,12 @@ pub enum Power {
 
 /// 国のロジック
 impl Power {
+    #[cfg(test)]
     pub fn all() -> impl Iterator<Item = Self> {
         Self::iter()
     }
 
+    #[cfg(test)]
     pub fn from_symbol(symbol: &str) -> Option<Self> {
         Self::all().find(|p| p.symbol().eq_ignore_ascii_case(symbol))
     }
@@ -45,6 +48,7 @@ impl Power {
         self.get_str("Adj").unwrap_or_default()
     }
 
+    #[allow(dead_code)]
     pub fn name(&self) -> String {
         self.to_string()
     }

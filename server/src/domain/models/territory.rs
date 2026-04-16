@@ -31,7 +31,12 @@ impl Territory {
     }
 
     /// 地域コードを取得する
-    pub(crate) fn code(&self) -> &str {
+    pub(crate) fn code_with_coast(&self) -> &str {
         &self.code
+    }
+
+    /// 地域コードを取得する（海岸線を除く）
+    pub(crate) fn code(&self) -> &str {
+        &self.code[..3]
     }
 }
