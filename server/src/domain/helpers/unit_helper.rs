@@ -12,7 +12,7 @@ pub trait UnitHelper {
 impl UnitHelper for [Unit] {
     /// すべてのユニットのインデックスを取得する
     fn collect_all_idxs(&self) -> Vec<usize> {
-        (0..self.len()).collect()
+        self.iter().enumerate().map(|(idx, _)| idx).collect::<Vec<usize>>()
     }
 
     /// 指定した国のユニットについて下記の条件に基づいて取得する
