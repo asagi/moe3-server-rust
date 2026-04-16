@@ -111,7 +111,7 @@ impl MainOrderHelper for [Order] {
             .filter(|(_, o)| o.is_valid() && o.power != self[target_idx].power)
             .filter(|(_, o)| {
                 if let OrderKind::Move(m) = &o.kind {
-                    m.dest.code()[..3] == self[target_idx].location().code()[..3]
+                    m.dest.code() == self[target_idx].location().code()
                 } else {
                     false
                 }
@@ -197,7 +197,7 @@ impl MainOrderHelper for [Order] {
         self.collect_not_assumed_orders()
             .iter()
             .filter(|o| o.unit.is_fleet() && o.location().is_water())
-            .map(|o| o.location().code())
+            .map(|o| o.location().code_with_coast())
             .collect()
     }
 
@@ -207,7 +207,7 @@ impl MainOrderHelper for [Order] {
             .iter()
             .filter(|o| o.is_valid())
             .filter_map(|o| if let OrderKind::Move(m) = o.kind { Some(m.dest) } else { None })
-            .map(|p| &p.code()[..3])
+            .map(|p| p.code())
             .collect()
     }
 
@@ -244,7 +244,7 @@ impl MainOrderHelper for [Order] {
     /// 指定地域に非移動命令または失敗した移動命令があればその命令のインデックスを返す
     fn find_occupant_order_idx(&self, target_location_code: &str) -> Option<usize> {
         self.collect_not_assumed_orders().iter().enumerate().position(|(_, o)| {
-            o.location().code()[..3] == target_location_code[..3] && !(matches!(o.kind, OrderKind::Move(_)) && o.is_success())
+            o.location().code() == target_location_code && !(matches!(o.kind, OrderKind::Move(_)) && o.is_success())
         })
     }
 
@@ -252,8 +252,7 @@ impl MainOrderHelper for [Order] {
     fn find_opposite_move_idx(&self, move_idx: usize) -> Option<usize> {
         self.collect_not_assumed_orders().iter().position(|o| match o.kind {
             OrderKind::Move(_) => {
-                o.location().code()[..3] == self[move_idx].dest().code()[..3]
-                    && o.dest().code()[..3] == self[move_idx].location().code()[..3]
+                o.location().code() == self[move_idx].dest().code() && o.dest().code() == self[move_idx].location().code()
             }
             _ => false,
         })
@@ -288,7 +287,7 @@ impl MainOrderHelper for [Order] {
         let occupant_order = self
             .collect_not_assumed_orders()
             .into_iter()
-            .find(|o| o.location().code()[..3] == target_code[..3])?;
+            .find(|o| o.location().code() == target_code)?;
 
         if !matches!(occupant_order.kind, OrderKind::Move(_)) {
             // 非移動命令が存在すればその勢力を返す
@@ -317,7 +316,7 @@ impl MainOrderHelper for [Order] {
     fn get_unresolved_allowed_waters(&self, move_idx: usize) -> HashSet<&'static str> {
         self.collect_matched_convoy_order_idxs(&self[move_idx])
             .iter()
-            .map(|&idx| self[idx].location().code())
+            .map(|&idx| self[idx].location().code_with_coast())
             .collect()
     }
 
@@ -326,7 +325,7 @@ impl MainOrderHelper for [Order] {
         self.collect_matched_convoy_order_idxs(&self[move_idx])
             .iter()
             .filter(|&&idx| self[idx].is_valid() && Some(self[idx].location()) != exclude_province)
-            .map(|&idx| self[idx].location().code())
+            .map(|&idx| self[idx].location().code_with_coast())
             .collect()
     }
 

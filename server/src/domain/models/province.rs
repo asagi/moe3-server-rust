@@ -111,67 +111,75 @@ const PROVINCE_DATA: &[ProvinceData] = &[
 ];
 
 impl Province {
-    pub fn from_code(code: &str) -> Option<Self> {
+    pub(crate) fn from_code(code: &str) -> Option<Self> {
         PROVINCE_DATA.iter().find(|d| d.code == code).map(|d| Self(d.code))
     }
 
-    pub fn all() -> impl Iterator<Item = Self> {
+    #[allow(dead_code)]
+    pub(crate) fn all() -> impl Iterator<Item = Self> {
         (0..PROVINCE_DATA.len()).map(|idx| Self(PROVINCE_DATA[idx].code))
     }
 
-    pub fn data(self) -> &'static ProvinceData {
+    pub(crate) fn data(self) -> &'static ProvinceData {
         PROVINCE_DATA.iter().find(|d| d.code == self.0).expect("valid province code")
     }
 
-    pub fn full_name(self) -> &'static str {
+    pub(crate) fn full_name(self) -> &'static str {
         self.data().full
     }
 
-    pub fn short_name(self) -> &'static str {
+    pub(crate) fn short_name(self) -> &'static str {
         self.data().short
     }
 
-    pub fn jname(self) -> &'static str {
+    #[allow(dead_code)]
+    pub(crate) fn jname(self) -> &'static str {
         self.data().jname
     }
 
-    pub fn kind(self) -> &'static str {
+    pub(crate) fn kind(self) -> &'static str {
         self.data().kind
     }
 
-    pub fn is_supply_center(self) -> bool {
+    pub(crate) fn is_supply_center(self) -> bool {
         self.data().supply
     }
 
-    pub fn home(self) -> Option<&'static str> {
+    #[allow(dead_code)]
+    pub(crate) fn home(self) -> Option<&'static str> {
         self.data().home
     }
 
-    pub fn is_water(self) -> bool {
+    pub(crate) fn is_water(self) -> bool {
         self.kind() == "Water"
     }
 
-    pub fn is_coast(self) -> bool {
+    pub(crate) fn is_coast(self) -> bool {
         self.kind() == "Coast"
     }
 
-    pub fn is_inland(self) -> bool {
+    #[allow(dead_code)]
+    pub(crate) fn is_inland(self) -> bool {
         self.kind() == "Inland"
     }
 
-    pub fn code(self) -> &'static str {
+    pub(crate) fn code_with_coast(self) -> &'static str {
         self.data().code
     }
 
+    pub(crate) fn code(self) -> &'static str {
+        &self.data().code[..3]
+    }
+
     /// 指定コードが指定国の初期補給都市であるかを返却する
-    pub fn is_home_sc(code: &str, power: &Power) -> bool {
+    pub(crate) fn is_home_sc(code: &str, power: &Power) -> bool {
         PROVINCE_DATA
             .iter()
             .any(|d| d.code == code && d.supply && d.home == Some(power.symbol()))
     }
 
     /// 指定された二点の最短距離を返却する
-    pub fn distance(from: &str, to: &str) -> usize {
+    pub(crate) fn distance(from: &str, to: &str) -> usize {
         let from_base = from.get(..3).expect("valid province code");
         let to_base = to.get(..3).expect("valid province code");
 
@@ -224,7 +232,7 @@ impl Province {
 
 impl fmt::Display for Province {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.code())
+        f.write_str(self.code_with_coast())
     }
 }
 
@@ -245,7 +253,7 @@ impl TryFrom<String> for Province {
 
 impl From<Province> for String {
     fn from(value: Province) -> Self {
-        value.code().to_string()
+        value.code_with_coast().to_string()
     }
 }
 

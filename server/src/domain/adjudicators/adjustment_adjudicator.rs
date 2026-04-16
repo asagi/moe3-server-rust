@@ -35,7 +35,7 @@ impl AdjustmentAdjudicator {
                 let build_order = current_phase.data.orders[i];
 
                 // 増設指定地域が本国補給都市であること
-                if !Province::is_home_sc(&build_order.location().code()[..3], &p) {
+                if !Province::is_home_sc(build_order.location().code(), &p) {
                     current_phase.data.orders[i].set_invalid();
                     continue;
                 }
@@ -45,7 +45,7 @@ impl AdjustmentAdjudicator {
                     .data
                     .territories
                     .iter()
-                    .any(|t| t.code()[..3] == build_order.location().code()[..3] && t.power() == &p)
+                    .any(|t| t.code() == build_order.location().code() && t.power() == &p)
                 {
                     current_phase.data.orders[i].set_invalid();
                     continue;
@@ -56,14 +56,14 @@ impl AdjustmentAdjudicator {
                     .data
                     .units
                     .iter()
-                    .any(|u| u.location().code()[..3] == build_order.location().code()[..3])
+                    .any(|u| u.location().code() == build_order.location().code())
                 {
                     current_phase.data.orders[i].set_invalid();
                     continue;
                 }
 
                 // 増設指定地域がユニットの種類に適合していること
-                if !Path::can_unit_exist_at(&build_order.unit, build_order.location().code()) {
+                if !Path::can_unit_exist_at(&build_order.unit, build_order.location().code_with_coast()) {
                     current_phase.data.orders[i].set_invalid();
                     continue;
                 }

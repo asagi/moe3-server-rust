@@ -31,7 +31,7 @@ impl RetreatOrderHelper for [Order] {
                     None
                 }
             })
-            .map(|p| &p.code()[..3])
+            .map(|p| p.code())
             .collect()
     }
 
@@ -49,7 +49,7 @@ impl RetreatOrderHelper for [Order] {
     fn collect_unresolved_retreat_idxs_by_dest(&self, dest_code: &str) -> Vec<usize> {
         self.collect_unresolved_retreat_idxs()
             .into_iter()
-            .filter(|&idx| self[idx].dest().code()[..3] == dest_code[..3])
+            .filter(|&idx| self[idx].dest().code() == dest_code)
             .collect()
     }
 }

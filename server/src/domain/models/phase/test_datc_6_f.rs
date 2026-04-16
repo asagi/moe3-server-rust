@@ -319,7 +319,7 @@ fn test_datc_6_f_7() {
     assert_eq!(phase.data.orders[1].status, OrderStatus::Unreachable);
     assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
     assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
-    assert_ne!(phase.data.orders[0].dislodged_from.map(|p| p.code()), Some("hol"));
+    assert_ne!(phase.data.orders[0].dislodged_from.map(|p| p.code_with_coast()), Some("hol"));
     assert!(!phase.data.standoff_codes.contains(&"hol".to_string()));
     assert_eq!(phase.data.units.len(), 4);
     assert!(phase.data.units.contains(&unit_e_nth.set_dislodged_from(Some(p("ska")))));
