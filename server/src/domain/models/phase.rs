@@ -34,6 +34,10 @@ use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 
+/// 制覇勝利に必要な補給都市数
+/// Diplomacy ルール：いずれかの国が18個の補給都市を保有すると solo win
+pub(crate) const SUPPLY_CENTERS_FOR_SOLO: usize = 18;
+
 /// フェイズの定義
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]

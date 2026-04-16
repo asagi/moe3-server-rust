@@ -32,6 +32,9 @@ use super::UnitHelper;
 // external crates
 use strum::IntoEnumIterator;
 
+// constants
+use super::SUPPLY_CENTERS_FOR_SOLO;
+
 /// フェイズのロジック
 impl Phase {
     /// フェイズを締め切り命令を解決する。
@@ -235,8 +238,7 @@ impl Phase {
 
     /// 指定した国が現在保有する補給都市数を取得する
     pub fn count_supply_centers(&self, power: &Power) -> usize {
-        self
-            .data
+        self.data
             .territories
             .iter()
             .filter(|t| t.power() == power)
@@ -267,7 +269,7 @@ trait PhaseCloseLogic {
         self.occupy(current_phase);
 
         // 制覇判定
-        if self.check_solo_condition(context) {
+        if self.check_solo_condition(current_phase) {
             self.finish_on_solo(current_phase, context);
             return;
         }
@@ -324,22 +326,26 @@ trait PhaseCloseLogic {
     }
 
     /// 制覇判定処理
-    fn check_solo_condition(&self, _context: &PhaseContext) -> bool {
+    fn check_solo_condition(&self, _current_phase: &Phase) -> bool {
         // 秋の撤退フェイズ以外では常に false
         false
     }
 
     /// 制覇勝利による終了処理
     fn finish_on_solo(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
-        // TODO: 制覇勝利による終了処理
-        // - テーブルのステータスを RESOLVED に変更する
-        // - 現在のフェイズ種別に応じて後続フェイズを生成して context.phases に積む
-        //   （close_on_draw と同様）
-        // - 最後に感想戦フェイズを生成して積む
-
-        // TODO: 暫定実装
-        // 本来は後続フェイズと Debrief を context.phases に積む
+        // 撤退フェイズ格納
         context.push_phase(current_phase.clone());
+
+        // 調整フェイズ格納
+        let Some(adjustment_phase) = self.create_next_phase(current_phase) else {
+            unreachable!("draw: create_next_phase must not return None");
+        };
+        context.push_phase(adjustment_phase.clone());
+
+        // 感想戦フェイズ格納
+        let mut debrief_phase = Phase::new_debrief(adjustment_phase.year(), adjustment_phase.index());
+        debrief_phase.initialize(&adjustment_phase);
+        context.push_phase(debrief_phase);
     }
 
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase>;
@@ -442,6 +448,16 @@ impl PhaseCloseLogic for FallRetreatPhase {
         }
     }
 
+    /// 制覇判定処理
+    fn check_solo_condition(&self, current_phase: &Phase) -> bool {
+        for p in Power::iter() {
+            if current_phase.count_supply_centers(&p) >= SUPPLY_CENTERS_FOR_SOLO {
+                return true;
+            }
+        }
+        false
+    }
+
     /// 次フェイズ生成
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
         let mut phase = Phase::new_adjustment(current_phase.year(), current_phase.index());
@@ -452,7 +468,6 @@ impl PhaseCloseLogic for FallRetreatPhase {
     /// 調整が不要な場合に true を返す
     fn should_skip_next_phase(&self, next_phase: &Phase) -> bool {
         for p in Power::iter() {
-            // 解体必要数算出
             let sc_count = next_phase.count_supply_centers(&p);
             let unit_count = next_phase.count_units(&p);
             if unit_count == sc_count {

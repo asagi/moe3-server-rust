@@ -80,7 +80,6 @@ impl AdjustmentAdjudicator {
         let copied_units = &mut current_phase.data.units.clone();
 
         for p in Power::iter() {
-            // 解体必要数算出
             let sc_count = current_phase.count_supply_centers(&p);
             let unit_count = current_phase.count_units(&p);
             let adjustment_capacity = unit_count as isize - sc_count as isize;
