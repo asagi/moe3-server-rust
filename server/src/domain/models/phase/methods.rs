@@ -614,10 +614,32 @@ fn resolve_orders_for_adjustment_phase(current_phase: &mut Phase) {
 }
 
 /// 撤退フェイズの占領処理
-fn occupy_for_retreat_phase(_current_phase: &mut Phase, _context: &mut PhaseContext) {
-    // TODO: 占領処理
-    // - 撤退命令を解決し、占領が発生した地域を記録する
-    // - 占領情報を current_phase に記録する
+fn occupy_for_retreat_phase(current_phase: &mut Phase, _context: &mut PhaseContext) {
+    // 撤退フェイズ以外では占領処理を行わない
+    if !matches!(
+        current_phase.phase_kind(),
+        PhaseKind::SpringRetreat(_) | PhaseKind::FallRetreat(_)
+    ) {
+        return;
+    }
+
+    for idx in current_phase.data.units.collect_all_idxs() {
+        let code = current_phase.data.units[idx].location.code()[..3].to_string();
+
+        // すでに占領されている場合は占領国を更新
+        if let Some(occupaied_idx) = current_phase.data.territories.iter().position(|t| t.code() == code) {
+            current_phase.data.territories[occupaied_idx].set_power(current_phase.data.units[idx].power);
+            continue;
+        }
+
+        // 未占領地の場合は新規に占領情報を追加
+        if !current_phase.data.territories.iter().any(|t| t.code() == code) {
+            current_phase
+                .data
+                .territories
+                .push(Territory::new(current_phase.data.units[idx].power, &code));
+        }
+    }
 }
 
 #[cfg(test)]
