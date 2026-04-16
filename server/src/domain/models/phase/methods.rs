@@ -295,15 +295,15 @@ trait PhaseCloseLogic {
         };
         context.push_phase(retreat_phase.clone());
 
-        let last_phase = if matches!(retreat_phase.phase_kind(), PhaseKind::SpringRetreat(_)) {
-            retreat_phase
-        } else {
+        let last_phase = if let PhaseKind::FallRetreat(f) = retreat_phase.phase_kind() {
             // 秋の場合のみ調整フェイズ格納
-            let Some(adjustment_phase) = self.create_next_phase(&retreat_phase) else {
+            let Some(adjustment_phase) = f.create_next_phase(&retreat_phase) else {
                 unreachable!("draw: create_next_phase must not return None");
             };
             context.push_phase(adjustment_phase.clone());
             adjustment_phase
+        } else {
+            retreat_phase
         };
 
         // 感想戦フェイズ格納
@@ -771,6 +771,33 @@ mod tests {
         assert_eq!(tail_phase.year(), 1902);
         assert_eq!(tail_phase.index(), 7);
         assert!(matches!(tail_phase.phase_kind(), PhaseKind::SpringMain(_)));
+    }
+
+    #[test]
+    fn close_pushes_spring_draw_phase_sequence_into_context() {
+        let current_phase = Phase::new_spring_main(1901, 0);
+        let mut context = PhaseContext::default();
+        context.set_draw();
+        current_phase.close(&mut context);
+        let phases = context.phases();
+        assert_eq!(phases.len(), 3);
+        assert!(matches!(phases[0].phase_kind(), PhaseKind::SpringMain(_)));
+        assert!(matches!(phases[1].phase_kind(), PhaseKind::SpringRetreat(_)));
+        assert!(matches!(phases[2].phase_kind(), PhaseKind::Debrief(_)));
+    }
+
+    #[test]
+    fn close_pushes_fall_draw_phase_sequence_into_context() {
+        let current_phase = Phase::new_fall_main(1901, 0);
+        let mut context = PhaseContext::default();
+        context.set_draw();
+        current_phase.close(&mut context);
+        let phases = context.phases();
+        assert_eq!(phases.len(), 4);
+        assert!(matches!(phases[0].phase_kind(), PhaseKind::FallMain(_)));
+        assert!(matches!(phases[1].phase_kind(), PhaseKind::FallRetreat(_)));
+        assert!(matches!(phases[2].phase_kind(), PhaseKind::Adjustment(_)));
+        assert!(matches!(phases[3].phase_kind(), PhaseKind::Debrief(_)));
     }
 }
 

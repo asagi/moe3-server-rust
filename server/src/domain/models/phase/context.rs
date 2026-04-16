@@ -21,12 +21,22 @@ impl PhaseContext {
     }
 
     pub(crate) fn push_phase(&mut self, phase: Phase) {
-        self.phases.push_front(phase);
+        self.phases.push_back(phase);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn pop_phase(&mut self) -> Option<Phase> {
+        self.phases.pop_back()
     }
 
     #[allow(dead_code)]
-    pub(crate) fn pop_phase(&mut self) -> Option<Phase> {
+    pub(crate) fn shift_phase(&mut self) -> Option<Phase> {
         self.phases.pop_front()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn phases(&self) -> &VecDeque<Phase> {
+        &self.phases
     }
 
     #[allow(dead_code)]
