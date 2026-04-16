@@ -2,6 +2,9 @@
 use super::Phase;
 use super::Power;
 
+// external crates
+use strum::IntoEnumIterator;
+
 // standard library
 use std::collections::VecDeque;
 
@@ -17,22 +20,13 @@ impl PhaseContext {
     #[allow(dead_code)]
     pub(crate) fn new() -> Self {
         Self {
-            active_powers: vec![
-                Power::Austria,
-                Power::England,
-                Power::France,
-                Power::Germany,
-                Power::Italy,
-                Power::Russia,
-                Power::Turkey,
-            ],
+            active_powers: Power::iter().collect(),
             phases: VecDeque::new(),
             is_draw: false,
         }
     }
 
     /// 全滅した国や無政府の国を指定し除外する
-    #[allow(dead_code)]
     pub(crate) fn remove_power(&mut self, power: &Power) {
         self.active_powers.retain(|p| p != power);
     }

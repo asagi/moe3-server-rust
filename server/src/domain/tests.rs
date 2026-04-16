@@ -1,5 +1,6 @@
 use crate::domain::models::Power;
 use crate::domain::models::Province;
+use crate::domain::models::Territory;
 use crate::domain::models::Unit;
 
 /// 地域オブジェクト生成
@@ -17,4 +18,10 @@ pub(crate) fn a(symbol: &str, location_code: &str) -> Unit {
 pub(crate) fn f(symbol: &str, location_code: &str) -> Unit {
     let power = Power::from_symbol(symbol).unwrap_or_else(|| panic!("invalid power symbol: {}", symbol));
     Unit::new_fleet(power, p(location_code))
+}
+
+/// 占領情報オブジェクト生成
+pub(crate) fn t(symbol: &str, location_code: &str) -> Territory {
+    let power = Power::from_symbol(symbol).unwrap_or_else(|| panic!("invalid power symbol: {}", symbol));
+    Territory::new(power, location_code)
 }

@@ -256,6 +256,13 @@ impl Phase {
 trait PhaseCloseLogic {
     /// フェイズ終了処理
     fn close(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
+        // context.active_powers から全滅した国を除外する
+        for p in Power::iter() {
+            if current_phase.count_supply_centers(&p) == 0 {
+                context.remove_power(&p);
+            }
+        }
+
         // 和平判定
         if context.is_draw() && matches!(current_phase.phase_kind(), PhaseKind::SpringMain(_) | PhaseKind::FallMain(_)) {
             self.finish_on_draw(current_phase, context);
@@ -664,6 +671,7 @@ mod tests {
     use crate::domain::tests::a;
     use crate::domain::tests::f;
     use crate::domain::tests::p;
+    use crate::domain::tests::t;
 
     /// Ready → SpringMain: ユニットと領土が引き継がれ、全ユニットにホールド命令が生成される
     #[test]
@@ -834,6 +842,7 @@ mod tests {
         let mut dislodged = a("f", "par");
         dislodged.set_dislodged_from(Some(p("gas")));
         current_phase.data.units = vec![dislodged];
+        current_phase.data.territories = vec![t("f", "par")];
 
         let mut context = PhaseContext::new();
         current_phase.close(&mut context);

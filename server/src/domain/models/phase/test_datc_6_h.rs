@@ -11,6 +11,7 @@ use crate::domain::models::phase::methods::*;
 use crate::domain::tests::a;
 use crate::domain::tests::f;
 use crate::domain::tests::p;
+use crate::domain::tests::t;
 
 /// 6.H.1. TEST CASE, NO SUPPORTS DURING RETREAT
 /// Supports are not allowed in the retreat phase.
@@ -191,6 +192,11 @@ fn test_datc_6_h_6() {
     main_phase.data.units.push(unit_g_mun);
     main_phase.data.units.push(unit_g_sil);
     main_phase.data.units.push(unit_i_vie);
+    main_phase.data.territories.push(t("a", "bud"));
+    main_phase.data.territories.push(t("a", "tri"));
+    main_phase.data.territories.push(t("g", "mun"));
+    main_phase.data.territories.push(t("g", "ber"));
+    main_phase.data.territories.push(t("i", "vie"));
     main_phase.data.orders.push(unit_a_bud.support_move(unit_a_tri, p("vie")));
     main_phase.data.orders.push(unit_a_tri.move_to(p("vie")));
     main_phase.data.orders.push(unit_g_mun.move_to(p("boh")));
@@ -762,6 +768,11 @@ fn test_datc_6_h_16() {
     main_phase.data.units.push(unit_f_wes);
     main_phase.data.units.push(unit_i_tun);
     main_phase.data.units.push(unit_i_tyn);
+    main_phase.data.territories.push(t("f", "bre"));
+    main_phase.data.territories.push(t("f", "gas"));
+    main_phase.data.territories.push(t("f", "par"));
+    main_phase.data.territories.push(t("i", "tun"));
+    main_phase.data.territories.push(t("i", "tyn"));
     main_phase.data.orders.push(unit_f_mid.move_to(p("spa_nc")));
     main_phase.data.orders.push(unit_f_gas.move_to(p("spa_nc")));
     main_phase.data.orders.push(unit_f_wes.hold());
