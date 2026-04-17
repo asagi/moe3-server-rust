@@ -56,13 +56,15 @@ where
     }
 
     pub(crate) fn login(&self, command: LoginCommand) -> Result<LoginResult, AuthError> {
-        if command.discord_access_token.trim().is_empty() {
+        let discord_access_token = command.discord_access_token.trim().to_string();
+
+        if discord_access_token.is_empty() {
             return Err(AuthError::InvalidRequest("discord_access_token is empty".to_string()));
         }
 
         let profile = self
             .discord_identity_provider
-            .fetch_profile(&command.discord_access_token)
+            .fetch_profile(&discord_access_token)
             .map_err(AuthError::DiscordClient)?;
 
         let existing = self
@@ -309,5 +311,41 @@ mod tests {
             result,
             Err(AuthError::DiscordClient(DiscordClientError::Unauthorized))
         ));
+    }
+
+    #[test]
+    fn login_trims_token_before_fetching_profile() {
+        #[derive(Debug, Clone)]
+        struct CapturingDiscordIdentityProvider {
+            received_token: Rc<RefCell<Option<String>>>,
+            profile: DiscordProfile,
+        }
+
+        impl DiscordIdentityProvider for CapturingDiscordIdentityProvider {
+            fn fetch_profile(&self, discord_access_token: &str) -> Result<DiscordProfile, DiscordClientError> {
+                self.received_token.replace(Some(discord_access_token.to_string()));
+                Ok(self.profile.clone())
+            }
+        }
+
+        let repository = InMemoryUserRepository::new(Vec::new());
+        let received_token = Rc::new(RefCell::new(None));
+        let discord = CapturingDiscordIdentityProvider {
+            received_token: received_token.clone(),
+            profile: DiscordProfile {
+                discord_user_id: "1001".to_string(),
+                display_name: "asagi".to_string(),
+                avatar_hash: None,
+                avatar_url: None,
+            },
+        };
+        let service = AuthService::new(repository, discord);
+
+        let result = service.login(LoginCommand {
+            discord_access_token: "  valid_token  ".to_string(),
+        });
+
+        assert!(result.is_ok());
+        assert_eq!(received_token.borrow().as_deref(), Some("valid_token"));
     }
 }
