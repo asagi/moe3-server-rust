@@ -85,7 +85,10 @@ impl SqliteUserRepository {
             .lock()
             .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?
             .query_row(sql, params![user_id], Self::row_to_user_record)
-            .map_err(|error| RepositoryError::Unavailable(format!("load user by id: {}", error)))
+            .map_err(|error| match error {
+                rusqlite::Error::QueryReturnedNoRows => RepositoryError::NotFound,
+                _ => RepositoryError::Unavailable(format!("load user by id: {}", error)),
+            })
     }
 }
 
@@ -211,6 +214,15 @@ mod tests {
 
         assert!(found.is_none());
         let _ = std::fs::remove_file(file_path);
+    }
+
+    #[test]
+    fn load_by_id_returns_not_found_for_missing_row() {
+        let repository = SqliteUserRepository::new_in_memory().expect("repository should initialize");
+
+        let result = repository.load_by_id(-1);
+
+        assert!(matches!(result, Err(RepositoryError::NotFound)));
     }
 
     #[test]
