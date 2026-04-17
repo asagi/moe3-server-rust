@@ -1,6 +1,6 @@
 // modules
-mod login_request;
+mod auth_request;
 
 // types
-pub(crate) use login_request::LoginRequest;
-pub(crate) use login_request::RequestValidationError;
+pub(crate) use auth_request::AuthLoginRequest;
+pub(crate) use auth_request::AuthRequestValidationError;

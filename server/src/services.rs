@@ -10,7 +10,6 @@ pub(crate) use discord_api_client::DiscordApiClient;
 
 // traits
 pub(crate) use auth_service::DiscordIdentityProvider;
-pub(crate) use auth_service::LoginService;
 
 // types
 pub(crate) use auth_service::AuthError;

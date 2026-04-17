@@ -33,10 +33,6 @@ pub(crate) trait DiscordIdentityProvider {
     fn fetch_profile(&self, discord_access_token: &str) -> Result<DiscordProfile, DiscordClientError>;
 }
 
-pub(crate) trait LoginService {
-    fn login(&self, command: LoginCommand) -> Result<LoginResult, AuthError>;
-}
-
 pub(crate) struct AuthService<U, D>
 where
     U: UserRepository,
@@ -58,25 +54,7 @@ where
         }
     }
 
-    fn from_record(record: UserRecord) -> LoginResult {
-        LoginResult {
-            access_token: record.access_token,
-            user: LoginUser {
-                discord_user_id: record.discord_user_id,
-                display_name: record.display_name,
-                avatar_hash: record.avatar_hash,
-                avatar_url: record.avatar_url,
-            },
-        }
-    }
-}
-
-impl<U, D> LoginService for AuthService<U, D>
-where
-    U: UserRepository,
-    D: DiscordIdentityProvider,
-{
-    fn login(&self, command: LoginCommand) -> Result<LoginResult, AuthError> {
+    pub(crate) fn login(&self, command: LoginCommand) -> Result<LoginResult, AuthError> {
         if command.discord_access_token.trim().is_empty() {
             return Err(AuthError::InvalidRequest("discord_access_token is empty".to_string()));
         }
@@ -110,6 +88,18 @@ where
 
         let created = self.user_repository.insert(new_user).map_err(AuthError::Repository)?;
         Ok(Self::from_record(created))
+    }
+
+    fn from_record(record: UserRecord) -> LoginResult {
+        LoginResult {
+            access_token: record.access_token,
+            user: LoginUser {
+                discord_user_id: record.discord_user_id,
+                display_name: record.display_name,
+                avatar_hash: record.avatar_hash,
+                avatar_url: record.avatar_url,
+            },
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 // modules
-mod login_response;
+mod auth_response;
 
 // types
-pub(crate) use login_response::ApiErrorResponse;
-pub(crate) use login_response::LoginResponse;
-pub(crate) use login_response::LoginUserResponse;
+pub(crate) use auth_response::ApiErrorResponse;
+pub(crate) use auth_response::AuthLoginResponse;
+pub(crate) use auth_response::AuthLoginUserResponse;

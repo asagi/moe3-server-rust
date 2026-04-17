@@ -1,14 +1,14 @@
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-pub(crate) struct LoginRequest {
+pub(crate) struct AuthLoginRequest {
     pub discord_access_token: String,
 }
 
-impl LoginRequest {
-    pub(crate) fn validate(&self) -> Result<(), RequestValidationError> {
+impl AuthLoginRequest {
+    pub(crate) fn validate(&self) -> Result<(), AuthRequestValidationError> {
         if self.discord_access_token.trim().is_empty() {
-            return Err(RequestValidationError::MissingDiscordAccessToken);
+            return Err(AuthRequestValidationError::MissingDiscordAccessToken);
         }
 
         Ok(())
@@ -16,6 +16,6 @@ impl LoginRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum RequestValidationError {
+pub(crate) enum AuthRequestValidationError {
     MissingDiscordAccessToken,
 }

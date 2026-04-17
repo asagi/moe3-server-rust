@@ -7,13 +7,13 @@ mod requests;
 mod responses;
 
 // handlers
-pub(crate) use handlers::LoginHandlerError;
-pub(crate) use handlers::handle_login;
+pub(crate) use handlers::AuthHandlerError;
+pub(crate) use handlers::handle_auth_login;
 
 // requests
-pub(crate) use requests::LoginRequest;
+pub(crate) use requests::AuthLoginRequest;
 
 // responses
 pub(crate) use responses::ApiErrorResponse;
-pub(crate) use responses::LoginResponse;
-pub(crate) use responses::LoginUserResponse;
+pub(crate) use responses::AuthLoginResponse;
+pub(crate) use responses::AuthLoginUserResponse;
