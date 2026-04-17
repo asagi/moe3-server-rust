@@ -46,10 +46,11 @@ impl SqliteUserRepository {
                 discord_user_id TEXT NOT NULL UNIQUE,
                 username TEXT NOT NULL,
                 global_name TEXT NOT NULL,
-                avater TEXT NOT NULL,
+                avatar_hash TEXT,
+                avatar_url TEXT,
                 access_token TEXT NOT NULL UNIQUE,
-                create_at TEXT NOT NULL,
-                update_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
             )
         "#;
 
@@ -63,22 +64,19 @@ impl SqliteUserRepository {
     }
 
     fn row_to_user_record(row: &rusqlite::Row<'_>) -> rusqlite::Result<UserRecord> {
-        let avater: String = row.get("avater")?;
-        let avatar_url = if avater.trim().is_empty() { None } else { Some(avater) };
-
         Ok(UserRecord {
             id: row.get("id")?,
             discord_user_id: row.get("discord_user_id")?,
             display_name: row.get("global_name")?,
-            avatar_hash: None,
-            avatar_url,
+            avatar_hash: row.get("avatar_hash")?,
+            avatar_url: row.get("avatar_url")?,
             access_token: row.get("access_token")?,
         })
     }
 
     fn load_by_id(&self, user_id: i64) -> Result<UserRecord, RepositoryError> {
         let sql = r#"
-            SELECT id, discord_user_id, username, global_name, avater, access_token
+            SELECT id, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token
             FROM users
             WHERE id = ?1
         "#;
@@ -89,19 +87,12 @@ impl SqliteUserRepository {
             .query_row(sql, params![user_id], Self::row_to_user_record)
             .map_err(|error| RepositoryError::Unavailable(format!("load user by id: {}", error)))
     }
-
-    fn normalize_avatar(update: &UserProfileUpdate) -> String {
-        if let Some(url) = &update.avatar_url {
-            return url.clone();
-        }
-        update.avatar_hash.clone().unwrap_or_default()
-    }
 }
 
 impl UserRepository for SqliteUserRepository {
     fn find_by_discord_user_id(&self, discord_user_id: &str) -> Result<Option<UserRecord>, RepositoryError> {
         let sql = r#"
-            SELECT id, discord_user_id, username, global_name, avater, access_token
+            SELECT id, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token
             FROM users
             WHERE discord_user_id = ?1
         "#;
@@ -116,22 +107,18 @@ impl UserRepository for SqliteUserRepository {
 
     fn insert(&self, new_user: NewUser) -> Result<UserRecord, RepositoryError> {
         let now = Utc::now().to_rfc3339();
-        let avater = if let Some(url) = &new_user.avatar_url {
-            url.clone()
-        } else {
-            new_user.avatar_hash.clone().unwrap_or_default()
-        };
 
         let sql = r#"
             INSERT INTO users (
                 discord_user_id,
                 username,
                 global_name,
-                avater,
+                avatar_hash,
+                avatar_url,
                 access_token,
-                create_at,
-                update_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                created_at,
+                updated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
         "#;
 
         let connection = self.connection.lock()
@@ -142,7 +129,8 @@ impl UserRepository for SqliteUserRepository {
                 &new_user.discord_user_id,
                 &new_user.display_name,
                 &new_user.display_name,
-                avater,
+                &new_user.avatar_hash,
+                &new_user.avatar_url,
                 &new_user.access_token,
                 now,
                 now,
@@ -165,15 +153,15 @@ impl UserRepository for SqliteUserRepository {
 
     fn update_profile(&self, discord_user_id: &str, profile: UserProfileUpdate) -> Result<UserRecord, RepositoryError> {
         let now = Utc::now().to_rfc3339();
-        let avater = Self::normalize_avatar(&profile);
 
         let sql = r#"
             UPDATE users
             SET username = ?1,
                 global_name = ?2,
-                avater = ?3,
-                update_at = ?4
-            WHERE discord_user_id = ?5
+                avatar_hash = ?3,
+                avatar_url = ?4,
+                updated_at = ?5
+            WHERE discord_user_id = ?6
         "#;
 
         let connection = self.connection.lock()
@@ -181,7 +169,14 @@ impl UserRepository for SqliteUserRepository {
         let affected = connection
             .execute(
                 sql,
-                params![profile.display_name, profile.display_name, avater, now, discord_user_id],
+                params![
+                    profile.display_name,
+                    profile.display_name,
+                    profile.avatar_hash,
+                    profile.avatar_url,
+                    now,
+                    discord_user_id
+                ],
             )
             .map_err(|error| RepositoryError::Unavailable(format!("update user profile: {}", error)))?;
 
