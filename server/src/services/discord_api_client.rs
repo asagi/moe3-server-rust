@@ -61,11 +61,11 @@ impl DiscordIdentityProvider for DiscordApiClient {
             .map_err(|error| DiscordClientError::Unavailable(format!("decode discord user json: {}", error)))?;
 
         let avatar_url = Self::build_avatar_url(&user.id, user.avatar.as_deref());
-        let display_name = user.global_name.unwrap_or(user.username);
 
         Ok(DiscordProfile {
             discord_user_id: user.id,
-            display_name,
+            username: user.username,
+            global_name: user.global_name,
             avatar_hash: user.avatar,
             avatar_url,
         })

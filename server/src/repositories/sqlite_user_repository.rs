@@ -45,7 +45,7 @@ impl SqliteUserRepository {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 discord_user_id TEXT NOT NULL UNIQUE,
                 username TEXT NOT NULL,
-                global_name TEXT NOT NULL,
+                global_name TEXT,
                 avatar_hash TEXT,
                 avatar_url TEXT,
                 access_token TEXT NOT NULL UNIQUE,
@@ -67,7 +67,8 @@ impl SqliteUserRepository {
         Ok(UserRecord {
             id: row.get("id")?,
             discord_user_id: row.get("discord_user_id")?,
-            display_name: row.get("global_name")?,
+            username: row.get("username")?,
+            global_name: row.get("global_name")?,
             avatar_hash: row.get("avatar_hash")?,
             avatar_url: row.get("avatar_url")?,
             access_token: row.get("access_token")?,
@@ -124,14 +125,16 @@ impl UserRepository for SqliteUserRepository {
             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
         "#;
 
-        let connection = self.connection.lock()
+        let connection = self
+            .connection
+            .lock()
             .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
         let result = connection.execute(
             sql,
             params![
                 &new_user.discord_user_id,
-                &new_user.display_name,
-                &new_user.display_name,
+                &new_user.username,
+                &new_user.global_name,
                 &new_user.avatar_hash,
                 &new_user.avatar_url,
                 &new_user.access_token,
@@ -167,14 +170,16 @@ impl UserRepository for SqliteUserRepository {
             WHERE discord_user_id = ?6
         "#;
 
-        let connection = self.connection.lock()
+        let connection = self
+            .connection
+            .lock()
             .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
         let affected = connection
             .execute(
                 sql,
                 params![
-                    profile.display_name,
-                    profile.display_name,
+                    &profile.username,
+                    &profile.global_name,
                     profile.avatar_hash,
                     profile.avatar_url,
                     now,
@@ -232,7 +237,8 @@ mod tests {
         let created = repository
             .insert(NewUser {
                 discord_user_id: "1001".to_string(),
-                display_name: "asagi".to_string(),
+                username: "nemu".to_string(),
+                global_name: Some("nemu_global".to_string()),
                 avatar_hash: Some("hash".to_string()),
                 avatar_url: Some("https://cdn.discordapp.com/avatar.png".to_string()),
                 access_token: "token-1".to_string(),
@@ -245,7 +251,8 @@ mod tests {
             .expect("user should exist");
 
         assert_eq!(created.id, fetched.id);
-        assert_eq!(fetched.display_name, "asagi");
+        assert_eq!(fetched.username, "nemu");
+        assert_eq!(fetched.global_name.as_deref(), Some("nemu_global"));
         assert_eq!(fetched.access_token, "token-1");
     }
 
@@ -256,7 +263,8 @@ mod tests {
         repository
             .insert(NewUser {
                 discord_user_id: "1001".to_string(),
-                display_name: "old".to_string(),
+                username: "old_user".to_string(),
+                global_name: Some("old".to_string()),
                 avatar_hash: None,
                 avatar_url: Some("https://cdn.discordapp.com/old.png".to_string()),
                 access_token: "token-1".to_string(),
@@ -267,14 +275,16 @@ mod tests {
             .update_profile(
                 "1001",
                 UserProfileUpdate {
-                    display_name: "new".to_string(),
+                    username: "new_user".to_string(),
+                    global_name: Some("new".to_string()),
                     avatar_hash: None,
                     avatar_url: Some("https://cdn.discordapp.com/new.png".to_string()),
                 },
             )
             .expect("update should succeed");
 
-        assert_eq!(updated.display_name, "new");
+        assert_eq!(updated.username, "new_user");
+        assert_eq!(updated.global_name.as_deref(), Some("new"));
         assert_eq!(updated.avatar_url.as_deref(), Some("https://cdn.discordapp.com/new.png"));
     }
 }

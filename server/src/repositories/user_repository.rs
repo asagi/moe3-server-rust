@@ -4,7 +4,8 @@ use std::fmt;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DiscordProfile {
     pub discord_user_id: String,
-    pub display_name: String,
+    pub username: String,
+    pub global_name: Option<String>,
     pub avatar_hash: Option<String>,
     pub avatar_url: Option<String>,
 }
@@ -13,16 +14,24 @@ pub(crate) struct DiscordProfile {
 pub(crate) struct UserRecord {
     pub id: i64,
     pub discord_user_id: String,
-    pub display_name: String,
+    pub username: String,
+    pub global_name: Option<String>,
     pub avatar_hash: Option<String>,
     pub avatar_url: Option<String>,
     pub access_token: String,
 }
 
+impl UserRecord {
+    pub(crate) fn display_name(&self) -> &str {
+        self.global_name.as_deref().unwrap_or(self.username.as_str())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct NewUser {
     pub discord_user_id: String,
-    pub display_name: String,
+    pub username: String,
+    pub global_name: Option<String>,
     pub avatar_hash: Option<String>,
     pub avatar_url: Option<String>,
     pub access_token: String,
@@ -30,7 +39,8 @@ pub(crate) struct NewUser {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct UserProfileUpdate {
-    pub display_name: String,
+    pub username: String,
+    pub global_name: Option<String>,
     pub avatar_hash: Option<String>,
     pub avatar_url: Option<String>,
 }
@@ -38,7 +48,8 @@ pub(crate) struct UserProfileUpdate {
 impl From<&DiscordProfile> for UserProfileUpdate {
     fn from(profile: &DiscordProfile) -> Self {
         Self {
-            display_name: profile.display_name.clone(),
+            username: profile.username.clone(),
+            global_name: profile.global_name.clone(),
             avatar_hash: profile.avatar_hash.clone(),
             avatar_url: profile.avatar_url.clone(),
         }

@@ -128,7 +128,8 @@ mod tests {
             let row = UserRecord {
                 id: 2,
                 discord_user_id: new_user.discord_user_id,
-                display_name: new_user.display_name,
+                username: new_user.username,
+                global_name: new_user.global_name,
                 avatar_hash: new_user.avatar_hash,
                 avatar_url: new_user.avatar_url,
                 access_token: new_user.access_token,
@@ -140,7 +141,8 @@ mod tests {
         fn update_profile(&self, discord_user_id: &str, profile: UserProfileUpdate) -> Result<UserRecord, RepositoryError> {
             let mut state = self.state.borrow_mut();
             let row = state.rows.get_mut(discord_user_id).ok_or(RepositoryError::NotFound)?;
-            row.display_name = profile.display_name;
+            row.username = profile.username;
+            row.global_name = profile.global_name;
             row.avatar_hash = profile.avatar_hash;
             row.avatar_url = profile.avatar_url;
             Ok(row.clone())
@@ -152,7 +154,8 @@ mod tests {
         let repository = InMemoryUserRepository::new(vec![UserRecord {
             id: 1,
             discord_user_id: "1001".to_string(),
-            display_name: "old".to_string(),
+            username: "old_user".to_string(),
+            global_name: Some("old".to_string()),
             avatar_hash: Some("old_hash".to_string()),
             avatar_url: Some("https://cdn.discordapp.com/old.png".to_string()),
             access_token: "token-1".to_string(),
@@ -161,7 +164,8 @@ mod tests {
         let discord = FakeDiscordIdentityProvider {
             profile: DiscordProfile {
                 discord_user_id: "1001".to_string(),
-                display_name: "asagi".to_string(),
+                username: "nemu".to_string(),
+                global_name: Some("asagi".to_string()),
                 avatar_hash: Some("hash".to_string()),
                 avatar_url: Some("https://cdn.discordapp.com/avatar.png".to_string()),
             },
@@ -187,7 +191,8 @@ mod tests {
         let discord = FakeDiscordIdentityProvider {
             profile: DiscordProfile {
                 discord_user_id: "1001".to_string(),
-                display_name: "asagi".to_string(),
+                username: "asagi".to_string(),
+                global_name: None,
                 avatar_hash: None,
                 avatar_url: None,
             },
