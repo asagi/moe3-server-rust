@@ -1,11 +1,10 @@
-#![allow(unused_imports)]
-#![allow(dead_code)]
-
 // modules
+#[cfg_attr(not(test), allow(dead_code))]
 mod sqlite_user_repository;
 mod user_repository;
 
 // concrete types
+#[allow(unused_imports)]
 pub(crate) use sqlite_user_repository::SqliteUserRepository;
 
 // traits

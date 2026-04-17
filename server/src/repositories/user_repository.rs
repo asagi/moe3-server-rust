@@ -46,6 +46,7 @@ impl From<&DiscordProfile> for UserProfileUpdate {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum RepositoryError {
     NotFound,
     Conflict,
