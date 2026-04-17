@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::sync::Mutex;
 
 use chrono::Utc;
 use rusqlite::Connection;
@@ -12,7 +12,7 @@ use super::UserRecord;
 use super::UserRepository;
 
 pub(crate) struct SqliteUserRepository {
-    connection: RefCell<Connection>,
+    connection: Mutex<Connection>,
 }
 
 impl SqliteUserRepository {
@@ -21,7 +21,7 @@ impl SqliteUserRepository {
             Connection::open(database_path).map_err(|error| RepositoryError::Unavailable(format!("open sqlite: {}", error)))?;
 
         let repository = Self {
-            connection: RefCell::new(connection),
+            connection: Mutex::new(connection),
         };
         repository.init_schema()?;
         Ok(repository)
@@ -33,7 +33,7 @@ impl SqliteUserRepository {
             .map_err(|error| RepositoryError::Unavailable(format!("open sqlite in memory: {}", error)))?;
 
         let repository = Self {
-            connection: RefCell::new(connection),
+            connection: Mutex::new(connection),
         };
         repository.init_schema()?;
         Ok(repository)
@@ -54,7 +54,8 @@ impl SqliteUserRepository {
         "#;
 
         self.connection
-            .borrow_mut()
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?
             .execute(sql, [])
             .map_err(|error| RepositoryError::Unavailable(format!("create users table: {}", error)))?;
 
@@ -83,7 +84,8 @@ impl SqliteUserRepository {
         "#;
 
         self.connection
-            .borrow_mut()
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?
             .query_row(sql, params![user_id], Self::row_to_user_record)
             .map_err(|error| RepositoryError::Unavailable(format!("load user by id: {}", error)))
     }
@@ -105,7 +107,8 @@ impl UserRepository for SqliteUserRepository {
         "#;
 
         self.connection
-            .borrow_mut()
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?
             .query_row(sql, params![discord_user_id], Self::row_to_user_record)
             .optional()
             .map_err(|error| RepositoryError::Unavailable(format!("find user by discord_user_id: {}", error)))
@@ -131,7 +134,8 @@ impl UserRepository for SqliteUserRepository {
             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
         "#;
 
-        let connection = self.connection.borrow_mut();
+        let connection = self.connection.lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
         let result = connection.execute(
             sql,
             params![
@@ -172,7 +176,8 @@ impl UserRepository for SqliteUserRepository {
             WHERE discord_user_id = ?5
         "#;
 
-        let connection = self.connection.borrow_mut();
+        let connection = self.connection.lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
         let affected = connection
             .execute(
                 sql,
