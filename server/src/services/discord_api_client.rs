@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use reqwest::StatusCode;
 use reqwest::blocking::Client;
 use serde::Deserialize;
@@ -6,6 +8,9 @@ use super::DiscordClientError;
 use super::DiscordIdentityProvider;
 use crate::repositories::DiscordProfile;
 
+const DISCORD_CONNECT_TIMEOUT_SECS: u64 = 3;
+const DISCORD_REQUEST_TIMEOUT_SECS: u64 = 10;
+
 pub(crate) struct DiscordApiClient {
     base_url: String,
     http_client: Client,
@@ -13,9 +18,15 @@ pub(crate) struct DiscordApiClient {
 
 impl DiscordApiClient {
     pub(crate) fn new() -> Self {
+        let http_client = Client::builder()
+            .connect_timeout(Duration::from_secs(DISCORD_CONNECT_TIMEOUT_SECS))
+            .timeout(Duration::from_secs(DISCORD_REQUEST_TIMEOUT_SECS))
+            .build()
+            .expect("failed to build discord reqwest blocking client");
+
         Self {
             base_url: "https://discord.com/api/v10".to_string(),
-            http_client: Client::new(),
+            http_client,
         }
     }
 
