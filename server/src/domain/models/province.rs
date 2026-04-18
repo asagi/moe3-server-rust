@@ -8,17 +8,17 @@ use std::collections::VecDeque;
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Province(&'static str);
+pub(crate) struct Province(&'static str);
 
 #[derive(Debug, Clone, Copy)]
-pub struct ProvinceData {
-    pub code: &'static str,
-    pub short: &'static str,
-    pub full: &'static str,
-    pub jname: &'static str,
-    pub kind: &'static str,
-    pub supply: bool,
-    pub home: Option<&'static str>,
+pub(crate) struct ProvinceData {
+    pub(crate) code: &'static str,
+    pub(crate) short: &'static str,
+    pub(crate) full: &'static str,
+    pub(crate) jname: &'static str,
+    pub(crate) kind: &'static str,
+    pub(crate) supply: bool,
+    pub(crate) home: Option<&'static str>,
 }
 
 #[rustfmt::skip]

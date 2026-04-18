@@ -8,7 +8,7 @@ use strum::IntoEnumIterator;
 
 /// 国の定義
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter, Display, EnumString, EnumProperty)]
-pub enum Power {
+pub(crate) enum Power {
     #[strum(serialize = "Austria", props(Symbol = "a", Adj = "Austrian"))]
     Austria = 1,
     #[strum(serialize = "England", props(Symbol = "e", Adj = "English"))]
@@ -28,25 +28,25 @@ pub enum Power {
 /// 国のロジック
 impl Power {
     #[cfg(test)]
-    pub fn all() -> impl Iterator<Item = Self> {
+    pub(crate) fn all() -> impl Iterator<Item = Self> {
         Self::iter()
     }
 
     #[cfg(test)]
-    pub fn from_symbol(symbol: &str) -> Option<Self> {
+    pub(crate) fn from_symbol(symbol: &str) -> Option<Self> {
         Self::all().find(|p| p.symbol().eq_ignore_ascii_case(symbol))
     }
 
-    pub fn symbol(&self) -> &'static str {
+    pub(crate) fn symbol(&self) -> &'static str {
         self.get_str("Symbol").unwrap_or_default()
     }
 
-    pub fn adjective(&self) -> &'static str {
+    pub(crate) fn adjective(&self) -> &'static str {
         self.get_str("Adj").unwrap_or_default()
     }
 
     #[allow(dead_code)]
-    pub fn name(&self) -> String {
+    pub(crate) fn name(&self) -> String {
         self.to_string()
     }
 }

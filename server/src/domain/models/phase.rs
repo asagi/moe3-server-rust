@@ -31,15 +31,14 @@ pub(crate) const SUPPLY_CENTERS_FOR_SOLO: usize = 18;
 /// フェイズの定義
 #[derive(Debug, Clone, PartialEq)]
 pub struct Phase {
-    game_number: Option<i32>,
-    index: i32,
-    year: i32,
-    orders: Vec<Order>,
-    units: Vec<Unit>,
-    territories: Vec<Territory>,
-    standoff_codes: Vec<String>,
-
-    kind: PhaseKind,
+    pub(crate) game_number: Option<i32>,
+    pub(crate) index: i32,
+    pub(crate) year: i32,
+    pub(crate) orders: Vec<Order>,
+    pub(crate) units: Vec<Unit>,
+    pub(crate) territories: Vec<Territory>,
+    pub(crate) standoff_codes: Vec<String>,
+    pub(crate) kind: PhaseKind,
 }
 
 /// フェイズの種類

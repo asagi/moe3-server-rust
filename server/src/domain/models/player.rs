@@ -6,8 +6,8 @@ use super::User;
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Player {
-    user: User,
-    game_number: i32,
-    power: Option<Power>,
-    is_accepting_draw: bool,
+    pub(crate) user: User,
+    pub(crate) game_number: i32,
+    pub(crate) power: Option<Power>,
+    pub(crate) is_accepting_draw: bool,
 }

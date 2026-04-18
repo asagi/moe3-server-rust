@@ -11,10 +11,10 @@ use std::collections::VecDeque;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Path {
-    origin: &'static str,
-    dest: &'static str,
-    army: bool,
-    fleet: bool,
+    pub(crate) origin: &'static str,
+    pub(crate) dest: &'static str,
+    pub(crate) army: bool,
+    pub(crate) fleet: bool,
 }
 
 #[rustfmt::skip]
@@ -459,12 +459,12 @@ const PATHS: &[Path] = &[
 
 impl Path {
     /// 2つの地名コードが隣接しているか判定する（origin→dest方向のみ）
-    pub fn is_adjacent(origin: &str, dest: &str) -> bool {
+    pub(crate) fn is_adjacent(origin: &str, dest: &str) -> bool {
         PATHS.iter().any(|p| p.origin == origin && p.dest[..3] == dest[..3])
     }
 
     /// ユニットが指定地点に存在可能かを判定する
-    pub fn can_unit_exist_at(unit: &Unit, code: &str) -> bool {
+    pub(crate) fn can_unit_exist_at(unit: &Unit, code: &str) -> bool {
         match unit.kind() {
             UnitKind::Army(_) => PATHS.iter().any(|p| p.origin == code && p.army),
             UnitKind::Fleet(_) => PATHS.iter().any(|p| p.origin == code && p.fleet),
@@ -472,7 +472,7 @@ impl Path {
     }
 
     /// ユニットが指定地点に移動可能かを判定する
-    pub fn can_unit_move_to(unit: &Unit, dest: &str, via_convoy: bool) -> bool {
+    pub(crate) fn can_unit_move_to(unit: &Unit, dest: &str, via_convoy: bool) -> bool {
         match unit.kind() {
             UnitKind::Army(_) => PATHS
                 .iter()
@@ -484,7 +484,7 @@ impl Path {
     }
 
     /// ユニットが指定地点へのサポートが可能かを判定する
-    pub fn can_unit_support_to(unit: &Unit, origin: &str, dest: &str) -> bool {
+    pub(crate) fn can_unit_support_to(unit: &Unit, origin: &str, dest: &str) -> bool {
         match unit.kind() {
             UnitKind::Army(_) => PATHS.iter().any(|p| p.origin == origin && p.dest == dest && p.army),
             UnitKind::Fleet(_) => PATHS
@@ -494,14 +494,14 @@ impl Path {
     }
 
     /// Check if a convoy can move from origin to dest
-    pub fn can_convoy_move(origin: &str, dest: &str) -> bool {
+    pub(crate) fn can_convoy_move(origin: &str, dest: &str) -> bool {
         PATHS
             .iter()
             .any(|p| p.origin[..3] == origin[..3] && p.dest[..3] == dest[..3] && p.fleet)
     }
 
     /// allowed_waters だけを通って origin から dest まで到達可能か判定する
-    pub fn is_reachable_by_sea(origin: &str, dest: &str, allowed_waters: &HashSet<&str>) -> bool {
+    pub(crate) fn is_reachable_by_sea(origin: &str, dest: &str, allowed_waters: &HashSet<&str>) -> bool {
         let mut visited: HashSet<&str> = HashSet::new();
         let mut queue: VecDeque<&str> = VecDeque::new();
 

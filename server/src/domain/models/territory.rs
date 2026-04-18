@@ -3,8 +3,8 @@ use super::Power;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Territory {
-    power: Power,
-    code: String,
+    pub(crate) power: Power,
+    pub(crate) code: String,
 }
 
 impl Territory {

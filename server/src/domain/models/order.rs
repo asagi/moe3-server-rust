@@ -9,11 +9,11 @@ use std::fmt;
 /// 命令の定義
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Order {
-    pub power: Power,
-    pub unit: Unit,
-    pub dislodged_from: Option<Province>,
-    pub status: OrderStatus,
-    pub kind: OrderKind,
+    pub(crate) power: Power,
+    pub(crate) unit: Unit,
+    pub(crate) dislodged_from: Option<Province>,
+    pub(crate) status: OrderStatus,
+    pub(crate) kind: OrderKind,
 }
 
 /// 命令の状態
