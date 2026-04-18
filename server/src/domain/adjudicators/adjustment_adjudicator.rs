@@ -29,46 +29,44 @@ impl AdjustmentAdjudicator {
 
             let mut remaining = adjustment_capacity as usize;
             while remaining > 0 {
-                let Some(i) = current_phase.data.orders.get_unresolved_build_idxs_by_power(&p) else {
+                let Some(i) = current_phase.orders().get_unresolved_build_idxs_by_power(&p) else {
                     break;
                 };
-                let build_order = current_phase.data.orders[i];
+                let build_order = current_phase.orders()[i];
 
                 // 増設指定地域が本国補給都市であること
                 if !Province::is_home_sc(build_order.location().code(), &p) {
-                    current_phase.data.orders[i].set_invalid();
+                    current_phase.orders_mut()[i].set_invalid();
                     continue;
                 }
 
                 // 増設指定地域が所有されていること
                 if !current_phase
-                    .data
-                    .territories
+                    .territories()
                     .iter()
                     .any(|t| t.code() == build_order.location().code() && t.power() == &p)
                 {
-                    current_phase.data.orders[i].set_invalid();
+                    current_phase.orders_mut()[i].set_invalid();
                     continue;
                 }
 
                 // 増設指定地域にユニットが存在していないこと
                 if current_phase
-                    .data
-                    .units
+                    .units()
                     .iter()
                     .any(|u| u.location().code() == build_order.location().code())
                 {
-                    current_phase.data.orders[i].set_invalid();
+                    current_phase.orders_mut()[i].set_invalid();
                     continue;
                 }
 
                 // 増設指定地域がユニットの種類に適合していること
                 if !Path::can_unit_exist_at(&build_order.unit, build_order.location().code_with_coast()) {
-                    current_phase.data.orders[i].set_invalid();
+                    current_phase.orders_mut()[i].set_invalid();
                     continue;
                 }
 
-                current_phase.data.orders[i].set_valid();
+                current_phase.orders_mut()[i].set_valid();
                 remaining -= 1;
                 continue;
             }
@@ -77,7 +75,7 @@ impl AdjustmentAdjudicator {
 
     /// 解体命令の検証
     pub(crate) fn validate_disband_orders(current_phase: &mut Phase) {
-        let copied_units = &mut current_phase.data.units.clone();
+        let mut copied_units = current_phase.units().to_vec();
 
         for p in Power::iter() {
             let sc_count = current_phase.count_supply_centers(&p);
@@ -91,27 +89,27 @@ impl AdjustmentAdjudicator {
 
             let mut remaining = adjustment_capacity as usize;
             while remaining > 0 {
-                let Some(i) = current_phase.data.orders.get_unresolved_disband_idxs_by_power(&p) else {
+                let Some(i) = current_phase.orders().get_unresolved_disband_idxs_by_power(&p) else {
                     break;
                 };
-                let disband_order = current_phase.data.orders[i];
+                let disband_order = current_phase.orders()[i];
 
                 // 解体指定対象の自国ユニットが存在すること
                 if copied_units.iter().any(|u| u == &disband_order.unit) {
                     copied_units.retain(|&u| u != disband_order.unit);
-                    current_phase.data.orders[i].set_valid();
+                    current_phase.orders_mut()[i].set_valid();
                     remaining -= 1;
                     continue;
                 }
 
-                current_phase.data.orders[i].set_invalid();
+                current_phase.orders_mut()[i].set_invalid();
             }
 
             // 解体命令が足りない場合の処理
-            let disband_candidates = &mut copied_units.collect_units_for_civil_disorder(&p, &current_phase.data.territories);
+            let disband_candidates = &mut copied_units.collect_units_for_civil_disorder(&p, current_phase.territories());
             while remaining > 0 {
                 let unit = disband_candidates.remove(0);
-                current_phase.data.orders.push(unit.disband().set_valid());
+                current_phase.orders_mut().push(unit.disband().set_valid());
                 remaining -= 1;
                 continue;
             }
@@ -120,8 +118,8 @@ impl AdjustmentAdjudicator {
 
     /// 未処理命令をすべて無効判定
     pub(crate) fn invalidate_unresolved_orders(current_phase: &mut Phase) {
-        for idx in current_phase.data.orders.collect_unresolved_adjustment_idxs() {
-            current_phase.data.orders[idx].set_invalid();
+        for idx in current_phase.orders().collect_unresolved_adjustment_idxs() {
+            current_phase.orders_mut()[idx].set_invalid();
         }
     }
 }

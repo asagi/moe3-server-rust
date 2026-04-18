@@ -3,9 +3,9 @@ use super::AdjustmentPhase;
 use super::DebriefPhase;
 use super::FallMainPhase;
 use super::FallRetreatPhase;
+use super::Order;
 use super::Phase;
 use super::PhaseContext;
-use super::PhaseData;
 use super::Power;
 use super::Province;
 use super::ReadyPhase;
@@ -39,8 +39,8 @@ use super::SUPPLY_CENTERS_FOR_SOLO;
 impl Phase {
     /// フェイズを締め切り命令を解決する。
     #[allow(dead_code)]
-    pub fn close(mut self, context: &mut PhaseContext) {
-        match self.data.kind {
+    pub(crate) fn close(mut self, context: &mut PhaseContext) {
+        match self.kind {
             PhaseKind::Ready(r) => r.close(&mut self, context),
             PhaseKind::SpringMain(s) => s.close(&mut self, context),
             PhaseKind::SpringRetreat(s) => s.close(&mut self, context),
@@ -53,15 +53,15 @@ impl Phase {
 
     /// フェイズ初期化処理
     fn initialize(&mut self, prev_phase: &Phase) {
-        self.data.territories = prev_phase.data.territories.clone();
-        self.data.units = prev_phase.data.units.clone();
+        self.territories = prev_phase.territories.clone();
+        self.units = prev_phase.units.clone();
 
         // 初期命令生成
-        match self.data.kind {
+        match self.kind {
             PhaseKind::SpringMain(_) | PhaseKind::FallMain(_) => self.init_main_phase_orders(),
             PhaseKind::SpringRetreat(_) | PhaseKind::FallRetreat(_) => {
                 self.init_retreat_phase_orders();
-                self.data.standoff_codes = prev_phase.data.standoff_codes.clone();
+                self.standoff_codes = prev_phase.standoff_codes.clone();
             }
             PhaseKind::Adjustment(_) => self.init_adjustment_phase_orders(),
             _ => {}
@@ -70,16 +70,16 @@ impl Phase {
 
     /// メインフェイズの初期命令を生成する
     fn init_main_phase_orders(&mut self) {
-        for unit in &mut self.data.units {
-            self.data.orders.push(unit.hold());
+        for unit in &mut self.units {
+            self.orders.push(unit.hold());
         }
     }
 
     /// 撤退フェイズの初期命令を生成する
     fn init_retreat_phase_orders(&mut self) {
-        for unit in &mut self.data.units {
+        for unit in &mut self.units {
             if unit.dislodged {
-                self.data.orders.push(unit.disband());
+                self.orders.push(unit.disband());
             }
         }
     }
@@ -99,11 +99,11 @@ impl Phase {
             let mut remaining = adjustment_capacity as usize;
 
             // 解体命令登録
-            let disband_candidates = &mut self.data.units.collect_units_for_civil_disorder(&p, &self.data.territories);
+            let disband_candidates = &mut self.units.collect_units_for_civil_disorder(&p, &self.territories);
             disband_candidates.reverse();
             while remaining > 0 {
                 let unit = disband_candidates.pop().unwrap();
-                self.data.orders.push(unit.disband());
+                self.orders.push(unit.disband());
                 remaining -= 1;
             }
         }
@@ -112,28 +112,24 @@ impl Phase {
     /// フェイズの生成処理
     fn new(year: i32, index: i32, kind: PhaseKind) -> Self {
         Self {
-            id: None,
-            table_id: None,
-            created_at: None,
-            data: PhaseData {
-                index,
-                year,
-                kind,
-                orders: Vec::new(),
-                units: Vec::new(),
-                territories: Vec::new(),
-                standoff_codes: Vec::new(),
-            },
+            game_number: None,
+            index,
+            year,
+            kind,
+            orders: Vec::new(),
+            units: Vec::new(),
+            territories: Vec::new(),
+            standoff_codes: Vec::new(),
         }
     }
 
     /// 準備フェイズを生成する。
     #[allow(dead_code)]
-    pub fn new_ready() -> Self {
+    pub(crate) fn new_ready() -> Self {
         let mut phase = Self::new(1900, 0, PhaseKind::Ready(ReadyPhase {}));
 
         // 初期ユニット生成
-        phase.data.units = vec![
+        phase.units = vec![
             Unit::new_army(Power::Austria, Province::from_code("vie").unwrap()),
             Unit::new_army(Power::Austria, Province::from_code("bud").unwrap()),
             Unit::new_fleet(Power::Austria, Province::from_code("tri").unwrap()),
@@ -159,7 +155,7 @@ impl Phase {
         ];
 
         // 初期領土生成
-        phase.data.territories = vec![
+        phase.territories = vec![
             Territory::new(Power::Austria, "vie"),
             Territory::new(Power::Austria, "bud"),
             Territory::new(Power::Austria, "tri"),
@@ -190,56 +186,75 @@ impl Phase {
     /// 春メインフェイズを生成する。
     /// - 春命令は「次年の開始フェイズ」なので、必ず `year = prev_year + 1`。
     /// - このルールは Ready -> SpringOrder / Adjustment -> SpringOrder の両方で共通。
-    pub fn new_spring_main(current_year: i32, current_index: i32) -> Self {
+    pub(crate) fn new_spring_main(current_year: i32, current_index: i32) -> Self {
         Self::new(current_year + 1, current_index + 1, PhaseKind::SpringMain(SpringMainPhase {}))
     }
 
     /// 春撤退フェイズを生成する。
-    pub fn new_spring_retreat(current_year: i32, prev_index: i32) -> Self {
+    pub(crate) fn new_spring_retreat(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseKind::SpringRetreat(SpringRetreatPhase {}))
     }
 
     /// 秋メインフェイズを生成する。
-    pub fn new_fall_main(current_year: i32, prev_index: i32) -> Self {
+    pub(crate) fn new_fall_main(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseKind::FallMain(FallMainPhase {}))
     }
 
     /// 秋撤退フェイズを生成する。
-    pub fn new_fall_retreat(current_year: i32, prev_index: i32) -> Self {
+    pub(crate) fn new_fall_retreat(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseKind::FallRetreat(FallRetreatPhase {}))
     }
 
     /// 調整フェイズを生成する。
-    pub fn new_adjustment(current_year: i32, prev_index: i32) -> Self {
+    pub(crate) fn new_adjustment(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseKind::Adjustment(AdjustmentPhase {}))
     }
 
     /// 感想戦フェイズを生成する。
     #[allow(dead_code)]
-    pub fn new_debrief(current_year: i32, prev_index: i32) -> Self {
+    pub(crate) fn new_debrief(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseKind::Debrief(DebriefPhase {}))
     }
 
     /// フェイズの年を返す
-    pub fn year(&self) -> i32 {
-        self.data.year
+    pub(crate) fn year(&self) -> i32 {
+        self.year
     }
 
     /// フェイズ内での通し番号を返す
-    pub fn index(&self) -> i32 {
-        self.data.index
+    pub(crate) fn index(&self) -> i32 {
+        self.index
+    }
+
+    /// フェイズ内の命令を返す
+    pub(crate) fn orders(&self) -> &[Order] {
+        &self.orders
+    }
+
+    /// フェイズ内の命令を返す（可変参照）
+    pub(crate) fn orders_mut(&mut self) -> &mut Vec<Order> {
+        &mut self.orders
+    }
+
+    /// フェイズ内のユニットを返す
+    pub(crate) fn units(&self) -> &[Unit] {
+        &self.units
+    }
+
+    /// フェイズ内の占領情報を返す
+    pub(crate) fn territories(&self) -> &[Territory] {
+        &self.territories
     }
 
     /// フェイズの種別を返す
     #[allow(dead_code)]
-    pub fn phase_kind(&self) -> PhaseKind {
-        self.data.kind
+    pub(crate) fn phase_kind(&self) -> PhaseKind {
+        self.kind
     }
 
     /// 指定した国が現在保有する補給都市数を取得する
-    pub fn count_supply_centers(&self, power: &Power) -> usize {
-        self.data
-            .territories
+    pub(crate) fn count_supply_centers(&self, power: &Power) -> usize {
+        self.territories
             .iter()
             .filter(|t| t.power() == power)
             .filter(|t| Province::from_code(t.code_with_coast()).is_some_and(Province::is_supply_center))
@@ -247,8 +262,8 @@ impl Phase {
     }
 
     /// 指定した国が現在保有するユニット数を取得する
-    pub fn count_units(&self, power: &Power) -> usize {
-        self.data.units.iter().filter(|u| &u.power() == power).count()
+    pub(crate) fn count_units(&self, power: &Power) -> usize {
+        self.units.iter().filter(|u| &u.power() == power).count()
     }
 }
 
@@ -391,7 +406,6 @@ impl PhaseCloseLogic for SpringMainPhase {
     /// 撤退指示が必要なユニットが存在しない場合に true を返す
     fn should_skip_next_phase(&self, next_phase: &Phase, context: &PhaseContext) -> bool {
         !next_phase
-            .data
             .units
             .iter()
             .any(|u| u.dislodged && context.active_powers().contains(&u.power))
@@ -430,7 +444,6 @@ impl PhaseCloseLogic for FallMainPhase {
     /// 撤退指示が必要なユニットが存在しない場合に true を返す
     fn should_skip_next_phase(&self, next_phase: &Phase, context: &PhaseContext) -> bool {
         !next_phase
-            .data
             .units
             .iter()
             .any(|u| u.dislodged && context.active_powers().contains(&u.power))
@@ -446,19 +459,18 @@ impl PhaseCloseLogic for FallRetreatPhase {
 
     /// 占領処理
     fn occupy(&self, current_phase: &mut Phase) {
-        for idx in current_phase.data.units.collect_all_idxs() {
-            let code = current_phase.data.units[idx].location.code().to_string();
+        for idx in current_phase.units.collect_all_idxs() {
+            let code = current_phase.units[idx].location.code().to_string();
 
-            if let Some(occupied_idx) = current_phase.data.territories.iter().position(|t| t.code() == code) {
+            if let Some(occupied_idx) = current_phase.territories.iter().position(|t| t.code() == code) {
                 // すでに占領されている場合は占領国を更新
-                current_phase.data.territories[occupied_idx].set_power(current_phase.data.units[idx].power);
+                current_phase.territories[occupied_idx].set_power(current_phase.units[idx].power);
                 continue;
-            } else if !current_phase.data.units[idx].location.is_water() {
+            } else if !current_phase.units[idx].location.is_water() {
                 // 水域以外の未占領地は占領情報を新規に登録
                 current_phase
-                    .data
                     .territories
-                    .push(Territory::new(current_phase.data.units[idx].power, &code));
+                    .push(Territory::new(current_phase.units[idx].power, &code));
             }
         }
     }
@@ -522,8 +534,8 @@ impl PhaseCloseLogic for DebriefPhase {
 
 /// メインフェイズの命令解決処理
 fn resolve_orders_for_main_phase(current_phase: &mut Phase) {
-    let orders = &mut current_phase.data.orders;
-    let standoff_province_codes = &mut current_phase.data.standoff_codes;
+    let orders = &mut current_phase.orders;
+    let standoff_province_codes = &mut current_phase.standoff_codes;
 
     // # 01. 移動命令検証
     MainAdjudicator::validate_move_orders(orders);
@@ -558,12 +570,12 @@ fn resolve_orders_for_main_phase(current_phase: &mut Phase) {
         if let OrderKind::Move(m) = &order.kind
             && order.is_success()
         {
-            if let Some(idx) = current_phase.data.units.iter().position(|u| u == &order.unit) {
+            if let Some(idx) = current_phase.units.iter().position(|u| u == &order.unit) {
                 // 対象ユニットを削除
-                current_phase.data.units.remove(idx);
+                current_phase.units.remove(idx);
 
                 // 所在地を移動先に変更して保存
-                current_phase.data.units.push(Unit {
+                current_phase.units.push(Unit {
                     location: m.dest,
                     ..order.unit
                 });
@@ -577,7 +589,6 @@ fn resolve_orders_for_main_phase(current_phase: &mut Phase) {
             continue;
         }
         let Some(dislodged_unit) = current_phase
-            .data
             .units
             .iter_mut()
             .find(|u| u.power == order.unit.power && u.kind == order.unit.kind && u.location == order.unit.location)
@@ -594,9 +605,9 @@ fn resolve_orders_for_main_phase(current_phase: &mut Phase) {
 
 /// 撤退フェイズの命令解決処理
 fn resolve_orders_for_retreat_phase(current_phase: &mut Phase) {
-    let orders = &mut current_phase.data.orders;
-    let units = &current_phase.data.units;
-    let standoff_codes = &current_phase.data.standoff_codes;
+    let orders = &mut current_phase.orders;
+    let units = &current_phase.units;
+    let standoff_codes = &current_phase.standoff_codes;
 
     // # 01. 撤退命令検証
     RetreatAdjudicator::validate_retreat_orders(orders, units, standoff_codes);
@@ -609,19 +620,18 @@ fn resolve_orders_for_retreat_phase(current_phase: &mut Phase) {
         // 撤退フェイズでの処理対象の軍をいったん削除
         if matches!(&order.kind, OrderKind::Retreat(_) | OrderKind::Disband(_))
             && let Some(idx) = current_phase
-                .data
                 .units
                 .iter()
                 .position(|u| u.power == order.unit.power && u.kind == order.unit.kind && u.location == order.unit.location)
         {
-            current_phase.data.units.remove(idx);
+            current_phase.units.remove(idx);
         }
 
         if let OrderKind::Retreat(r) = &order.kind
             && order.is_success()
         {
             // 撤退に成功した軍のみ所在を移動先に変更して再配置
-            current_phase.data.units.push(Unit {
+            current_phase.units.push(Unit {
                 location: r.dest,
                 dislodged_from: None,
                 dislodged: false,
@@ -643,21 +653,16 @@ fn resolve_orders_for_adjustment_phase(current_phase: &mut Phase) {
     AdjustmentAdjudicator::invalidate_unresolved_orders(current_phase);
 
     // # 04. 命令解決後のユニット配置情報をフェイズに反映
-    for idx in current_phase.data.orders.collect_valid_adjustment_idxs() {
-        match current_phase.data.orders[idx].kind {
+    for idx in current_phase.orders.collect_valid_adjustment_idxs() {
+        match current_phase.orders[idx].kind {
             OrderKind::Build(_) => {
                 // 増設命令が有効な場合はユニットを追加
-                current_phase.data.units.push(current_phase.data.orders[idx].unit);
+                current_phase.units.push(current_phase.orders[idx].unit);
             }
             OrderKind::Disband(_) => {
                 // 解体命令が有効な場合はユニットを削除
-                if let Some(idx) = current_phase
-                    .data
-                    .units
-                    .iter()
-                    .position(|u| u == &current_phase.data.orders[idx].unit)
-                {
-                    current_phase.data.units.remove(idx);
+                if let Some(idx) = current_phase.units.iter().position(|u| u == &current_phase.orders[idx].unit) {
+                    current_phase.units.remove(idx);
                 }
             }
             _ => {}
@@ -677,17 +682,17 @@ mod tests {
     #[test]
     fn test_initialize_ready_to_spring_main() {
         let ready = Phase::new_ready();
-        let expected_units = ready.data.units.clone();
-        let expected_territories = ready.data.territories.clone();
+        let expected_units = ready.units.clone();
+        let expected_territories = ready.territories.clone();
 
         let mut spring_main = Phase::new_spring_main(ready.year(), ready.index());
         spring_main.initialize(&ready);
 
-        assert_eq!(spring_main.data.units, expected_units);
-        assert_eq!(spring_main.data.territories, expected_territories);
-        assert_eq!(spring_main.data.orders.len(), expected_units.len());
-        assert!(spring_main.data.orders.iter().all(|o| matches!(o.kind, OrderKind::Hold(_))));
-        assert!(spring_main.data.standoff_codes.is_empty());
+        assert_eq!(spring_main.units, expected_units);
+        assert_eq!(spring_main.territories, expected_territories);
+        assert_eq!(spring_main.orders.len(), expected_units.len());
+        assert!(spring_main.orders.iter().all(|o| matches!(o.kind, OrderKind::Hold(_))));
+        assert!(spring_main.standoff_codes.is_empty());
     }
 
     /// SpringMain → SpringRetreat: 撃退ユニットにのみ解体命令が生成され standoff_codes が引き継がれる
@@ -697,38 +702,38 @@ mod tests {
         let unit_normal = a("f", "par");
         let mut unit_dislodged = a("a", "vie");
         unit_dislodged.set_dislodged_from(Some(p("boh")));
-        spring_main.data.units = vec![unit_normal, unit_dislodged];
-        spring_main.data.territories = vec![Territory::new(Power::France, "par")];
-        spring_main.data.standoff_codes = vec!["boh".to_string()];
+        spring_main.units = vec![unit_normal, unit_dislodged];
+        spring_main.territories = vec![Territory::new(Power::France, "par")];
+        spring_main.standoff_codes = vec!["boh".to_string()];
 
         let mut spring_retreat = Phase::new_spring_retreat(spring_main.year(), spring_main.index());
         spring_retreat.initialize(&spring_main);
 
-        assert_eq!(spring_retreat.data.units, spring_main.data.units);
-        assert_eq!(spring_retreat.data.territories, spring_main.data.territories);
-        assert_eq!(spring_retreat.data.standoff_codes, spring_main.data.standoff_codes);
+        assert_eq!(spring_retreat.units, spring_main.units);
+        assert_eq!(spring_retreat.territories, spring_main.territories);
+        assert_eq!(spring_retreat.standoff_codes, spring_main.standoff_codes);
         // 撃退ユニットにのみ解体命令が生成される
-        assert_eq!(spring_retreat.data.orders.len(), 1);
-        assert!(matches!(spring_retreat.data.orders[0].kind, OrderKind::Disband(_)));
-        assert_eq!(spring_retreat.data.orders[0].unit, unit_dislodged);
+        assert_eq!(spring_retreat.orders.len(), 1);
+        assert!(matches!(spring_retreat.orders[0].kind, OrderKind::Disband(_)));
+        assert_eq!(spring_retreat.orders[0].unit, unit_dislodged);
     }
 
     /// SpringRetreat → FallMain: ユニットと領土が引き継がれ、standoff_codes は引き継がれない
     #[test]
     fn test_initialize_spring_retreat_to_fall_main() {
         let mut spring_retreat = Phase::new_spring_retreat(1901, 2);
-        spring_retreat.data.units = vec![a("f", "par")];
-        spring_retreat.data.territories = vec![Territory::new(Power::France, "par")];
-        spring_retreat.data.standoff_codes = vec!["boh".to_string()];
+        spring_retreat.units = vec![a("f", "par")];
+        spring_retreat.territories = vec![Territory::new(Power::France, "par")];
+        spring_retreat.standoff_codes = vec!["boh".to_string()];
 
         let mut fall_main = Phase::new_fall_main(spring_retreat.year(), spring_retreat.index());
         fall_main.initialize(&spring_retreat);
 
-        assert_eq!(fall_main.data.units, spring_retreat.data.units);
-        assert_eq!(fall_main.data.territories, spring_retreat.data.territories);
-        assert!(fall_main.data.standoff_codes.is_empty());
-        assert_eq!(fall_main.data.orders.len(), 1);
-        assert!(matches!(fall_main.data.orders[0].kind, OrderKind::Hold(_)));
+        assert_eq!(fall_main.units, spring_retreat.units);
+        assert_eq!(fall_main.territories, spring_retreat.territories);
+        assert!(fall_main.standoff_codes.is_empty());
+        assert_eq!(fall_main.orders.len(), 1);
+        assert!(matches!(fall_main.orders[0].kind, OrderKind::Hold(_)));
     }
 
     /// FallMain → FallRetreat: 撃退ユニットにのみ解体命令が生成され standoff_codes が引き継がれる
@@ -738,20 +743,20 @@ mod tests {
         let unit_normal = f("e", "nth");
         let mut unit_dislodged = a("g", "ber");
         unit_dislodged.set_dislodged_from(Some(p("sil")));
-        fall_main.data.units = vec![unit_normal, unit_dislodged];
-        fall_main.data.territories = vec![Territory::new(Power::England, "lon")];
-        fall_main.data.standoff_codes = vec!["sil".to_string()];
+        fall_main.units = vec![unit_normal, unit_dislodged];
+        fall_main.territories = vec![Territory::new(Power::England, "lon")];
+        fall_main.standoff_codes = vec!["sil".to_string()];
 
         let mut fall_retreat = Phase::new_fall_retreat(fall_main.year(), fall_main.index());
         fall_retreat.initialize(&fall_main);
 
-        assert_eq!(fall_retreat.data.units, fall_main.data.units);
-        assert_eq!(fall_retreat.data.territories, fall_main.data.territories);
-        assert_eq!(fall_retreat.data.standoff_codes, fall_main.data.standoff_codes);
+        assert_eq!(fall_retreat.units, fall_main.units);
+        assert_eq!(fall_retreat.territories, fall_main.territories);
+        assert_eq!(fall_retreat.standoff_codes, fall_main.standoff_codes);
         // 撃退ユニットにのみ解体命令が生成される
-        assert_eq!(fall_retreat.data.orders.len(), 1);
-        assert!(matches!(fall_retreat.data.orders[0].kind, OrderKind::Disband(_)));
-        assert_eq!(fall_retreat.data.orders[0].unit, unit_dislodged);
+        assert_eq!(fall_retreat.orders.len(), 1);
+        assert!(matches!(fall_retreat.orders[0].kind, OrderKind::Disband(_)));
+        assert_eq!(fall_retreat.orders[0].unit, unit_dislodged);
     }
 
     /// FallRetreat → Adjustment: 余剰ユニットに市民的混乱解体命令が生成される
@@ -759,34 +764,34 @@ mod tests {
     fn test_initialize_fall_retreat_to_adjustment() {
         let mut fall_retreat = Phase::new_fall_retreat(1901, 4);
         // Austria has 1 supply center but 2 units → needs 1 civil disorder disband
-        fall_retreat.data.units = vec![a("a", "vie"), a("a", "boh")];
-        fall_retreat.data.territories = vec![Territory::new(Power::Austria, "vie")];
+        fall_retreat.units = vec![a("a", "vie"), a("a", "boh")];
+        fall_retreat.territories = vec![Territory::new(Power::Austria, "vie")];
 
         let mut adjustment = Phase::new_adjustment(fall_retreat.year(), fall_retreat.index());
         adjustment.initialize(&fall_retreat);
 
-        assert_eq!(adjustment.data.units, fall_retreat.data.units);
-        assert_eq!(adjustment.data.territories, fall_retreat.data.territories);
+        assert_eq!(adjustment.units, fall_retreat.units);
+        assert_eq!(adjustment.territories, fall_retreat.territories);
         // ユニット数 (2) が補給都市数 (1) を超えるため 1 つ解体命令が生成される
-        assert_eq!(adjustment.data.orders.len(), 1);
-        assert!(matches!(adjustment.data.orders[0].kind, OrderKind::Disband(_)));
+        assert_eq!(adjustment.orders.len(), 1);
+        assert!(matches!(adjustment.orders[0].kind, OrderKind::Disband(_)));
     }
 
     /// Adjustment → SpringMain: ユニットと領土が引き継がれ、全ユニットにホールド命令が生成される
     #[test]
     fn test_initialize_adjustment_to_spring_main() {
         let mut adjustment = Phase::new_adjustment(1901, 5);
-        adjustment.data.units = vec![a("f", "par"), f("e", "lon")];
-        adjustment.data.territories = vec![Territory::new(Power::France, "par"), Territory::new(Power::England, "lon")];
+        adjustment.units = vec![a("f", "par"), f("e", "lon")];
+        adjustment.territories = vec![Territory::new(Power::France, "par"), Territory::new(Power::England, "lon")];
 
         let mut spring_main = Phase::new_spring_main(adjustment.year(), adjustment.index());
         spring_main.initialize(&adjustment);
 
-        assert_eq!(spring_main.data.units, adjustment.data.units);
-        assert_eq!(spring_main.data.territories, adjustment.data.territories);
-        assert_eq!(spring_main.data.orders.len(), 2);
-        assert!(spring_main.data.orders.iter().all(|o| matches!(o.kind, OrderKind::Hold(_))));
-        assert!(spring_main.data.standoff_codes.is_empty());
+        assert_eq!(spring_main.units, adjustment.units);
+        assert_eq!(spring_main.territories, adjustment.territories);
+        assert_eq!(spring_main.orders.len(), 2);
+        assert!(spring_main.orders.iter().all(|o| matches!(o.kind, OrderKind::Hold(_))));
+        assert!(spring_main.standoff_codes.is_empty());
     }
 
     #[test]
@@ -824,7 +829,7 @@ mod tests {
         let mut current_phase = Phase::new_spring_main(1900, 0);
         let mut dislodged = a("f", "par");
         dislodged.set_dislodged_from(Some(p("gas")));
-        current_phase.data.units = vec![dislodged];
+        current_phase.units = vec![dislodged];
 
         let mut context = PhaseContext::new();
         context.remove_power(&Power::France);
@@ -841,8 +846,8 @@ mod tests {
         let mut current_phase = Phase::new_spring_main(1900, 0);
         let mut dislodged = a("f", "par");
         dislodged.set_dislodged_from(Some(p("gas")));
-        current_phase.data.units = vec![dislodged];
-        current_phase.data.territories = vec![t("f", "par")];
+        current_phase.units = vec![dislodged];
+        current_phase.territories = vec![t("f", "par")];
 
         let mut context = PhaseContext::new();
         current_phase.close(&mut context);
@@ -883,8 +888,8 @@ mod tests {
     #[test]
     fn close_on_fall_retreat_with_solo_pushes_adjustment_and_debrief() {
         let mut current_phase = Phase::new_fall_retreat(1901, 4);
-        current_phase.data.units = vec![a("f", "par")];
-        current_phase.data.territories = vec![
+        current_phase.units = vec![a("f", "par")];
+        current_phase.territories = vec![
             Territory::new(Power::France, "par"),
             Territory::new(Power::France, "bre"),
             Territory::new(Power::France, "mar"),
@@ -918,8 +923,8 @@ mod tests {
     #[test]
     fn close_on_fall_retreat_without_solo_follows_normal_transition() {
         let mut current_phase = Phase::new_fall_retreat(1901, 4);
-        current_phase.data.units = vec![a("f", "par")];
-        current_phase.data.territories = vec![
+        current_phase.units = vec![a("f", "par")];
+        current_phase.territories = vec![
             Territory::new(Power::France, "par"),
             Territory::new(Power::France, "bre"),
             Territory::new(Power::France, "mar"),
@@ -951,8 +956,8 @@ mod tests {
     #[test]
     fn close_on_fall_retreat_skips_adjustment_for_inactive_power_only() {
         let mut current_phase = Phase::new_fall_retreat(1901, 4);
-        current_phase.data.units = vec![a("f", "par"), a("f", "gas")];
-        current_phase.data.territories = vec![Territory::new(Power::France, "par")];
+        current_phase.units = vec![a("f", "par"), a("f", "gas")];
+        current_phase.territories = vec![Territory::new(Power::France, "par")];
 
         let mut context = PhaseContext::new();
         context.remove_power(&Power::France);
@@ -966,39 +971,39 @@ mod tests {
     #[test]
     fn occupy_overwrites_existing_territory_owner() {
         let mut fall_retreat = Phase::new_fall_retreat(1901, 4);
-        fall_retreat.data.units = vec![a("g", "par")];
-        fall_retreat.data.territories = vec![Territory::new(Power::France, "par")];
+        fall_retreat.units = vec![a("g", "par")];
+        fall_retreat.territories = vec![Territory::new(Power::France, "par")];
 
         FallRetreatPhase {}.occupy(&mut fall_retreat);
 
-        assert_eq!(fall_retreat.data.territories.len(), 1);
-        assert_eq!(fall_retreat.data.territories[0], Territory::new(Power::Germany, "par"));
+        assert_eq!(fall_retreat.territories.len(), 1);
+        assert_eq!(fall_retreat.territories[0], Territory::new(Power::Germany, "par"));
     }
 
     #[test]
     fn occupy_adds_unoccupied_land_territory() {
         let mut fall_retreat = Phase::new_fall_retreat(1901, 4);
-        fall_retreat.data.units = vec![a("g", "gas")];
+        fall_retreat.units = vec![a("g", "gas")];
 
         FallRetreatPhase {}.occupy(&mut fall_retreat);
 
-        assert_eq!(fall_retreat.data.territories, vec![Territory::new(Power::Germany, "gas")]);
+        assert_eq!(fall_retreat.territories, vec![Territory::new(Power::Germany, "gas")]);
     }
 
     #[test]
     fn occupy_does_not_add_water_territory() {
         let mut fall_retreat = Phase::new_fall_retreat(1901, 4);
-        fall_retreat.data.units = vec![f("e", "nth")];
+        fall_retreat.units = vec![f("e", "nth")];
 
         FallRetreatPhase {}.occupy(&mut fall_retreat);
 
-        assert!(fall_retreat.data.territories.is_empty());
+        assert!(fall_retreat.territories.is_empty());
     }
 
     #[test]
     fn count_supply_centers_excludes_non_supply_territories() {
         let mut phase = Phase::new_fall_retreat(1901, 4);
-        phase.data.territories = vec![
+        phase.territories = vec![
             Territory::new(Power::France, "par"),
             Territory::new(Power::France, "gas"),
             Territory::new(Power::France, "pic"),

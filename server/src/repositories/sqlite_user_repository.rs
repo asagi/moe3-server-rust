@@ -10,7 +10,7 @@ use super::RepositoryError;
 use super::UserProfileUpdate;
 use super::UserRecord;
 use super::UserRepository;
-use crate::domain::UserId;
+use crate::repositories::UserId;
 
 pub(crate) struct SqliteUserRepository {
     connection: Mutex<Connection>,

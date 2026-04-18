@@ -22,13 +22,13 @@ use crate::domain::tests::p;
 fn test_datc_6_b_1() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_por = f("f", "por");
-    phase.data.units.push(unit_f_por);
-    phase.data.orders.push(unit_f_por.move_to(p("spa")));
+    phase.units.push(unit_f_por);
+    phase.orders.push(unit_f_por.move_to(p("spa")));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.units.len(), 1);
-    assert!(phase.data.units.contains(&unit_f_por));
-    assert!(phase.data.standoff_codes.is_empty());
+    assert_eq!(phase.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.units.len(), 1);
+    assert!(phase.units.contains(&unit_f_por));
+    assert!(phase.standoff_codes.is_empty());
 }
 
 /// 6.B.2. TEST CASE, MOVING WITH UNSPECIFIED COAST WHEN COAST IS NOT NECESSARY
@@ -58,13 +58,13 @@ fn test_datc_6_b_2() {
 fn test_datc_6_b_3() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_f_gas = f("f", "gas");
-    phase.data.units.push(unit_f_gas);
-    phase.data.orders.push(unit_f_gas.move_to(p("spa_sc")));
+    phase.units.push(unit_f_gas);
+    phase.orders.push(unit_f_gas.move_to(p("spa_sc")));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.units.len(), 1);
-    assert!(phase.data.units.contains(&unit_f_gas));
-    assert!(phase.data.standoff_codes.is_empty());
+    assert_eq!(phase.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.units.len(), 1);
+    assert!(phase.units.contains(&unit_f_gas));
+    assert!(phase.standoff_codes.is_empty());
 }
 
 /// 6.B.4. TEST CASE, SUPPORT TO UNREACHABLE COAST ALLOWED
@@ -85,21 +85,21 @@ fn test_datc_6_b_4() {
     let unit_f_gas = f("f", "gas");
     let unit_f_mar = f("f", "mar");
     let unit_i_spa_nc = f("i", "wes");
-    phase.data.units.push(unit_f_gas);
-    phase.data.units.push(unit_f_mar);
-    phase.data.units.push(unit_i_spa_nc);
-    phase.data.orders.push(unit_f_gas.move_to(p("spa_nc")));
-    phase.data.orders.push(unit_f_mar.support_move(unit_f_gas, p("spa_nc")));
-    phase.data.orders.push(unit_i_spa_nc.move_to(p("spa_sc")));
+    phase.units.push(unit_f_gas);
+    phase.units.push(unit_f_mar);
+    phase.units.push(unit_i_spa_nc);
+    phase.orders.push(unit_f_gas.move_to(p("spa_nc")));
+    phase.orders.push(unit_f_mar.support_move(unit_f_gas, p("spa_nc")));
+    phase.orders.push(unit_i_spa_nc.move_to(p("spa_sc")));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
-    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
-    assert_eq!(phase.data.units.len(), 3);
-    assert!(phase.data.units.contains(&f("f", "spa_nc")));
-    assert!(phase.data.units.contains(&unit_f_mar));
-    assert!(phase.data.units.contains(&unit_i_spa_nc));
-    assert!(phase.data.standoff_codes.is_empty());
+    assert_eq!(phase.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.units.len(), 3);
+    assert!(phase.units.contains(&f("f", "spa_nc")));
+    assert!(phase.units.contains(&unit_f_mar));
+    assert!(phase.units.contains(&unit_i_spa_nc));
+    assert!(phase.standoff_codes.is_empty());
 }
 
 /// 6.B.5. TEST CASE, SUPPORT FROM UNREACHABLE COAST NOT ALLOWED
@@ -120,21 +120,21 @@ fn test_datc_6_b_5() {
     let unit_f_mar = f("f", "mar");
     let unit_f_spa_nc = f("f", "spa_nc");
     let unit_i_gol = f("i", "gol");
-    phase.data.units.push(unit_f_mar);
-    phase.data.units.push(unit_f_spa_nc);
-    phase.data.units.push(unit_i_gol);
-    phase.data.orders.push(unit_f_mar.move_to(p("gol")));
-    phase.data.orders.push(unit_f_spa_nc.support_move(unit_f_mar, p("gol")));
-    phase.data.orders.push(unit_i_gol.hold());
+    phase.units.push(unit_f_mar);
+    phase.units.push(unit_f_spa_nc);
+    phase.units.push(unit_i_gol);
+    phase.orders.push(unit_f_mar.move_to(p("gol")));
+    phase.orders.push(unit_f_spa_nc.support_move(unit_f_mar, p("gol")));
+    phase.orders.push(unit_i_gol.hold());
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.orders[2].status, OrderStatus::Success);
-    assert_eq!(phase.data.units.len(), 3);
-    assert!(phase.data.units.contains(&unit_f_mar));
-    assert!(phase.data.units.contains(&unit_f_spa_nc));
-    assert!(phase.data.units.contains(&unit_i_gol));
-    assert!(phase.data.standoff_codes.is_empty());
+    assert_eq!(phase.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.orders[1].status, OrderStatus::Invalid);
+    assert_eq!(phase.orders[2].status, OrderStatus::Success);
+    assert_eq!(phase.units.len(), 3);
+    assert!(phase.units.contains(&unit_f_mar));
+    assert!(phase.units.contains(&unit_f_spa_nc));
+    assert!(phase.units.contains(&unit_i_gol));
+    assert!(phase.standoff_codes.is_empty());
 }
 
 /// 6.B.6. TEST CASE, SUPPORT CAN BE CUT WITH OTHER COAST
@@ -162,29 +162,29 @@ fn test_datc_6_b_6() {
     let unit_f_spa_nc = f("f", "spa_nc");
     let mut unit_f_mid = f("f", "mid");
     let unit_i_gol = f("i", "gol");
-    phase.data.units.push(unit_e_iri);
-    phase.data.units.push(unit_e_nat);
-    phase.data.units.push(unit_f_spa_nc);
-    phase.data.units.push(unit_f_mid);
-    phase.data.units.push(unit_i_gol);
-    phase.data.orders.push(unit_e_iri.support_move(unit_e_nat, p("mid")));
-    phase.data.orders.push(unit_e_nat.move_to(p("mid")));
-    phase.data.orders.push(unit_f_spa_nc.support_hold(unit_f_mid));
-    phase.data.orders.push(unit_f_mid.hold());
-    phase.data.orders.push(unit_i_gol.move_to(p("spa_sc")));
+    phase.units.push(unit_e_iri);
+    phase.units.push(unit_e_nat);
+    phase.units.push(unit_f_spa_nc);
+    phase.units.push(unit_f_mid);
+    phase.units.push(unit_i_gol);
+    phase.orders.push(unit_e_iri.support_move(unit_e_nat, p("mid")));
+    phase.orders.push(unit_e_nat.move_to(p("mid")));
+    phase.orders.push(unit_f_spa_nc.support_hold(unit_f_mid));
+    phase.orders.push(unit_f_mid.hold());
+    phase.orders.push(unit_i_gol.move_to(p("spa_sc")));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Success);
-    assert_eq!(phase.data.orders[2].status, OrderStatus::Cut);
-    assert_eq!(phase.data.orders[3].status, OrderStatus::Dislodged);
-    assert_eq!(phase.data.orders[4].status, OrderStatus::Failure);
-    assert_eq!(phase.data.units.len(), 5);
-    assert!(phase.data.units.contains(&unit_e_iri));
-    assert!(phase.data.units.contains(&f("e", "mid")));
-    assert!(phase.data.units.contains(&unit_f_spa_nc));
-    assert!(phase.data.units.contains(&unit_f_mid.set_dislodged_from(Some(p("nat")))));
-    assert!(phase.data.units.contains(&unit_i_gol));
-    assert!(phase.data.standoff_codes.is_empty());
+    assert_eq!(phase.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.orders[1].status, OrderStatus::Success);
+    assert_eq!(phase.orders[2].status, OrderStatus::Cut);
+    assert_eq!(phase.orders[3].status, OrderStatus::Dislodged);
+    assert_eq!(phase.orders[4].status, OrderStatus::Failure);
+    assert_eq!(phase.units.len(), 5);
+    assert!(phase.units.contains(&unit_e_iri));
+    assert!(phase.units.contains(&f("e", "mid")));
+    assert!(phase.units.contains(&unit_f_spa_nc));
+    assert!(phase.units.contains(&unit_f_mid.set_dislodged_from(Some(p("nat")))));
+    assert!(phase.units.contains(&unit_i_gol));
+    assert!(phase.standoff_codes.is_empty());
 }
 
 /// 6.B.7. TEST CASE, SUPPORTING OWN UNIT WITH UNSPECIFIED COAST
@@ -246,25 +246,25 @@ fn test_datc_6_b_9() {
     let unit_f_por = f("f", "por");
     let unit_i_gol = f("i", "gol");
     let unit_i_wes = f("i", "wes");
-    phase.data.units.push(unit_f_mid);
-    phase.data.units.push(unit_f_por);
-    phase.data.units.push(unit_i_gol);
-    phase.data.units.push(unit_i_wes);
-    phase.data.orders.push(unit_f_por.support_move(unit_f_mid, p("spa_nc")));
-    phase.data.orders.push(unit_f_mid.move_to(p("spa_sc")));
-    phase.data.orders.push(unit_i_gol.support_move(unit_i_wes, p("spa_sc")));
-    phase.data.orders.push(unit_i_wes.move_to(p("spa_sc")));
+    phase.units.push(unit_f_mid);
+    phase.units.push(unit_f_por);
+    phase.units.push(unit_i_gol);
+    phase.units.push(unit_i_wes);
+    phase.orders.push(unit_f_por.support_move(unit_f_mid, p("spa_nc")));
+    phase.orders.push(unit_f_mid.move_to(p("spa_sc")));
+    phase.orders.push(unit_i_gol.support_move(unit_i_wes, p("spa_sc")));
+    phase.orders.push(unit_i_wes.move_to(p("spa_sc")));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
-    assert_eq!(phase.data.orders[2].status, OrderStatus::Valid);
-    assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
-    assert_eq!(phase.data.units.len(), 4);
-    assert!(phase.data.units.contains(&unit_f_mid));
-    assert!(phase.data.units.contains(&unit_f_por));
-    assert!(phase.data.units.contains(&unit_i_gol));
-    assert!(phase.data.units.contains(&f("i", "spa_sc")));
-    assert!(phase.data.standoff_codes.is_empty());
+    assert_eq!(phase.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.orders[2].status, OrderStatus::Valid);
+    assert_eq!(phase.orders[3].status, OrderStatus::Success);
+    assert_eq!(phase.units.len(), 4);
+    assert!(phase.units.contains(&unit_f_mid));
+    assert!(phase.units.contains(&unit_f_por));
+    assert!(phase.units.contains(&unit_i_gol));
+    assert!(phase.units.contains(&f("i", "spa_sc")));
+    assert!(phase.standoff_codes.is_empty());
 }
 
 /// 6.B.10. TEST CASE, UNIT ORDERED WITH WRONG COAST
@@ -326,17 +326,17 @@ fn test_datc_6_b_13() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_t_bul_sc = f("t", "bul_sc");
     let unit_t_con = f("t", "con");
-    phase.data.units.push(unit_t_bul_sc);
-    phase.data.units.push(unit_t_con);
-    phase.data.orders.push(unit_t_bul_sc.move_to(p("con")));
-    phase.data.orders.push(unit_t_con.move_to(p("bul_ec")));
+    phase.units.push(unit_t_bul_sc);
+    phase.units.push(unit_t_con);
+    phase.orders.push(unit_t_bul_sc.move_to(p("con")));
+    phase.orders.push(unit_t_con.move_to(p("bul_ec")));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
-    assert_eq!(phase.data.units.len(), 2);
-    assert!(phase.data.units.contains(&unit_t_bul_sc));
-    assert!(phase.data.units.contains(&unit_t_con));
-    assert!(phase.data.standoff_codes.is_empty());
+    assert_eq!(phase.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.units.len(), 2);
+    assert!(phase.units.contains(&unit_t_bul_sc));
+    assert!(phase.units.contains(&unit_t_con));
+    assert!(phase.standoff_codes.is_empty());
 }
 
 /// 6.B.14. TEST CASE, BUILDING WITH UNSPECIFIED COAST

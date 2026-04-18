@@ -1,14 +1,10 @@
 // models
 use super::Power;
 
-// external crates
-use serde::Deserialize;
-use serde::Serialize;
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Territory {
-    power: Power,
-    code: String,
+    pub(crate) power: Power,
+    pub(crate) code: String,
 }
 
 impl Territory {

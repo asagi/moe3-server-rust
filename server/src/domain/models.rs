@@ -1,11 +1,11 @@
 // modules
+mod game;
 mod order;
 mod path;
 mod phase;
 mod player;
 mod power;
 mod province;
-mod table;
 mod territory;
 mod unit;
 mod user;
@@ -36,13 +36,6 @@ pub(crate) use unit::UnitKind;
 pub(crate) use super::AdjustmentAdjudicator;
 pub(crate) use super::MainAdjudicator;
 pub(crate) use super::RetreatAdjudicator;
-
-// type aliases
-pub(crate) use super::OrderId;
-pub(crate) use super::PhaseId;
-pub(crate) use super::PlayerId;
-pub(crate) use super::TableId;
-pub(crate) use super::UserId;
 
 // helpers
 pub(crate) use super::AdjustmentOrderHelper;

@@ -3,6 +3,9 @@
 mod sqlite_user_repository;
 mod user_repository;
 
+// type aliases
+pub(crate) type UserId = i64;
+
 // concrete types
 #[allow(unused_imports)]
 pub(crate) use sqlite_user_repository::SqliteUserRepository;

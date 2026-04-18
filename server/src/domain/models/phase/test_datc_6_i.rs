@@ -30,19 +30,19 @@ use crate::domain::tests::f;
 #[test]
 fn test_datc_6_i_1() {
     let phase = &mut Phase::new_adjustment(1901, 5);
-    phase.data.territories.push(Territory::new(Power::Germany, "kie"));
-    phase.data.territories.push(Territory::new(Power::Germany, "mun"));
-    phase.data.units.push(a("g", "ber"));
+    phase.territories.push(Territory::new(Power::Germany, "kie"));
+    phase.territories.push(Territory::new(Power::Germany, "mun"));
+    phase.units.push(a("g", "ber"));
     let unit_g_war = a("g", "war");
     let unit_g_kie = a("g", "kie");
     let unit_g_mun = a("g", "mun");
-    phase.data.orders.push(unit_g_war.build());
-    phase.data.orders.push(unit_g_kie.build());
-    phase.data.orders.push(unit_g_mun.build());
+    phase.orders.push(unit_g_war.build());
+    phase.orders.push(unit_g_kie.build());
+    phase.orders.push(unit_g_mun.build());
     resolve_orders_for_adjustment_phase(phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
-    assert_eq!(phase.data.orders[2].status, OrderStatus::Invalid);
+    assert_eq!(phase.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.orders[2].status, OrderStatus::Invalid);
 }
 
 /// 6.I.2. TEST CASE, FLEETS CANNOT BE BUILD IN LAND AREAS
@@ -58,11 +58,11 @@ fn test_datc_6_i_1() {
 #[test]
 fn test_datc_6_i_2() {
     let phase = &mut Phase::new_adjustment(1901, 5);
-    phase.data.territories.push(Territory::new(Power::Russia, "mos"));
+    phase.territories.push(Territory::new(Power::Russia, "mos"));
     let unit_r_mos = f("r", "mos");
-    phase.data.orders.push(unit_r_mos.build());
+    phase.orders.push(unit_r_mos.build());
     resolve_orders_for_adjustment_phase(phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.orders[0].status, OrderStatus::Invalid);
 }
 
 /// 6.I.3. TEST CASE, SUPPLY CENTER MUST BE EMPTY FOR BUILDING
@@ -78,12 +78,12 @@ fn test_datc_6_i_2() {
 #[test]
 fn test_datc_6_i_3() {
     let phase = &mut Phase::new_adjustment(1901, 5);
-    phase.data.territories.push(Territory::new(Power::Germany, "ber"));
-    phase.data.units.push(a("g", "ber"));
+    phase.territories.push(Territory::new(Power::Germany, "ber"));
+    phase.units.push(a("g", "ber"));
     let unit_g_ber = a("g", "ber");
-    phase.data.orders.push(unit_g_ber.build());
+    phase.orders.push(unit_g_ber.build());
     resolve_orders_for_adjustment_phase(phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.orders[0].status, OrderStatus::Invalid);
 }
 
 /// 6.I.4. TEST CASE, BOTH COASTS MUST BE EMPTY FOR BUILDING
@@ -98,12 +98,12 @@ fn test_datc_6_i_3() {
 #[test]
 fn test_datc_6_i_4() {
     let phase = &mut Phase::new_adjustment(1901, 5);
-    phase.data.territories.push(Territory::new(Power::Russia, "stp"));
-    phase.data.units.push(f("r", "stp_sc"));
+    phase.territories.push(Territory::new(Power::Russia, "stp"));
+    phase.units.push(f("r", "stp_sc"));
     let unit_r_stp_nc = a("r", "stp_nc");
-    phase.data.orders.push(unit_r_stp_nc.build());
+    phase.orders.push(unit_r_stp_nc.build());
     resolve_orders_for_adjustment_phase(phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.orders[0].status, OrderStatus::Invalid);
 }
 
 /// 6.I.5. TEST CASE, BUILDING IN HOME SUPPLY CENTER THAT IS NOT OWNED
@@ -120,12 +120,12 @@ fn test_datc_6_i_4() {
 #[test]
 fn test_datc_6_i_5() {
     let phase = &mut Phase::new_adjustment(1901, 5);
-    phase.data.territories.push(Territory::new(Power::Russia, "ber"));
-    phase.data.territories.push(Territory::new(Power::Germany, "bel"));
+    phase.territories.push(Territory::new(Power::Russia, "ber"));
+    phase.territories.push(Territory::new(Power::Germany, "bel"));
     let unit_g_ber = a("g", "ber");
-    phase.data.orders.push(unit_g_ber.build());
+    phase.orders.push(unit_g_ber.build());
     resolve_orders_for_adjustment_phase(phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.orders[0].status, OrderStatus::Invalid);
 }
 
 /// 6.I.6. TEST CASE, BUILDING IN OWNED SUPPLY CENTER THAT IS NOT A HOME SUPPLY CENTER
@@ -141,11 +141,11 @@ fn test_datc_6_i_5() {
 #[test]
 fn test_datc_6_i_6() {
     let phase = &mut Phase::new_adjustment(1901, 5);
-    phase.data.territories.push(Territory::new(Power::Germany, "war"));
+    phase.territories.push(Territory::new(Power::Germany, "war"));
     let unit_g_war = a("g", "war");
-    phase.data.orders.push(unit_g_war.build());
+    phase.orders.push(unit_g_war.build());
     resolve_orders_for_adjustment_phase(phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.orders[0].status, OrderStatus::Invalid);
 }
 
 /// 6.I.7. TEST CASE, ONLY ONE BUILD IN A HOME SUPPLY CENTER
@@ -161,12 +161,12 @@ fn test_datc_6_i_6() {
 #[test]
 fn test_datc_6_i_7() {
     let phase = &mut Phase::new_adjustment(1901, 5);
-    phase.data.territories.push(Territory::new(Power::Russia, "mos"));
+    phase.territories.push(Territory::new(Power::Russia, "mos"));
     let unit_r_mos_1 = a("r", "mos");
     let unit_r_mos_2 = a("r", "mos");
-    phase.data.orders.push(unit_r_mos_1.build());
-    phase.data.orders.push(unit_r_mos_2.build());
+    phase.orders.push(unit_r_mos_1.build());
+    phase.orders.push(unit_r_mos_2.build());
     resolve_orders_for_adjustment_phase(phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Valid);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
+    assert_eq!(phase.orders[0].status, OrderStatus::Valid);
+    assert_eq!(phase.orders[1].status, OrderStatus::Invalid);
 }

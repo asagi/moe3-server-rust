@@ -2,21 +2,12 @@
 use super::Power;
 use super::User;
 
-// type aliases
-use super::PlayerId;
-use super::TableId;
-
-// external crates
-use serde::Deserialize;
-use serde::Serialize;
-
 /// プレイヤーの定義
 #[allow(dead_code)]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Player {
-    id: Option<PlayerId>,      // プレイヤー ID
-    user: User,                // ユーザ ID
-    table_id: Option<TableId>, // 対戦テーブル ID
-    power: Option<Power>,      // 担当している国
-    is_accepting_draw: bool,   // 停戦合意フラグ
+    pub(crate) user: User,
+    pub(crate) game_number: i32,
+    pub(crate) power: Option<Power>,
+    pub(crate) is_accepting_draw: bool,
 }
