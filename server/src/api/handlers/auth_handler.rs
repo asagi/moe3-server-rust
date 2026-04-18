@@ -2,7 +2,6 @@ use crate::api::requests::AuthLoginRequest;
 use crate::api::requests::AuthRequestValidationError;
 use crate::api::responses::ApiErrorResponse;
 use crate::api::responses::AuthLoginResponse;
-use crate::api::responses::AuthLoginUserResponse;
 use crate::repositories::UserRepository;
 use crate::services::AuthError;
 use crate::services::AuthService;
@@ -28,13 +27,7 @@ where
 
     Ok(AuthLoginResponse {
         access_token: result.access_token,
-        user: AuthLoginUserResponse {
-            discord_user_id: result.user.discord_user_id,
-            username: result.user.username,
-            global_name: result.user.global_name,
-            avatar_hash: result.user.avatar_hash,
-            avatar_url: result.user.avatar_url,
-        },
+        user: result.user,
     })
 }
 

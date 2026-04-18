@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fmt;
 
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::repositories::DiscordProfile;
@@ -15,7 +16,7 @@ pub(crate) struct LoginCommand {
     pub discord_access_token: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub(crate) struct LoginUser {
     pub discord_user_id: String,
     pub username: String,
