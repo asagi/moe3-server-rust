@@ -1,11 +1,18 @@
 use serde::Serialize;
 
-use crate::services::LoginUser;
-
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub(crate) struct AuthLoginResponse {
     pub access_token: String,
-    pub user: LoginUser,
+    pub user: AuthLoginUserResponse,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(crate) struct AuthLoginUserResponse {
+    pub discord_user_id: String,
+    pub username: String,
+    pub global_name: Option<String>,
+    pub avatar_hash: Option<String>,
+    pub avatar_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
