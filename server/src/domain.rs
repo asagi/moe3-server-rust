@@ -16,9 +16,9 @@ pub(crate) use models::Unit;
 // type aliases
 pub(crate) type OrderId = i64;
 pub(crate) type PhaseId = i64;
-pub(crate) type UserId = i64;
 pub(crate) type PlayerId = i64;
 pub(crate) type TableId = i64;
+pub(crate) type UserId = i64;
 
 // adjudicators
 pub(crate) use adjudicators::AdjustmentAdjudicator;

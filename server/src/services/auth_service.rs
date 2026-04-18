@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fmt;
 
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::repositories::DiscordProfile;
@@ -15,10 +16,11 @@ pub(crate) struct LoginCommand {
     pub discord_access_token: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub(crate) struct LoginUser {
     pub discord_user_id: String,
-    pub display_name: String,
+    pub username: String,
+    pub global_name: Option<String>,
     pub avatar_hash: Option<String>,
     pub avatar_url: Option<String>,
 }
@@ -72,11 +74,11 @@ where
             .find_by_discord_user_id(&profile.discord_user_id)
             .map_err(AuthError::Repository)?;
 
-        if existing.is_some() {
+        if let Some(existing) = existing {
             let update = UserProfileUpdate::from(&profile);
             let updated = self
                 .user_repository
-                .update_profile(&profile.discord_user_id, update)
+                .update_profile(existing.id, update)
                 .map_err(AuthError::Repository)?;
             return Ok(Self::from_record(updated));
         }
@@ -95,13 +97,12 @@ where
     }
 
     fn from_record(record: UserRecord) -> LoginResult {
-        let display_name = record.display_name().to_string();
-
         LoginResult {
             access_token: record.access_token,
             user: LoginUser {
                 discord_user_id: record.discord_user_id,
-                display_name,
+                username: record.username,
+                global_name: record.global_name,
                 avatar_hash: record.avatar_hash,
                 avatar_url: record.avatar_url,
             },
@@ -214,9 +215,13 @@ mod tests {
             Ok(row)
         }
 
-        fn update_profile(&self, discord_user_id: &str, profile: UserProfileUpdate) -> Result<UserRecord, RepositoryError> {
+        fn update_profile(&self, id: i64, profile: UserProfileUpdate) -> Result<UserRecord, RepositoryError> {
             let mut state = self.state.borrow_mut();
-            let row = state.rows.get_mut(discord_user_id).ok_or(RepositoryError::NotFound)?;
+            let row = state
+                .rows
+                .values_mut()
+                .find(|r| r.id == id)
+                .ok_or(RepositoryError::NotFound)?;
             row.username = profile.username;
             row.global_name = profile.global_name;
             row.avatar_hash = profile.avatar_hash;
@@ -246,7 +251,12 @@ mod tests {
             .expect("login should succeed");
 
         assert_eq!(result.user.discord_user_id, "1001");
-        assert_eq!(result.user.display_name, "asagi");
+        assert_eq!(result.user.username, "nemu");
+        assert_eq!(result.user.global_name.as_deref(), Some("asagi"));
+        assert_eq!(
+            result.user.global_name.as_deref().unwrap_or(result.user.username.as_str()),
+            "asagi"
+        );
         assert!(!result.access_token.is_empty());
 
         let saved = repository
@@ -289,7 +299,12 @@ mod tests {
             .expect("login should succeed");
 
         assert_eq!(result.access_token, "persisted-token");
-        assert_eq!(result.user.display_name, "new_name");
+        assert_eq!(result.user.username, "new_user");
+        assert_eq!(result.user.global_name.as_deref(), Some("new_name"));
+        assert_eq!(
+            result.user.global_name.as_deref().unwrap_or(result.user.username.as_str()),
+            "new_name"
+        );
 
         let saved = repository
             .find_by_discord_user_id("1001")

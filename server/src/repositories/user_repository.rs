@@ -1,3 +1,5 @@
+use crate::domain::UserId;
+
 use std::error::Error;
 use std::fmt;
 
@@ -12,19 +14,13 @@ pub(crate) struct DiscordProfile {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct UserRecord {
-    pub id: i64,
+    pub id: UserId,
     pub discord_user_id: String,
     pub username: String,
     pub global_name: Option<String>,
     pub avatar_hash: Option<String>,
     pub avatar_url: Option<String>,
     pub access_token: String,
-}
-
-impl UserRecord {
-    pub(crate) fn display_name(&self) -> &str {
-        self.global_name.as_deref().unwrap_or(self.username.as_str())
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,5 +77,5 @@ pub(crate) trait UserRepository {
 
     fn insert(&self, new_user: NewUser) -> Result<UserRecord, RepositoryError>;
 
-    fn update_profile(&self, discord_user_id: &str, profile: UserProfileUpdate) -> Result<UserRecord, RepositoryError>;
+    fn update_profile(&self, id: UserId, profile: UserProfileUpdate) -> Result<UserRecord, RepositoryError>;
 }

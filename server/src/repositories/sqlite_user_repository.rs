@@ -10,6 +10,7 @@ use super::RepositoryError;
 use super::UserProfileUpdate;
 use super::UserRecord;
 use super::UserRepository;
+use crate::domain::UserId;
 
 pub(crate) struct SqliteUserRepository {
     connection: Mutex<Connection>,
@@ -75,7 +76,7 @@ impl SqliteUserRepository {
         })
     }
 
-    fn load_by_id(&self, user_id: i64) -> Result<UserRecord, RepositoryError> {
+    fn load_by_id(&self, user_id: UserId) -> Result<UserRecord, RepositoryError> {
         let sql = r#"
             SELECT id, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token
             FROM users
@@ -157,7 +158,7 @@ impl UserRepository for SqliteUserRepository {
         self.load_by_id(inserted_id)
     }
 
-    fn update_profile(&self, discord_user_id: &str, profile: UserProfileUpdate) -> Result<UserRecord, RepositoryError> {
+    fn update_profile(&self, id: UserId, profile: UserProfileUpdate) -> Result<UserRecord, RepositoryError> {
         let now = Utc::now().to_rfc3339();
 
         let sql = r#"
@@ -167,7 +168,7 @@ impl UserRepository for SqliteUserRepository {
                 avatar_hash = ?3,
                 avatar_url = ?4,
                 updated_at = ?5
-            WHERE discord_user_id = ?6
+            WHERE id = ?6
         "#;
 
         let connection = self
@@ -183,7 +184,7 @@ impl UserRepository for SqliteUserRepository {
                     profile.avatar_hash,
                     profile.avatar_url,
                     now,
-                    discord_user_id
+                    id
                 ],
             )
             .map_err(|error| RepositoryError::Unavailable(format!("update user profile: {}", error)))?;
@@ -191,14 +192,6 @@ impl UserRepository for SqliteUserRepository {
         if affected == 0 {
             return Err(RepositoryError::NotFound);
         }
-
-        let id: i64 = connection
-            .query_row(
-                "SELECT id FROM users WHERE discord_user_id = ?1",
-                params![discord_user_id],
-                |row| row.get(0),
-            )
-            .map_err(|error| RepositoryError::Unavailable(format!("load updated user id: {}", error)))?;
 
         drop(connection);
         self.load_by_id(id)
@@ -271,9 +264,14 @@ mod tests {
             })
             .expect("insert should succeed");
 
+        let inserted_id = repository
+            .find_by_discord_user_id("1001")
+            .expect("find should succeed")
+            .expect("user should exist")
+            .id;
         let updated = repository
             .update_profile(
-                "1001",
+                inserted_id,
                 UserProfileUpdate {
                     username: "new_user".to_string(),
                     global_name: Some("new".to_string()),

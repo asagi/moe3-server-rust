@@ -21,5 +21,3 @@ pub(crate) use requests::AuthLoginRequest;
 pub(crate) use responses::ApiErrorResponse;
 #[allow(unused_imports)]
 pub(crate) use responses::AuthLoginResponse;
-#[allow(unused_imports)]
-pub(crate) use responses::AuthLoginUserResponse;
