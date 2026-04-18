@@ -13,9 +13,6 @@ pub(crate) use models::Province;
 pub(crate) use models::Territory;
 pub(crate) use models::Unit;
 
-// type aliases
-pub(crate) type UserId = i64;
-
 // adjudicators
 pub(crate) use adjudicators::AdjustmentAdjudicator;
 pub(crate) use adjudicators::MainAdjudicator;

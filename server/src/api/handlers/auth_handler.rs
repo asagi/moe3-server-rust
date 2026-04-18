@@ -86,7 +86,7 @@ mod tests {
     use std::rc::Rc;
 
     use super::*;
-    use crate::domain::UserId;
+    use crate::repositories::UserId;
     use crate::repositories::DiscordProfile;
     use crate::repositories::NewUser;
     use crate::repositories::RepositoryError;

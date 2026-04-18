@@ -1,4 +1,4 @@
-use crate::domain::UserId;
+use crate::repositories::UserId;
 
 use std::error::Error;
 use std::fmt;
