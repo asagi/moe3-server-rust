@@ -195,8 +195,11 @@ mod tests {
         .expect("handler should succeed");
 
         assert_eq!(response.access_token, "token-1");
+        assert_eq!(response.user.discord_user_id, "1001");
         assert_eq!(response.user.username, "nemu");
         assert_eq!(response.user.global_name.as_deref(), Some("asagi"));
+        assert_eq!(response.user.avatar_hash.as_deref(), Some("hash"));
+        assert_eq!(response.user.avatar_url.as_deref(), Some("https://cdn.discordapp.com/avatar.png"));
         assert_eq!(
             response
                 .user
