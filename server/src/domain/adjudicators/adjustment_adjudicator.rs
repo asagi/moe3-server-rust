@@ -44,7 +44,7 @@ impl AdjustmentAdjudicator {
                 if !current_phase
                     .territories
                     .iter()
-                    .any(|t| t.code() == build_order.location().code() && t.power() == &p)
+                    .any(|t| t.code() == build_order.location().code() && t.power == p)
                 {
                     current_phase.orders[i].set_invalid();
                     continue;

@@ -16,16 +16,6 @@ impl Territory {
         }
     }
 
-    /// 占領国を取得する
-    pub(crate) fn power(&self) -> &Power {
-        &self.power
-    }
-
-    /// 占領国を設定する
-    pub(crate) fn set_power(&mut self, power: Power) {
-        self.power = power;
-    }
-
     /// 地域コードを取得する
     pub(crate) fn code_with_coast(&self) -> &str {
         &self.code

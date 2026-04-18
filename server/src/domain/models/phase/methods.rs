@@ -219,7 +219,7 @@ impl Phase {
     pub(crate) fn count_supply_centers(&self, power: &Power) -> usize {
         self.territories
             .iter()
-            .filter(|t| t.power() == power)
+            .filter(|t| &t.power == power)
             .filter(|t| Province::from_code(t.code_with_coast()).is_some_and(Province::is_supply_center))
             .count()
     }
@@ -427,7 +427,7 @@ impl PhaseCloseLogic for FallRetreatPhase {
 
             if let Some(occupied_idx) = current_phase.territories.iter().position(|t| t.code() == code) {
                 // すでに占領されている場合は占領国を更新
-                current_phase.territories[occupied_idx].set_power(current_phase.units[idx].power);
+                current_phase.territories[occupied_idx].power = current_phase.units[idx].power;
                 continue;
             } else if !current_phase.units[idx].location.is_water() {
                 // 水域以外の未占領地は占領情報を新規に登録

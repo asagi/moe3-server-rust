@@ -24,14 +24,14 @@ impl UnitHelper for [Unit] {
         units.sort_by(|&a, &b| {
             let dist_a = territories
                 .iter()
-                .filter(|t| t.power() == power)
+                .filter(|t| &t.power == power)
                 .map(|t| Province::distance(a.location().code(), t.code_with_coast()))
                 .min()
                 .unwrap_or(0);
 
             let dist_b = territories
                 .iter()
-                .filter(|t| t.power() == power)
+                .filter(|t| &t.power == power)
                 .map(|t| Province::distance(b.location().code(), t.code_with_coast()))
                 .min()
                 .unwrap_or(0);
