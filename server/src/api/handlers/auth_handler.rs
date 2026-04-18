@@ -2,12 +2,14 @@ use crate::api::requests::AuthLoginRequest;
 use crate::api::requests::AuthRequestValidationError;
 use crate::api::responses::ApiErrorResponse;
 use crate::api::responses::AuthLoginResponse;
+use crate::api::responses::AuthLoginUserResponse;
 use crate::repositories::UserRepository;
 use crate::services::AuthError;
 use crate::services::AuthService;
 use crate::services::DiscordClientError;
 use crate::services::DiscordIdentityProvider;
 use crate::services::LoginCommand;
+use crate::services::LoginUser;
 
 pub(crate) fn handle_auth_login<U, D>(
     service: &AuthService<U, D>,
@@ -27,8 +29,20 @@ where
 
     Ok(AuthLoginResponse {
         access_token: result.access_token,
-        user: result.user,
+        user: AuthLoginUserResponse::from(result.user),
     })
+}
+
+impl From<LoginUser> for AuthLoginUserResponse {
+    fn from(user: LoginUser) -> Self {
+        Self {
+            discord_user_id: user.discord_user_id,
+            username: user.username,
+            global_name: user.global_name,
+            avatar_hash: user.avatar_hash,
+            avatar_url: user.avatar_url,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -181,8 +195,11 @@ mod tests {
         .expect("handler should succeed");
 
         assert_eq!(response.access_token, "token-1");
+        assert_eq!(response.user.discord_user_id, "1001");
         assert_eq!(response.user.username, "nemu");
         assert_eq!(response.user.global_name.as_deref(), Some("asagi"));
+        assert_eq!(response.user.avatar_hash.as_deref(), Some("hash"));
+        assert_eq!(response.user.avatar_url.as_deref(), Some("https://cdn.discordapp.com/avatar.png"));
         assert_eq!(
             response
                 .user
