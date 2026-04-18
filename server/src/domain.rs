@@ -14,7 +14,6 @@ pub(crate) use models::Territory;
 pub(crate) use models::Unit;
 
 // type aliases
-pub(crate) type OrderId = i64;
 pub(crate) type PhaseId = i64;
 pub(crate) type PlayerId = i64;
 pub(crate) type TableId = i64;

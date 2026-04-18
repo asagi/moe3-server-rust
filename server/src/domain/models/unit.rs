@@ -118,7 +118,6 @@ impl Unit {
     /// 維持命令を生成
     pub(crate) fn hold(&self) -> Order {
         Order {
-            id: None,
             power: self.power,
             unit: *self,
             dislodged_from: None,
@@ -131,7 +130,6 @@ impl Unit {
     #[allow(dead_code)]
     pub(crate) fn move_to(&self, dest: Province) -> Order {
         Order {
-            id: None,
             power: self.power,
             unit: *self,
             dislodged_from: None,
@@ -155,7 +153,6 @@ impl Unit {
     /// サポート命令を生成
     pub(crate) fn support(&self, target_unit: Unit, target_dest: Option<Province>) -> Order {
         Order {
-            id: None,
             power: self.power,
             unit: *self,
             dislodged_from: None,
@@ -175,7 +172,6 @@ impl Unit {
         }
 
         Order {
-            id: None,
             power: self.power,
             unit: *self,
             dislodged_from: None,
@@ -191,7 +187,6 @@ impl Unit {
     #[allow(dead_code)]
     pub(crate) fn retreat_to(&self, dest: Province) -> Order {
         Order {
-            id: None,
             power: self.power,
             unit: *self,
             dislodged_from: self.dislodged_from,
@@ -204,7 +199,6 @@ impl Unit {
     #[allow(dead_code)]
     pub(crate) fn build(&self) -> Order {
         Order {
-            id: None,
             power: self.power,
             unit: *self,
             dislodged_from: None,
@@ -216,7 +210,6 @@ impl Unit {
     /// 解体命令を生成
     pub(crate) fn disband(&self) -> Order {
         Order {
-            id: None,
             power: self.power,
             unit: *self,
             dislodged_from: self.dislodged_from,

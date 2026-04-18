@@ -1,5 +1,4 @@
 // models
-use super::OrderId;
 use super::Power;
 use super::Province;
 use super::Unit;
@@ -14,7 +13,6 @@ use std::fmt;
 /// 命令の定義
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub(crate) struct Order {
-    pub id: Option<OrderId>,
     pub power: Power,
     pub unit: Unit,
     pub dislodged_from: Option<Province>,
@@ -93,7 +91,6 @@ impl Order {
     #[allow(dead_code)]
     pub(crate) fn new_hold(power: Power, unit: Unit) -> Self {
         Order {
-            id: None,
             power,
             unit,
             dislodged_from: None,
@@ -105,7 +102,6 @@ impl Order {
     #[allow(dead_code)]
     pub(crate) fn new_move(power: Power, unit: Unit, dest: Province) -> Self {
         Order {
-            id: None,
             power,
             unit,
             dislodged_from: None,
@@ -117,7 +113,6 @@ impl Order {
     #[allow(dead_code)]
     pub(crate) fn new_support(power: Power, unit: Unit, target_unit: Unit, target_dest: Option<Province>) -> Self {
         Order {
-            id: None,
             power,
             unit,
             dislodged_from: None,
@@ -132,7 +127,6 @@ impl Order {
     #[allow(dead_code)]
     pub(crate) fn new_convoy(power: Power, unit: Unit, target_unit: Unit, target_dest: Province) -> Self {
         Order {
-            id: None,
             power,
             unit,
             dislodged_from: None,
@@ -147,7 +141,6 @@ impl Order {
     #[allow(dead_code)]
     pub(crate) fn new_retreat(power: Power, unit: Unit, dest: Province) -> Self {
         Order {
-            id: None,
             power,
             unit,
             dislodged_from: unit.dislodged_from(),
@@ -159,7 +152,6 @@ impl Order {
     #[allow(dead_code)]
     pub(crate) fn new_build(power: Power, unit: Unit) -> Self {
         Order {
-            id: None,
             power,
             unit,
             dislodged_from: None,
@@ -171,7 +163,6 @@ impl Order {
     #[allow(dead_code)]
     pub(crate) fn new_disband(power: Power, unit: Unit) -> Self {
         Order {
-            id: None,
             power,
             unit,
             dislodged_from: unit.dislodged_from(),
