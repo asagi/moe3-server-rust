@@ -165,11 +165,6 @@ impl Order {
         }
     }
 
-    /// ユニットを返す
-    pub(crate) fn unit(&self) -> Unit {
-        self.unit
-    }
-
     /// ユニットの現在地を返す
     pub(crate) fn location(&self) -> Province {
         self.unit.location()

@@ -33,7 +33,7 @@ impl RetreatAdjudicator {
             // 撤退先が攻撃元の場合は無効
             if let Some(&idx) = conflict_idxs.iter().find(|&&idx| {
                 orders[idx]
-                    .unit()
+                    .unit
                     .dislodged_from()
                     .as_ref()
                     .is_some_and(|from| from.code() == &dest_code[..3])
