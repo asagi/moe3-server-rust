@@ -227,7 +227,7 @@ impl Phase {
     }
 
     /// フェイズ内の命令を返す
-    pub(crate) fn orders(&self) -> &Vec<Order> {
+    pub(crate) fn orders(&self) -> &[Order] {
         &self.orders
     }
 
@@ -237,12 +237,12 @@ impl Phase {
     }
 
     /// フェイズ内のユニットを返す
-    pub(crate) fn units(&self) -> &Vec<Unit> {
+    pub(crate) fn units(&self) -> &[Unit] {
         &self.units
     }
 
     /// フェイズ内の占領情報を返す
-    pub(crate) fn territories(&self) -> &Vec<Territory> {
+    pub(crate) fn territories(&self) -> &[Territory] {
         &self.territories
     }
 

@@ -31,7 +31,7 @@ impl PhaseContext {
         self.active_powers.retain(|p| p != power);
     }
 
-    pub(crate) fn active_powers(&self) -> &Vec<Power> {
+    pub(crate) fn active_powers(&self) -> &[Power] {
         &self.active_powers
     }
 

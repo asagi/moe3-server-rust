@@ -75,7 +75,7 @@ impl AdjustmentAdjudicator {
 
     /// 解体命令の検証
     pub(crate) fn validate_disband_orders(current_phase: &mut Phase) {
-        let copied_units = &mut current_phase.units().clone();
+        let mut copied_units = current_phase.units().to_vec();
 
         for p in Power::iter() {
             let sc_count = current_phase.count_supply_centers(&p);
