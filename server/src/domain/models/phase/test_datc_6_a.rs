@@ -24,13 +24,13 @@ use crate::domain::tests::p;
 fn test_datc_6_a_1() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_nth = f("e", "nth");
-    phase.data.units.push(unit_e_nth);
-    phase.data.orders.push(unit_e_nth.move_to(p("pic")));
+    phase.units.push(unit_e_nth);
+    phase.orders.push(unit_e_nth.move_to(p("pic")));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.units.len(), 1);
-    assert!(phase.data.units.contains(&unit_e_nth));
-    assert!(phase.data.standoff_codes.is_empty());
+    assert_eq!(phase.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.units.len(), 1);
+    assert!(phase.units.contains(&unit_e_nth));
+    assert!(phase.standoff_codes.is_empty());
 }
 
 /// 6.A.2. TEST CASE, MOVE ARMY TO SEA
@@ -44,13 +44,13 @@ fn test_datc_6_a_1() {
 fn test_datc_6_a_2() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_lvp = a("e", "lvp");
-    phase.data.units.push(unit_e_lvp);
-    phase.data.orders.push(unit_e_lvp.move_to(p("iri")));
+    phase.units.push(unit_e_lvp);
+    phase.orders.push(unit_e_lvp.move_to(p("iri")));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.units.len(), 1);
-    assert!(phase.data.units.contains(&unit_e_lvp));
-    assert!(phase.data.standoff_codes.is_empty());
+    assert_eq!(phase.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.units.len(), 1);
+    assert!(phase.units.contains(&unit_e_lvp));
+    assert!(phase.standoff_codes.is_empty());
 }
 
 /// 6.A.3. TEST CASE, MOVE FLEET TO LAND
@@ -64,13 +64,13 @@ fn test_datc_6_a_2() {
 fn test_datc_6_a_3() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_kie = f("g", "kie");
-    phase.data.units.push(unit_g_kie);
-    phase.data.orders.push(unit_g_kie.move_to(p("mun")));
+    phase.units.push(unit_g_kie);
+    phase.orders.push(unit_g_kie.move_to(p("mun")));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.units.len(), 1);
-    assert!(phase.data.units.contains(&unit_g_kie));
-    assert!(phase.data.standoff_codes.is_empty());
+    assert_eq!(phase.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.units.len(), 1);
+    assert!(phase.units.contains(&unit_g_kie));
+    assert!(phase.standoff_codes.is_empty());
 }
 
 /// 6.A.4. TEST CASE, MOVE TO OWN SECTOR
@@ -85,13 +85,13 @@ fn test_datc_6_a_3() {
 fn test_datc_6_a_4() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_g_kie = f("g", "kie");
-    phase.data.units.push(unit_g_kie);
-    phase.data.orders.push(unit_g_kie.move_to(p("kie")));
+    phase.units.push(unit_g_kie);
+    phase.orders.push(unit_g_kie.move_to(p("kie")));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.units.len(), 1);
-    assert!(phase.data.units.contains(&unit_g_kie));
-    assert!(phase.data.standoff_codes.is_empty());
+    assert_eq!(phase.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.units.len(), 1);
+    assert!(phase.units.contains(&unit_g_kie));
+    assert!(phase.standoff_codes.is_empty());
 }
 
 /// 6.A.5. TEST CASE, MOVE TO OWN SECTOR WITH CONVOY
@@ -118,29 +118,29 @@ fn test_datc_6_a_5() {
     let unit_e_lvp = a("e", "lvp");
     let unit_g_lon = f("g", "lon");
     let unit_g_wal = a("g", "wal");
-    phase.data.units.push(unit_e_nth);
-    phase.data.units.push(unit_e_yor);
-    phase.data.units.push(unit_e_lvp);
-    phase.data.units.push(unit_g_lon);
-    phase.data.units.push(unit_g_wal);
-    phase.data.orders.push(unit_e_nth.convoy(unit_e_yor, p("yor")));
-    phase.data.orders.push(unit_e_yor.move_to(p("yor")));
-    phase.data.orders.push(unit_e_lvp.support_move(unit_e_yor, p("yor")));
-    phase.data.orders.push(unit_g_lon.move_to(p("yor")));
-    phase.data.orders.push(unit_g_wal.support_move(unit_g_lon, p("yor")));
+    phase.units.push(unit_e_nth);
+    phase.units.push(unit_e_yor);
+    phase.units.push(unit_e_lvp);
+    phase.units.push(unit_g_lon);
+    phase.units.push(unit_g_wal);
+    phase.orders.push(unit_e_nth.convoy(unit_e_yor, p("yor")));
+    phase.orders.push(unit_e_yor.move_to(p("yor")));
+    phase.orders.push(unit_e_lvp.support_move(unit_e_yor, p("yor")));
+    phase.orders.push(unit_g_lon.move_to(p("yor")));
+    phase.orders.push(unit_g_wal.support_move(unit_g_lon, p("yor")));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Dislodged);
-    assert_eq!(phase.data.orders[2].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.orders[3].status, OrderStatus::Success);
-    assert_eq!(phase.data.orders[4].status, OrderStatus::Valid);
-    assert_eq!(phase.data.units.len(), 5);
-    assert!(phase.data.units.contains(&unit_e_nth));
-    assert!(phase.data.units.contains(&unit_e_yor.set_dislodged_from(Some(p("lon")))));
-    assert!(phase.data.units.contains(&unit_e_lvp));
-    assert!(phase.data.units.contains(&f("g", "yor")));
-    assert!(phase.data.units.contains(&unit_g_wal));
-    assert!(phase.data.standoff_codes.is_empty());
+    assert_eq!(phase.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.orders[1].status, OrderStatus::Dislodged);
+    assert_eq!(phase.orders[2].status, OrderStatus::Invalid);
+    assert_eq!(phase.orders[3].status, OrderStatus::Success);
+    assert_eq!(phase.orders[4].status, OrderStatus::Valid);
+    assert_eq!(phase.units.len(), 5);
+    assert!(phase.units.contains(&unit_e_nth));
+    assert!(phase.units.contains(&unit_e_yor.set_dislodged_from(Some(p("lon")))));
+    assert!(phase.units.contains(&unit_e_lvp));
+    assert!(phase.units.contains(&f("g", "yor")));
+    assert!(phase.units.contains(&unit_g_wal));
+    assert!(phase.standoff_codes.is_empty());
 }
 
 /// 6.A.6. TEST CASE, ORDERING A UNIT OF ANOTHER COUNTRY
@@ -155,16 +155,13 @@ fn test_datc_6_a_5() {
 fn test_datc_6_a_6() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_lon = f("e", "lon");
-    phase.data.units.push(unit_e_lon);
-    phase
-        .data
-        .orders
-        .push(unit_e_lon.move_to(p("nth")).assumed_by(Power::Germany));
+    phase.units.push(unit_e_lon);
+    phase.orders.push(unit_e_lon.move_to(p("nth")).assumed_by(Power::Germany));
     resolve_orders_for_main_phase(&mut phase);
-    assert!(phase.data.orders[0].is_unresolved());
-    assert_eq!(phase.data.units.len(), 1);
-    assert!(phase.data.units.contains(&unit_e_lon));
-    assert!(phase.data.standoff_codes.is_empty());
+    assert!(phase.orders[0].is_unresolved());
+    assert_eq!(phase.units.len(), 1);
+    assert!(phase.units.contains(&unit_e_lon));
+    assert!(phase.standoff_codes.is_empty());
 }
 
 /// 6.A.7. TEST CASE, ONLY ARMIES CAN BE CONVOYED
@@ -180,17 +177,17 @@ fn test_datc_6_a_7() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_e_lon = f("e", "lon");
     let unit_e_nth = f("e", "nth");
-    phase.data.units.push(unit_e_lon);
-    phase.data.units.push(unit_e_nth);
-    phase.data.orders.push(unit_e_lon.move_to(p("bel")));
-    phase.data.orders.push(unit_e_nth.convoy(unit_e_lon, p("bel")));
+    phase.units.push(unit_e_lon);
+    phase.units.push(unit_e_nth);
+    phase.orders.push(unit_e_lon.move_to(p("bel")));
+    phase.orders.push(unit_e_nth.convoy(unit_e_lon, p("bel")));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.units.len(), 2);
-    assert!(phase.data.units.contains(&unit_e_lon));
-    assert!(phase.data.units.contains(&unit_e_nth));
-    assert!(phase.data.standoff_codes.is_empty());
+    assert_eq!(phase.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.orders[1].status, OrderStatus::Invalid);
+    assert_eq!(phase.units.len(), 2);
+    assert!(phase.units.contains(&unit_e_lon));
+    assert!(phase.units.contains(&unit_e_nth));
+    assert!(phase.standoff_codes.is_empty());
 }
 
 /// 6.A.8. TEST CASE, SUPPORT TO HOLD YOURSELF IS NOT POSSIBLE
@@ -210,21 +207,21 @@ fn test_datc_6_a_8() {
     let unit_i_ven = a("i", "ven");
     let unit_i_tyr = a("i", "tyr");
     let mut unit_a_tri = f("a", "tri");
-    phase.data.units.push(unit_i_ven);
-    phase.data.units.push(unit_i_tyr);
-    phase.data.units.push(unit_a_tri);
-    phase.data.orders.push(unit_i_ven.move_to(p("tri")));
-    phase.data.orders.push(unit_i_tyr.support_move(unit_i_ven, p("tri")));
-    phase.data.orders.push(unit_a_tri.support_hold(unit_a_tri));
+    phase.units.push(unit_i_ven);
+    phase.units.push(unit_i_tyr);
+    phase.units.push(unit_a_tri);
+    phase.orders.push(unit_i_ven.move_to(p("tri")));
+    phase.orders.push(unit_i_tyr.support_move(unit_i_ven, p("tri")));
+    phase.orders.push(unit_a_tri.support_hold(unit_a_tri));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Valid);
-    assert_eq!(phase.data.orders[2].status, OrderStatus::Dislodged);
-    assert_eq!(phase.data.units.len(), 3);
-    assert!(phase.data.units.contains(&a("i", "tri")));
-    assert!(phase.data.units.contains(&unit_i_tyr));
-    assert!(phase.data.units.contains(&unit_a_tri.set_dislodged_from(Some(p("ven")))));
-    assert!(phase.data.standoff_codes.is_empty());
+    assert_eq!(phase.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.orders[1].status, OrderStatus::Valid);
+    assert_eq!(phase.orders[2].status, OrderStatus::Dislodged);
+    assert_eq!(phase.units.len(), 3);
+    assert!(phase.units.contains(&a("i", "tri")));
+    assert!(phase.units.contains(&unit_i_tyr));
+    assert!(phase.units.contains(&unit_a_tri.set_dislodged_from(Some(p("ven")))));
+    assert!(phase.standoff_codes.is_empty());
 }
 
 /// 6.A.9. TEST CASE, FLEETS MUST FOLLOW COAST IF NOT ON SEA
@@ -239,13 +236,13 @@ fn test_datc_6_a_8() {
 fn test_datc_6_a_9() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_i_rom = f("i", "rom");
-    phase.data.units.push(unit_i_rom);
-    phase.data.orders.push(unit_i_rom.move_to(p("ven")));
+    phase.units.push(unit_i_rom);
+    phase.orders.push(unit_i_rom.move_to(p("ven")));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.units.len(), 1);
-    assert!(phase.data.units.contains(&unit_i_rom));
-    assert!(phase.data.standoff_codes.is_empty());
+    assert_eq!(phase.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(phase.units.len(), 1);
+    assert!(phase.units.contains(&unit_i_rom));
+    assert!(phase.standoff_codes.is_empty());
 }
 
 /// 6.A.10. TEST CASE, SUPPORT ON UNREACHABLE DESTINATION NOT POSSIBLE
@@ -266,21 +263,21 @@ fn test_datc_6_a_10() {
     let unit_a_ven = a("a", "ven");
     let unit_i_rom = f("i", "rom");
     let unit_i_apu = a("i", "apu");
-    phase.data.units.push(unit_a_ven);
-    phase.data.units.push(unit_i_rom);
-    phase.data.units.push(unit_i_apu);
-    phase.data.orders.push(unit_a_ven.hold());
-    phase.data.orders.push(unit_i_rom.support_move(unit_i_apu, p("ven")));
-    phase.data.orders.push(unit_i_apu.move_to(p("ven")));
+    phase.units.push(unit_a_ven);
+    phase.units.push(unit_i_rom);
+    phase.units.push(unit_i_apu);
+    phase.orders.push(unit_a_ven.hold());
+    phase.orders.push(unit_i_rom.support_move(unit_i_apu, p("ven")));
+    phase.orders.push(unit_i_apu.move_to(p("ven")));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Success);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Invalid);
-    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
-    assert_eq!(phase.data.units.len(), 3);
-    assert!(phase.data.units.contains(&unit_a_ven));
-    assert!(phase.data.units.contains(&unit_i_rom));
-    assert!(phase.data.units.contains(&unit_i_apu));
-    assert!(phase.data.standoff_codes.is_empty());
+    assert_eq!(phase.orders[0].status, OrderStatus::Success);
+    assert_eq!(phase.orders[1].status, OrderStatus::Invalid);
+    assert_eq!(phase.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.units.len(), 3);
+    assert!(phase.units.contains(&unit_a_ven));
+    assert!(phase.units.contains(&unit_i_rom));
+    assert!(phase.units.contains(&unit_i_apu));
+    assert!(phase.standoff_codes.is_empty());
 }
 
 /// 6.A.11. TEST CASE, SIMPLE BOUNCE
@@ -298,17 +295,17 @@ fn test_datc_6_a_11() {
     let mut phase = Phase::new_spring_main(1900, 1);
     let unit_a_vie = a("a", "vie");
     let unit_i_ven = a("i", "ven");
-    phase.data.units.push(unit_a_vie);
-    phase.data.units.push(unit_i_ven);
-    phase.data.orders.push(unit_a_vie.move_to(p("tyr")));
-    phase.data.orders.push(unit_i_ven.move_to(p("tyr")));
+    phase.units.push(unit_a_vie);
+    phase.units.push(unit_i_ven);
+    phase.orders.push(unit_a_vie.move_to(p("tyr")));
+    phase.orders.push(unit_i_ven.move_to(p("tyr")));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
-    assert_eq!(phase.data.units.len(), 2);
-    assert!(phase.data.units.contains(&unit_a_vie));
-    assert!(phase.data.units.contains(&unit_i_ven));
-    assert!(phase.data.standoff_codes.contains(&"tyr".to_string()));
+    assert_eq!(phase.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.units.len(), 2);
+    assert!(phase.units.contains(&unit_a_vie));
+    assert!(phase.units.contains(&unit_i_ven));
+    assert!(phase.standoff_codes.contains(&"tyr".to_string()));
 }
 
 /// 6.A.12. TEST CASE, BOUNCE OF THREE UNITS
@@ -331,19 +328,19 @@ fn test_datc_6_a_12() {
     let unit_a_vie = a("a", "vie");
     let unit_g_mun = a("g", "mun");
     let unit_i_ven = a("i", "ven");
-    phase.data.units.push(unit_a_vie);
-    phase.data.units.push(unit_g_mun);
-    phase.data.units.push(unit_i_ven);
-    phase.data.orders.push(unit_a_vie.move_to(p("tyr")));
-    phase.data.orders.push(unit_g_mun.move_to(p("tyr")));
-    phase.data.orders.push(unit_i_ven.move_to(p("tyr")));
+    phase.units.push(unit_a_vie);
+    phase.units.push(unit_g_mun);
+    phase.units.push(unit_i_ven);
+    phase.orders.push(unit_a_vie.move_to(p("tyr")));
+    phase.orders.push(unit_g_mun.move_to(p("tyr")));
+    phase.orders.push(unit_i_ven.move_to(p("tyr")));
     resolve_orders_for_main_phase(&mut phase);
-    assert_eq!(phase.data.orders[0].status, OrderStatus::Failure);
-    assert_eq!(phase.data.orders[1].status, OrderStatus::Failure);
-    assert_eq!(phase.data.orders[2].status, OrderStatus::Failure);
-    assert_eq!(phase.data.units.len(), 3);
-    assert!(phase.data.units.contains(&unit_a_vie));
-    assert!(phase.data.units.contains(&unit_g_mun));
-    assert!(phase.data.units.contains(&unit_i_ven));
-    assert!(phase.data.standoff_codes.contains(&"tyr".to_string()));
+    assert_eq!(phase.orders[0].status, OrderStatus::Failure);
+    assert_eq!(phase.orders[1].status, OrderStatus::Failure);
+    assert_eq!(phase.orders[2].status, OrderStatus::Failure);
+    assert_eq!(phase.units.len(), 3);
+    assert!(phase.units.contains(&unit_a_vie));
+    assert!(phase.units.contains(&unit_g_mun));
+    assert!(phase.units.contains(&unit_i_ven));
+    assert!(phase.standoff_codes.contains(&"tyr".to_string()));
 }

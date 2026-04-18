@@ -142,25 +142,25 @@ fn test_datc_6_h_5() {
     let unit_r_con = f("r", "con");
     let unit_r_bla = f("r", "bla");
     let mut unit_t_ank = f("t", "ank");
-    main_phase.data.units.push(unit_r_con);
-    main_phase.data.units.push(unit_r_bla);
-    main_phase.data.units.push(unit_t_ank);
-    main_phase.data.orders.push(unit_r_con.support_move(unit_r_bla, p("ank")));
-    main_phase.data.orders.push(unit_r_bla.move_to(p("ank")));
-    main_phase.data.orders.push(unit_t_ank.hold());
+    main_phase.units.push(unit_r_con);
+    main_phase.units.push(unit_r_bla);
+    main_phase.units.push(unit_t_ank);
+    main_phase.orders.push(unit_r_con.support_move(unit_r_bla, p("ank")));
+    main_phase.orders.push(unit_r_bla.move_to(p("ank")));
+    main_phase.orders.push(unit_t_ank.hold());
 
     main_phase.close(&mut context);
     let mut retreat_phase = context.pop_phase().unwrap();
-    retreat_phase.data.orders.clear();
+    retreat_phase.orders.clear();
     retreat_phase
-        .data
+
         .orders
         .push(unit_t_ank.set_dislodged_from(Some(p("bla"))).retreat_to(p("bla")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
-    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(retreat_phase.data.units.len(), 2);
-    assert!(retreat_phase.data.units.contains(&unit_r_con));
-    assert!(retreat_phase.data.units.contains(&f("r", "ank")));
+    assert_eq!(retreat_phase.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(retreat_phase.units.len(), 2);
+    assert!(retreat_phase.units.contains(&unit_r_con));
+    assert!(retreat_phase.units.contains(&f("r", "ank")));
 }
 
 /// 6.H.6. TEST CASE, UNIT MAY NOT RETREAT TO A CONTESTED AREA
@@ -187,36 +187,36 @@ fn test_datc_6_h_6() {
     let unit_g_mun = a("g", "mun");
     let unit_g_sil = a("g", "sil");
     let mut unit_i_vie = a("i", "vie");
-    main_phase.data.units.push(unit_a_bud);
-    main_phase.data.units.push(unit_a_tri);
-    main_phase.data.units.push(unit_g_mun);
-    main_phase.data.units.push(unit_g_sil);
-    main_phase.data.units.push(unit_i_vie);
-    main_phase.data.territories.push(t("a", "bud"));
-    main_phase.data.territories.push(t("a", "tri"));
-    main_phase.data.territories.push(t("g", "mun"));
-    main_phase.data.territories.push(t("g", "ber"));
-    main_phase.data.territories.push(t("i", "vie"));
-    main_phase.data.orders.push(unit_a_bud.support_move(unit_a_tri, p("vie")));
-    main_phase.data.orders.push(unit_a_tri.move_to(p("vie")));
-    main_phase.data.orders.push(unit_g_mun.move_to(p("boh")));
-    main_phase.data.orders.push(unit_g_sil.move_to(p("boh")));
-    main_phase.data.orders.push(unit_i_vie.hold());
+    main_phase.units.push(unit_a_bud);
+    main_phase.units.push(unit_a_tri);
+    main_phase.units.push(unit_g_mun);
+    main_phase.units.push(unit_g_sil);
+    main_phase.units.push(unit_i_vie);
+    main_phase.territories.push(t("a", "bud"));
+    main_phase.territories.push(t("a", "tri"));
+    main_phase.territories.push(t("g", "mun"));
+    main_phase.territories.push(t("g", "ber"));
+    main_phase.territories.push(t("i", "vie"));
+    main_phase.orders.push(unit_a_bud.support_move(unit_a_tri, p("vie")));
+    main_phase.orders.push(unit_a_tri.move_to(p("vie")));
+    main_phase.orders.push(unit_g_mun.move_to(p("boh")));
+    main_phase.orders.push(unit_g_sil.move_to(p("boh")));
+    main_phase.orders.push(unit_i_vie.hold());
 
     main_phase.close(&mut context);
     let mut retreat_phase = context.pop_phase().unwrap();
-    retreat_phase.data.orders.clear();
+    retreat_phase.orders.clear();
     retreat_phase
-        .data
+
         .orders
         .push(unit_i_vie.set_dislodged_from(Some(p("tri"))).retreat_to(p("boh")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
-    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(retreat_phase.data.units.len(), 4);
-    assert!(retreat_phase.data.units.contains(&unit_a_bud));
-    assert!(retreat_phase.data.units.contains(&a("a", "vie")));
-    assert!(retreat_phase.data.units.contains(&unit_g_mun));
-    assert!(retreat_phase.data.units.contains(&unit_g_sil));
+    assert_eq!(retreat_phase.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(retreat_phase.units.len(), 4);
+    assert!(retreat_phase.units.contains(&unit_a_bud));
+    assert!(retreat_phase.units.contains(&a("a", "vie")));
+    assert!(retreat_phase.units.contains(&unit_g_mun));
+    assert!(retreat_phase.units.contains(&unit_g_sil));
 }
 
 /// 6.H.7. TEST CASE, MULTIPLE RETREAT TO SAME AREA WILL DISBAND UNITS
@@ -251,38 +251,38 @@ fn test_datc_6_h_7() {
     let unit_g_sil = a("g", "sil");
     let mut unit_i_vie = a("i", "vie");
     let mut unit_i_boh = a("i", "boh");
-    main_phase.data.units.push(unit_a_bud);
-    main_phase.data.units.push(unit_a_tri);
-    main_phase.data.units.push(unit_g_mun);
-    main_phase.data.units.push(unit_g_sil);
-    main_phase.data.units.push(unit_i_vie);
-    main_phase.data.units.push(unit_i_boh);
-    main_phase.data.orders.push(unit_a_bud.support_move(unit_a_tri, p("vie")));
-    main_phase.data.orders.push(unit_a_tri.move_to(p("vie")));
-    main_phase.data.orders.push(unit_g_mun.support_move(unit_g_sil, p("boh")));
-    main_phase.data.orders.push(unit_g_sil.move_to(p("boh")));
-    main_phase.data.orders.push(unit_i_vie.hold());
-    main_phase.data.orders.push(unit_i_boh.hold());
+    main_phase.units.push(unit_a_bud);
+    main_phase.units.push(unit_a_tri);
+    main_phase.units.push(unit_g_mun);
+    main_phase.units.push(unit_g_sil);
+    main_phase.units.push(unit_i_vie);
+    main_phase.units.push(unit_i_boh);
+    main_phase.orders.push(unit_a_bud.support_move(unit_a_tri, p("vie")));
+    main_phase.orders.push(unit_a_tri.move_to(p("vie")));
+    main_phase.orders.push(unit_g_mun.support_move(unit_g_sil, p("boh")));
+    main_phase.orders.push(unit_g_sil.move_to(p("boh")));
+    main_phase.orders.push(unit_i_vie.hold());
+    main_phase.orders.push(unit_i_boh.hold());
 
     main_phase.close(&mut context);
     let mut retreat_phase = context.pop_phase().unwrap();
-    retreat_phase.data.orders.clear();
+    retreat_phase.orders.clear();
     retreat_phase
-        .data
+
         .orders
         .push(unit_i_vie.set_dislodged_from(Some(p("tri"))).retreat_to(p("tyr")));
     retreat_phase
-        .data
+
         .orders
         .push(unit_i_boh.set_dislodged_from(Some(p("sil"))).retreat_to(p("tyr")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
-    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Failure);
-    assert_eq!(retreat_phase.data.orders[1].status, OrderStatus::Failure);
-    assert_eq!(retreat_phase.data.units.len(), 4);
-    assert!(retreat_phase.data.units.contains(&unit_a_bud));
-    assert!(retreat_phase.data.units.contains(&a("a", "vie")));
-    assert!(retreat_phase.data.units.contains(&unit_g_mun));
-    assert!(retreat_phase.data.units.contains(&a("g", "boh")));
+    assert_eq!(retreat_phase.orders[0].status, OrderStatus::Failure);
+    assert_eq!(retreat_phase.orders[1].status, OrderStatus::Failure);
+    assert_eq!(retreat_phase.units.len(), 4);
+    assert!(retreat_phase.units.contains(&unit_a_bud));
+    assert!(retreat_phase.units.contains(&a("a", "vie")));
+    assert!(retreat_phase.units.contains(&unit_g_mun));
+    assert!(retreat_phase.units.contains(&a("g", "boh")));
 }
 
 /// 6.H.8. TEST CASE, TRIPLE RETREAT TO SAME AREA WILL DISBAND UNITS
@@ -326,51 +326,51 @@ fn test_datc_6_h_8() {
     let unit_r_swe = a("r", "swe");
     let unit_r_fin = a("r", "fin");
     let mut unit_r_hol = f("r", "hol");
-    main_phase.data.units.push(unit_e_lvp);
-    main_phase.data.units.push(unit_e_yor);
-    main_phase.data.units.push(unit_e_nwy);
-    main_phase.data.units.push(unit_g_kie);
-    main_phase.data.units.push(unit_g_ruh);
-    main_phase.data.units.push(unit_r_edi);
-    main_phase.data.units.push(unit_r_swe);
-    main_phase.data.units.push(unit_r_fin);
-    main_phase.data.units.push(unit_r_hol);
-    main_phase.data.orders.push(unit_e_lvp.move_to(p("edi")));
-    main_phase.data.orders.push(unit_e_yor.support_move(unit_e_lvp, p("edi")));
-    main_phase.data.orders.push(unit_e_nwy.hold());
-    main_phase.data.orders.push(unit_g_kie.support_move(unit_g_ruh, p("hol")));
-    main_phase.data.orders.push(unit_g_ruh.move_to(p("hol")));
-    main_phase.data.orders.push(unit_r_edi.hold());
-    main_phase.data.orders.push(unit_r_swe.support_move(unit_r_fin, p("nwy")));
-    main_phase.data.orders.push(unit_r_fin.move_to(p("nwy")));
-    main_phase.data.orders.push(unit_r_hol.hold());
+    main_phase.units.push(unit_e_lvp);
+    main_phase.units.push(unit_e_yor);
+    main_phase.units.push(unit_e_nwy);
+    main_phase.units.push(unit_g_kie);
+    main_phase.units.push(unit_g_ruh);
+    main_phase.units.push(unit_r_edi);
+    main_phase.units.push(unit_r_swe);
+    main_phase.units.push(unit_r_fin);
+    main_phase.units.push(unit_r_hol);
+    main_phase.orders.push(unit_e_lvp.move_to(p("edi")));
+    main_phase.orders.push(unit_e_yor.support_move(unit_e_lvp, p("edi")));
+    main_phase.orders.push(unit_e_nwy.hold());
+    main_phase.orders.push(unit_g_kie.support_move(unit_g_ruh, p("hol")));
+    main_phase.orders.push(unit_g_ruh.move_to(p("hol")));
+    main_phase.orders.push(unit_r_edi.hold());
+    main_phase.orders.push(unit_r_swe.support_move(unit_r_fin, p("nwy")));
+    main_phase.orders.push(unit_r_fin.move_to(p("nwy")));
+    main_phase.orders.push(unit_r_hol.hold());
 
     main_phase.close(&mut context);
     let mut retreat_phase = context.pop_phase().unwrap();
-    retreat_phase.data.orders.clear();
+    retreat_phase.orders.clear();
     retreat_phase
-        .data
+
         .orders
         .push(unit_e_nwy.set_dislodged_from(Some(p("fin"))).retreat_to(p("nth")));
     retreat_phase
-        .data
+
         .orders
         .push(unit_r_edi.set_dislodged_from(Some(p("lvp"))).retreat_to(p("nth")));
     retreat_phase
-        .data
+
         .orders
         .push(unit_r_hol.set_dislodged_from(Some(p("ruh"))).retreat_to(p("nth")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
-    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Failure);
-    assert_eq!(retreat_phase.data.orders[1].status, OrderStatus::Failure);
-    assert_eq!(retreat_phase.data.orders[2].status, OrderStatus::Failure);
-    assert_eq!(retreat_phase.data.units.len(), 6);
-    assert!(retreat_phase.data.units.contains(&a("e", "edi")));
-    assert!(retreat_phase.data.units.contains(&unit_e_yor));
-    assert!(retreat_phase.data.units.contains(&unit_g_kie));
-    assert!(retreat_phase.data.units.contains(&a("g", "hol")));
-    assert!(retreat_phase.data.units.contains(&unit_r_swe));
-    assert!(retreat_phase.data.units.contains(&a("r", "nwy")));
+    assert_eq!(retreat_phase.orders[0].status, OrderStatus::Failure);
+    assert_eq!(retreat_phase.orders[1].status, OrderStatus::Failure);
+    assert_eq!(retreat_phase.orders[2].status, OrderStatus::Failure);
+    assert_eq!(retreat_phase.units.len(), 6);
+    assert!(retreat_phase.units.contains(&a("e", "edi")));
+    assert!(retreat_phase.units.contains(&unit_e_yor));
+    assert!(retreat_phase.units.contains(&unit_g_kie));
+    assert!(retreat_phase.units.contains(&a("g", "hol")));
+    assert!(retreat_phase.units.contains(&unit_r_swe));
+    assert!(retreat_phase.units.contains(&a("r", "nwy")));
 }
 
 /// 6.H.9. TEST CASE, DISLODGED UNIT WILL NOT MAKE ATTACKERS AREA CONTESTED
@@ -399,39 +399,39 @@ fn test_datc_6_h_9() {
     let mut unit_g_kie = f("g", "kie");
     let unit_g_sil = a("g", "sil");
     let mut unit_r_pru = a("r", "pru");
-    main_phase.data.units.push(unit_e_hel);
-    main_phase.data.units.push(unit_e_den);
-    main_phase.data.units.push(unit_g_ber);
-    main_phase.data.units.push(unit_g_kie);
-    main_phase.data.units.push(unit_g_sil);
-    main_phase.data.units.push(unit_r_pru);
-    main_phase.data.orders.push(unit_e_hel.move_to(p("kie")));
-    main_phase.data.orders.push(unit_e_den.support_move(unit_e_hel, p("kie")));
-    main_phase.data.orders.push(unit_g_ber.move_to(p("pru")));
-    main_phase.data.orders.push(unit_g_kie.hold());
-    main_phase.data.orders.push(unit_g_sil.support_move(unit_g_ber, p("pru")));
-    main_phase.data.orders.push(unit_r_pru.move_to(p("ber")));
+    main_phase.units.push(unit_e_hel);
+    main_phase.units.push(unit_e_den);
+    main_phase.units.push(unit_g_ber);
+    main_phase.units.push(unit_g_kie);
+    main_phase.units.push(unit_g_sil);
+    main_phase.units.push(unit_r_pru);
+    main_phase.orders.push(unit_e_hel.move_to(p("kie")));
+    main_phase.orders.push(unit_e_den.support_move(unit_e_hel, p("kie")));
+    main_phase.orders.push(unit_g_ber.move_to(p("pru")));
+    main_phase.orders.push(unit_g_kie.hold());
+    main_phase.orders.push(unit_g_sil.support_move(unit_g_ber, p("pru")));
+    main_phase.orders.push(unit_r_pru.move_to(p("ber")));
 
     main_phase.close(&mut context);
     let mut retreat_phase = context.pop_phase().unwrap();
-    retreat_phase.data.orders.clear();
+    retreat_phase.orders.clear();
     retreat_phase
-        .data
+
         .orders
         .push(unit_g_kie.set_dislodged_from(Some(p("hel"))).retreat_to(p("ber")));
     retreat_phase
-        .data
+
         .orders
         .push(unit_r_pru.set_dislodged_from(Some(p("ber"))).retreat_to(p("ber")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
-    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Success);
-    assert_eq!(retreat_phase.data.orders[1].status, OrderStatus::Invalid);
-    assert_eq!(retreat_phase.data.units.len(), 5);
-    assert!(retreat_phase.data.units.contains(&f("e", "kie")));
-    assert!(retreat_phase.data.units.contains(&unit_e_den));
-    assert!(retreat_phase.data.units.contains(&a("g", "pru")));
-    assert!(retreat_phase.data.units.contains(&unit_g_sil));
-    assert!(retreat_phase.data.units.contains(&f("g", "ber")));
+    assert_eq!(retreat_phase.orders[0].status, OrderStatus::Success);
+    assert_eq!(retreat_phase.orders[1].status, OrderStatus::Invalid);
+    assert_eq!(retreat_phase.units.len(), 5);
+    assert!(retreat_phase.units.contains(&f("e", "kie")));
+    assert!(retreat_phase.units.contains(&unit_e_den));
+    assert!(retreat_phase.units.contains(&a("g", "pru")));
+    assert!(retreat_phase.units.contains(&unit_g_sil));
+    assert!(retreat_phase.units.contains(&f("g", "ber")));
 }
 
 /// 6.H.10. TEST CASE, NOT RETREATING TO ATTACKER DOES NOT MEAN CONTESTED
@@ -473,39 +473,39 @@ fn test_datc_6_h_10() {
     let mut unit_g_pru = a("g", "pru");
     let unit_r_war = a("r", "war");
     let unit_r_sil = a("r", "sil");
-    main_phase.data.units.push(unit_e_kie);
-    main_phase.data.units.push(unit_g_ber);
-    main_phase.data.units.push(unit_g_mun);
-    main_phase.data.units.push(unit_g_pru);
-    main_phase.data.units.push(unit_r_war);
-    main_phase.data.units.push(unit_r_sil);
-    main_phase.data.orders.push(unit_e_kie.hold());
-    main_phase.data.orders.push(unit_g_ber.move_to(p("kie")));
-    main_phase.data.orders.push(unit_g_mun.support_move(unit_g_ber, p("kie")));
-    main_phase.data.orders.push(unit_g_pru.hold());
-    main_phase.data.orders.push(unit_r_war.move_to(p("pru")));
-    main_phase.data.orders.push(unit_r_sil.support_move(unit_r_war, p("pru")));
+    main_phase.units.push(unit_e_kie);
+    main_phase.units.push(unit_g_ber);
+    main_phase.units.push(unit_g_mun);
+    main_phase.units.push(unit_g_pru);
+    main_phase.units.push(unit_r_war);
+    main_phase.units.push(unit_r_sil);
+    main_phase.orders.push(unit_e_kie.hold());
+    main_phase.orders.push(unit_g_ber.move_to(p("kie")));
+    main_phase.orders.push(unit_g_mun.support_move(unit_g_ber, p("kie")));
+    main_phase.orders.push(unit_g_pru.hold());
+    main_phase.orders.push(unit_r_war.move_to(p("pru")));
+    main_phase.orders.push(unit_r_sil.support_move(unit_r_war, p("pru")));
 
     main_phase.close(&mut context);
     let mut retreat_phase = context.pop_phase().unwrap();
-    retreat_phase.data.orders.clear();
+    retreat_phase.orders.clear();
     retreat_phase
-        .data
+
         .orders
         .push(unit_e_kie.set_dislodged_from(Some(p("ber"))).retreat_to(p("ber")));
     retreat_phase
-        .data
+
         .orders
         .push(unit_g_pru.set_dislodged_from(Some(p("war"))).retreat_to(p("ber")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
-    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(retreat_phase.data.orders[1].status, OrderStatus::Success);
-    assert_eq!(retreat_phase.data.units.len(), 5);
-    assert!(retreat_phase.data.units.contains(&a("g", "kie")));
-    assert!(retreat_phase.data.units.contains(&unit_g_mun));
-    assert!(retreat_phase.data.units.contains(&a("r", "pru")));
-    assert!(retreat_phase.data.units.contains(&unit_r_sil));
-    assert!(retreat_phase.data.units.contains(&a("g", "ber")));
+    assert_eq!(retreat_phase.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(retreat_phase.orders[1].status, OrderStatus::Success);
+    assert_eq!(retreat_phase.units.len(), 5);
+    assert!(retreat_phase.units.contains(&a("g", "kie")));
+    assert!(retreat_phase.units.contains(&unit_g_mun));
+    assert!(retreat_phase.units.contains(&a("r", "pru")));
+    assert!(retreat_phase.units.contains(&unit_r_sil));
+    assert!(retreat_phase.units.contains(&a("g", "ber")));
 }
 
 /// 6.H.11. TEST CASE, RETREAT WHEN DISLODGED BY ADJACENT CONVOY
@@ -538,35 +538,35 @@ fn test_datc_6_h_11() {
     let unit_f_wes = f("f", "wes");
     let unit_f_gol = f("f", "gol");
     let mut unit_i_mar = a("i", "mar");
-    main_phase.data.units.push(unit_f_gas);
-    main_phase.data.units.push(unit_f_bur);
-    main_phase.data.units.push(unit_f_mid);
-    main_phase.data.units.push(unit_f_wes);
-    main_phase.data.units.push(unit_f_gol);
-    main_phase.data.units.push(unit_i_mar);
-    main_phase.data.orders.push(unit_f_gas.move_to(p("mar")).set_via_convoy());
-    main_phase.data.orders.push(unit_f_bur.support_move(unit_f_gas, p("mar")));
-    main_phase.data.orders.push(unit_f_mid.convoy(unit_f_gas, p("mar")));
-    main_phase.data.orders.push(unit_f_wes.convoy(unit_f_gas, p("mar")));
-    main_phase.data.orders.push(unit_f_gol.convoy(unit_f_gas, p("mar")));
-    main_phase.data.orders.push(unit_i_mar.hold());
+    main_phase.units.push(unit_f_gas);
+    main_phase.units.push(unit_f_bur);
+    main_phase.units.push(unit_f_mid);
+    main_phase.units.push(unit_f_wes);
+    main_phase.units.push(unit_f_gol);
+    main_phase.units.push(unit_i_mar);
+    main_phase.orders.push(unit_f_gas.move_to(p("mar")).set_via_convoy());
+    main_phase.orders.push(unit_f_bur.support_move(unit_f_gas, p("mar")));
+    main_phase.orders.push(unit_f_mid.convoy(unit_f_gas, p("mar")));
+    main_phase.orders.push(unit_f_wes.convoy(unit_f_gas, p("mar")));
+    main_phase.orders.push(unit_f_gol.convoy(unit_f_gas, p("mar")));
+    main_phase.orders.push(unit_i_mar.hold());
 
     main_phase.close(&mut context);
     let mut retreat_phase = context.pop_phase().unwrap();
-    retreat_phase.data.orders.clear();
+    retreat_phase.orders.clear();
     retreat_phase
-        .data
+
         .orders
         .push(unit_i_mar.set_dislodged_via_convoy().retreat_to(p("gas")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
-    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Success);
-    assert_eq!(retreat_phase.data.units.len(), 6);
-    assert!(retreat_phase.data.units.contains(&a("f", "mar")));
-    assert!(retreat_phase.data.units.contains(&unit_f_bur));
-    assert!(retreat_phase.data.units.contains(&unit_f_mid));
-    assert!(retreat_phase.data.units.contains(&unit_f_wes));
-    assert!(retreat_phase.data.units.contains(&unit_f_gol));
-    assert!(retreat_phase.data.units.contains(&a("i", "gas")));
+    assert_eq!(retreat_phase.orders[0].status, OrderStatus::Success);
+    assert_eq!(retreat_phase.units.len(), 6);
+    assert!(retreat_phase.units.contains(&a("f", "mar")));
+    assert!(retreat_phase.units.contains(&unit_f_bur));
+    assert!(retreat_phase.units.contains(&unit_f_mid));
+    assert!(retreat_phase.units.contains(&unit_f_wes));
+    assert!(retreat_phase.units.contains(&unit_f_gol));
+    assert!(retreat_phase.units.contains(&a("i", "gas")));
 }
 
 /// 6.H.12. TEST CASE, RETREAT WHEN DISLODGED BY ADJACENT CONVOY WHILE TRYING TO DO THE SAME
@@ -611,47 +611,47 @@ fn test_datc_6_h_12() {
     let unit_r_nrg = f("r", "nrg");
     let unit_r_nat = f("r", "nat");
     let unit_r_cly = a("r", "cly");
-    main_phase.data.units.push(unit_e_lvp);
-    main_phase.data.units.push(unit_e_iri);
-    main_phase.data.units.push(unit_e_eng);
-    main_phase.data.units.push(unit_e_nth);
-    main_phase.data.units.push(unit_f_bre);
-    main_phase.data.units.push(unit_f_mid);
-    main_phase.data.units.push(unit_r_edi);
-    main_phase.data.units.push(unit_r_nrg);
-    main_phase.data.units.push(unit_r_nat);
-    main_phase.data.units.push(unit_r_cly);
-    main_phase.data.orders.push(unit_e_lvp.move_to(p("edi")).set_via_convoy());
-    main_phase.data.orders.push(unit_e_iri.convoy(unit_e_lvp, p("edi")));
-    main_phase.data.orders.push(unit_e_eng.convoy(unit_e_lvp, p("edi")));
-    main_phase.data.orders.push(unit_e_nth.convoy(unit_e_lvp, p("edi")));
-    main_phase.data.orders.push(unit_f_bre.move_to(p("eng")));
-    main_phase.data.orders.push(unit_f_mid.support_move(unit_f_bre, p("eng")));
-    main_phase.data.orders.push(unit_r_edi.move_to(p("lvp")).set_via_convoy());
-    main_phase.data.orders.push(unit_r_nrg.convoy(unit_r_edi, p("lvp")));
-    main_phase.data.orders.push(unit_r_nat.convoy(unit_r_edi, p("lvp")));
-    main_phase.data.orders.push(unit_r_cly.support_move(unit_r_edi, p("lvp")));
+    main_phase.units.push(unit_e_lvp);
+    main_phase.units.push(unit_e_iri);
+    main_phase.units.push(unit_e_eng);
+    main_phase.units.push(unit_e_nth);
+    main_phase.units.push(unit_f_bre);
+    main_phase.units.push(unit_f_mid);
+    main_phase.units.push(unit_r_edi);
+    main_phase.units.push(unit_r_nrg);
+    main_phase.units.push(unit_r_nat);
+    main_phase.units.push(unit_r_cly);
+    main_phase.orders.push(unit_e_lvp.move_to(p("edi")).set_via_convoy());
+    main_phase.orders.push(unit_e_iri.convoy(unit_e_lvp, p("edi")));
+    main_phase.orders.push(unit_e_eng.convoy(unit_e_lvp, p("edi")));
+    main_phase.orders.push(unit_e_nth.convoy(unit_e_lvp, p("edi")));
+    main_phase.orders.push(unit_f_bre.move_to(p("eng")));
+    main_phase.orders.push(unit_f_mid.support_move(unit_f_bre, p("eng")));
+    main_phase.orders.push(unit_r_edi.move_to(p("lvp")).set_via_convoy());
+    main_phase.orders.push(unit_r_nrg.convoy(unit_r_edi, p("lvp")));
+    main_phase.orders.push(unit_r_nat.convoy(unit_r_edi, p("lvp")));
+    main_phase.orders.push(unit_r_cly.support_move(unit_r_edi, p("lvp")));
 
     main_phase.close(&mut context);
     let mut retreat_phase = context.pop_phase().unwrap();
-    retreat_phase.data.orders.clear();
+    retreat_phase.orders.clear();
     retreat_phase
-        .data
+
         .orders
         .push(unit_e_lvp.set_dislodged_via_convoy().retreat_to(p("edi")));
-    retreat_phase.data.orders.push(unit_e_eng.disband());
+    retreat_phase.orders.push(unit_e_eng.disband());
     resolve_orders_for_retreat_phase(&mut retreat_phase);
-    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Success);
-    assert_eq!(retreat_phase.data.units.len(), 9);
-    assert!(retreat_phase.data.units.contains(&a("e", "edi")));
-    assert!(retreat_phase.data.units.contains(&unit_e_iri));
-    assert!(retreat_phase.data.units.contains(&unit_e_nth));
-    assert!(retreat_phase.data.units.contains(&f("f", "eng")));
-    assert!(retreat_phase.data.units.contains(&unit_f_mid));
-    assert!(retreat_phase.data.units.contains(&a("r", "lvp")));
-    assert!(retreat_phase.data.units.contains(&unit_r_nrg));
-    assert!(retreat_phase.data.units.contains(&unit_r_nat));
-    assert!(retreat_phase.data.units.contains(&unit_r_cly));
+    assert_eq!(retreat_phase.orders[0].status, OrderStatus::Success);
+    assert_eq!(retreat_phase.units.len(), 9);
+    assert!(retreat_phase.units.contains(&a("e", "edi")));
+    assert!(retreat_phase.units.contains(&unit_e_iri));
+    assert!(retreat_phase.units.contains(&unit_e_nth));
+    assert!(retreat_phase.units.contains(&f("f", "eng")));
+    assert!(retreat_phase.units.contains(&unit_f_mid));
+    assert!(retreat_phase.units.contains(&a("r", "lvp")));
+    assert!(retreat_phase.units.contains(&unit_r_nrg));
+    assert!(retreat_phase.units.contains(&unit_r_nat));
+    assert!(retreat_phase.units.contains(&unit_r_cly));
 }
 
 /// 6.H.13. TEST CASE, NO RETREAT WITH CONVOY IN MOVEMENT PHASE
@@ -720,25 +720,25 @@ fn test_datc_6_h_15() {
     let mut unit_e_por = f("e", "por");
     let unit_f_spa_sc = f("f", "spa_sc");
     let unit_f_mid = f("f", "mid");
-    main_phase.data.units.push(unit_e_por);
-    main_phase.data.units.push(unit_f_spa_sc);
-    main_phase.data.units.push(unit_f_mid);
-    main_phase.data.orders.push(unit_e_por.hold());
-    main_phase.data.orders.push(unit_f_spa_sc.move_to(p("por")));
-    main_phase.data.orders.push(unit_f_mid.support_move(unit_f_spa_sc, p("por")));
+    main_phase.units.push(unit_e_por);
+    main_phase.units.push(unit_f_spa_sc);
+    main_phase.units.push(unit_f_mid);
+    main_phase.orders.push(unit_e_por.hold());
+    main_phase.orders.push(unit_f_spa_sc.move_to(p("por")));
+    main_phase.orders.push(unit_f_mid.support_move(unit_f_spa_sc, p("por")));
 
     main_phase.close(&mut context);
     let mut retreat_phase = context.pop_phase().unwrap();
-    retreat_phase.data.orders.clear();
+    retreat_phase.orders.clear();
     retreat_phase
-        .data
+
         .orders
         .push(unit_e_por.set_dislodged_from(Some(p("spa_sc"))).retreat_to(p("spa_nc")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
-    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(retreat_phase.data.units.len(), 2);
-    assert!(retreat_phase.data.units.contains(&f("f", "por")));
-    assert!(retreat_phase.data.units.contains(&unit_f_mid));
+    assert_eq!(retreat_phase.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(retreat_phase.units.len(), 2);
+    assert!(retreat_phase.units.contains(&f("f", "por")));
+    assert!(retreat_phase.units.contains(&unit_f_mid));
 }
 
 /// 6.H.16. TEST CASE, CONTESTED FOR BOTH COASTS
@@ -763,34 +763,34 @@ fn test_datc_6_h_16() {
     let mut unit_f_wes = f("f", "wes");
     let unit_i_tun = f("i", "tun");
     let unit_i_tyn = f("i", "tyn");
-    main_phase.data.units.push(unit_f_mid);
-    main_phase.data.units.push(unit_f_gas);
-    main_phase.data.units.push(unit_f_wes);
-    main_phase.data.units.push(unit_i_tun);
-    main_phase.data.units.push(unit_i_tyn);
-    main_phase.data.territories.push(t("f", "bre"));
-    main_phase.data.territories.push(t("f", "gas"));
-    main_phase.data.territories.push(t("f", "par"));
-    main_phase.data.territories.push(t("i", "tun"));
-    main_phase.data.territories.push(t("i", "tyn"));
-    main_phase.data.orders.push(unit_f_mid.move_to(p("spa_nc")));
-    main_phase.data.orders.push(unit_f_gas.move_to(p("spa_nc")));
-    main_phase.data.orders.push(unit_f_wes.hold());
-    main_phase.data.orders.push(unit_i_tun.support_move(unit_i_tyn, p("wes")));
-    main_phase.data.orders.push(unit_i_tyn.move_to(p("wes")));
+    main_phase.units.push(unit_f_mid);
+    main_phase.units.push(unit_f_gas);
+    main_phase.units.push(unit_f_wes);
+    main_phase.units.push(unit_i_tun);
+    main_phase.units.push(unit_i_tyn);
+    main_phase.territories.push(t("f", "bre"));
+    main_phase.territories.push(t("f", "gas"));
+    main_phase.territories.push(t("f", "par"));
+    main_phase.territories.push(t("i", "tun"));
+    main_phase.territories.push(t("i", "tyn"));
+    main_phase.orders.push(unit_f_mid.move_to(p("spa_nc")));
+    main_phase.orders.push(unit_f_gas.move_to(p("spa_nc")));
+    main_phase.orders.push(unit_f_wes.hold());
+    main_phase.orders.push(unit_i_tun.support_move(unit_i_tyn, p("wes")));
+    main_phase.orders.push(unit_i_tyn.move_to(p("wes")));
 
     main_phase.close(&mut context);
     let mut retreat_phase = context.pop_phase().unwrap();
-    retreat_phase.data.orders.clear();
+    retreat_phase.orders.clear();
     retreat_phase
-        .data
+
         .orders
         .push(unit_f_wes.set_dislodged_from(Some(p("tyn"))).retreat_to(p("spa_sc")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
-    assert_eq!(retreat_phase.data.orders[0].status, OrderStatus::Invalid);
-    assert_eq!(retreat_phase.data.units.len(), 4);
-    assert!(retreat_phase.data.units.contains(&unit_f_mid));
-    assert!(retreat_phase.data.units.contains(&unit_f_gas));
-    assert!(retreat_phase.data.units.contains(&unit_i_tun));
-    assert!(retreat_phase.data.units.contains(&f("i", "wes")));
+    assert_eq!(retreat_phase.orders[0].status, OrderStatus::Invalid);
+    assert_eq!(retreat_phase.units.len(), 4);
+    assert!(retreat_phase.units.contains(&unit_f_mid));
+    assert!(retreat_phase.units.contains(&unit_f_gas));
+    assert!(retreat_phase.units.contains(&unit_i_tun));
+    assert!(retreat_phase.units.contains(&f("i", "wes")));
 }

@@ -14,8 +14,6 @@ pub(crate) use models::Territory;
 pub(crate) use models::Unit;
 
 // type aliases
-pub(crate) type PhaseId = i64;
-pub(crate) type TableId = i64;
 pub(crate) type UserId = i64;
 
 // adjudicators

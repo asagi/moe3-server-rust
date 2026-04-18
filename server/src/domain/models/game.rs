@@ -6,5 +6,5 @@ use serde::Serialize;
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub(crate) struct Game {
-    number: i32,
+    number: Option<i32>,
 }

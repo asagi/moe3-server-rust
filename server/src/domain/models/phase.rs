@@ -13,10 +13,6 @@ pub(crate) use context::PhaseContext;
 // enums
 pub(crate) use super::OrderKind;
 
-// type aliases
-pub(crate) use super::PhaseId;
-pub(crate) use super::TableId;
-
 // adjudicators
 pub(crate) use super::AdjustmentAdjudicator;
 pub(crate) use super::MainAdjudicator;
@@ -29,8 +25,6 @@ pub(crate) use super::RetreatOrderHelper;
 pub(crate) use super::UnitHelper;
 
 // external crates
-use chrono::DateTime;
-use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -42,24 +36,16 @@ pub(crate) const SUPPLY_CENTERS_FOR_SOLO: usize = 18;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub struct Phase {
-    pub id: Option<PhaseId>,
-    pub table_id: Option<TableId>,
-    pub created_at: Option<DateTime<Utc>>,
-    pub data: PhaseData,
-}
+    game_number: Option<i32>,
+    index: i32,
+    year: i32,
+    orders: Vec<Order>,
+    units: Vec<Unit>,
+    territories: Vec<Territory>,
+    standoff_codes: Vec<String>,
 
-/// フェイズのデータ本体
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub struct PhaseData {
-    pub index: i32,
-    pub year: i32,
     #[serde(flatten)]
-    pub kind: PhaseKind,
-    pub orders: Vec<Order>,
-    pub units: Vec<Unit>,
-    pub territories: Vec<Territory>,
-    pub standoff_codes: Vec<String>,
+    kind: PhaseKind,
 }
 
 /// フェイズの種類
