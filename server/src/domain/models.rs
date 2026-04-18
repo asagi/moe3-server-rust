@@ -37,9 +37,6 @@ pub(crate) use super::AdjustmentAdjudicator;
 pub(crate) use super::MainAdjudicator;
 pub(crate) use super::RetreatAdjudicator;
 
-// type aliases
-pub(crate) use super::UserId;
-
 // helpers
 pub(crate) use super::AdjustmentOrderHelper;
 pub(crate) use super::MainOrderHelper;
