@@ -3,7 +3,6 @@ use super::AdjustmentPhase;
 use super::DebriefPhase;
 use super::FallMainPhase;
 use super::FallRetreatPhase;
-use super::Order;
 use super::Phase;
 use super::PhaseContext;
 use super::Power;
@@ -216,42 +215,6 @@ impl Phase {
         Self::new(current_year, prev_index + 1, PhaseKind::Debrief(DebriefPhase {}))
     }
 
-    /// フェイズの年を返す
-    pub(crate) fn year(&self) -> i32 {
-        self.year
-    }
-
-    /// フェイズ内での通し番号を返す
-    pub(crate) fn index(&self) -> i32 {
-        self.index
-    }
-
-    /// フェイズ内の命令を返す
-    pub(crate) fn orders(&self) -> &[Order] {
-        &self.orders
-    }
-
-    /// フェイズ内の命令を返す（可変参照）
-    pub(crate) fn orders_mut(&mut self) -> &mut Vec<Order> {
-        &mut self.orders
-    }
-
-    /// フェイズ内のユニットを返す
-    pub(crate) fn units(&self) -> &[Unit] {
-        &self.units
-    }
-
-    /// フェイズ内の占領情報を返す
-    pub(crate) fn territories(&self) -> &[Territory] {
-        &self.territories
-    }
-
-    /// フェイズの種別を返す
-    #[allow(dead_code)]
-    pub(crate) fn phase_kind(&self) -> PhaseKind {
-        self.kind
-    }
-
     /// 指定した国が現在保有する補給都市数を取得する
     pub(crate) fn count_supply_centers(&self, power: &Power) -> usize {
         self.territories
@@ -279,7 +242,7 @@ trait PhaseCloseLogic {
         }
 
         // 和平判定
-        if context.is_draw() && matches!(current_phase.phase_kind(), PhaseKind::SpringMain(_) | PhaseKind::FallMain(_)) {
+        if context.is_draw() && matches!(current_phase.kind, PhaseKind::SpringMain(_) | PhaseKind::FallMain(_)) {
             self.finish_on_draw(current_phase, context);
             return;
         }
@@ -320,7 +283,7 @@ trait PhaseCloseLogic {
         };
         context.push_phase(retreat_phase.clone());
 
-        let last_phase = if let PhaseKind::FallRetreat(f) = retreat_phase.phase_kind() {
+        let last_phase = if let PhaseKind::FallRetreat(f) = retreat_phase.kind {
             // 秋の場合のみ調整フェイズ格納
             let Some(adjustment_phase) = f.create_next_phase(&retreat_phase) else {
                 unreachable!("draw: create_next_phase must not return None");
@@ -332,7 +295,7 @@ trait PhaseCloseLogic {
         };
 
         // 感想戦フェイズ格納
-        let mut debrief_phase = Phase::new_debrief(last_phase.year(), last_phase.index());
+        let mut debrief_phase = Phase::new_debrief(last_phase.year, last_phase.index);
         debrief_phase.initialize(&last_phase);
         context.push_phase(debrief_phase);
     }
@@ -365,7 +328,7 @@ trait PhaseCloseLogic {
         context.push_phase(adjustment_phase.clone());
 
         // 感想戦フェイズ格納
-        let mut debrief_phase = Phase::new_debrief(adjustment_phase.year(), adjustment_phase.index());
+        let mut debrief_phase = Phase::new_debrief(adjustment_phase.year, adjustment_phase.index);
         debrief_phase.initialize(&adjustment_phase);
         context.push_phase(debrief_phase);
     }
@@ -383,7 +346,7 @@ trait PhaseCloseLogic {
 impl PhaseCloseLogic for ReadyPhase {
     /// 次フェイズ生成
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
-        let mut phase = Phase::new_spring_main(current_phase.year(), current_phase.index());
+        let mut phase = Phase::new_spring_main(current_phase.year, current_phase.index);
         phase.initialize(current_phase);
         Some(phase)
     }
@@ -398,7 +361,7 @@ impl PhaseCloseLogic for SpringMainPhase {
 
     /// 次フェイズ生成
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
-        let mut phase = Phase::new_spring_retreat(current_phase.year(), current_phase.index());
+        let mut phase = Phase::new_spring_retreat(current_phase.year, current_phase.index);
         phase.initialize(current_phase);
         Some(phase)
     }
@@ -421,7 +384,7 @@ impl PhaseCloseLogic for SpringRetreatPhase {
 
     /// 次フェイズ生成
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
-        let mut phase = Phase::new_fall_main(current_phase.year(), current_phase.index());
+        let mut phase = Phase::new_fall_main(current_phase.year, current_phase.index);
         phase.initialize(current_phase);
         Some(phase)
     }
@@ -436,7 +399,7 @@ impl PhaseCloseLogic for FallMainPhase {
 
     /// 次フェイズ生成
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
-        let mut phase = Phase::new_fall_retreat(current_phase.year(), current_phase.index());
+        let mut phase = Phase::new_fall_retreat(current_phase.year, current_phase.index);
         phase.initialize(current_phase);
         Some(phase)
     }
@@ -487,7 +450,7 @@ impl PhaseCloseLogic for FallRetreatPhase {
 
     /// 次フェイズ生成
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
-        let mut phase = Phase::new_adjustment(current_phase.year(), current_phase.index());
+        let mut phase = Phase::new_adjustment(current_phase.year, current_phase.index);
         phase.initialize(current_phase);
         Some(phase)
     }
@@ -519,7 +482,7 @@ impl PhaseCloseLogic for AdjustmentPhase {
 
     /// 次フェイズ生成
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
-        let mut phase = Phase::new_spring_main(current_phase.year(), current_phase.index());
+        let mut phase = Phase::new_spring_main(current_phase.year, current_phase.index);
         phase.initialize(current_phase);
         Some(phase)
     }
@@ -685,7 +648,7 @@ mod tests {
         let expected_units = ready.units.clone();
         let expected_territories = ready.territories.clone();
 
-        let mut spring_main = Phase::new_spring_main(ready.year(), ready.index());
+        let mut spring_main = Phase::new_spring_main(ready.year, ready.index);
         spring_main.initialize(&ready);
 
         assert_eq!(spring_main.units, expected_units);
@@ -706,7 +669,7 @@ mod tests {
         spring_main.territories = vec![Territory::new(Power::France, "par")];
         spring_main.standoff_codes = vec!["boh".to_string()];
 
-        let mut spring_retreat = Phase::new_spring_retreat(spring_main.year(), spring_main.index());
+        let mut spring_retreat = Phase::new_spring_retreat(spring_main.year, spring_main.index);
         spring_retreat.initialize(&spring_main);
 
         assert_eq!(spring_retreat.units, spring_main.units);
@@ -726,7 +689,7 @@ mod tests {
         spring_retreat.territories = vec![Territory::new(Power::France, "par")];
         spring_retreat.standoff_codes = vec!["boh".to_string()];
 
-        let mut fall_main = Phase::new_fall_main(spring_retreat.year(), spring_retreat.index());
+        let mut fall_main = Phase::new_fall_main(spring_retreat.year, spring_retreat.index);
         fall_main.initialize(&spring_retreat);
 
         assert_eq!(fall_main.units, spring_retreat.units);
@@ -747,7 +710,7 @@ mod tests {
         fall_main.territories = vec![Territory::new(Power::England, "lon")];
         fall_main.standoff_codes = vec!["sil".to_string()];
 
-        let mut fall_retreat = Phase::new_fall_retreat(fall_main.year(), fall_main.index());
+        let mut fall_retreat = Phase::new_fall_retreat(fall_main.year, fall_main.index);
         fall_retreat.initialize(&fall_main);
 
         assert_eq!(fall_retreat.units, fall_main.units);
@@ -767,7 +730,7 @@ mod tests {
         fall_retreat.units = vec![a("a", "vie"), a("a", "boh")];
         fall_retreat.territories = vec![Territory::new(Power::Austria, "vie")];
 
-        let mut adjustment = Phase::new_adjustment(fall_retreat.year(), fall_retreat.index());
+        let mut adjustment = Phase::new_adjustment(fall_retreat.year, fall_retreat.index);
         adjustment.initialize(&fall_retreat);
 
         assert_eq!(adjustment.units, fall_retreat.units);
@@ -784,7 +747,7 @@ mod tests {
         adjustment.units = vec![a("f", "par"), f("e", "lon")];
         adjustment.territories = vec![Territory::new(Power::France, "par"), Territory::new(Power::England, "lon")];
 
-        let mut spring_main = Phase::new_spring_main(adjustment.year(), adjustment.index());
+        let mut spring_main = Phase::new_spring_main(adjustment.year, adjustment.index);
         spring_main.initialize(&adjustment);
 
         assert_eq!(spring_main.units, adjustment.units);
@@ -797,9 +760,9 @@ mod tests {
     #[test]
     fn test_new_spring_order_always_increments_year() {
         let p = Phase::new_spring_main(1900, 7);
-        assert_eq!(p.year(), 1901);
-        assert_eq!(p.index(), 8);
-        assert!(matches!(p.phase_kind(), PhaseKind::SpringMain(_)));
+        assert_eq!(p.year, 1901);
+        assert_eq!(p.index, 8);
+        assert!(matches!(p.kind, PhaseKind::SpringMain(_)));
     }
 
     #[test]
@@ -808,9 +771,9 @@ mod tests {
         let mut context = PhaseContext::new();
         current_phase.close(&mut context);
         let tail_phase = &context.pop_phase().unwrap();
-        assert_eq!(tail_phase.year(), 1901);
-        assert_eq!(tail_phase.index(), 3);
-        assert!(matches!(tail_phase.phase_kind(), PhaseKind::FallMain(_)));
+        assert_eq!(tail_phase.year, 1901);
+        assert_eq!(tail_phase.index, 3);
+        assert!(matches!(tail_phase.kind, PhaseKind::FallMain(_)));
     }
 
     #[test]
@@ -819,9 +782,9 @@ mod tests {
         let mut context = PhaseContext::new();
         current_phase.close(&mut context);
         let tail_phase = &context.pop_phase().unwrap();
-        assert_eq!(tail_phase.year(), 1902);
-        assert_eq!(tail_phase.index(), 7);
-        assert!(matches!(tail_phase.phase_kind(), PhaseKind::SpringMain(_)));
+        assert_eq!(tail_phase.year, 1902);
+        assert_eq!(tail_phase.index, 7);
+        assert!(matches!(tail_phase.kind, PhaseKind::SpringMain(_)));
     }
 
     #[test]
@@ -836,9 +799,9 @@ mod tests {
         current_phase.close(&mut context);
 
         let tail_phase = context.pop_phase().unwrap();
-        assert_eq!(tail_phase.year(), 1901);
-        assert_eq!(tail_phase.index(), 3);
-        assert!(matches!(tail_phase.phase_kind(), PhaseKind::FallMain(_)));
+        assert_eq!(tail_phase.year, 1901);
+        assert_eq!(tail_phase.index, 3);
+        assert!(matches!(tail_phase.kind, PhaseKind::FallMain(_)));
     }
 
     #[test]
@@ -853,9 +816,9 @@ mod tests {
         current_phase.close(&mut context);
 
         let tail_phase = context.pop_phase().unwrap();
-        assert_eq!(tail_phase.year(), 1901);
-        assert_eq!(tail_phase.index(), 2);
-        assert!(matches!(tail_phase.phase_kind(), PhaseKind::SpringRetreat(_)));
+        assert_eq!(tail_phase.year, 1901);
+        assert_eq!(tail_phase.index, 2);
+        assert!(matches!(tail_phase.kind, PhaseKind::SpringRetreat(_)));
     }
 
     #[test]
@@ -866,9 +829,9 @@ mod tests {
         current_phase.close(&mut context);
         let phases = context.phases();
         assert_eq!(phases.len(), 3);
-        assert!(matches!(phases[0].phase_kind(), PhaseKind::SpringMain(_)));
-        assert!(matches!(phases[1].phase_kind(), PhaseKind::SpringRetreat(_)));
-        assert!(matches!(phases[2].phase_kind(), PhaseKind::Debrief(_)));
+        assert!(matches!(phases[0].kind, PhaseKind::SpringMain(_)));
+        assert!(matches!(phases[1].kind, PhaseKind::SpringRetreat(_)));
+        assert!(matches!(phases[2].kind, PhaseKind::Debrief(_)));
     }
 
     #[test]
@@ -879,10 +842,10 @@ mod tests {
         current_phase.close(&mut context);
         let phases = context.phases();
         assert_eq!(phases.len(), 4);
-        assert!(matches!(phases[0].phase_kind(), PhaseKind::FallMain(_)));
-        assert!(matches!(phases[1].phase_kind(), PhaseKind::FallRetreat(_)));
-        assert!(matches!(phases[2].phase_kind(), PhaseKind::Adjustment(_)));
-        assert!(matches!(phases[3].phase_kind(), PhaseKind::Debrief(_)));
+        assert!(matches!(phases[0].kind, PhaseKind::FallMain(_)));
+        assert!(matches!(phases[1].kind, PhaseKind::FallRetreat(_)));
+        assert!(matches!(phases[2].kind, PhaseKind::Adjustment(_)));
+        assert!(matches!(phases[3].kind, PhaseKind::Debrief(_)));
     }
 
     #[test]
@@ -915,9 +878,9 @@ mod tests {
 
         let phases = context.phases();
         assert_eq!(phases.len(), 3);
-        assert!(matches!(phases[0].phase_kind(), PhaseKind::FallRetreat(_)));
-        assert!(matches!(phases[1].phase_kind(), PhaseKind::Adjustment(_)));
-        assert!(matches!(phases[2].phase_kind(), PhaseKind::Debrief(_)));
+        assert!(matches!(phases[0].kind, PhaseKind::FallRetreat(_)));
+        assert!(matches!(phases[1].kind, PhaseKind::Adjustment(_)));
+        assert!(matches!(phases[2].kind, PhaseKind::Debrief(_)));
     }
 
     #[test]
@@ -949,8 +912,8 @@ mod tests {
 
         let phases = context.phases();
         assert_eq!(phases.len(), 2);
-        assert!(matches!(phases[0].phase_kind(), PhaseKind::FallRetreat(_)));
-        assert!(matches!(phases[1].phase_kind(), PhaseKind::Adjustment(_)));
+        assert!(matches!(phases[0].kind, PhaseKind::FallRetreat(_)));
+        assert!(matches!(phases[1].kind, PhaseKind::Adjustment(_)));
     }
 
     #[test]
@@ -964,9 +927,9 @@ mod tests {
         current_phase.close(&mut context);
 
         let tail_phase = context.pop_phase().unwrap();
-        assert_eq!(tail_phase.year(), 1902);
-        assert_eq!(tail_phase.index(), 7);
-        assert!(matches!(tail_phase.phase_kind(), PhaseKind::SpringMain(_)));
+        assert_eq!(tail_phase.year, 1902);
+        assert_eq!(tail_phase.index, 7);
+        assert!(matches!(tail_phase.kind, PhaseKind::SpringMain(_)));
     }
     #[test]
     fn occupy_overwrites_existing_territory_owner() {
