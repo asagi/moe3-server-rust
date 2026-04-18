@@ -21,12 +21,6 @@ pub(crate) struct UserRecord {
     pub access_token: String,
 }
 
-impl UserRecord {
-    pub(crate) fn display_name(&self) -> &str {
-        self.global_name.as_deref().unwrap_or(self.username.as_str())
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct NewUser {
     pub discord_user_id: String,

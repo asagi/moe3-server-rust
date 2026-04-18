@@ -30,7 +30,8 @@ where
         access_token: result.access_token,
         user: AuthLoginUserResponse {
             discord_user_id: result.user.discord_user_id,
-            display_name: result.user.display_name,
+            username: result.user.username,
+            global_name: result.user.global_name,
             avatar_hash: result.user.avatar_hash,
             avatar_url: result.user.avatar_url,
         },
@@ -182,7 +183,7 @@ mod tests {
         .expect("handler should succeed");
 
         assert_eq!(response.access_token, "token-1");
-        assert_eq!(response.user.display_name, "asagi");
+        assert_eq!(response.user.global_name.as_deref().unwrap_or(response.user.username.as_str()), "asagi");
     }
 
     #[test]

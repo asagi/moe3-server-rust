@@ -18,7 +18,8 @@ pub(crate) struct LoginCommand {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct LoginUser {
     pub discord_user_id: String,
-    pub display_name: String,
+    pub username: String,
+    pub global_name: Option<String>,
     pub avatar_hash: Option<String>,
     pub avatar_url: Option<String>,
 }
@@ -95,13 +96,12 @@ where
     }
 
     fn from_record(record: UserRecord) -> LoginResult {
-        let display_name = record.display_name().to_string();
-
         LoginResult {
             access_token: record.access_token,
             user: LoginUser {
                 discord_user_id: record.discord_user_id,
-                display_name,
+                username: record.username,
+                global_name: record.global_name,
                 avatar_hash: record.avatar_hash,
                 avatar_url: record.avatar_url,
             },
@@ -246,7 +246,7 @@ mod tests {
             .expect("login should succeed");
 
         assert_eq!(result.user.discord_user_id, "1001");
-        assert_eq!(result.user.display_name, "asagi");
+        assert_eq!(result.user.global_name.as_deref().unwrap_or(result.user.username.as_str()), "asagi");
         assert!(!result.access_token.is_empty());
 
         let saved = repository
@@ -289,7 +289,7 @@ mod tests {
             .expect("login should succeed");
 
         assert_eq!(result.access_token, "persisted-token");
-        assert_eq!(result.user.display_name, "new_name");
+        assert_eq!(result.user.global_name.as_deref().unwrap_or(result.user.username.as_str()), "new_name");
 
         let saved = repository
             .find_by_discord_user_id("1001")
