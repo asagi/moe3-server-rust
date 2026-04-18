@@ -226,7 +226,7 @@ impl Phase {
 
     /// 指定した国が現在保有するユニット数を取得する
     pub(crate) fn count_units(&self, power: &Power) -> usize {
-        self.units.iter().filter(|u| &u.power() == power).count()
+        self.units.iter().filter(|u| &u.power == power).count()
     }
 }
 

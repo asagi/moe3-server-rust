@@ -15,7 +15,7 @@ impl RetreatAdjudicator {
             let conflict_idxs: Vec<usize> = orders.collect_unresolved_retreat_idxs_by_dest(dest_code);
 
             // 撤退先先にユニットがいる場合は無効
-            if units.iter().find(|u| u.location().code() == &dest_code[..3]).is_some() {
+            if units.iter().find(|u| u.location.code() == &dest_code[..3]).is_some() {
                 for idx in conflict_idxs {
                     orders[idx].set_invalid();
                 }

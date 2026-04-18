@@ -60,16 +60,6 @@ impl Unit {
         }
     }
 
-    /// ユニットの所在地を返す
-    pub(crate) fn location(&self) -> Province {
-        self.location
-    }
-
-    /// ユニットの所属国を返す
-    pub(crate) fn power(&self) -> Power {
-        self.power
-    }
-
     /// ユニットのシンボルを返す
     pub(crate) fn symbol(&self) -> &str {
         match self.kind {
@@ -80,7 +70,7 @@ impl Unit {
 
     /// ユニットのラベルを返す
     pub(crate) fn label(&self) -> String {
-        format!("{} {}", self.symbol(), self.location().short_name())
+        format!("{} {}", self.symbol(), self.location.short_name())
     }
 
     /// ユニットの種別を返す

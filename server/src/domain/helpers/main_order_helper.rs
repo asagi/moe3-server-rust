@@ -291,12 +291,12 @@ impl MainOrderHelper for [Order] {
 
         if !matches!(occupant_order.kind, OrderKind::Move(_)) {
             // 非移動命令が存在すればその勢力を返す
-            return Some(occupant_order.unit.power());
+            return Some(occupant_order.unit.power);
         }
 
         if occupant_order.is_valid() {
             // 未処理の移動命令が存在すればその勢力を返す
-            return Some(occupant_order.unit.power());
+            return Some(occupant_order.unit.power);
         }
 
         if occupant_order.is_failure() {

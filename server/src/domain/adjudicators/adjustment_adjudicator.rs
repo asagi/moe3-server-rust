@@ -54,7 +54,7 @@ impl AdjustmentAdjudicator {
                 if current_phase
                     .units
                     .iter()
-                    .any(|u| u.location().code() == build_order.location().code())
+                    .any(|u| u.location.code() == build_order.location().code())
                 {
                     current_phase.orders[i].set_invalid();
                     continue;

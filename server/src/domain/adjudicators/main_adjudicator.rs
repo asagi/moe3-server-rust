@@ -112,7 +112,7 @@ impl MainAdjudicator {
             // 輸送対象の所在地と目的地の両方に海路で接続される可能性がない場合は無効
             if !Path::is_reachable_by_sea(
                 orders[convoy_idx].location().code_with_coast(),
-                orders[convoy_idx].target_unit().location().code_with_coast(),
+                orders[convoy_idx].target_unit().location.code_with_coast(),
                 &waters,
             ) {
                 orders[convoy_idx].set_invalid();
@@ -472,13 +472,13 @@ fn can_move_via_valid_matched_convoy(orders: &[Order], move_idx: usize, exclude:
 /// 輸送命令の存在によって移動命令に海路利用の意図が示されていたかを判定する。
 fn is_convoy_intended(orders: &[Order], convoy_idx: usize) -> bool {
     // 輸送命令と移動命令の勢力が異なる場合は海路利用の意図の明示とは認めない
-    if orders[convoy_idx].power != orders[convoy_idx].target_unit().power() {
+    if orders[convoy_idx].power != orders[convoy_idx].target_unit().power {
         return false;
     }
 
     // 輸送対象の現在地と目的地が隣接していない場合は海路利用の意図の明示とみなす
     if !Path::is_adjacent(
-        orders[convoy_idx].target_unit().location().code_with_coast(),
+        orders[convoy_idx].target_unit().location.code_with_coast(),
         orders[convoy_idx].target_dest().map(|d| d.code_with_coast()).unwrap_or(""),
     ) {
         return true;
@@ -486,7 +486,7 @@ fn is_convoy_intended(orders: &[Order], convoy_idx: usize) -> bool {
 
     // 輸送対象の現在地と目的地が海軍視点で隣接していない場合は海路利用の意図の明示とみなす
     if !Path::can_convoy_move(
-        orders[convoy_idx].target_unit().location().code_with_coast(),
+        orders[convoy_idx].target_unit().location.code_with_coast(),
         orders[convoy_idx].target_dest().map(|d| d.code_with_coast()).unwrap_or(""),
     ) {
         return true;
@@ -496,7 +496,7 @@ fn is_convoy_intended(orders: &[Order], convoy_idx: usize) -> bool {
     // 海路利用の意図の明示とは認めない
     if !Path::is_adjacent(
         orders[convoy_idx].location().code_with_coast(),
-        orders[convoy_idx].target_unit().location().code_with_coast(),
+        orders[convoy_idx].target_unit().location.code_with_coast(),
     ) {
         return false;
     }
