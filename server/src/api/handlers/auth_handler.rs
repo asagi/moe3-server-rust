@@ -181,6 +181,8 @@ mod tests {
         .expect("handler should succeed");
 
         assert_eq!(response.access_token, "token-1");
+        assert_eq!(response.user.username, "nemu");
+        assert_eq!(response.user.global_name.as_deref(), Some("asagi"));
         assert_eq!(
             response
                 .user

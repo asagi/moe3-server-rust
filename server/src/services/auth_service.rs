@@ -251,6 +251,8 @@ mod tests {
             .expect("login should succeed");
 
         assert_eq!(result.user.discord_user_id, "1001");
+        assert_eq!(result.user.username, "nemu");
+        assert_eq!(result.user.global_name.as_deref(), Some("asagi"));
         assert_eq!(
             result.user.global_name.as_deref().unwrap_or(result.user.username.as_str()),
             "asagi"
@@ -297,6 +299,8 @@ mod tests {
             .expect("login should succeed");
 
         assert_eq!(result.access_token, "persisted-token");
+        assert_eq!(result.user.username, "new_user");
+        assert_eq!(result.user.global_name.as_deref(), Some("new_name"));
         assert_eq!(
             result.user.global_name.as_deref().unwrap_or(result.user.username.as_str()),
             "new_name"
