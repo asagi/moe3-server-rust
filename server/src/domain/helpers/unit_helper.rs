@@ -20,19 +20,19 @@ impl UnitHelper for [Unit] {
     /// - 距離が同じ場合は海軍優先
     /// - 距離と兵種が同じ場合は地域名昇順優先
     fn collect_units_for_civil_disorder(&self, power: &Power, territories: &[Territory]) -> Vec<Unit> {
-        let mut units: Vec<Unit> = self.iter().filter(|u| &u.power() == power).copied().collect();
+        let mut units: Vec<Unit> = self.iter().filter(|u| &u.power == power).copied().collect();
         units.sort_by(|&a, &b| {
             let dist_a = territories
                 .iter()
-                .filter(|t| t.power() == power)
-                .map(|t| Province::distance(a.location().code(), t.code_with_coast()))
+                .filter(|t| &t.power == power)
+                .map(|t| Province::distance(a.location.code(), t.code_with_coast()))
                 .min()
                 .unwrap_or(0);
 
             let dist_b = territories
                 .iter()
-                .filter(|t| t.power() == power)
-                .map(|t| Province::distance(b.location().code(), t.code_with_coast()))
+                .filter(|t| &t.power == power)
+                .map(|t| Province::distance(b.location.code(), t.code_with_coast()))
                 .min()
                 .unwrap_or(0);
 
@@ -40,10 +40,10 @@ impl UnitHelper for [Unit] {
                 .cmp(&dist_a)
                 .then_with(|| b.is_fleet().cmp(&a.is_fleet()))
                 .then_with(|| {
-                    a.location()
+                    a.location
                         .full_name()
                         .to_lowercase()
-                        .cmp(&b.location().full_name().to_lowercase())
+                        .cmp(&b.location.full_name().to_lowercase())
                 })
         });
         units

@@ -165,14 +165,9 @@ impl Order {
         }
     }
 
-    /// ユニットを返す
-    pub(crate) fn unit(&self) -> Unit {
-        self.unit
-    }
-
     /// ユニットの現在地を返す
     pub(crate) fn location(&self) -> Province {
-        self.unit.location()
+        self.unit.location
     }
 
     /// ユニットの目的地を返す
@@ -328,7 +323,7 @@ impl Order {
 
     /// 命令が他の勢力のユニットに対するもの（仮定命令）であるかどうか
     pub(crate) fn is_assumed(&self) -> bool {
-        self.power != self.unit.power()
+        self.power != self.unit.power
     }
 
     pub(crate) fn set_dislodged_by(&mut self, attacker: &Order) {
@@ -380,8 +375,8 @@ impl fmt::Display for Order {
             }
             OrderKind::Support(o) => {
                 // 自分の勢力とターゲットの勢力が違う場合、形容詞を取得
-                let target_label = if self.power != o.target_unit.power() {
-                    format!("{} {}", o.target_unit.power().adjective(), o.target_unit.label())
+                let target_label = if self.power != o.target_unit.power {
+                    format!("{} {}", o.target_unit.power.adjective(), o.target_unit.label())
                 } else {
                     o.target_unit.label()
                 };
@@ -393,8 +388,8 @@ impl fmt::Display for Order {
                 }
             }
             OrderKind::Convoy(o) => {
-                let target_label = if self.power != o.target_unit.power() {
-                    format!("{} {}", o.target_unit.power().adjective(), o.target_unit.label())
+                let target_label = if self.power != o.target_unit.power {
+                    format!("{} {}", o.target_unit.power.adjective(), o.target_unit.label())
                 } else {
                     o.target_unit.label()
                 };

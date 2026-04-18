@@ -476,10 +476,10 @@ impl Path {
         match unit.kind() {
             UnitKind::Army(_) => PATHS
                 .iter()
-                .any(|p| p.origin == unit.location().code_with_coast() && p.dest == dest && p.army && !via_convoy),
+                .any(|p| p.origin == unit.location.code_with_coast() && p.dest == dest && p.army && !via_convoy),
             UnitKind::Fleet(_) => PATHS
                 .iter()
-                .any(|p| p.origin == unit.location().code_with_coast() && p.dest == dest && p.fleet),
+                .any(|p| p.origin == unit.location.code_with_coast() && p.dest == dest && p.fleet),
         }
     }
 

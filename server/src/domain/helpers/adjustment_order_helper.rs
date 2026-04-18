@@ -17,7 +17,7 @@ impl AdjustmentOrderHelper for [Order] {
     fn get_unresolved_build_idxs_by_power(&self, power: &Power) -> Option<usize> {
         self.iter()
             .enumerate()
-            .find(|(_, o)| o.is_unresolved() && matches!(o.kind, OrderKind::Build(_)) && &o.unit.power() == power)
+            .find(|(_, o)| o.is_unresolved() && matches!(o.kind, OrderKind::Build(_)) && &o.unit.power == power)
             .map(|(i, _)| i)
     }
 
@@ -25,7 +25,7 @@ impl AdjustmentOrderHelper for [Order] {
     fn get_unresolved_disband_idxs_by_power(&self, power: &Power) -> Option<usize> {
         self.iter()
             .enumerate()
-            .find(|(_, o)| o.is_unresolved() && matches!(o.kind, OrderKind::Disband(_)) && &o.unit.power() == power)
+            .find(|(_, o)| o.is_unresolved() && matches!(o.kind, OrderKind::Disband(_)) && &o.unit.power == power)
             .map(|(i, _)| i)
     }
 
