@@ -72,6 +72,7 @@ mod tests {
     use std::rc::Rc;
 
     use super::*;
+    use crate::domain::UserId;
     use crate::repositories::DiscordProfile;
     use crate::repositories::NewUser;
     use crate::repositories::RepositoryError;
@@ -132,9 +133,13 @@ mod tests {
             Ok(row)
         }
 
-        fn update_profile(&self, discord_user_id: &str, profile: UserProfileUpdate) -> Result<UserRecord, RepositoryError> {
+        fn update_profile(&self, id: UserId, profile: UserProfileUpdate) -> Result<UserRecord, RepositoryError> {
             let mut state = self.state.borrow_mut();
-            let row = state.rows.get_mut(discord_user_id).ok_or(RepositoryError::NotFound)?;
+            let row = state
+                .rows
+                .values_mut()
+                .find(|r| r.id == id)
+                .ok_or(RepositoryError::NotFound)?;
             row.username = profile.username;
             row.global_name = profile.global_name;
             row.avatar_hash = profile.avatar_hash;
@@ -176,7 +181,14 @@ mod tests {
         .expect("handler should succeed");
 
         assert_eq!(response.access_token, "token-1");
-        assert_eq!(response.user.global_name.as_deref().unwrap_or(response.user.username.as_str()), "asagi");
+        assert_eq!(
+            response
+                .user
+                .global_name
+                .as_deref()
+                .unwrap_or(response.user.username.as_str()),
+            "asagi"
+        );
     }
 
     #[test]
