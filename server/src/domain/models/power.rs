@@ -1,6 +1,4 @@
 // external crates
-use serde::Deserialize;
-use serde::Serialize;
 use strum::Display;
 use strum::EnumIter;
 use strum::EnumProperty;
@@ -9,8 +7,7 @@ use strum::EnumString;
 use strum::IntoEnumIterator;
 
 /// 国の定義
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumIter, Display, EnumString, EnumProperty)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter, Display, EnumString, EnumProperty)]
 pub enum Power {
     #[strum(serialize = "Austria", props(Symbol = "a", Adj = "Austrian"))]
     Austria = 1,

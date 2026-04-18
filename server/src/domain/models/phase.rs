@@ -24,17 +24,12 @@ pub(crate) use super::MainOrderHelper;
 pub(crate) use super::RetreatOrderHelper;
 pub(crate) use super::UnitHelper;
 
-// external crates
-use serde::Deserialize;
-use serde::Serialize;
-
 /// 制覇勝利に必要な補給都市数
 /// Diplomacy ルール：いずれかの国が18個の補給都市を保有すると solo win
 pub(crate) const SUPPLY_CENTERS_FOR_SOLO: usize = 18;
 
 /// フェイズの定義
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Phase {
     game_number: Option<i32>,
     index: i32,
@@ -44,13 +39,11 @@ pub struct Phase {
     territories: Vec<Territory>,
     standoff_codes: Vec<String>,
 
-    #[serde(flatten)]
     kind: PhaseKind,
 }
 
 /// フェイズの種類
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PhaseKind {
     Ready(ReadyPhase),                 // 準備
     SpringMain(SpringMainPhase),       // 春命令
@@ -62,30 +55,23 @@ pub enum PhaseKind {
 }
 
 /// 各フェイズの詳細な構造体
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ReadyPhase {}
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SpringMainPhase {}
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SpringRetreatPhase {}
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FallMainPhase {}
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FallRetreatPhase {}
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AdjustmentPhase {}
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DebriefPhase {}

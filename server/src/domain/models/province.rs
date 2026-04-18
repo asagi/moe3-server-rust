@@ -2,16 +2,12 @@
 use super::Path;
 use super::Power;
 
-// external crates
-use serde::Serialize;
-
 // standard library
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fmt;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
-#[serde(into = "String")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Province(&'static str);
 
 #[derive(Debug, Clone, Copy)]
@@ -233,13 +229,6 @@ impl Province {
 impl fmt::Display for Province {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.code_with_coast())
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for Province {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(deserializer)?;
-        Province::try_from(s).map_err(serde::de::Error::custom)
     }
 }
 

@@ -3,15 +3,11 @@ use super::Power;
 use super::Province;
 use super::Unit;
 
-// external crates
-use serde::Deserialize;
-use serde::Serialize;
-
 // standard library
 use std::fmt;
 
 /// 命令の定義
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Order {
     pub power: Power,
     pub unit: Unit,
@@ -21,8 +17,7 @@ pub(crate) struct Order {
 }
 
 /// 命令の状態
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum OrderStatus {
     Unresolved,
     Failure,
@@ -35,8 +30,7 @@ pub(crate) enum OrderStatus {
 }
 
 /// 命令の種類
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum OrderKind {
     Hold(HoldOrder),
     Move(MoveOrder),
@@ -48,42 +42,42 @@ pub(crate) enum OrderKind {
 }
 
 /// ホールド命令
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HoldOrder {}
 
 /// 移動命令
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct MoveOrder {
     pub(crate) dest: Province,
     pub(crate) via_convoy: bool,
 }
 
 /// サポート命令
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SupportOrder {
     pub(crate) target_unit: Unit,
     pub(crate) target_dest: Option<Province>,
 }
 
 /// 輸送命令
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ConvoyOrder {
     pub(crate) target_unit: Unit,
     pub(crate) target_dest: Province,
 }
 
 /// 撤退命令
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct RetreatOrder {
     pub(crate) dest: Province,
 }
 
 /// 建造命令
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BuildOrder {}
 
 /// 解体命令
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct DisbandOrder {}
 
 /// 命令のロジック

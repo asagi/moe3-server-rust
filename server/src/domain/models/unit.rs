@@ -14,12 +14,8 @@ use super::SupportOrder;
 use super::OrderKind;
 use super::OrderStatus;
 
-// external crates
-use serde::Deserialize;
-use serde::Serialize;
-
 /// ユニットの定義
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Unit {
     pub(crate) power: Power,
     pub(crate) location: Province,
@@ -28,19 +24,18 @@ pub(crate) struct Unit {
     pub(crate) dislodged: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum UnitKind {
     Army(Army),
     Fleet(Fleet),
 }
 
 /// 陸軍の定義
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Army {}
 
 /// 海軍の定義
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Fleet {}
 
 /// ユニットのロジック
