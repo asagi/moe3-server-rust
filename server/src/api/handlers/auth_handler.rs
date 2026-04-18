@@ -9,6 +9,7 @@ use crate::services::AuthService;
 use crate::services::DiscordClientError;
 use crate::services::DiscordIdentityProvider;
 use crate::services::LoginCommand;
+use crate::services::LoginUser;
 
 pub(crate) fn handle_auth_login<U, D>(
     service: &AuthService<U, D>,
@@ -28,14 +29,20 @@ where
 
     Ok(AuthLoginResponse {
         access_token: result.access_token,
-        user: AuthLoginUserResponse {
-            discord_user_id: result.user.discord_user_id,
-            username: result.user.username,
-            global_name: result.user.global_name,
-            avatar_hash: result.user.avatar_hash,
-            avatar_url: result.user.avatar_url,
-        },
+        user: AuthLoginUserResponse::from(result.user),
     })
+}
+
+impl From<LoginUser> for AuthLoginUserResponse {
+    fn from(user: LoginUser) -> Self {
+        Self {
+            discord_user_id: user.discord_user_id,
+            username: user.username,
+            global_name: user.global_name,
+            avatar_hash: user.avatar_hash,
+            avatar_url: user.avatar_url,
+        }
+    }
 }
 
 #[derive(Debug)]
