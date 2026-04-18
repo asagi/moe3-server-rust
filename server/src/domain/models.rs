@@ -1,11 +1,11 @@
 // modules
+mod game;
 mod order;
 mod path;
 mod phase;
 mod player;
 mod power;
 mod province;
-mod table;
 mod territory;
 mod unit;
 mod user;
