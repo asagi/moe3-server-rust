@@ -67,9 +67,8 @@ impl SqliteUserRepository {
 
     fn row_to_user_record(row: &rusqlite::Row<'_>) -> rusqlite::Result<UserRecord> {
         let uuid_str: String = row.get("uuid")?;
-        let uuid = uuid::Uuid::parse_str(&uuid_str).map_err(|error| {
-            rusqlite::Error::FromSqlConversionFailure(1, rusqlite::types::Type::Text, Box::new(error))
-        })?;
+        let uuid = uuid::Uuid::parse_str(&uuid_str)
+            .map_err(|error| rusqlite::Error::FromSqlConversionFailure(1, rusqlite::types::Type::Text, Box::new(error)))?;
 
         Ok(UserRecord {
             id: row.get("id")?,
@@ -115,6 +114,21 @@ impl UserRepository for SqliteUserRepository {
             .query_row(sql, params![discord_user_id], Self::row_to_user_record)
             .optional()
             .map_err(|error| RepositoryError::Unavailable(format!("find user by discord_user_id: {}", error)))
+    }
+
+    fn find_by_access_token(&self, access_token: &str) -> Result<Option<UserRecord>, RepositoryError> {
+        let sql = r#"
+            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token
+            FROM users
+            WHERE access_token = ?1
+        "#;
+
+        self.connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?
+            .query_row(sql, params![access_token], Self::row_to_user_record)
+            .optional()
+            .map_err(|error| RepositoryError::Unavailable(format!("find user by access_token: {}", error)))
     }
 
     fn insert(&self, new_user: NewUser) -> Result<UserRecord, RepositoryError> {

@@ -21,7 +21,10 @@ pub(crate) use order::Order;
 pub(crate) use order::RetreatOrder;
 pub(crate) use order::SupportOrder;
 pub(crate) use path::Path;
+pub(crate) use game::Game;
 pub(crate) use phase::Phase;
+pub(crate) use phase::PhaseKind;
+pub(crate) use player::Player;
 pub(crate) use power::Power;
 pub(crate) use province::Province;
 #[allow(unused_imports)]

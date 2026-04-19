@@ -5,9 +5,17 @@ mod models;
 
 // types
 pub(crate) use models::ConvoyOrder;
+pub(crate) use models::Game;
 pub(crate) use models::MoveOrder;
+pub(crate) use models::Phase;
+pub(crate) use models::Player;
+pub(crate) use models::Regulation;
+pub(crate) use models::FaceType;
+pub(crate) use models::ProgressMode;
+pub(crate) use models::DurationType;
 pub(crate) use models::Order;
 pub(crate) use models::OrderKind;
+pub(crate) use models::PhaseKind;
 pub(crate) use models::Power;
 pub(crate) use models::Province;
 pub(crate) use models::Territory;

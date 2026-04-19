@@ -197,6 +197,16 @@ mod tests {
             Ok(self.state.borrow().rows.get(discord_user_id).cloned())
         }
 
+        fn find_by_access_token(&self, access_token: &str) -> Result<Option<UserRecord>, RepositoryError> {
+            Ok(self
+                .state
+                .borrow()
+                .rows
+                .values()
+                .find(|row| row.access_token == access_token)
+                .cloned())
+        }
+
         fn insert(&self, new_user: NewUser) -> Result<UserRecord, RepositoryError> {
             let mut state = self.state.borrow_mut();
 

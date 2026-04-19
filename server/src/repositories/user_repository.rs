@@ -78,6 +78,8 @@ impl Error for RepositoryError {}
 pub(crate) trait UserRepository {
     fn find_by_discord_user_id(&self, discord_user_id: &str) -> Result<Option<UserRecord>, RepositoryError>;
 
+    fn find_by_access_token(&self, access_token: &str) -> Result<Option<UserRecord>, RepositoryError>;
+
     fn insert(&self, new_user: NewUser) -> Result<UserRecord, RepositoryError>;
 
     fn update_profile(&self, id: UserId, profile: UserProfileUpdate) -> Result<UserRecord, RepositoryError>;
