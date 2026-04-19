@@ -2,6 +2,7 @@
 use super::Power;
 use super::Province;
 use super::Unit;
+use serde::{Deserialize, Serialize};
 
 // standard library
 use std::fmt;
@@ -17,7 +18,8 @@ pub(crate) struct Order {
 }
 
 /// 命令の状態
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum OrderStatus {
     Unresolved,
     Failure,

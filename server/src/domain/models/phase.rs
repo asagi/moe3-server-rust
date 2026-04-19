@@ -9,6 +9,8 @@ pub(crate) use super::Province;
 pub(crate) use super::Territory;
 pub(crate) use super::Unit;
 pub(crate) use context::PhaseContext;
+use serde::Deserialize;
+use serde::Serialize;
 
 // enums
 pub(crate) use super::OrderKind;
@@ -42,7 +44,8 @@ pub struct Phase {
 }
 
 /// フェイズの種類
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
 pub enum PhaseKind {
     Ready(ReadyPhase),                 // 準備
     SpringMain(SpringMainPhase),       // 春命令
@@ -54,23 +57,23 @@ pub enum PhaseKind {
 }
 
 /// 各フェイズの詳細な構造体
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ReadyPhase {}
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct SpringMainPhase {}
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct SpringRetreatPhase {}
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct FallMainPhase {}
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct FallRetreatPhase {}
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct AdjustmentPhase {}
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct DebriefPhase {}

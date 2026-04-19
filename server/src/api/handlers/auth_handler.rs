@@ -87,10 +87,10 @@ mod tests {
     use std::rc::Rc;
 
     use super::*;
-    use crate::repositories::UserId;
     use crate::repositories::DiscordProfile;
     use crate::repositories::NewUser;
     use crate::repositories::RepositoryError;
+    use crate::repositories::UserId;
     use crate::repositories::UserProfileUpdate;
     use crate::repositories::UserRecord;
 
@@ -212,7 +212,10 @@ mod tests {
         assert_eq!(response.user.username, "nemu");
         assert_eq!(response.user.global_name.as_deref(), Some("asagi"));
         assert_eq!(response.user.avatar_hash.as_deref(), Some("hash"));
-        assert_eq!(response.user.avatar_url.as_deref(), Some("https://cdn.discordapp.com/avatar.png"));
+        assert_eq!(
+            response.user.avatar_url.as_deref(),
+            Some("https://cdn.discordapp.com/avatar.png")
+        );
         assert_eq!(
             response
                 .user

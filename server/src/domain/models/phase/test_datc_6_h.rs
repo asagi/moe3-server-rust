@@ -153,7 +153,6 @@ fn test_datc_6_h_5() {
     let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.orders.clear();
     retreat_phase
-
         .orders
         .push(unit_t_ank.set_dislodged_from(Some(p("bla"))).retreat_to(p("bla")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
@@ -207,7 +206,6 @@ fn test_datc_6_h_6() {
     let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.orders.clear();
     retreat_phase
-
         .orders
         .push(unit_i_vie.set_dislodged_from(Some(p("tri"))).retreat_to(p("boh")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
@@ -268,11 +266,9 @@ fn test_datc_6_h_7() {
     let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.orders.clear();
     retreat_phase
-
         .orders
         .push(unit_i_vie.set_dislodged_from(Some(p("tri"))).retreat_to(p("tyr")));
     retreat_phase
-
         .orders
         .push(unit_i_boh.set_dislodged_from(Some(p("sil"))).retreat_to(p("tyr")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
@@ -349,15 +345,12 @@ fn test_datc_6_h_8() {
     let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.orders.clear();
     retreat_phase
-
         .orders
         .push(unit_e_nwy.set_dislodged_from(Some(p("fin"))).retreat_to(p("nth")));
     retreat_phase
-
         .orders
         .push(unit_r_edi.set_dislodged_from(Some(p("lvp"))).retreat_to(p("nth")));
     retreat_phase
-
         .orders
         .push(unit_r_hol.set_dislodged_from(Some(p("ruh"))).retreat_to(p("nth")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
@@ -416,11 +409,9 @@ fn test_datc_6_h_9() {
     let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.orders.clear();
     retreat_phase
-
         .orders
         .push(unit_g_kie.set_dislodged_from(Some(p("hel"))).retreat_to(p("ber")));
     retreat_phase
-
         .orders
         .push(unit_r_pru.set_dislodged_from(Some(p("ber"))).retreat_to(p("ber")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
@@ -490,11 +481,9 @@ fn test_datc_6_h_10() {
     let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.orders.clear();
     retreat_phase
-
         .orders
         .push(unit_e_kie.set_dislodged_from(Some(p("ber"))).retreat_to(p("ber")));
     retreat_phase
-
         .orders
         .push(unit_g_pru.set_dislodged_from(Some(p("war"))).retreat_to(p("ber")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
@@ -555,7 +544,6 @@ fn test_datc_6_h_11() {
     let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.orders.clear();
     retreat_phase
-
         .orders
         .push(unit_i_mar.set_dislodged_via_convoy().retreat_to(p("gas")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
@@ -636,7 +624,6 @@ fn test_datc_6_h_12() {
     let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.orders.clear();
     retreat_phase
-
         .orders
         .push(unit_e_lvp.set_dislodged_via_convoy().retreat_to(p("edi")));
     retreat_phase.orders.push(unit_e_eng.disband());
@@ -731,7 +718,6 @@ fn test_datc_6_h_15() {
     let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.orders.clear();
     retreat_phase
-
         .orders
         .push(unit_e_por.set_dislodged_from(Some(p("spa_sc"))).retreat_to(p("spa_nc")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
@@ -783,7 +769,6 @@ fn test_datc_6_h_16() {
     let mut retreat_phase = context.pop_phase().unwrap();
     retreat_phase.orders.clear();
     retreat_phase
-
         .orders
         .push(unit_f_wes.set_dislodged_from(Some(p("tyn"))).retreat_to(p("spa_sc")));
     resolve_orders_for_retreat_phase(&mut retreat_phase);
