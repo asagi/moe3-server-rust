@@ -238,3 +238,81 @@ mod tests {
         assert_eq!(created.phases.len(), 1);
     }
 }
+
+#[cfg(test)]
+mod transaction_tests {
+    use super::*;
+    use crate::domain::DurationType;
+    use crate::domain::FaceType;
+    use crate::domain::Phase;
+    use crate::domain::Player;
+    use crate::domain::ProgressMode;
+    use crate::domain::Regulation;
+
+    #[test]
+    fn insert_rolls_back_when_player_insert_fails() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+
+        {
+            let connection = repository
+                .connection
+                .lock()
+                .expect("sqlite connection lock should succeed");
+            connection
+                .execute_batch(
+                    r#"
+                    CREATE TRIGGER fail_game_players_insert
+                    BEFORE INSERT ON game_players
+                    BEGIN
+                        SELECT RAISE(ABORT, 'forced player insert failure');
+                    END;
+                    "#,
+                )
+                .expect("trigger creation should succeed");
+        }
+
+        let regulation = Regulation::new(
+            FaceType::Girls,
+            ProgressMode::Scheduled,
+            DurationType::Short,
+            chrono::NaiveDate::from_ymd_opt(2026, 4, 19).expect("valid date"),
+            12,
+        )
+        .expect("valid regulation");
+
+        let game_uuid = uuid::Uuid::now_v7();
+        let game = Game {
+            uuid: game_uuid,
+            game_number: None,
+            regulation,
+            players: vec![Player {
+                user_uuid: uuid::Uuid::now_v7(),
+                power: None,
+                is_accepting_draw: false,
+                is_owner: true,
+                requested_power: None,
+            }],
+            phases: vec![Phase::new_ready()],
+        };
+
+        let error = repository
+            .insert(NewGame { game })
+            .expect_err("insert should fail because trigger aborts player insert");
+        assert!(error
+            .to_string()
+            .contains("insert game player"));
+
+        let game_count: i64 = repository
+            .connection
+            .lock()
+            .expect("sqlite connection lock should succeed")
+            .query_row(
+                "SELECT COUNT(*) FROM games WHERE uuid = ?1",
+                [game_uuid.to_string()],
+                |row| row.get(0),
+            )
+            .expect("count query should succeed");
+
+        assert_eq!(game_count, 0, "game row should be rolled back on failure");
+    }
+}
