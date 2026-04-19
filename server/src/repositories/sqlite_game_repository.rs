@@ -1,9 +1,9 @@
 use std::sync::Mutex;
 
 use chrono::Utc;
-use rusqlite::params;
 use rusqlite::Connection;
 use rusqlite::Transaction;
+use rusqlite::params;
 
 use super::GameRepository;
 use super::NewGame;
@@ -89,8 +89,8 @@ impl SqliteGameRepository {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 phase_id INTEGER NOT NULL,
                 order_index INTEGER NOT NULL,
-                power INTEGER NOT NULL,
-                unit_power INTEGER NOT NULL,
+                power TEXT NOT NULL,
+                unit_power TEXT NOT NULL,
                 unit_location TEXT NOT NULL,
                 unit_kind TEXT NOT NULL,
                 unit_dislodged_from TEXT,
@@ -100,7 +100,7 @@ impl SqliteGameRepository {
                 order_kind TEXT NOT NULL,
                 dest TEXT,
                 via_convoy INTEGER,
-                target_unit_power INTEGER,
+                target_unit_power TEXT,
                 target_unit_location TEXT,
                 target_unit_kind TEXT,
                 target_unit_dislodged_from TEXT,
@@ -142,30 +142,32 @@ impl SqliteGameRepository {
             "fall_retreat" => Phase::new_fall_retreat(1901, 0).kind,
             "adjustment" => Phase::new_adjustment(1901, 0).kind,
             "debrief" => Phase::new_debrief(1901, 0).kind,
-            _ => {
-                return Err(RepositoryError::Unavailable(format!(
-                    "unknown phase_kind: {}",
-                    name
-                )))
-            }
+            _ => return Err(RepositoryError::Unavailable(format!("unknown phase_kind: {}", name))),
         };
         Ok(kind)
     }
-
-    fn power_to_i32(power: Power) -> i32 {
-        power as i32
+    fn power_to_code(power: Power) -> &'static str {
+        match power {
+            Power::Austria => "a",
+            Power::England => "e",
+            Power::France => "f",
+            Power::Germany => "g",
+            Power::Italy => "i",
+            Power::Russia => "r",
+            Power::Turkey => "t",
+        }
     }
 
-    fn power_from_i32(value: i32) -> Result<Power, RepositoryError> {
-        match value {
-            1 => Ok(Power::Austria),
-            2 => Ok(Power::England),
-            3 => Ok(Power::France),
-            4 => Ok(Power::Germany),
-            5 => Ok(Power::Italy),
-            6 => Ok(Power::Russia),
-            7 => Ok(Power::Turkey),
-            _ => Err(RepositoryError::Unavailable(format!("invalid power value: {}", value))),
+    fn power_from_code(code: &str) -> Result<Power, RepositoryError> {
+        match code {
+            "a" => Ok(Power::Austria),
+            "e" => Ok(Power::England),
+            "f" => Ok(Power::France),
+            "g" => Ok(Power::Germany),
+            "i" => Ok(Power::Italy),
+            "r" => Ok(Power::Russia),
+            "t" => Ok(Power::Turkey),
+            _ => Err(RepositoryError::Unavailable(format!("invalid power code: {}", code))),
         }
     }
 
@@ -220,16 +222,11 @@ impl SqliteGameRepository {
     }
 
     fn parse_province(code: &str) -> Result<Province, RepositoryError> {
-        Province::from_code(code)
-            .ok_or_else(|| RepositoryError::Unavailable(format!("invalid province code: {}", code)))
+        Province::from_code(code).ok_or_else(|| RepositoryError::Unavailable(format!("invalid province code: {}", code)))
     }
 
     fn unit_kind_name(unit: &Unit) -> &'static str {
-        if unit.is_fleet() {
-            "fleet"
-        } else {
-            "army"
-        }
+        if unit.is_fleet() { "fleet" } else { "army" }
     }
 
     fn build_unit(
@@ -263,9 +260,9 @@ impl SqliteGameRepository {
             .unwrap_or_default();
         format!(
             "{}|{}|{}|{}|{}",
-            Self::power_to_i32(unit.power),
-            unit.location.code_with_coast(),
+            Self::power_to_code(unit.power),
             Self::unit_kind_name(unit),
+            unit.location.code_with_coast(),
             if unit.dislodged { 1 } else { 0 },
             dislodged_from,
         )
@@ -277,12 +274,8 @@ impl SqliteGameRepository {
             return Err(RepositoryError::Unavailable(format!("invalid unit payload: {}", text)));
         }
 
-        let power = Self::power_from_i32(
-            parts[0]
-                .parse::<i32>()
-                .map_err(|error| RepositoryError::Unavailable(format!("parse unit power: {}", error)))?,
-        )?;
-        let location = Self::parse_province(parts[1])?;
+        let power = Self::power_from_code(parts[0])?;
+        let location = Self::parse_province(parts[2])?;
         let dislodged = parts[3] == "1";
         let dislodged_from = if parts[4].is_empty() {
             None
@@ -290,7 +283,7 @@ impl SqliteGameRepository {
             Some(Self::parse_province(parts[4])?)
         };
 
-        Self::build_unit(power, location, parts[2], dislodged_from, dislodged)
+        Self::build_unit(power, location, parts[1], dislodged_from, dislodged)
     }
 
     fn serialize_units(units: &[Unit]) -> String {
@@ -306,7 +299,7 @@ impl SqliteGameRepository {
     }
 
     fn serialize_territory(territory: &Territory) -> String {
-        format!("{}|{}", Self::power_to_i32(territory.power), territory.code_with_coast())
+        format!("{}|{}", Self::power_to_code(territory.power), territory.code_with_coast())
     }
 
     fn deserialize_territory(text: &str) -> Result<Territory, RepositoryError> {
@@ -315,11 +308,7 @@ impl SqliteGameRepository {
             return Err(RepositoryError::Unavailable(format!("invalid territory payload: {}", text)));
         }
 
-        let power = Self::power_from_i32(
-            parts[0]
-                .parse::<i32>()
-                .map_err(|error| RepositoryError::Unavailable(format!("parse territory power: {}", error)))?,
-        )?;
+        let power = Self::power_from_code(parts[0])?;
 
         Ok(Territory::new(power, parts[1]))
     }
@@ -337,9 +326,7 @@ impl SqliteGameRepository {
             return Ok(Vec::new());
         }
 
-        text.lines()
-            .map(Self::deserialize_territory)
-            .collect::<Result<Vec<_>, _>>()
+        text.lines().map(Self::deserialize_territory).collect::<Result<Vec<_>, _>>()
     }
 
     fn serialize_codes(codes: &[String]) -> String {
@@ -365,9 +352,7 @@ impl SqliteGameRepository {
                 .unit
                 .dislodged_from
                 .map(|province| province.code_with_coast().to_string());
-            let dislodged_from = order
-                .dislodged_from
-                .map(|province| province.code_with_coast().to_string());
+            let dislodged_from = order.dislodged_from.map(|province| province.code_with_coast().to_string());
 
             let (dest, via_convoy, target_unit, target_dest) = match order.kind {
                 OrderKind::Hold(_) | OrderKind::Build(_) | OrderKind::Disband(_) => (None, None, None, None),
@@ -381,7 +366,9 @@ impl SqliteGameRepository {
                     None,
                     None,
                     Some(support_order.target_unit),
-                    support_order.target_dest.map(|province| province.code_with_coast().to_string()),
+                    support_order
+                        .target_dest
+                        .map(|province| province.code_with_coast().to_string()),
                 ),
                 OrderKind::Convoy(convoy_order) => (
                     None,
@@ -389,15 +376,10 @@ impl SqliteGameRepository {
                     Some(convoy_order.target_unit),
                     Some(convoy_order.target_dest.code_with_coast().to_string()),
                 ),
-                OrderKind::Retreat(retreat_order) => (
-                    Some(retreat_order.dest.code_with_coast().to_string()),
-                    None,
-                    None,
-                    None,
-                ),
+                OrderKind::Retreat(retreat_order) => (Some(retreat_order.dest.code_with_coast().to_string()), None, None, None),
             };
 
-            let target_unit_power = target_unit.map(|unit| Self::power_to_i32(unit.power));
+            let target_unit_power = target_unit.map(|unit| Self::power_to_code(unit.power).to_string());
             let target_unit_location = target_unit.map(|unit| unit.location.code_with_coast().to_string());
             let target_unit_kind = target_unit.map(|unit| Self::unit_kind_name(&unit).to_string());
             let target_unit_dislodged_from =
@@ -434,8 +416,8 @@ impl SqliteGameRepository {
                     params![
                         phase_id,
                         order_index as i32,
-                        Self::power_to_i32(order.power),
-                        Self::power_to_i32(order.unit.power),
+                        Self::power_to_code(order.power),
+                        Self::power_to_code(order.unit.power),
                         order.unit.location.code_with_coast(),
                         Self::unit_kind_name(&order.unit),
                         unit_dislodged_from,
@@ -494,8 +476,8 @@ impl SqliteGameRepository {
         let rows = statement
             .query_map(params![phase_id], |row| {
                 Ok((
-                    row.get::<_, i32>(0)?,
-                    row.get::<_, i32>(1)?,
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
                     row.get::<_, String>(2)?,
                     row.get::<_, String>(3)?,
                     row.get::<_, Option<String>>(4)?,
@@ -505,7 +487,7 @@ impl SqliteGameRepository {
                     row.get::<_, String>(8)?,
                     row.get::<_, Option<String>>(9)?,
                     row.get::<_, Option<i32>>(10)?,
-                    row.get::<_, Option<i32>>(11)?,
+                    row.get::<_, Option<String>>(11)?,
                     row.get::<_, Option<String>>(12)?,
                     row.get::<_, Option<String>>(13)?,
                     row.get::<_, Option<String>>(14)?,
@@ -538,7 +520,7 @@ impl SqliteGameRepository {
             ) = row.map_err(|error| RepositoryError::Unavailable(format!("read phase order row: {}", error)))?;
 
             let unit = Self::build_unit(
-                Self::power_from_i32(unit_power)?,
+                Self::power_from_code(&unit_power)?,
                 Self::parse_province(&unit_location)?,
                 &unit_kind,
                 match unit_dislodged_from {
@@ -555,7 +537,7 @@ impl SqliteGameRepository {
                 target_unit_dislodged,
             ) {
                 (Some(t_power), Some(t_location), Some(t_kind), Some(t_dislodged)) => Some(Self::build_unit(
-                    Self::power_from_i32(t_power)?,
+                    Self::power_from_code(&t_power)?,
                     Self::parse_province(&t_location)?,
                     &t_kind,
                     match target_unit_dislodged_from {
@@ -565,14 +547,10 @@ impl SqliteGameRepository {
                     t_dislodged == 1,
                 )?),
                 (None, None, None, None) => None,
-                _ => {
-                    return Err(RepositoryError::Unavailable(
-                        "inconsistent target unit columns".to_string(),
-                    ))
-                }
+                _ => return Err(RepositoryError::Unavailable("inconsistent target unit columns".to_string())),
             };
 
-            let power = Self::power_from_i32(power)?;
+            let power = Self::power_from_code(&power)?;
             let mut order = match order_kind.as_str() {
                 "hold" => Order::new_hold(power, unit),
                 "move" => {
@@ -589,9 +567,7 @@ impl SqliteGameRepository {
                 "support" => Order::new_support(
                     power,
                     unit,
-                    target_unit.ok_or_else(|| {
-                        RepositoryError::Unavailable("missing support target unit".to_string())
-                    })?,
+                    target_unit.ok_or_else(|| RepositoryError::Unavailable("missing support target unit".to_string()))?,
                     match target_dest {
                         Some(value) => Some(Self::parse_province(&value)?),
                         None => None,
@@ -600,9 +576,7 @@ impl SqliteGameRepository {
                 "convoy" => Order::new_convoy(
                     power,
                     unit,
-                    target_unit.ok_or_else(|| {
-                        RepositoryError::Unavailable("missing convoy target unit".to_string())
-                    })?,
+                    target_unit.ok_or_else(|| RepositoryError::Unavailable("missing convoy target unit".to_string()))?,
                     Self::parse_province(
                         target_dest
                             .as_deref()
@@ -619,12 +593,7 @@ impl SqliteGameRepository {
                 ),
                 "build" => Order::new_build(power, unit),
                 "disband" => Order::new_disband(power, unit),
-                _ => {
-                    return Err(RepositoryError::Unavailable(format!(
-                        "invalid order kind: {}",
-                        order_kind
-                    )))
-                }
+                _ => return Err(RepositoryError::Unavailable(format!("invalid order kind: {}", order_kind))),
             };
 
             order.dislodged_from = match dislodged_from {
@@ -839,10 +808,7 @@ mod tests {
 
         repository.insert(NewGame { game }).expect("insert should succeed");
 
-        let connection = repository
-            .connection
-            .lock()
-            .expect("sqlite connection lock should succeed");
+        let connection = repository.connection.lock().expect("sqlite connection lock should succeed");
 
         let (phase_id, phase_index, phase_year, phase_kind, units_text, territories_text, standoff_text, created_at, updated_at): (
             i64,
@@ -894,8 +860,7 @@ mod tests {
             year: phase_year,
             kind: SqliteGameRepository::phase_kind_from_name(&phase_kind).expect("phase kind parse"),
             units: SqliteGameRepository::deserialize_units(&units_text).expect("units parse"),
-            territories: SqliteGameRepository::deserialize_territories(&territories_text)
-                .expect("territories parse"),
+            territories: SqliteGameRepository::deserialize_territories(&territories_text).expect("territories parse"),
             standoff_codes: SqliteGameRepository::deserialize_codes(&standoff_text),
             orders: SqliteGameRepository::load_phase_orders_for_test(&connection, phase_id).expect("orders parse"),
         };
@@ -926,10 +891,7 @@ mod transaction_tests {
         let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
 
         {
-            let connection = repository
-                .connection
-                .lock()
-                .expect("sqlite connection lock should succeed");
+            let connection = repository.connection.lock().expect("sqlite connection lock should succeed");
             connection
                 .execute_batch(
                     r#"
@@ -976,11 +938,9 @@ mod transaction_tests {
             .connection
             .lock()
             .expect("sqlite connection lock should succeed")
-            .query_row(
-                "SELECT COUNT(*) FROM games WHERE uuid = ?1",
-                [game_uuid.to_string()],
-                |row| row.get(0),
-            )
+            .query_row("SELECT COUNT(*) FROM games WHERE uuid = ?1", [game_uuid.to_string()], |row| {
+                row.get(0)
+            })
             .expect("count query should succeed");
 
         assert_eq!(game_count, 0, "game row should be rolled back on failure");

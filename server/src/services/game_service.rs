@@ -87,7 +87,9 @@ where
             .iter()
             .find(|player| player.is_owner)
             .map(|owner| (owner.user_uuid, owner.requested_power))
-            .ok_or(CreateGameError::Internal("created game is missing an owner player".to_string()))?;
+            .ok_or(CreateGameError::Internal(
+                "created game is missing an owner player".to_string(),
+            ))?;
 
         Ok(CreateGameResult {
             game: created,

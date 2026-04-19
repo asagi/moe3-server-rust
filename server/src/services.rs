@@ -1,8 +1,8 @@
 // modules
 mod auth_service;
-mod game_service;
 #[allow(dead_code)]
 mod discord_api_client;
+mod game_service;
 
 // concrete types
 #[allow(unused_imports)]
