@@ -6,6 +6,7 @@ mod phase;
 mod player;
 mod power;
 mod province;
+mod regulation;
 mod territory;
 mod unit;
 mod user;
@@ -23,6 +24,15 @@ pub(crate) use path::Path;
 pub(crate) use phase::Phase;
 pub(crate) use power::Power;
 pub(crate) use province::Province;
+#[allow(unused_imports)]
+pub(crate) use regulation::DurationType;
+#[allow(unused_imports)]
+pub(crate) use regulation::FaceType;
+#[allow(unused_imports)]
+pub(crate) use regulation::ProgressMode;
+pub(crate) use regulation::Regulation;
+#[allow(unused_imports)]
+pub(crate) use regulation::RegulationError;
 pub(crate) use territory::Territory;
 pub(crate) use unit::Unit;
 pub(crate) use user::User;
