@@ -36,7 +36,7 @@ where
         .map_err(|_| CreateGameHandlerError::InvalidRequest(CreateGameRequestValidationError::InvalidStartDate))?;
 
     let requested_power = match request.requested_power {
-        Some(value) => Some(power_from_i32(value).ok_or(CreateGameHandlerError::InvalidRequest(
+        Some(value) => Some(power_from_code(value.as_str()).ok_or(CreateGameHandlerError::InvalidRequest(
             CreateGameRequestValidationError::InvalidRequestedPower,
         ))?),
         None => None,
@@ -62,15 +62,15 @@ where
     })
 }
 
-fn power_from_i32(value: i32) -> Option<Power> {
+fn power_from_code(value: &str) -> Option<Power> {
     match value {
-        1 => Some(Power::Austria),
-        2 => Some(Power::England),
-        3 => Some(Power::France),
-        4 => Some(Power::Germany),
-        5 => Some(Power::Italy),
-        6 => Some(Power::Russia),
-        7 => Some(Power::Turkey),
+        "a" => Some(Power::Austria),
+        "e" => Some(Power::England),
+        "f" => Some(Power::France),
+        "g" => Some(Power::Germany),
+        "i" => Some(Power::Italy),
+        "r" => Some(Power::Russia),
+        "t" => Some(Power::Turkey),
         _ => None,
     }
 }
@@ -210,7 +210,7 @@ mod tests {
                 duration_type: 1,
                 start_date: "2026-04-19".to_string(),
                 first_period_hour: 12,
-                requested_power: Some(3),
+                requested_power: Some("f".to_string()),
             },
         )
         .expect("create should succeed");
