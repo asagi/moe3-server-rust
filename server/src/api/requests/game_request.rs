@@ -8,7 +8,7 @@ pub(crate) struct CreateGameRequest {
     pub duration_type: i32,
     pub start_date: String,
     pub first_period_hour: u8,
-    pub requested_power: Option<i32>,
+    pub requested_power: Option<String>,
 }
 
 impl CreateGameRequest {
