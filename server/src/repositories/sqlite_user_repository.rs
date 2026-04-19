@@ -44,6 +44,7 @@ impl SqliteUserRepository {
         let sql = r#"
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                uuid TEXT NOT NULL UNIQUE,
                 discord_user_id TEXT NOT NULL UNIQUE,
                 username TEXT NOT NULL,
                 global_name TEXT,
@@ -65,8 +66,14 @@ impl SqliteUserRepository {
     }
 
     fn row_to_user_record(row: &rusqlite::Row<'_>) -> rusqlite::Result<UserRecord> {
+        let uuid_str: String = row.get("uuid")?;
+        let uuid = uuid::Uuid::parse_str(&uuid_str).map_err(|error| {
+            rusqlite::Error::FromSqlConversionFailure(1, rusqlite::types::Type::Text, Box::new(error))
+        })?;
+
         Ok(UserRecord {
             id: row.get("id")?,
+            uuid,
             discord_user_id: row.get("discord_user_id")?,
             username: row.get("username")?,
             global_name: row.get("global_name")?,
@@ -78,7 +85,7 @@ impl SqliteUserRepository {
 
     fn load_by_id(&self, user_id: UserId) -> Result<UserRecord, RepositoryError> {
         let sql = r#"
-            SELECT id, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token
+            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token
             FROM users
             WHERE id = ?1
         "#;
@@ -97,7 +104,7 @@ impl SqliteUserRepository {
 impl UserRepository for SqliteUserRepository {
     fn find_by_discord_user_id(&self, discord_user_id: &str) -> Result<Option<UserRecord>, RepositoryError> {
         let sql = r#"
-            SELECT id, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token
+            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token
             FROM users
             WHERE discord_user_id = ?1
         "#;
@@ -115,6 +122,7 @@ impl UserRepository for SqliteUserRepository {
 
         let sql = r#"
             INSERT INTO users (
+                uuid,
                 discord_user_id,
                 username,
                 global_name,
@@ -123,7 +131,7 @@ impl UserRepository for SqliteUserRepository {
                 access_token,
                 created_at,
                 updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
         "#;
 
         let connection = self
@@ -133,6 +141,7 @@ impl UserRepository for SqliteUserRepository {
         let result = connection.execute(
             sql,
             params![
+                new_user.uuid.to_string(),
                 &new_user.discord_user_id,
                 &new_user.username,
                 &new_user.global_name,
@@ -229,6 +238,7 @@ mod tests {
 
         let created = repository
             .insert(NewUser {
+                uuid: uuid::Uuid::now_v7(),
                 discord_user_id: "1001".to_string(),
                 username: "nemu".to_string(),
                 global_name: Some("nemu_global".to_string()),
@@ -244,6 +254,7 @@ mod tests {
             .expect("user should exist");
 
         assert_eq!(created.id, fetched.id);
+        assert_eq!(created.uuid, fetched.uuid);
         assert_eq!(fetched.username, "nemu");
         assert_eq!(fetched.global_name.as_deref(), Some("nemu_global"));
         assert_eq!(fetched.access_token, "token-1");
@@ -255,6 +266,7 @@ mod tests {
 
         repository
             .insert(NewUser {
+                uuid: uuid::Uuid::now_v7(),
                 discord_user_id: "1001".to_string(),
                 username: "old_user".to_string(),
                 global_name: Some("old".to_string()),

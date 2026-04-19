@@ -18,6 +18,7 @@ pub(crate) struct LoginCommand {
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub(crate) struct LoginUser {
+    pub uuid: Uuid,
     pub discord_user_id: String,
     pub username: String,
     pub global_name: Option<String>,
@@ -84,6 +85,7 @@ where
         }
 
         let new_user = NewUser {
+            uuid: Uuid::now_v7(),
             discord_user_id: profile.discord_user_id,
             username: profile.username,
             global_name: profile.global_name,
@@ -100,6 +102,7 @@ where
         LoginResult {
             access_token: record.access_token,
             user: LoginUser {
+                uuid: record.uuid,
                 discord_user_id: record.discord_user_id,
                 username: record.username,
                 global_name: record.global_name,
@@ -203,6 +206,7 @@ mod tests {
 
             let row = UserRecord {
                 id: state.next_id,
+                uuid: new_user.uuid,
                 discord_user_id: new_user.discord_user_id,
                 username: new_user.username,
                 global_name: new_user.global_name,
@@ -272,6 +276,7 @@ mod tests {
     fn login_updates_existing_user_and_reuses_access_token() {
         let repository = InMemoryUserRepository::new(vec![UserRecord {
             id: 1,
+            uuid: Uuid::now_v7(),
             discord_user_id: "1001".to_string(),
             username: "old_user".to_string(),
             global_name: Some("old_name".to_string()),

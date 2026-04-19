@@ -35,7 +35,6 @@ pub(crate) use regulation::Regulation;
 pub(crate) use regulation::RegulationError;
 pub(crate) use territory::Territory;
 pub(crate) use unit::Unit;
-pub(crate) use user::User;
 
 // enums
 pub(crate) use order::OrderKind;

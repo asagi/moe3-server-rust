@@ -1,4 +1,5 @@
 use serde::Serialize;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub(crate) struct AuthLoginResponse {
@@ -8,6 +9,7 @@ pub(crate) struct AuthLoginResponse {
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub(crate) struct AuthLoginUserResponse {
+    pub uuid: Uuid,
     pub discord_user_id: String,
     pub username: String,
     pub global_name: Option<String>,

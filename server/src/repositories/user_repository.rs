@@ -2,6 +2,7 @@ use crate::repositories::UserId;
 
 use std::error::Error;
 use std::fmt;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DiscordProfile {
@@ -15,6 +16,7 @@ pub(crate) struct DiscordProfile {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct UserRecord {
     pub id: UserId,
+    pub uuid: Uuid,
     pub discord_user_id: String,
     pub username: String,
     pub global_name: Option<String>,
@@ -25,6 +27,7 @@ pub(crate) struct UserRecord {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct NewUser {
+    pub uuid: Uuid,
     pub discord_user_id: String,
     pub username: String,
     pub global_name: Option<String>,

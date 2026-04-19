@@ -1,4 +1,14 @@
+// external crates
+use uuid::Uuid;
+
 /// ユーザの定義
 #[allow(dead_code)]
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct User {}
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct User {
+    pub uuid: Uuid,
+    pub discord_user_id: String,
+    pub username: String,
+    pub global_name: Option<String>,
+    pub avatar_hash: Option<String>,
+    pub avatar_url: Option<String>,
+}

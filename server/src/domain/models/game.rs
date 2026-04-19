@@ -6,4 +6,5 @@ use super::Regulation;
 pub(crate) struct Game {
     pub(crate) game_number: Option<i32>,
     pub(crate) regulation: Regulation,
+    pub(crate) players: [i32; 7],
 }
