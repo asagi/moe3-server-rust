@@ -99,12 +99,16 @@ impl GameRepository for SqliteGameRepository {
         let now = Utc::now().to_rfc3339();
         let game = new_game.game;
 
-        let connection = self
+        let mut connection = self
             .connection
             .lock()
             .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
 
-        connection
+        let transaction = connection
+            .transaction()
+            .map_err(|error| RepositoryError::Unavailable(format!("begin game insert transaction: {}", error)))?;
+
+        transaction
             .execute(
                 r#"
                 INSERT INTO games (
@@ -134,7 +138,7 @@ impl GameRepository for SqliteGameRepository {
             .map_err(|error| RepositoryError::Unavailable(format!("insert game: {}", error)))?;
 
         for player in &game.players {
-            connection
+            transaction
                 .execute(
                     r#"
                     INSERT INTO game_players (
@@ -159,7 +163,7 @@ impl GameRepository for SqliteGameRepository {
         }
 
         for phase in &game.phases {
-            connection
+            transaction
                 .execute(
                     r#"
                     INSERT INTO game_phases (game_uuid, phase_index, phase_year, phase_kind)
@@ -174,6 +178,10 @@ impl GameRepository for SqliteGameRepository {
                 )
                 .map_err(|error| RepositoryError::Unavailable(format!("insert game phase: {}", error)))?;
         }
+
+        transaction
+            .commit()
+            .map_err(|error| RepositoryError::Unavailable(format!("commit game insert transaction: {}", error)))?;
 
         Ok(game)
     }

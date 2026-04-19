@@ -55,19 +55,10 @@ where
         })
         .map_err(CreateGameHandlerError::Service)?;
 
-    let owner = result
-        .game
-        .players
-        .iter()
-        .find(|player| player.is_owner)
-        .ok_or(CreateGameHandlerError::Service(CreateGameError::Repository(
-            crate::repositories::RepositoryError::Unavailable("owner player is missing".to_string()),
-        )))?;
-
     Ok(CreateGameResponse {
         game_uuid: result.game.uuid,
-        owner_user_uuid: owner.user_uuid,
-        requested_power: owner.requested_power.map(|power| power.to_string()),
+        owner_user_uuid: result.owner_user_uuid,
+        requested_power: result.requested_power.map(|power| power.to_string()),
     })
 }
 
@@ -99,6 +90,7 @@ impl CreateGameHandlerError {
             Self::Service(CreateGameError::InvalidRequest(_)) => "invalid_request",
             Self::Service(CreateGameError::Unauthorized) => "unauthorized",
             Self::Service(CreateGameError::Repository(_)) => "repository_error",
+            Self::Service(CreateGameError::Internal(_)) => "internal_error",
         }
     }
 
@@ -115,7 +107,7 @@ impl CreateGameHandlerError {
                 "authorization header is required".to_string()
             }
             Self::InvalidRequest(CreateGameRequestValidationError::InvalidAuthorizationScheme) => {
-                "authorization must start with Bearer".to_string()
+                "authorization must start with 'Bearer <token>'".to_string()
             }
             Self::InvalidRequest(CreateGameRequestValidationError::MissingAccessToken) => "access token is required".to_string(),
             Self::InvalidRequest(CreateGameRequestValidationError::InvalidFaceType) => "face_type is invalid".to_string(),

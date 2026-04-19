@@ -23,6 +23,8 @@ pub(crate) struct CreateGameCommand {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct CreateGameResult {
     pub game: Game,
+    pub owner_user_uuid: Uuid,
+    pub requested_power: Option<Power>,
 }
 
 pub(crate) struct GameService<U, G>
@@ -80,7 +82,18 @@ where
             .insert(NewGame { game })
             .map_err(CreateGameError::Repository)?;
 
-        Ok(CreateGameResult { game: created })
+        let (owner_user_uuid, requested_power) = created
+            .players
+            .iter()
+            .find(|player| player.is_owner)
+            .map(|owner| (owner.user_uuid, owner.requested_power))
+            .ok_or(CreateGameError::Internal("created game is missing an owner player".to_string()))?;
+
+        Ok(CreateGameResult {
+            game: created,
+            owner_user_uuid,
+            requested_power,
+        })
     }
 }
 
@@ -89,6 +102,7 @@ pub(crate) enum CreateGameError {
     InvalidRequest(String),
     Unauthorized,
     Repository(RepositoryError),
+    Internal(String),
 }
 
 impl fmt::Display for CreateGameError {
@@ -97,6 +111,7 @@ impl fmt::Display for CreateGameError {
             Self::InvalidRequest(message) => write!(f, "invalid request: {}", message),
             Self::Unauthorized => write!(f, "unauthorized"),
             Self::Repository(error) => write!(f, "repository error: {}", error),
+            Self::Internal(message) => write!(f, "internal error: {}", message),
         }
     }
 }
@@ -209,6 +224,8 @@ mod tests {
             })
             .expect("create game should succeed");
 
+        assert_eq!(result.owner_user_uuid, user_uuid);
+        assert_eq!(result.requested_power, Some(Power::France));
         assert_eq!(result.game.players.len(), 1);
         let owner = &result.game.players[0];
         assert_eq!(owner.user_uuid, user_uuid);
