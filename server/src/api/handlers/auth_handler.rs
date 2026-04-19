@@ -36,6 +36,7 @@ where
 impl From<LoginUser> for AuthLoginUserResponse {
     fn from(user: LoginUser) -> Self {
         Self {
+            uuid: user.uuid,
             discord_user_id: user.discord_user_id,
             username: user.username,
             global_name: user.global_name,
@@ -128,6 +129,16 @@ mod tests {
             Ok(self.state.borrow().rows.get(discord_user_id).cloned())
         }
 
+        fn find_by_access_token(&self, access_token: &str) -> Result<Option<UserRecord>, RepositoryError> {
+            Ok(self
+                .state
+                .borrow()
+                .rows
+                .values()
+                .find(|row| row.access_token == access_token)
+                .cloned())
+        }
+
         fn insert(&self, new_user: NewUser) -> Result<UserRecord, RepositoryError> {
             let mut state = self.state.borrow_mut();
             if state.rows.contains_key(&new_user.discord_user_id) {
@@ -136,6 +147,7 @@ mod tests {
 
             let row = UserRecord {
                 id: 2,
+                uuid: new_user.uuid,
                 discord_user_id: new_user.discord_user_id,
                 username: new_user.username,
                 global_name: new_user.global_name,
@@ -166,6 +178,7 @@ mod tests {
     fn handle_auth_login_returns_login_response() {
         let repository = InMemoryUserRepository::new(vec![UserRecord {
             id: 1,
+            uuid: uuid::Uuid::now_v7(),
             discord_user_id: "1001".to_string(),
             username: "old_user".to_string(),
             global_name: Some("old".to_string()),

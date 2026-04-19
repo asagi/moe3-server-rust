@@ -21,7 +21,10 @@ pub(crate) use order::Order;
 pub(crate) use order::RetreatOrder;
 pub(crate) use order::SupportOrder;
 pub(crate) use path::Path;
+pub(crate) use game::Game;
 pub(crate) use phase::Phase;
+pub(crate) use phase::PhaseKind;
+pub(crate) use player::Player;
 pub(crate) use power::Power;
 pub(crate) use province::Province;
 #[allow(unused_imports)]
@@ -35,7 +38,6 @@ pub(crate) use regulation::Regulation;
 pub(crate) use regulation::RegulationError;
 pub(crate) use territory::Territory;
 pub(crate) use unit::Unit;
-pub(crate) use user::User;
 
 // enums
 pub(crate) use order::OrderKind;

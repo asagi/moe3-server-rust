@@ -1,13 +1,16 @@
 // models
 use super::Power;
-use super::User;
+
+// external crates
+use uuid::Uuid;
 
 /// プレイヤーの定義
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Player {
-    pub(crate) user: User,
-    pub(crate) game_number: i32,
+    pub(crate) user_uuid: Uuid,
     pub(crate) power: Option<Power>,
     pub(crate) is_accepting_draw: bool,
+    pub(crate) is_owner: bool,
+    pub(crate) requested_power: Option<Power>,
 }

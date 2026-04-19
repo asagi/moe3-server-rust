@@ -1,0 +1,45 @@
+use serde::Deserialize;
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub(crate) struct CreateGameRequest {
+    pub authorization: String,
+    pub face_type: i32,
+    pub progress_mode: i32,
+    pub duration_type: i32,
+    pub start_date: String,
+    pub first_period_hour: u8,
+    pub requested_power: Option<i32>,
+}
+
+impl CreateGameRequest {
+    pub(crate) fn validate(&self) -> Result<(), CreateGameRequestValidationError> {
+        let auth = self.authorization.trim();
+        if auth.is_empty() {
+            return Err(CreateGameRequestValidationError::MissingAuthorization);
+        }
+
+        if !auth.starts_with("Bearer ") {
+            return Err(CreateGameRequestValidationError::InvalidAuthorizationScheme);
+        }
+
+        let token = auth.trim_start_matches("Bearer ").trim();
+        if token.is_empty() {
+            return Err(CreateGameRequestValidationError::MissingAccessToken);
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum CreateGameRequestValidationError {
+    MissingAuthorization,
+    InvalidAuthorizationScheme,
+    MissingAccessToken,
+    InvalidFaceType,
+    InvalidProgressMode,
+    InvalidDurationType,
+    InvalidStartDate,
+    InvalidRequestedPower,
+    InvalidFirstPeriodHour,
+}
