@@ -4,10 +4,7 @@ use crate::api::requests::CreateGameRequest;
 use crate::api::requests::CreateGameRequestValidationError;
 use crate::api::responses::ApiErrorResponse;
 use crate::api::responses::CreateGameResponse;
-use crate::domain::DurationType;
-use crate::domain::FaceType;
 use crate::domain::Power;
-use crate::domain::ProgressMode;
 use crate::domain::Regulation;
 use crate::repositories::GameRepository;
 use crate::repositories::UserRepository;
@@ -25,26 +22,8 @@ where
 {
     request.validate().map_err(CreateGameHandlerError::InvalidRequest)?;
 
-    let face_type = FaceType::try_from(request.face_type)
-        .map_err(|_| CreateGameHandlerError::InvalidRequest(CreateGameRequestValidationError::InvalidFaceType))?;
-    let progress_mode = ProgressMode::try_from(request.progress_mode)
-        .map_err(|_| CreateGameHandlerError::InvalidRequest(CreateGameRequestValidationError::InvalidProgressMode))?;
-    let duration_type = DurationType::try_from(request.duration_type)
-        .map_err(|_| CreateGameHandlerError::InvalidRequest(CreateGameRequestValidationError::InvalidDurationType))?;
-
-    let start_date = NaiveDate::parse_from_str(&request.start_date, "%Y-%m-%d")
-        .map_err(|_| CreateGameHandlerError::InvalidRequest(CreateGameRequestValidationError::InvalidStartDate))?;
-
-    let requested_power = match request.requested_power {
-        Some(value) => Some(power_from_code(value.as_str()).ok_or(CreateGameHandlerError::InvalidRequest(
-            CreateGameRequestValidationError::InvalidRequestedPower,
-        ))?),
-        None => None,
-    };
-
-    let regulation = Regulation::new(face_type, progress_mode, duration_type, start_date, request.first_period_hour)
-        .map_err(|_| CreateGameHandlerError::InvalidRequest(CreateGameRequestValidationError::InvalidFirstPeriodHour))?;
-
+    let regulation = parse_regulation(&request)?;
+    let requested_power = parse_requested_power(request.requested_power.as_deref())?;
     let access_token = request.authorization.trim().trim_start_matches("Bearer ").trim().to_string();
 
     let result = service
@@ -62,17 +41,32 @@ where
     })
 }
 
-fn power_from_code(value: &str) -> Option<Power> {
-    match value {
-        "a" => Some(Power::Austria),
-        "e" => Some(Power::England),
-        "f" => Some(Power::France),
-        "g" => Some(Power::Germany),
-        "i" => Some(Power::Italy),
-        "r" => Some(Power::Russia),
-        "t" => Some(Power::Turkey),
-        _ => None,
-    }
+fn parse_regulation(request: &CreateGameRequest) -> Result<Regulation, CreateGameHandlerError> {
+    let face_type = parse_enum(request.face_type, CreateGameRequestValidationError::InvalidFaceType)?;
+    let progress_mode = parse_enum(request.progress_mode, CreateGameRequestValidationError::InvalidProgressMode)?;
+    let duration_type = parse_enum(request.duration_type, CreateGameRequestValidationError::InvalidDurationType)?;
+    let start_date = NaiveDate::parse_from_str(&request.start_date, "%Y-%m-%d")
+        .map_err(|_| invalid_request(CreateGameRequestValidationError::InvalidStartDate))?;
+
+    Regulation::new(face_type, progress_mode, duration_type, start_date, request.first_period_hour)
+        .map_err(|_| invalid_request(CreateGameRequestValidationError::InvalidFirstPeriodHour))
+}
+
+fn parse_requested_power(value: Option<&str>) -> Result<Option<Power>, CreateGameHandlerError> {
+    value
+        .map(|code| Power::try_from(code).map_err(|_| invalid_request(CreateGameRequestValidationError::InvalidRequestedPower)))
+        .transpose()
+}
+
+fn parse_enum<T>(value: i32, validation_error: CreateGameRequestValidationError) -> Result<T, CreateGameHandlerError>
+where
+    T: TryFrom<i32>,
+{
+    T::try_from(value).map_err(|_| invalid_request(validation_error))
+}
+
+fn invalid_request(validation_error: CreateGameRequestValidationError) -> CreateGameHandlerError {
+    CreateGameHandlerError::InvalidRequest(validation_error)
 }
 
 #[derive(Debug)]
