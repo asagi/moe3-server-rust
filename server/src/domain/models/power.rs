@@ -8,19 +8,19 @@ use strum::IntoEnumIterator;
 /// 国の定義
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter, Display, EnumString, EnumProperty)]
 pub(crate) enum Power {
-    #[strum(serialize = "Austria", props(Symbol = "a", Adj = "Austrian"))]
+    #[strum(serialize = "Austria", serialize = "a", props(Symbol = "a", Adj = "Austrian"))]
     Austria = 1,
-    #[strum(serialize = "England", props(Symbol = "e", Adj = "English"))]
+    #[strum(serialize = "England", serialize = "e", props(Symbol = "e", Adj = "English"))]
     England = 2,
-    #[strum(serialize = "France", props(Symbol = "f", Adj = "French"))]
+    #[strum(serialize = "France", serialize = "f", props(Symbol = "f", Adj = "French"))]
     France = 3,
-    #[strum(serialize = "Germany", props(Symbol = "g", Adj = "German"))]
+    #[strum(serialize = "Germany", serialize = "g", props(Symbol = "g", Adj = "German"))]
     Germany = 4,
-    #[strum(serialize = "Italy", props(Symbol = "i", Adj = "Italian"))]
+    #[strum(serialize = "Italy", serialize = "i", props(Symbol = "i", Adj = "Italian"))]
     Italy = 5,
-    #[strum(serialize = "Russia", props(Symbol = "r", Adj = "Russian"))]
+    #[strum(serialize = "Russia", serialize = "r", props(Symbol = "r", Adj = "Russian"))]
     Russia = 6,
-    #[strum(serialize = "Turkey", props(Symbol = "t", Adj = "Turkish"))]
+    #[strum(serialize = "Turkey", serialize = "t", props(Symbol = "t", Adj = "Turkish"))]
     Turkey = 7,
 }
 
@@ -72,5 +72,11 @@ mod tests {
         assert_eq!(Power::from_symbol("a"), Some(Power::Austria));
         assert_eq!(Power::from_symbol("E"), Some(Power::England));
         assert_eq!(Power::from_symbol("x"), None);
+    }
+
+    #[test]
+    fn test_try_from_str() {
+        assert_eq!(Power::try_from("f"), Ok(Power::France));
+        assert!(Power::try_from("X").is_err());
     }
 }
