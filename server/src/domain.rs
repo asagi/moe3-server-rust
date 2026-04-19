@@ -11,6 +11,7 @@ pub(crate) use models::Game;
 pub(crate) use models::MoveOrder;
 pub(crate) use models::Order;
 pub(crate) use models::OrderKind;
+pub(crate) use models::OrderStatus;
 pub(crate) use models::Phase;
 pub(crate) use models::PhaseKind;
 pub(crate) use models::Player;

@@ -3,7 +3,6 @@ use strum::Display;
 use strum::EnumIter;
 use strum::EnumProperty;
 use strum::EnumString;
-#[cfg(test)]
 use strum::IntoEnumIterator;
 
 /// 国の定義
@@ -27,14 +26,8 @@ pub(crate) enum Power {
 
 /// 国のロジック
 impl Power {
-    #[cfg(test)]
-    pub(crate) fn all() -> impl Iterator<Item = Self> {
-        Self::iter()
-    }
-
-    #[cfg(test)]
     pub(crate) fn from_symbol(symbol: &str) -> Option<Self> {
-        Self::all().find(|p| p.symbol().eq_ignore_ascii_case(symbol))
+        Self::iter().find(|p| p.symbol().eq_ignore_ascii_case(symbol))
     }
 
     pub(crate) fn symbol(&self) -> &'static str {
@@ -48,6 +41,25 @@ impl Power {
     #[allow(dead_code)]
     pub(crate) fn name(&self) -> String {
         self.to_string()
+    }
+}
+
+impl serde::Serialize for Power {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.symbol())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Power {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Self::from_symbol(&s).ok_or_else(|| serde::de::Error::custom(format!("invalid power code: {}", s)))
     }
 }
 

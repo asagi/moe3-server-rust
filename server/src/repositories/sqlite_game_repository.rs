@@ -4,6 +4,8 @@ use chrono::Utc;
 use rusqlite::Connection;
 use rusqlite::Transaction;
 use rusqlite::params;
+use serde::Deserialize;
+use serde::Serialize;
 
 use super::GameRepository;
 use super::NewGame;
@@ -11,6 +13,7 @@ use super::RepositoryError;
 use crate::domain::Game;
 use crate::domain::Order;
 use crate::domain::OrderKind;
+use crate::domain::OrderStatus;
 use crate::domain::Phase;
 use crate::domain::PhaseKind;
 use crate::domain::Power;
@@ -20,6 +23,53 @@ use crate::domain::Unit;
 
 pub(crate) struct SqliteGameRepository {
     connection: Mutex<Connection>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct UnitPayload {
+    power: Power,
+    unit_kind: String,
+    location: String,
+    dislodged: bool,
+    dislodged_from: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum OrderKindPayload {
+    Hold,
+    Move {
+        dest: String,
+        via_convoy: bool,
+    },
+    Support {
+        target_unit: UnitPayload,
+        target_dest: Option<String>,
+    },
+    Convoy {
+        target_unit: UnitPayload,
+        target_dest: String,
+    },
+    Retreat {
+        dest: String,
+    },
+    Build,
+    Disband,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct OrderPayload {
+    power: Power,
+    unit: UnitPayload,
+    dislodged_from: Option<String>,
+    status: OrderStatus,
+    kind: OrderKindPayload,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct TerritoryPayload {
+    power: Power,
+    code: String,
 }
 
 impl SqliteGameRepository {
@@ -88,27 +138,9 @@ impl SqliteGameRepository {
             CREATE TABLE IF NOT EXISTS game_phase_orders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 phase_id INTEGER NOT NULL,
-                order_index INTEGER NOT NULL,
-                power TEXT NOT NULL,
-                unit_power TEXT NOT NULL,
-                unit_location TEXT NOT NULL,
-                unit_kind TEXT NOT NULL,
-                unit_dislodged_from TEXT,
-                unit_dislodged INTEGER NOT NULL,
-                dislodged_from TEXT,
-                status TEXT NOT NULL,
-                order_kind TEXT NOT NULL,
-                dest TEXT,
-                via_convoy INTEGER,
-                target_unit_power TEXT,
-                target_unit_location TEXT,
-                target_unit_kind TEXT,
-                target_unit_dislodged_from TEXT,
-                target_unit_dislodged INTEGER,
-                target_dest TEXT,
+                order_json TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                UNIQUE(phase_id, order_index)
+                updated_at TEXT NOT NULL
             );
         "#;
 
@@ -121,108 +153,13 @@ impl SqliteGameRepository {
         Ok(())
     }
 
-    fn phase_kind_name(kind: &PhaseKind) -> &'static str {
-        match kind {
-            PhaseKind::Ready(_) => "ready",
-            PhaseKind::SpringMain(_) => "spring_main",
-            PhaseKind::SpringRetreat(_) => "spring_retreat",
-            PhaseKind::FallMain(_) => "fall_main",
-            PhaseKind::FallRetreat(_) => "fall_retreat",
-            PhaseKind::Adjustment(_) => "adjustment",
-            PhaseKind::Debrief(_) => "debrief",
-        }
+    fn serialize_phase_kind(kind: &PhaseKind) -> Result<String, RepositoryError> {
+        serde_json::to_string(kind).map_err(|error| RepositoryError::Unavailable(format!("serialize phase kind json: {}", error)))
     }
 
-    fn phase_kind_from_name(name: &str) -> Result<PhaseKind, RepositoryError> {
-        let kind = match name {
-            "ready" => Phase::new_ready().kind,
-            "spring_main" => Phase::new_spring_main(1900, 0).kind,
-            "spring_retreat" => Phase::new_spring_retreat(1901, 0).kind,
-            "fall_main" => Phase::new_fall_main(1901, 0).kind,
-            "fall_retreat" => Phase::new_fall_retreat(1901, 0).kind,
-            "adjustment" => Phase::new_adjustment(1901, 0).kind,
-            "debrief" => Phase::new_debrief(1901, 0).kind,
-            _ => return Err(RepositoryError::Unavailable(format!("unknown phase_kind: {}", name))),
-        };
-        Ok(kind)
-    }
-    fn power_to_code(power: Power) -> &'static str {
-        match power {
-            Power::Austria => "a",
-            Power::England => "e",
-            Power::France => "f",
-            Power::Germany => "g",
-            Power::Italy => "i",
-            Power::Russia => "r",
-            Power::Turkey => "t",
-        }
-    }
-
-    fn power_from_code(code: &str) -> Result<Power, RepositoryError> {
-        match code {
-            "a" => Ok(Power::Austria),
-            "e" => Ok(Power::England),
-            "f" => Ok(Power::France),
-            "g" => Ok(Power::Germany),
-            "i" => Ok(Power::Italy),
-            "r" => Ok(Power::Russia),
-            "t" => Ok(Power::Turkey),
-            _ => Err(RepositoryError::Unavailable(format!("invalid power code: {}", code))),
-        }
-    }
-
-    fn order_status_name(order: &Order) -> &'static str {
-        if order.is_unresolved() {
-            "unresolved"
-        } else if order.is_failure() {
-            "failure"
-        } else if order.is_success() {
-            "success"
-        } else if order.is_dislodged() {
-            "dislodged"
-        } else if order.is_cut() {
-            "cut"
-        } else if order.is_valid() {
-            "valid"
-        } else if order.is_invalid() {
-            "invalid"
-        } else if order.is_unreachable() {
-            "unreachable"
-        } else {
-            "unresolved"
-        }
-    }
-
-    fn apply_order_status(mut order: Order, status: &str) -> Result<Order, RepositoryError> {
-        order = match status {
-            "unresolved" => order.set_unresolved(),
-            "failure" => order.set_failure(),
-            "success" => order.set_success(),
-            "dislodged" => order.set_dislodged(),
-            "cut" => order.set_cut(),
-            "valid" => order.set_valid(),
-            "invalid" => order.set_invalid(),
-            "unreachable" => order.set_unreachable(),
-            _ => return Err(RepositoryError::Unavailable(format!("invalid order status: {}", status))),
-        };
-
-        Ok(order)
-    }
-
-    fn order_kind_name(kind: &OrderKind) -> &'static str {
-        match kind {
-            OrderKind::Hold(_) => "hold",
-            OrderKind::Move(_) => "move",
-            OrderKind::Support(_) => "support",
-            OrderKind::Convoy(_) => "convoy",
-            OrderKind::Retreat(_) => "retreat",
-            OrderKind::Build(_) => "build",
-            OrderKind::Disband(_) => "disband",
-        }
-    }
-
-    fn parse_province(code: &str) -> Result<Province, RepositoryError> {
-        Province::from_code(code).ok_or_else(|| RepositoryError::Unavailable(format!("invalid province code: {}", code)))
+    fn deserialize_phase_kind(text: &str) -> Result<PhaseKind, RepositoryError> {
+        serde_json::from_str(text)
+            .map_err(|error| RepositoryError::Unavailable(format!("deserialize phase kind json: {}", error)))
     }
 
     fn unit_kind_name(unit: &Unit) -> &'static str {
@@ -253,41 +190,36 @@ impl SqliteGameRepository {
         Ok(unit)
     }
 
-    fn serialize_unit(unit: &Unit) -> String {
-        let dislodged_from = unit
-            .dislodged_from
-            .map(|province| province.code_with_coast().to_string())
-            .unwrap_or_default();
-        format!(
-            "{}|{}|{}|{}|{}",
-            Self::power_to_code(unit.power),
-            Self::unit_kind_name(unit),
-            unit.location.code_with_coast(),
-            if unit.dislodged { 1 } else { 0 },
-            dislodged_from,
+    fn unit_to_payload(unit: &Unit) -> UnitPayload {
+        UnitPayload {
+            power: unit.power,
+            unit_kind: Self::unit_kind_name(unit).to_string(),
+            location: unit.location.code_with_coast().to_string(),
+            dislodged: unit.dislodged,
+            dislodged_from: unit.dislodged_from.map(|province| province.code_with_coast().to_string()),
+        }
+    }
+
+    fn unit_from_payload(payload: &UnitPayload) -> Result<Unit, RepositoryError> {
+        Self::build_unit(
+            payload.power,
+            Province::from_code(&payload.location)
+                .ok_or_else(|| RepositoryError::Unavailable(format!("invalid province code: {}", payload.location)))?,
+            &payload.unit_kind,
+            match &payload.dislodged_from {
+                Some(value) => Some(
+                    Province::from_code(value)
+                        .ok_or_else(|| RepositoryError::Unavailable(format!("invalid province code: {}", value)))?,
+                ),
+                None => None,
+            },
+            payload.dislodged,
         )
     }
 
-    fn deserialize_unit(text: &str) -> Result<Unit, RepositoryError> {
-        let parts = text.split('|').collect::<Vec<_>>();
-        if parts.len() != 5 {
-            return Err(RepositoryError::Unavailable(format!("invalid unit payload: {}", text)));
-        }
-
-        let power = Self::power_from_code(parts[0])?;
-        let location = Self::parse_province(parts[2])?;
-        let dislodged = parts[3] == "1";
-        let dislodged_from = if parts[4].is_empty() {
-            None
-        } else {
-            Some(Self::parse_province(parts[4])?)
-        };
-
-        Self::build_unit(power, location, parts[1], dislodged_from, dislodged)
-    }
-
-    fn serialize_units(units: &[Unit]) -> String {
-        units.iter().map(Self::serialize_unit).collect::<Vec<_>>().join("\n")
+    fn serialize_units(units: &[Unit]) -> Result<String, RepositoryError> {
+        let payloads = units.iter().map(Self::unit_to_payload).collect::<Vec<_>>();
+        serde_json::to_string(&payloads).map_err(|error| RepositoryError::Unavailable(format!("serialize units json: {}", error)))
     }
 
     fn deserialize_units(text: &str) -> Result<Vec<Unit>, RepositoryError> {
@@ -295,30 +227,134 @@ impl SqliteGameRepository {
             return Ok(Vec::new());
         }
 
-        text.lines().map(Self::deserialize_unit).collect::<Result<Vec<_>, _>>()
+        let payloads: Vec<UnitPayload> = serde_json::from_str(text)
+            .map_err(|error| RepositoryError::Unavailable(format!("deserialize units json: {}", error)))?;
+
+        payloads.iter().map(Self::unit_from_payload).collect::<Result<Vec<_>, _>>()
     }
 
-    fn serialize_territory(territory: &Territory) -> String {
-        format!("{}|{}", Self::power_to_code(territory.power), territory.code_with_coast())
+    fn serialize_order(order: &Order) -> Result<String, RepositoryError> {
+        let kind = match order.kind {
+            OrderKind::Hold(_) => OrderKindPayload::Hold,
+            OrderKind::Move(move_order) => OrderKindPayload::Move {
+                dest: move_order.dest.code_with_coast().to_string(),
+                via_convoy: move_order.via_convoy,
+            },
+            OrderKind::Support(support_order) => OrderKindPayload::Support {
+                target_unit: Self::unit_to_payload(&support_order.target_unit),
+                target_dest: support_order
+                    .target_dest
+                    .map(|province| province.code_with_coast().to_string()),
+            },
+            OrderKind::Convoy(convoy_order) => OrderKindPayload::Convoy {
+                target_unit: Self::unit_to_payload(&convoy_order.target_unit),
+                target_dest: convoy_order.target_dest.code_with_coast().to_string(),
+            },
+            OrderKind::Retreat(retreat_order) => OrderKindPayload::Retreat {
+                dest: retreat_order.dest.code_with_coast().to_string(),
+            },
+            OrderKind::Build(_) => OrderKindPayload::Build,
+            OrderKind::Disband(_) => OrderKindPayload::Disband,
+        };
+
+        let payload = OrderPayload {
+            power: order.power,
+            unit: Self::unit_to_payload(&order.unit),
+            dislodged_from: order.dislodged_from.map(|province| province.code_with_coast().to_string()),
+            status: order.status,
+            kind,
+        };
+
+        serde_json::to_string(&payload).map_err(|error| RepositoryError::Unavailable(format!("serialize order json: {}", error)))
     }
 
-    fn deserialize_territory(text: &str) -> Result<Territory, RepositoryError> {
-        let parts = text.split('|').collect::<Vec<_>>();
-        if parts.len() != 2 {
-            return Err(RepositoryError::Unavailable(format!("invalid territory payload: {}", text)));
-        }
+    fn deserialize_order(text: &str) -> Result<Order, RepositoryError> {
+        let payload: OrderPayload = serde_json::from_str(text)
+            .map_err(|error| RepositoryError::Unavailable(format!("deserialize order json: {}", error)))?;
 
-        let power = Self::power_from_code(parts[0])?;
+        let OrderPayload {
+            power,
+            unit,
+            dislodged_from,
+            status,
+            kind,
+        } = payload;
 
-        Ok(Territory::new(power, parts[1]))
+        let unit = Self::unit_from_payload(&unit)?;
+
+        let mut order = match kind {
+            OrderKindPayload::Hold => Order::new_hold(power, unit),
+            OrderKindPayload::Move { dest, via_convoy } => {
+                let mut move_order = Order::new_move(
+                    power,
+                    unit,
+                    Province::from_code(&dest)
+                        .ok_or_else(|| RepositoryError::Unavailable(format!("invalid province code: {}", dest)))?,
+                );
+                if via_convoy {
+                    move_order = move_order.set_via_convoy();
+                }
+                move_order
+            }
+            OrderKindPayload::Support {
+                target_unit,
+                target_dest,
+            } => Order::new_support(
+                power,
+                unit,
+                Self::unit_from_payload(&target_unit)?,
+                match target_dest {
+                    Some(value) => Some(
+                        Province::from_code(&value)
+                            .ok_or_else(|| RepositoryError::Unavailable(format!("invalid province code: {}", value)))?,
+                    ),
+                    None => None,
+                },
+            ),
+            OrderKindPayload::Convoy {
+                target_unit,
+                target_dest,
+            } => Order::new_convoy(
+                power,
+                unit,
+                Self::unit_from_payload(&target_unit)?,
+                Province::from_code(&target_dest)
+                    .ok_or_else(|| RepositoryError::Unavailable(format!("invalid province code: {}", target_dest)))?,
+            ),
+            OrderKindPayload::Retreat { dest } => Order::new_retreat(
+                power,
+                unit,
+                Province::from_code(&dest)
+                    .ok_or_else(|| RepositoryError::Unavailable(format!("invalid province code: {}", dest)))?,
+            ),
+            OrderKindPayload::Build => Order::new_build(power, unit),
+            OrderKindPayload::Disband => Order::new_disband(power, unit),
+        };
+
+        order.dislodged_from = match dislodged_from {
+            Some(value) => Some(
+                Province::from_code(&value)
+                    .ok_or_else(|| RepositoryError::Unavailable(format!("invalid province code: {}", value)))?,
+            ),
+            None => None,
+        };
+
+        order.status = status;
+        Ok(order)
     }
 
     fn serialize_territories(territories: &[Territory]) -> String {
-        territories
+        let payloads = territories
             .iter()
-            .map(Self::serialize_territory)
-            .collect::<Vec<_>>()
-            .join("\n")
+            .map(|t| TerritoryPayload {
+                power: t.power,
+                code: t.code_with_coast().to_string(),
+            })
+            .collect::<Vec<_>>();
+
+        serde_json::to_string(&payloads)
+            .map_err(|error| RepositoryError::Unavailable(format!("serialize territories json: {}", error)))
+            .unwrap_or_default()
     }
 
     fn deserialize_territories(text: &str) -> Result<Vec<Territory>, RepositoryError> {
@@ -326,11 +362,20 @@ impl SqliteGameRepository {
             return Ok(Vec::new());
         }
 
-        text.lines().map(Self::deserialize_territory).collect::<Result<Vec<_>, _>>()
+        let payloads: Vec<TerritoryPayload> = serde_json::from_str(text)
+            .map_err(|error| RepositoryError::Unavailable(format!("deserialize territories json: {}", error)))?;
+
+        payloads
+            .into_iter()
+            .map(|p| {
+                let power = p.power;
+                Ok(Territory::new(power, &p.code))
+            })
+            .collect::<Result<Vec<_>, RepositoryError>>()
     }
 
     fn serialize_codes(codes: &[String]) -> String {
-        codes.join(",")
+        serde_json::to_string(codes).unwrap_or_else(|_| codes.join(","))
     }
 
     fn deserialize_codes(text: &str) -> Vec<String> {
@@ -338,7 +383,9 @@ impl SqliteGameRepository {
             return Vec::new();
         }
 
-        text.split(',').map(|value| value.to_string()).collect::<Vec<_>>()
+        // Try JSON first, fallback to comma-separated for backward compatibility
+        serde_json::from_str::<Vec<String>>(text)
+            .unwrap_or_else(|_| text.split(',').map(|value| value.to_string()).collect::<Vec<_>>())
     }
 
     fn insert_phase_orders(
@@ -347,95 +394,20 @@ impl SqliteGameRepository {
         phase: &Phase,
         now: &str,
     ) -> Result<(), RepositoryError> {
-        for (order_index, order) in phase.orders.iter().enumerate() {
-            let unit_dislodged_from = order
-                .unit
-                .dislodged_from
-                .map(|province| province.code_with_coast().to_string());
-            let dislodged_from = order.dislodged_from.map(|province| province.code_with_coast().to_string());
-
-            let (dest, via_convoy, target_unit, target_dest) = match order.kind {
-                OrderKind::Hold(_) | OrderKind::Build(_) | OrderKind::Disband(_) => (None, None, None, None),
-                OrderKind::Move(move_order) => (
-                    Some(move_order.dest.code_with_coast().to_string()),
-                    Some(if move_order.via_convoy { 1 } else { 0 }),
-                    None,
-                    None,
-                ),
-                OrderKind::Support(support_order) => (
-                    None,
-                    None,
-                    Some(support_order.target_unit),
-                    support_order
-                        .target_dest
-                        .map(|province| province.code_with_coast().to_string()),
-                ),
-                OrderKind::Convoy(convoy_order) => (
-                    None,
-                    None,
-                    Some(convoy_order.target_unit),
-                    Some(convoy_order.target_dest.code_with_coast().to_string()),
-                ),
-                OrderKind::Retreat(retreat_order) => (Some(retreat_order.dest.code_with_coast().to_string()), None, None, None),
-            };
-
-            let target_unit_power = target_unit.map(|unit| Self::power_to_code(unit.power).to_string());
-            let target_unit_location = target_unit.map(|unit| unit.location.code_with_coast().to_string());
-            let target_unit_kind = target_unit.map(|unit| Self::unit_kind_name(&unit).to_string());
-            let target_unit_dislodged_from =
-                target_unit.and_then(|unit| unit.dislodged_from.map(|province| province.code_with_coast().to_string()));
-            let target_unit_dislodged = target_unit.map(|unit| if unit.dislodged { 1 } else { 0 });
+        for order in phase.orders.iter() {
+            let order_json = Self::serialize_order(order)?;
 
             transaction
                 .execute(
                     r#"
                     INSERT INTO game_phase_orders (
                         phase_id,
-                        order_index,
-                        power,
-                        unit_power,
-                        unit_location,
-                        unit_kind,
-                        unit_dislodged_from,
-                        unit_dislodged,
-                        dislodged_from,
-                        status,
-                        order_kind,
-                        dest,
-                        via_convoy,
-                        target_unit_power,
-                        target_unit_location,
-                        target_unit_kind,
-                        target_unit_dislodged_from,
-                        target_unit_dislodged,
-                        target_dest,
+                        order_json,
                         created_at,
                         updated_at
-                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)
+                    ) VALUES (?1, ?2, ?3, ?4)
                     "#,
-                    params![
-                        phase_id,
-                        order_index as i32,
-                        Self::power_to_code(order.power),
-                        Self::power_to_code(order.unit.power),
-                        order.unit.location.code_with_coast(),
-                        Self::unit_kind_name(&order.unit),
-                        unit_dislodged_from,
-                        if order.unit.dislodged { 1 } else { 0 },
-                        dislodged_from,
-                        Self::order_status_name(order),
-                        Self::order_kind_name(&order.kind),
-                        dest,
-                        via_convoy,
-                        target_unit_power,
-                        target_unit_location,
-                        target_unit_kind,
-                        target_unit_dislodged_from,
-                        target_unit_dislodged,
-                        target_dest,
-                        now,
-                        now,
-                    ],
+                    params![phase_id, order_json, now, now],
                 )
                 .map_err(|error| RepositoryError::Unavailable(format!("insert game phase order: {}", error)))?;
         }
@@ -448,163 +420,22 @@ impl SqliteGameRepository {
         let mut statement = connection
             .prepare(
                 r#"
-                SELECT
-                    power,
-                    unit_power,
-                    unit_location,
-                    unit_kind,
-                    unit_dislodged_from,
-                    unit_dislodged,
-                    dislodged_from,
-                    status,
-                    order_kind,
-                    dest,
-                    via_convoy,
-                    target_unit_power,
-                    target_unit_location,
-                    target_unit_kind,
-                    target_unit_dislodged_from,
-                    target_unit_dislodged,
-                    target_dest
+                SELECT order_json
                 FROM game_phase_orders
                 WHERE phase_id = ?1
-                ORDER BY order_index
                 "#,
             )
             .map_err(|error| RepositoryError::Unavailable(format!("prepare select phase orders: {}", error)))?;
 
         let rows = statement
-            .query_map(params![phase_id], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, String>(3)?,
-                    row.get::<_, Option<String>>(4)?,
-                    row.get::<_, i32>(5)?,
-                    row.get::<_, Option<String>>(6)?,
-                    row.get::<_, String>(7)?,
-                    row.get::<_, String>(8)?,
-                    row.get::<_, Option<String>>(9)?,
-                    row.get::<_, Option<i32>>(10)?,
-                    row.get::<_, Option<String>>(11)?,
-                    row.get::<_, Option<String>>(12)?,
-                    row.get::<_, Option<String>>(13)?,
-                    row.get::<_, Option<String>>(14)?,
-                    row.get::<_, Option<i32>>(15)?,
-                    row.get::<_, Option<String>>(16)?,
-                ))
-            })
+            .query_map(params![phase_id], |row| row.get::<_, String>(0))
             .map_err(|error| RepositoryError::Unavailable(format!("query select phase orders: {}", error)))?;
 
-        let mut orders = Vec::new();
-        for row in rows {
-            let (
-                power,
-                unit_power,
-                unit_location,
-                unit_kind,
-                unit_dislodged_from,
-                unit_dislodged,
-                dislodged_from,
-                status,
-                order_kind,
-                dest,
-                via_convoy,
-                target_unit_power,
-                target_unit_location,
-                target_unit_kind,
-                target_unit_dislodged_from,
-                target_unit_dislodged,
-                target_dest,
-            ) = row.map_err(|error| RepositoryError::Unavailable(format!("read phase order row: {}", error)))?;
-
-            let unit = Self::build_unit(
-                Self::power_from_code(&unit_power)?,
-                Self::parse_province(&unit_location)?,
-                &unit_kind,
-                match unit_dislodged_from {
-                    Some(value) => Some(Self::parse_province(&value)?),
-                    None => None,
-                },
-                unit_dislodged == 1,
-            )?;
-
-            let target_unit = match (
-                target_unit_power,
-                target_unit_location,
-                target_unit_kind,
-                target_unit_dislodged,
-            ) {
-                (Some(t_power), Some(t_location), Some(t_kind), Some(t_dislodged)) => Some(Self::build_unit(
-                    Self::power_from_code(&t_power)?,
-                    Self::parse_province(&t_location)?,
-                    &t_kind,
-                    match target_unit_dislodged_from {
-                        Some(value) => Some(Self::parse_province(&value)?),
-                        None => None,
-                    },
-                    t_dislodged == 1,
-                )?),
-                (None, None, None, None) => None,
-                _ => return Err(RepositoryError::Unavailable("inconsistent target unit columns".to_string())),
-            };
-
-            let power = Self::power_from_code(&power)?;
-            let mut order = match order_kind.as_str() {
-                "hold" => Order::new_hold(power, unit),
-                "move" => {
-                    let dest = Self::parse_province(
-                        dest.as_deref()
-                            .ok_or_else(|| RepositoryError::Unavailable("missing move dest".to_string()))?,
-                    )?;
-                    let mut move_order = Order::new_move(power, unit, dest);
-                    if via_convoy.unwrap_or(0) == 1 {
-                        move_order = move_order.set_via_convoy();
-                    }
-                    move_order
-                }
-                "support" => Order::new_support(
-                    power,
-                    unit,
-                    target_unit.ok_or_else(|| RepositoryError::Unavailable("missing support target unit".to_string()))?,
-                    match target_dest {
-                        Some(value) => Some(Self::parse_province(&value)?),
-                        None => None,
-                    },
-                ),
-                "convoy" => Order::new_convoy(
-                    power,
-                    unit,
-                    target_unit.ok_or_else(|| RepositoryError::Unavailable("missing convoy target unit".to_string()))?,
-                    Self::parse_province(
-                        target_dest
-                            .as_deref()
-                            .ok_or_else(|| RepositoryError::Unavailable("missing convoy target dest".to_string()))?,
-                    )?,
-                ),
-                "retreat" => Order::new_retreat(
-                    power,
-                    unit,
-                    Self::parse_province(
-                        dest.as_deref()
-                            .ok_or_else(|| RepositoryError::Unavailable("missing retreat dest".to_string()))?,
-                    )?,
-                ),
-                "build" => Order::new_build(power, unit),
-                "disband" => Order::new_disband(power, unit),
-                _ => return Err(RepositoryError::Unavailable(format!("invalid order kind: {}", order_kind))),
-            };
-
-            order.dislodged_from = match dislodged_from {
-                Some(value) => Some(Self::parse_province(&value)?),
-                None => None,
-            };
-
-            orders.push(Self::apply_order_status(order, &status)?);
-        }
-
-        Ok(orders)
+        rows.map(|row| {
+            let order_json = row.map_err(|error| RepositoryError::Unavailable(format!("read phase order row: {}", error)))?;
+            Self::deserialize_order(&order_json)
+        })
+        .collect::<Result<Vec<_>, _>>()
     }
 }
 
@@ -696,8 +527,8 @@ impl GameRepository for SqliteGameRepository {
                         game.uuid.to_string(),
                         phase.index,
                         phase.year,
-                        Self::phase_kind_name(&phase.kind),
-                        Self::serialize_units(&phase.units),
+                        Self::serialize_phase_kind(&phase.kind)?,
+                        Self::serialize_units(&phase.units)?,
                         Self::serialize_territories(&phase.territories),
                         Self::serialize_codes(&phase.standoff_codes),
                         now,
@@ -858,7 +689,7 @@ mod tests {
             game_number: None,
             index: phase_index,
             year: phase_year,
-            kind: SqliteGameRepository::phase_kind_from_name(&phase_kind).expect("phase kind parse"),
+            kind: SqliteGameRepository::deserialize_phase_kind(&phase_kind).expect("phase kind parse"),
             units: SqliteGameRepository::deserialize_units(&units_text).expect("units parse"),
             territories: SqliteGameRepository::deserialize_territories(&territories_text).expect("territories parse"),
             standoff_codes: SqliteGameRepository::deserialize_codes(&standoff_text),
@@ -871,7 +702,21 @@ mod tests {
         assert_eq!(restored_phase.units, phase.units);
         assert_eq!(restored_phase.territories, phase.territories);
         assert_eq!(restored_phase.standoff_codes, phase.standoff_codes);
-        assert_eq!(restored_phase.orders, phase.orders);
+        {
+            let mut restored_jsons = restored_phase
+                .orders
+                .iter()
+                .map(|o| SqliteGameRepository::serialize_order(o).expect("serialize"))
+                .collect::<Vec<_>>();
+            let mut orig_jsons = phase
+                .orders
+                .iter()
+                .map(|o| SqliteGameRepository::serialize_order(o).expect("serialize"))
+                .collect::<Vec<_>>();
+            restored_jsons.sort();
+            orig_jsons.sort();
+            assert_eq!(restored_jsons, orig_jsons);
+        }
         assert!(!created_at.is_empty());
         assert!(!updated_at.is_empty());
     }
