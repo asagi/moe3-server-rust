@@ -1,4 +1,4 @@
-#![cfg_attr(not(test), allow(dead_code))]
+#![allow(dead_code)] // TODO: 後で削除する
 // ============================================================================
 // imports
 // ============================================================================
@@ -23,6 +23,7 @@ pub(crate) struct PhaseContext {
     active_powers: Vec<Power>,
     phases: VecDeque<Phase>,
     is_draw: bool,
+    is_solo: bool,
 }
 
 impl PhaseContext {
@@ -31,6 +32,7 @@ impl PhaseContext {
             active_powers: Power::iter().collect(),
             phases: VecDeque::new(),
             is_draw: false,
+            is_solo: false,
         }
     }
 
@@ -61,5 +63,13 @@ impl PhaseContext {
 
     pub(crate) fn set_draw(&mut self) {
         self.is_draw = true;
+    }
+
+    pub(crate) fn set_solo(&mut self) {
+        self.is_solo = true;
+    }
+
+    pub(crate) fn is_finished(&self) -> bool {
+        self.is_draw || self.is_solo
     }
 }

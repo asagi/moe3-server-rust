@@ -17,6 +17,7 @@ use super::Player;
 use super::Regulation;
 
 // enums
+use super::GameStatus;
 use super::Power;
 use super::RepositoryError;
 
@@ -90,6 +91,7 @@ where
             regulation: command.regulation,
             players: vec![owner],
             phases: vec![Phase::new_ready()],
+            status: GameStatus::Preparing,
         };
 
         let created = self

@@ -30,6 +30,7 @@ pub(crate) use models::Unit;
 // enums
 pub(crate) use models::DurationType;
 pub(crate) use models::FaceType;
+pub(crate) use models::GameStatus;
 pub(crate) use models::OrderKind;
 pub(crate) use models::OrderStatus;
 pub(crate) use models::PhaseKind;
