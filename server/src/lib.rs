@@ -31,7 +31,7 @@ pub(crate) use repositories::UserRecord;
 pub(crate) use repositories::UserRepository;
 pub(crate) use services::AuthService;
 pub(crate) use services::CreateGameCommand;
-pub(crate) use services::GameAdvancementService;
+pub(crate) use services::GameProgressionService;
 pub(crate) use services::GameService;
 pub(crate) use services::LoginCommand;
 pub(crate) use services::LoginUser;
@@ -48,7 +48,7 @@ pub(crate) use domain::ProgressMode;
 pub(crate) use services::AuthError;
 pub(crate) use services::CreateGameError;
 pub(crate) use services::DiscordClientError;
-pub(crate) use services::GameAdvancementError;
+pub(crate) use services::GameProgressionError;
 
 // traits
 pub(crate) use repositories::GameRepository;
