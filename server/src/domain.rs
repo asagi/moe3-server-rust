@@ -20,6 +20,7 @@ pub(crate) use models::Game;
 pub(crate) use models::MoveOrder;
 pub(crate) use models::Order;
 pub(crate) use models::Phase;
+pub(crate) use models::PhaseContext;
 pub(crate) use models::Player;
 pub(crate) use models::Power;
 pub(crate) use models::Province;

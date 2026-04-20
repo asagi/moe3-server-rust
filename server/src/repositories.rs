@@ -45,3 +45,9 @@ pub(crate) use super::OrderKind;
 pub(crate) use super::OrderStatus;
 pub(crate) use super::PhaseKind;
 pub(crate) use super::Power;
+
+pub(crate) use super::DurationType;
+pub(crate) use super::FaceType;
+pub(crate) use super::Player;
+pub(crate) use super::ProgressMode;
+pub(crate) use super::Regulation;

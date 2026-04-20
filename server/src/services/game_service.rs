@@ -85,6 +85,14 @@ where
             requested_power: command.requested_power,
         };
 
+        let next_update = command
+            .regulation
+            .start_date
+            .and_hms_opt(command.regulation.first_period_hour as u32, 0, 0)
+            .ok_or(CreateGameError::InvalidRequest(
+                "first_period_hour is out of range".to_string(),
+            ))?;
+
         let game = Game {
             uuid: Uuid::now_v7(),
             game_number: None,
@@ -92,6 +100,10 @@ where
             players: vec![owner],
             phases: vec![Phase::new_ready()],
             status: GameStatus::Preparing,
+            is_canceled: false,
+            is_draw: false,
+            is_solo: false,
+            next_update: Some(next_update),
         };
 
         let created = self
@@ -208,6 +220,14 @@ mod tests {
         fn insert(&self, new_game: NewGame) -> Result<Game, RepositoryError> {
             self.created.borrow_mut().push(new_game.game.clone());
             Ok(new_game.game)
+        }
+
+        fn find_all_active(&self) -> Result<Vec<Game>, RepositoryError> {
+            Ok(Vec::new())
+        }
+
+        fn update(&self, _game: &Game) -> Result<(), RepositoryError> {
+            Ok(())
         }
     }
 
