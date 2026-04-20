@@ -1,19 +1,13 @@
+#![cfg_attr(not(test), allow(unused_imports, dead_code))]
+
 // modules
 mod game_repository;
-#[cfg_attr(not(test), allow(dead_code))]
 mod sqlite_game_repository;
-#[cfg_attr(not(test), allow(dead_code))]
 mod sqlite_user_repository;
 mod user_repository;
 
 // type aliases
 pub(crate) type UserId = i64;
-
-// concrete types
-#[allow(unused_imports)]
-pub(crate) use sqlite_game_repository::SqliteGameRepository;
-#[allow(unused_imports)]
-pub(crate) use sqlite_user_repository::SqliteUserRepository;
 
 // traits
 pub(crate) use game_repository::GameRepository;

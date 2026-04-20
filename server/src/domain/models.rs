@@ -1,3 +1,4 @@
+#![cfg_attr(not(test), allow(unused_imports))]
 // modules
 mod game;
 mod order;
@@ -27,15 +28,10 @@ pub(crate) use phase::PhaseKind;
 pub(crate) use player::Player;
 pub(crate) use power::Power;
 pub(crate) use province::Province;
-#[allow(unused_imports)]
 pub(crate) use regulation::DurationType;
-#[allow(unused_imports)]
 pub(crate) use regulation::FaceType;
-#[allow(unused_imports)]
 pub(crate) use regulation::ProgressMode;
 pub(crate) use regulation::Regulation;
-#[allow(unused_imports)]
-pub(crate) use regulation::RegulationError;
 pub(crate) use territory::Territory;
 pub(crate) use unit::Unit;
 
