@@ -35,6 +35,7 @@ pub(crate) use services::LoginCommand;
 pub(crate) use services::LoginUser;
 
 // enums
+pub(crate) use domain::GameStatus;
 pub(crate) use domain::OrderKind;
 pub(crate) use domain::OrderStatus;
 pub(crate) use domain::PhaseKind;

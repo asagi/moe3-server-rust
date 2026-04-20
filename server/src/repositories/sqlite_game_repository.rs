@@ -25,6 +25,7 @@ use super::Territory;
 use super::Unit;
 
 // enums
+use super::GameStatus;
 use super::OrderKind;
 use super::OrderStatus;
 use super::Power;
@@ -604,6 +605,7 @@ mod tests {
                 requested_power: Some(Power::France),
             }],
             phases: vec![Phase::new_ready()],
+            status: GameStatus::Preparing,
         };
 
         let created = repository
@@ -655,6 +657,7 @@ mod tests {
                 requested_power: None,
             }],
             phases: vec![phase.clone()],
+            status: GameStatus::Preparing,
         };
 
         repository.insert(NewGame { game }).expect("insert should succeed");
@@ -792,6 +795,7 @@ mod transaction_tests {
                 requested_power: None,
             }],
             phases: vec![Phase::new_ready()],
+            status: GameStatus::Preparing,
         };
 
         let error = repository

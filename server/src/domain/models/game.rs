@@ -4,6 +4,8 @@
 // ============================================================================
 
 // external crates
+use serde::Deserialize;
+use serde::Serialize;
 use uuid::Uuid;
 
 // structs
@@ -23,4 +25,15 @@ pub(crate) struct Game {
     pub(crate) regulation: Regulation,
     pub(crate) players: Vec<Player>,
     pub(crate) phases: Vec<Phase>,
+    pub(crate) status: GameStatus,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum GameStatus {
+    Preparing,
+    Ready,
+    InProgress,
+    Finished,
+    Closed,
 }

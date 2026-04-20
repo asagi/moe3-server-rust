@@ -37,6 +37,7 @@ pub(crate) use territory::Territory;
 pub(crate) use unit::Unit;
 
 // enums
+pub(crate) use game::GameStatus;
 pub(crate) use order::OrderKind;
 pub(crate) use order::OrderStatus;
 pub(crate) use phase::PhaseKind;

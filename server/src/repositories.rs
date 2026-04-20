@@ -40,6 +40,7 @@ pub(crate) use super::Territory;
 pub(crate) use super::Unit;
 
 // enums
+pub(crate) use super::GameStatus;
 pub(crate) use super::OrderKind;
 pub(crate) use super::OrderStatus;
 pub(crate) use super::PhaseKind;

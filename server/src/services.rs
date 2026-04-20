@@ -42,6 +42,7 @@ pub(crate) use super::UserProfileUpdate;
 pub(crate) use super::UserRecord;
 
 // enums
+pub(crate) use super::GameStatus;
 pub(crate) use super::Power;
 pub(crate) use super::RepositoryError;
 
