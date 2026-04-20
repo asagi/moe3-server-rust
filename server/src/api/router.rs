@@ -18,6 +18,7 @@ use serde::Deserialize;
 // structs
 use super::ApiErrorResponse;
 use super::CreateGameRequest;
+use super::GlobalPreHandler;
 
 // enums
 use super::CreateGameError;
@@ -41,6 +42,7 @@ where
     G: GameRepository + Send + Sync + 'static,
 {
     game_service: Arc<GameService<U, G>>,
+    pre_handler: Arc<GlobalPreHandler<G>>,
 }
 
 impl<U, G> Clone for AppState<U, G>
@@ -51,6 +53,7 @@ where
     fn clone(&self) -> Self {
         Self {
             game_service: Arc::clone(&self.game_service),
+            pre_handler: Arc::clone(&self.pre_handler),
         }
     }
 }
@@ -60,9 +63,10 @@ where
     U: UserRepository + Send + Sync + 'static,
     G: GameRepository + Send + Sync + 'static,
 {
-    pub(crate) fn new(game_service: GameService<U, G>) -> Self {
+    pub(crate) fn new(game_service: GameService<U, G>, pre_handler: GlobalPreHandler<G>) -> Self {
         Self {
             game_service: Arc::new(game_service),
+            pre_handler: Arc::new(pre_handler),
         }
     }
 }
@@ -91,6 +95,10 @@ where
         .and_then(|v| v.to_str().ok())
         .unwrap_or("")
         .to_string();
+
+    if let Err(e) = state.pre_handler.run() {
+        eprintln!("pre-handler error: {e}");
+    }
 
     let request = CreateGameRequest {
         authorization,
