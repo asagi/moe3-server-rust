@@ -1,4 +1,4 @@
-#![cfg_attr(not(test), allow(dead_code))]
+#![allow(dead_code)] // TODO: 後で削除する
 // ============================================================================
 // imports
 // ============================================================================
@@ -34,6 +34,8 @@ pub(crate) enum GameStatus {
     Preparing,
     Ready,
     InProgress,
-    Finished,
-    Closed,
+    Draw,
+    Solo,
+    ClosedOnDraw,
+    ClosedOnSolo,
 }

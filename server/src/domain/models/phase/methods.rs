@@ -1,4 +1,4 @@
-#![cfg_attr(not(test), allow(dead_code))]
+#![allow(dead_code)] // TODO: 後で削除する
 // ============================================================================
 // imports
 // ============================================================================
@@ -248,6 +248,7 @@ trait PhaseCloseLogic {
         // 和平判定
         if context.is_draw() && matches!(current_phase.kind, PhaseKind::SpringMain(_) | PhaseKind::FallMain(_)) {
             self.finish_on_draw(current_phase, context);
+            context.set_draw();
             return;
         }
 
@@ -260,6 +261,7 @@ trait PhaseCloseLogic {
         // 制覇判定
         if self.check_solo_condition(current_phase) {
             self.finish_on_solo(current_phase, context);
+            context.set_solo();
             return;
         }
 
