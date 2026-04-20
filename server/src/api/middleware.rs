@@ -6,8 +6,8 @@
 use std::fmt;
 
 // structs
-use super::GameAdvancementError;
-use super::GameAdvancementService;
+use super::GameProgressionError;
+use super::GameProgressionService;
 
 // traits
 use super::GameRepository;
@@ -24,7 +24,7 @@ pub(crate) struct GlobalPreHandler<G>
 where
     G: GameRepository,
 {
-    advancement_service: GameAdvancementService<G>,
+    progression_service: GameProgressionService<G>,
 }
 
 #[allow(dead_code)]
@@ -34,29 +34,29 @@ where
 {
     pub(crate) fn new(game_repository: G) -> Self {
         Self {
-            advancement_service: GameAdvancementService::new(game_repository),
+            progression_service: GameProgressionService::new(game_repository),
         }
     }
 
     /// 全ハンドラの直前に呼び出す共通処理。
     /// - Closed 以外の Game を取得し、next_update が過去なら最新フェイズを close する。
     pub(crate) fn run(&self) -> Result<(), PreHandlerError> {
-        self.advancement_service
-            .advance_games()
-            .map_err(PreHandlerError::GameAdvancement)
+        self.progression_service
+            .progress_games()
+            .map_err(PreHandlerError::GameProgression)
     }
 }
 
 #[derive(Debug)]
 #[allow(dead_code)]
 pub(crate) enum PreHandlerError {
-    GameAdvancement(GameAdvancementError),
+    GameProgression(GameProgressionError),
 }
 
 impl fmt::Display for PreHandlerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::GameAdvancement(error) => write!(f, "game advancement failed: {}", error),
+            Self::GameProgression(error) => write!(f, "game progression failed: {}", error),
         }
     }
 }

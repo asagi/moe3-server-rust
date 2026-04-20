@@ -34,7 +34,7 @@ pub(crate) use requests::CreateGameRequestValidationError;
 pub(crate) use super::AuthService;
 pub(crate) use super::CreateGameCommand;
 pub(crate) use super::Game;
-pub(crate) use super::GameAdvancementService;
+pub(crate) use super::GameProgressionService;
 pub(crate) use super::GameService;
 pub(crate) use super::LoginCommand;
 pub(crate) use super::LoginUser;
@@ -48,7 +48,7 @@ pub(crate) use super::UserRecord;
 pub(crate) use super::AuthError;
 pub(crate) use super::CreateGameError;
 pub(crate) use super::DiscordClientError;
-pub(crate) use super::GameAdvancementError;
+pub(crate) use super::GameProgressionError;
 pub(crate) use super::Power;
 pub(crate) use super::RepositoryError;
 

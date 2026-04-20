@@ -5,7 +5,7 @@
 
 mod auth_service;
 mod discord_api_client;
-mod game_advancement_service;
+mod game_progression_service;
 mod game_service;
 
 // ============================================================================
@@ -16,8 +16,8 @@ mod game_service;
 pub(crate) use auth_service::AuthService;
 pub(crate) use auth_service::LoginCommand;
 pub(crate) use auth_service::LoginUser;
-pub(crate) use game_advancement_service::GameAdvancementError;
-pub(crate) use game_advancement_service::GameAdvancementService;
+pub(crate) use game_progression_service::GameProgressionError;
+pub(crate) use game_progression_service::GameProgressionService;
 pub(crate) use game_service::CreateGameCommand;
 pub(crate) use game_service::GameService;
 

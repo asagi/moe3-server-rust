@@ -25,7 +25,7 @@ use super::GameRepository;
 // ============================================================================
 
 #[allow(dead_code)]
-pub(crate) struct GameAdvancementService<G>
+pub(crate) struct GameProgressionService<G>
 where
     G: GameRepository,
 {
@@ -33,7 +33,7 @@ where
 }
 
 #[allow(dead_code)]
-impl<G> GameAdvancementService<G>
+impl<G> GameProgressionService<G>
 where
     G: GameRepository,
 {
@@ -43,13 +43,13 @@ where
 
     /// Closed 以外の全 Game に対してフェイズ進行を試みる。
     /// next_update が現在時刻より過去の場合のみ進行処理を実行する。
-    pub(crate) fn advance_games(&self) -> Result<(), GameAdvancementError> {
+    pub(crate) fn progress_games(&self) -> Result<(), GameProgressionError> {
         let now = Utc::now().naive_utc();
 
         let games = self
             .game_repository
             .find_all_active()
-            .map_err(GameAdvancementError::Repository)?;
+            .map_err(GameProgressionError::Repository)?;
 
         for mut game in games {
             let Some(next_update) = game.next_update else {
@@ -62,13 +62,13 @@ where
 
             game.next_update = None; // FIXME: 暫定
 
-            self.advance_game(game)?;
+            self.progress_game(game)?;
         }
 
         Ok(())
     }
 
-    fn advance_game(&self, mut game: Game) -> Result<(), GameAdvancementError> {
+    fn progress_game(&self, mut game: Game) -> Result<(), GameProgressionError> {
         let latest_phase = game.phases.pop().expect("game should have at least one phase");
 
         let mut context = PhaseContext::new();
@@ -88,7 +88,7 @@ where
 
         // TODO: 次のフェイズの更新予定時刻を設定する
 
-        self.game_repository.update(&game).map_err(GameAdvancementError::Repository)?;
+        self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
 
         Ok(())
     }
@@ -96,11 +96,11 @@ where
 
 #[derive(Debug)]
 #[allow(dead_code)]
-pub(crate) enum GameAdvancementError {
+pub(crate) enum GameProgressionError {
     Repository(RepositoryError),
 }
 
-impl fmt::Display for GameAdvancementError {
+impl fmt::Display for GameProgressionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Repository(error) => write!(f, "repository error: {}", error),
@@ -108,7 +108,7 @@ impl fmt::Display for GameAdvancementError {
     }
 }
 
-impl Error for GameAdvancementError {}
+impl Error for GameProgressionError {}
 
 // ============================================================================
 // tests
@@ -200,33 +200,33 @@ mod tests {
     }
 
     #[test]
-    fn advance_games_skips_when_next_update_is_none() {
+    fn progress_games_skips_when_next_update_is_none() {
         let repository = InMemoryGameRepository::new(vec![sample_game(None)]);
-        let service = GameAdvancementService::new(repository.clone());
+        let service = GameProgressionService::new(repository.clone());
 
-        service.advance_games().expect("advance should succeed");
+        service.progress_games().expect("progress should succeed");
 
         assert_eq!(repository.updated_len(), 0);
     }
 
     #[test]
-    fn advance_games_skips_when_next_update_is_in_future() {
+    fn progress_games_skips_when_next_update_is_in_future() {
         let future = chrono::Utc::now().naive_utc() + chrono::Duration::minutes(5);
         let repository = InMemoryGameRepository::new(vec![sample_game(Some(future))]);
-        let service = GameAdvancementService::new(repository.clone());
+        let service = GameProgressionService::new(repository.clone());
 
-        service.advance_games().expect("advance should succeed");
+        service.progress_games().expect("progress should succeed");
 
         assert_eq!(repository.updated_len(), 0);
     }
 
     #[test]
-    fn advance_games_updates_when_next_update_is_in_past() {
+    fn progress_games_updates_when_next_update_is_in_past() {
         let past = chrono::Utc::now().naive_utc() - chrono::Duration::minutes(5);
         let repository = InMemoryGameRepository::new(vec![sample_game(Some(past))]);
-        let service = GameAdvancementService::new(repository.clone());
+        let service = GameProgressionService::new(repository.clone());
 
-        service.advance_games().expect("advance should succeed");
+        service.progress_games().expect("progress should succeed");
 
         assert_eq!(repository.updated_len(), 1);
         let updated = repository.updated_first().expect("updated game should exist");
