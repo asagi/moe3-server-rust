@@ -1,4 +1,3 @@
-#![allow(dead_code)] // TODO: 後で削除する
 // ============================================================================
 // imports
 // ============================================================================
@@ -20,6 +19,7 @@ use super::GameRepository;
 /// 全リクエストの直前に実行するグローバルプリハンドラー。
 /// ハンドラ呼び出し前に [`GlobalPreHandler::run`] を実行することで、
 /// ゲームのフェイズ進行などの定期処理が自動的に適用される。
+#[allow(dead_code)]
 pub(crate) struct GlobalPreHandler<G>
 where
     G: GameRepository,
@@ -27,6 +27,7 @@ where
     advancement_service: GameAdvancementService<G>,
 }
 
+#[allow(dead_code)]
 impl<G> GlobalPreHandler<G>
 where
     G: GameRepository,
@@ -47,6 +48,7 @@ where
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) enum PreHandlerError {
     GameAdvancement(GameAdvancementError),
 }

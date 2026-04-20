@@ -4,6 +4,7 @@
 // ============================================================================
 
 // standard library
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 // external crates
@@ -544,7 +545,7 @@ impl GameRepository for SqliteGameRepository {
                     game.regulation.start_date.to_string(),
                     game.regulation.first_period_hour as i32,
                     Self::serialize_status(game.status),
-                    game.is_canceld as i32,
+                    game.is_canceled as i32,
                     game.is_draw as i32,
                     game.is_solo as i32,
                     game.next_update.map(|dt| dt.to_string()),
@@ -829,7 +830,7 @@ impl GameRepository for SqliteGameRepository {
                 players,
                 phases,
                 status: Self::status_from_str(&row.status)?,
-                is_canceld: row.is_canceled != 0,
+                is_canceled: row.is_canceled != 0,
                 is_draw: row.is_draw != 0,
                 is_solo: row.is_solo != 0,
                 next_update,
@@ -866,7 +867,7 @@ impl GameRepository for SqliteGameRepository {
                 params![
                     game.uuid.to_string(),
                     Self::serialize_status(game.status),
-                    game.is_canceld as i32,
+                    game.is_canceled as i32,
                     game.is_draw as i32,
                     game.is_solo as i32,
                     game.next_update.map(|dt| dt.to_string()),
@@ -875,19 +876,53 @@ impl GameRepository for SqliteGameRepository {
             )
             .map_err(|error| RepositoryError::Unavailable(format!("update game: {}", error)))?;
 
-        let existing_indices: Vec<i32> = {
+        let existing_phase_ids: HashMap<i32, i64> = {
             let mut stmt = transaction
-                .prepare("SELECT phase_index FROM game_phases WHERE game_uuid = ?1")
+                .prepare("SELECT phase_index, id FROM game_phases WHERE game_uuid = ?1")
                 .map_err(|error| RepositoryError::Unavailable(format!("prepare existing phases: {}", error)))?;
 
-            stmt.query_map(params![game.uuid.to_string()], |row| row.get(0))
+            let rows = stmt
+                .query_map(params![game.uuid.to_string()], |row| {
+                    Ok((row.get::<_, i32>(0)?, row.get::<_, i64>(1)?))
+                })
                 .map_err(|error| RepositoryError::Unavailable(format!("query existing phases: {}", error)))?
                 .collect::<Result<Vec<_>, _>>()
-                .map_err(|error| RepositoryError::Unavailable(format!("collect existing phase indices: {}", error)))?
+                .map_err(|error| RepositoryError::Unavailable(format!("collect existing phase ids: {}", error)))?;
+
+            rows.into_iter().collect()
         };
 
         for phase in &game.phases {
-            if existing_indices.contains(&phase.index) {
+            if let Some(phase_id) = existing_phase_ids.get(&phase.index).copied() {
+                transaction
+                    .execute(
+                        r#"
+                        UPDATE game_phases
+                        SET phase_year = ?1,
+                            phase_kind = ?2,
+                            units = ?3,
+                            territories = ?4,
+                            standoff_codes = ?5,
+                            updated_at = ?6
+                        WHERE id = ?7
+                        "#,
+                        params![
+                            phase.year,
+                            Self::serialize_phase_kind(&phase.kind)?,
+                            Self::serialize_units(&phase.units)?,
+                            Self::serialize_territories(&phase.territories),
+                            Self::serialize_codes(&phase.standoff_codes),
+                            now,
+                            phase_id,
+                        ],
+                    )
+                    .map_err(|error| RepositoryError::Unavailable(format!("update existing game phase: {}", error)))?;
+
+                transaction
+                    .execute("DELETE FROM game_phase_orders WHERE phase_id = ?1", params![phase_id])
+                    .map_err(|error| RepositoryError::Unavailable(format!("delete existing phase orders: {}", error)))?;
+
+                Self::insert_phase_orders(&transaction, phase_id, phase, &now)?;
                 continue;
             }
 
@@ -972,7 +1007,7 @@ mod tests {
             }],
             phases: vec![Phase::new_ready()],
             status: GameStatus::Preparing,
-            is_canceld: false,
+            is_canceled: false,
             is_draw: false,
             is_solo: false,
             next_update: None,
@@ -1028,7 +1063,7 @@ mod tests {
             }],
             phases: vec![phase.clone()],
             status: GameStatus::Preparing,
-            is_canceld: false,
+            is_canceled: false,
             is_draw: false,
             is_solo: false,
             next_update: None,
@@ -1117,6 +1152,123 @@ mod tests {
         assert!(!created_at.is_empty());
         assert!(!updated_at.is_empty());
     }
+
+    #[test]
+    fn find_all_active_reconstructs_status_flags_and_next_update() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+
+        let regulation = Regulation::new(
+            FaceType::Girls,
+            ProgressMode::Scheduled,
+            DurationType::Short,
+            chrono::NaiveDate::from_ymd_opt(2026, 4, 19).expect("valid date"),
+            12,
+        )
+        .expect("valid regulation");
+
+        let next_update = chrono::NaiveDate::from_ymd_opt(2026, 4, 20)
+            .expect("valid date")
+            .and_hms_opt(9, 0, 0)
+            .expect("valid datetime");
+
+        let game = Game {
+            uuid: uuid::Uuid::now_v7(),
+            game_number: None,
+            regulation,
+            players: vec![Player {
+                user_uuid: uuid::Uuid::now_v7(),
+                power: Some(Power::France),
+                is_accepting_draw: false,
+                is_owner: true,
+                requested_power: Some(Power::France),
+            }],
+            phases: vec![Phase::new_ready()],
+            status: GameStatus::InProgress,
+            is_canceled: true,
+            is_draw: true,
+            is_solo: false,
+            next_update: Some(next_update),
+        };
+
+        repository.insert(NewGame { game }).expect("insert should succeed");
+
+        let active_games = repository.find_all_active().expect("find_all_active should succeed");
+        assert_eq!(active_games.len(), 1);
+        let restored = &active_games[0];
+        assert_eq!(restored.status, GameStatus::InProgress);
+        assert!(restored.is_canceled);
+        assert!(restored.is_draw);
+        assert!(!restored.is_solo);
+        assert_eq!(restored.next_update, Some(next_update));
+    }
+
+    #[test]
+    fn update_replaces_existing_phase_snapshot_and_orders() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+
+        let regulation = Regulation::new(
+            FaceType::Girls,
+            ProgressMode::Scheduled,
+            DurationType::Short,
+            chrono::NaiveDate::from_ymd_opt(2026, 4, 19).expect("valid date"),
+            12,
+        )
+        .expect("valid regulation");
+
+        let mut initial_phase = Phase::new_ready();
+        initial_phase.standoff_codes = vec!["old".to_string()];
+
+        let game = Game {
+            uuid: uuid::Uuid::now_v7(),
+            game_number: None,
+            regulation,
+            players: vec![Player {
+                user_uuid: uuid::Uuid::now_v7(),
+                power: Some(Power::France),
+                is_accepting_draw: false,
+                is_owner: true,
+                requested_power: Some(Power::France),
+            }],
+            phases: vec![initial_phase],
+            status: GameStatus::Preparing,
+            is_canceled: false,
+            is_draw: false,
+            is_solo: false,
+            next_update: None,
+        };
+
+        let mut created = repository.insert(NewGame { game }).expect("insert should succeed");
+        let mut updated_phase = created.phases[0].clone();
+        updated_phase.year = 1901;
+        updated_phase.standoff_codes = vec!["new".to_string()];
+
+        let move_order = Order::new_move(
+            Power::France,
+            Unit::new_army(Power::France, Province::from_code("par").expect("valid province")),
+            Province::from_code("bur").expect("valid province"),
+        )
+        .set_success();
+        updated_phase.orders = vec![move_order];
+
+        created.status = GameStatus::InProgress;
+        created.phases = vec![updated_phase];
+
+        repository.update(&created).expect("update should succeed");
+
+        let active_games = repository.find_all_active().expect("find_all_active should succeed");
+        assert_eq!(active_games.len(), 1);
+
+        let restored_phase = active_games[0]
+            .phases
+            .iter()
+            .find(|phase| phase.index == 0)
+            .expect("phase index 0 should exist");
+        assert_eq!(restored_phase.year, 1901);
+        assert_eq!(restored_phase.standoff_codes, vec!["new".to_string()]);
+        assert_eq!(restored_phase.orders.len(), 1);
+        assert!(matches!(restored_phase.orders[0].kind, OrderKind::Move(_)));
+        assert!(restored_phase.orders[0].is_success());
+    }
 }
 
 #[cfg(test)]
@@ -1170,7 +1322,7 @@ mod transaction_tests {
             }],
             phases: vec![Phase::new_ready()],
             status: GameStatus::Preparing,
-            is_canceld: false,
+            is_canceled: false,
             is_draw: false,
             is_solo: false,
             next_update: None,

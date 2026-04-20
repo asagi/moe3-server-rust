@@ -27,7 +27,7 @@ pub(crate) struct Game {
     pub(crate) players: Vec<Player>,
     pub(crate) phases: Vec<Phase>,
     pub(crate) status: GameStatus,
-    pub(crate) is_canceld: bool,
+    pub(crate) is_canceled: bool,
     pub(crate) is_draw: bool,
     pub(crate) is_solo: bool,
     pub(crate) next_update: Option<NaiveDateTime>,

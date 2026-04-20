@@ -1,4 +1,3 @@
-#![allow(dead_code)] // TODO: 後で削除する
 // ============================================================================
 // imports
 // ============================================================================
@@ -25,6 +24,7 @@ use super::GameRepository;
 // definitions
 // ============================================================================
 
+#[allow(dead_code)]
 pub(crate) struct GameAdvancementService<G>
 where
     G: GameRepository,
@@ -32,6 +32,7 @@ where
     game_repository: G,
 }
 
+#[allow(dead_code)]
 impl<G> GameAdvancementService<G>
 where
     G: GameRepository,
@@ -94,6 +95,7 @@ where
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) enum GameAdvancementError {
     Repository(RepositoryError),
 }
@@ -107,3 +109,128 @@ impl fmt::Display for GameAdvancementError {
 }
 
 impl Error for GameAdvancementError {}
+
+// ============================================================================
+// tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use super::*;
+    use crate::domain::DurationType;
+    use crate::domain::FaceType;
+    use crate::domain::Phase;
+    use crate::domain::Player;
+    use crate::domain::Power;
+    use crate::domain::ProgressMode;
+    use crate::domain::Regulation;
+    use crate::repositories::NewGame;
+
+    #[derive(Debug, Clone)]
+    struct InMemoryGameRepository {
+        active_games: Rc<RefCell<Vec<Game>>>,
+        updated_games: Rc<RefCell<Vec<Game>>>,
+    }
+
+    impl InMemoryGameRepository {
+        fn new(active_games: Vec<Game>) -> Self {
+            Self {
+                active_games: Rc::new(RefCell::new(active_games)),
+                updated_games: Rc::new(RefCell::new(Vec::new())),
+            }
+        }
+
+        fn updated_len(&self) -> usize {
+            self.updated_games.borrow().len()
+        }
+
+        fn updated_first(&self) -> Option<Game> {
+            self.updated_games.borrow().first().cloned()
+        }
+    }
+
+    impl GameRepository for InMemoryGameRepository {
+        fn insert(&self, _new_game: NewGame) -> Result<Game, RepositoryError> {
+            Err(RepositoryError::Unavailable("not used".to_string()))
+        }
+
+        fn find_all_active(&self) -> Result<Vec<Game>, RepositoryError> {
+            Ok(self.active_games.borrow().clone())
+        }
+
+        fn update(&self, game: &Game) -> Result<(), RepositoryError> {
+            self.updated_games.borrow_mut().push(game.clone());
+            Ok(())
+        }
+    }
+
+    fn sample_regulation() -> Regulation {
+        Regulation::new(
+            FaceType::Girls,
+            ProgressMode::Scheduled,
+            DurationType::Short,
+            chrono::NaiveDate::from_ymd_opt(2026, 4, 19).expect("valid date"),
+            12,
+        )
+        .expect("valid regulation")
+    }
+
+    fn sample_game(next_update: Option<chrono::NaiveDateTime>) -> Game {
+        Game {
+            uuid: uuid::Uuid::now_v7(),
+            game_number: None,
+            regulation: sample_regulation(),
+            players: vec![Player {
+                user_uuid: uuid::Uuid::now_v7(),
+                power: Some(Power::France),
+                is_accepting_draw: false,
+                is_owner: true,
+                requested_power: Some(Power::France),
+            }],
+            phases: vec![Phase::new_ready()],
+            status: GameStatus::Preparing,
+            is_canceled: false,
+            is_draw: false,
+            is_solo: false,
+            next_update,
+        }
+    }
+
+    #[test]
+    fn advance_games_skips_when_next_update_is_none() {
+        let repository = InMemoryGameRepository::new(vec![sample_game(None)]);
+        let service = GameAdvancementService::new(repository.clone());
+
+        service.advance_games().expect("advance should succeed");
+
+        assert_eq!(repository.updated_len(), 0);
+    }
+
+    #[test]
+    fn advance_games_skips_when_next_update_is_in_future() {
+        let future = chrono::Utc::now().naive_utc() + chrono::Duration::minutes(5);
+        let repository = InMemoryGameRepository::new(vec![sample_game(Some(future))]);
+        let service = GameAdvancementService::new(repository.clone());
+
+        service.advance_games().expect("advance should succeed");
+
+        assert_eq!(repository.updated_len(), 0);
+    }
+
+    #[test]
+    fn advance_games_updates_when_next_update_is_in_past() {
+        let past = chrono::Utc::now().naive_utc() - chrono::Duration::minutes(5);
+        let repository = InMemoryGameRepository::new(vec![sample_game(Some(past))]);
+        let service = GameAdvancementService::new(repository.clone());
+
+        service.advance_games().expect("advance should succeed");
+
+        assert_eq!(repository.updated_len(), 1);
+        let updated = repository.updated_first().expect("updated game should exist");
+        assert_eq!(updated.status, GameStatus::InProgress);
+        assert!(updated.next_update.is_none());
+    }
+}
