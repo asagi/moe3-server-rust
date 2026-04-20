@@ -44,7 +44,6 @@ use super::SUPPLY_CENTERS_FOR_SOLO;
 /// フェイズのロジック
 impl Phase {
     /// フェイズを締め切り命令を解決する。
-    #[allow(dead_code)]
     pub(crate) fn close(mut self, context: &mut PhaseContext) {
         match self.kind {
             PhaseKind::Ready(r) => r.close(&mut self, context),
@@ -216,7 +215,6 @@ impl Phase {
     }
 
     /// 感想戦フェイズを生成する。
-    #[allow(dead_code)]
     pub(crate) fn new_debrief(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseKind::Debrief(DebriefPhase {}))
     }

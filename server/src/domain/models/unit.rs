@@ -87,21 +87,9 @@ impl Unit {
         self.kind
     }
 
-    /// ユニットが撃退されたかどうかを返す
-    #[allow(dead_code)]
-    pub(crate) fn is_dislodged(&self) -> bool {
-        self.dislodged
-    }
-
     /// ユニットがどこから撃退されたかを返す
     pub(crate) fn dislodged_from(&self) -> Option<Province> {
         self.dislodged_from
-    }
-
-    /// 陸軍かどうか判定
-    #[allow(dead_code)]
-    pub(crate) fn is_army(&self) -> bool {
-        matches!(self.kind, UnitKind::Army(_))
     }
 
     /// 海軍かどうか判定
@@ -121,7 +109,6 @@ impl Unit {
     }
 
     /// 移動命令を生成
-    #[allow(dead_code)]
     pub(crate) fn move_to(&self, dest: Province) -> Order {
         Order {
             power: self.power,
@@ -133,13 +120,11 @@ impl Unit {
     }
 
     /// 維持サポート命令を生成
-    #[allow(dead_code)]
     pub(crate) fn support_hold(&self, target_unit: Unit) -> Order {
         self.support(target_unit, None)
     }
 
     /// 移動サポート命令を生成
-    #[allow(dead_code)]
     pub(crate) fn support_move(&self, target_unit: Unit, target_dest: Province) -> Order {
         self.support(target_unit, Some(target_dest))
     }
@@ -159,7 +144,6 @@ impl Unit {
     }
 
     /// 輸送命令を生成
-    #[allow(dead_code)]
     pub(crate) fn convoy(&self, target_unit: Unit, target_dest: Province) -> Order {
         if !self.is_fleet() {
             panic!("Only fleets can convoy");
@@ -178,7 +162,6 @@ impl Unit {
     }
 
     /// 撤退命令を生成
-    #[allow(dead_code)]
     pub(crate) fn retreat_to(&self, dest: Province) -> Order {
         Order {
             power: self.power,
@@ -190,7 +173,6 @@ impl Unit {
     }
 
     /// 建造命令を生成
-    #[allow(dead_code)]
     pub(crate) fn build(&self) -> Order {
         Order {
             power: self.power,

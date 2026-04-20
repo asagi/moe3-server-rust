@@ -150,7 +150,6 @@ impl Province {
         self.data().supply
     }
 
-    #[allow(dead_code)]
     pub(crate) fn home(self) -> Option<&'static str> {
         self.data().home
     }
@@ -161,11 +160,6 @@ impl Province {
 
     pub(crate) fn is_coast(self) -> bool {
         self.kind() == "Coast"
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn is_inland(self) -> bool {
-        self.kind() == "Inland"
     }
 
     pub(crate) fn code_with_coast(self) -> &'static str {

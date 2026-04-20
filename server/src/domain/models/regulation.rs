@@ -56,7 +56,6 @@ pub(crate) enum DurationType {
 }
 
 impl Regulation {
-    #[allow(dead_code)]
     pub(crate) fn new(
         face_type: FaceType,
         progress_mode: ProgressMode,
