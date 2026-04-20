@@ -1,4 +1,12 @@
-// models
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
+
+// external crates
+use strum::IntoEnumIterator;
+
+// structs
 use super::AdjustmentPhase;
 use super::DebriefPhase;
 use super::FallMainPhase;
@@ -17,19 +25,18 @@ use super::Unit;
 use super::OrderKind;
 use super::PhaseKind;
 
-// adjudicators
+// traits
 use super::AdjustmentAdjudicator;
-use super::MainAdjudicator;
-use super::RetreatAdjudicator;
-
-// helpers
 use super::AdjustmentOrderHelper;
+use super::MainAdjudicator;
 use super::MainOrderHelper;
+use super::RetreatAdjudicator;
 use super::RetreatOrderHelper;
 use super::UnitHelper;
 
-// external crates
-use strum::IntoEnumIterator;
+// ============================================================================
+// definitions
+// ============================================================================
 
 // constants
 use super::SUPPLY_CENTERS_FOR_SOLO;
@@ -123,7 +130,6 @@ impl Phase {
     }
 
     /// 準備フェイズを生成する。
-    #[allow(dead_code)]
     pub(crate) fn new_ready() -> Self {
         let mut phase = Self::new(1900, 0, PhaseKind::Ready(ReadyPhase {}));
 
@@ -632,6 +638,10 @@ fn resolve_orders_for_adjustment_phase(current_phase: &mut Phase) {
         }
     }
 }
+
+// ============================================================================
+// tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

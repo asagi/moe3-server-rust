@@ -1,4 +1,15 @@
-// models
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
+
+// standard library
+use std::cmp::Ordering;
+use std::collections::HashSet;
+use std::iter::successors;
+
+// structs
+use super::Order;
 use super::Path;
 use super::Power;
 use super::Province;
@@ -8,14 +19,12 @@ use super::OrderKind;
 use super::OrderStatus;
 use super::UnitKind;
 
-// helpers
+// traits
 use super::MainOrderHelper;
-use super::Order;
 
-// standard library
-use std::cmp::Ordering;
-use std::collections::HashSet;
-use std::iter::successors;
+// ============================================================================
+// definitions
+// ============================================================================
 
 pub struct MainAdjudicator;
 

@@ -1,33 +1,55 @@
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
 // modules
+// ============================================================================
+
 mod context;
 mod methods;
 
-// types
+// ============================================================================
+// exports
+// ============================================================================
+
+// structs
+pub(crate) use context::PhaseContext;
+
+// ============================================================================
+// re-exports
+// ============================================================================
+
+// structs
 pub(crate) use super::Order;
 pub(crate) use super::Power;
 pub(crate) use super::Province;
 pub(crate) use super::Territory;
 pub(crate) use super::Unit;
-pub(crate) use context::PhaseContext;
-use serde::Deserialize;
-use serde::Serialize;
 
 // enums
 pub(crate) use super::OrderKind;
 
-// adjudicators
+// traits
 pub(crate) use super::AdjustmentAdjudicator;
-pub(crate) use super::MainAdjudicator;
-pub(crate) use super::RetreatAdjudicator;
-
-// helpers
 pub(crate) use super::AdjustmentOrderHelper;
+pub(crate) use super::MainAdjudicator;
 pub(crate) use super::MainOrderHelper;
+pub(crate) use super::RetreatAdjudicator;
 pub(crate) use super::RetreatOrderHelper;
 pub(crate) use super::UnitHelper;
 
+// ============================================================================
+// imports
+// ============================================================================
+
+// external crates
+use serde::Deserialize;
+use serde::Serialize;
+
+// ============================================================================
+// definitions
+// ============================================================================
+
+// constants
 /// 制覇勝利に必要な補給都市数
-/// Diplomacy ルール：いずれかの国が18個の補給都市を保有すると solo win
 pub(crate) const SUPPLY_CENTERS_FOR_SOLO: usize = 18;
 
 /// フェイズの定義

@@ -1,11 +1,23 @@
-// models
-use super::Power;
-use super::Province;
-use super::Unit;
-use serde::{Deserialize, Serialize};
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
 
 // standard library
 use std::fmt;
+
+// external crates
+use serde::Deserialize;
+use serde::Serialize;
+
+// structs
+use super::Power;
+use super::Province;
+use super::Unit;
+
+// ============================================================================
+// definitions
+// ============================================================================
 
 /// 命令の定義
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -410,6 +422,10 @@ impl fmt::Display for Order {
         }
     }
 }
+
+// ============================================================================
+// tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

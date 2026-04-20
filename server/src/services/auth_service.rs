@@ -1,15 +1,31 @@
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
+
+// standard library
 use std::error::Error;
 use std::fmt;
 
+// external crates
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::repositories::DiscordProfile;
-use crate::repositories::NewUser;
-use crate::repositories::RepositoryError;
-use crate::repositories::UserProfileUpdate;
-use crate::repositories::UserRecord;
-use crate::repositories::UserRepository;
+// structs
+use super::DiscordProfile;
+use super::NewUser;
+use super::UserProfileUpdate;
+use super::UserRecord;
+
+// enums
+use super::RepositoryError;
+
+// traits
+use super::UserRepository;
+
+// ============================================================================
+// definitions
+// ============================================================================
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct LoginCommand {
@@ -50,7 +66,6 @@ where
     U: UserRepository,
     D: DiscordIdentityProvider,
 {
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn new(user_repository: U, discord_identity_provider: D) -> Self {
         Self {
             user_repository,
@@ -114,7 +129,6 @@ where
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DiscordClientError {
     Unauthorized,
     Unavailable(String),
@@ -149,6 +163,10 @@ impl fmt::Display for AuthError {
 }
 
 impl Error for AuthError {}
+
+// ============================================================================
+// tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

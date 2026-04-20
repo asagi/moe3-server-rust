@@ -1,11 +1,20 @@
-// models
-use super::Path;
-use super::Power;
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
 
 // standard library
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fmt;
+
+// structs
+use super::Path;
+use super::Power;
+
+// ============================================================================
+// definitions
+// ============================================================================
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) struct Province(&'static str);
@@ -245,6 +254,10 @@ impl From<Province> for String {
         value.code_with_coast().to_string()
     }
 }
+
+// ============================================================================
+// tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

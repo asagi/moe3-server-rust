@@ -1,13 +1,22 @@
-// models
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
+
+// standard library
+use std::collections::HashSet;
+use std::collections::VecDeque;
+
+// structs
 use super::Province;
 use super::Unit;
 
 // enums
 use super::UnitKind;
 
-// standard library
-use std::collections::HashSet;
-use std::collections::VecDeque;
+// ============================================================================
+// definitions
+// ============================================================================
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Path {
@@ -535,6 +544,10 @@ impl Path {
         false
     }
 }
+
+// ============================================================================
+// tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

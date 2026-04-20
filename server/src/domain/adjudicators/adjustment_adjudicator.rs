@@ -1,15 +1,24 @@
-// models
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
+
+// external crates
+use strum::IntoEnumIterator;
+
+// structs
 use super::Path;
 use super::Phase;
 use super::Power;
 use super::Province;
 
-// helpers
+// traits
 use super::AdjustmentOrderHelper;
 use super::UnitHelper;
 
-// external crates
-use strum::IntoEnumIterator;
+// ============================================================================
+// definitions
+// ============================================================================
 
 pub struct AdjustmentAdjudicator;
 

@@ -1,16 +1,31 @@
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
+
+// external crates
 use chrono::NaiveDate;
 
-use crate::api::requests::CreateGameRequest;
-use crate::api::requests::CreateGameRequestValidationError;
-use crate::api::responses::ApiErrorResponse;
-use crate::api::responses::CreateGameResponse;
-use crate::domain::Power;
-use crate::domain::Regulation;
-use crate::repositories::GameRepository;
-use crate::repositories::UserRepository;
-use crate::services::CreateGameCommand;
-use crate::services::CreateGameError;
-use crate::services::GameService;
+// structs
+use super::ApiErrorResponse;
+use super::CreateGameCommand;
+use super::CreateGameRequest;
+use super::CreateGameResponse;
+use super::GameService;
+use super::Power;
+use super::Regulation;
+
+// traits
+use super::GameRepository;
+use super::UserRepository;
+
+//enums
+use super::CreateGameError;
+use super::CreateGameRequestValidationError;
+
+// ============================================================================
+// definitions
+// ============================================================================
 
 pub(crate) fn handle_create_game<U, G>(
     service: &GameService<U, G>,
@@ -70,7 +85,6 @@ fn invalid_request(validation_error: CreateGameRequestValidationError) -> Create
 }
 
 #[derive(Debug)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CreateGameHandlerError {
     InvalidRequest(CreateGameRequestValidationError),
     Service(CreateGameError),

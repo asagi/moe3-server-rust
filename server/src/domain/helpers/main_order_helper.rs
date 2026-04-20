@@ -1,4 +1,15 @@
-// models
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
+
+// standard library
+use std::collections::HashSet;
+
+// external crates
+use indexmap::IndexSet;
+
+// structs
 use super::ConvoyOrder;
 use super::MoveOrder;
 use super::Order;
@@ -8,11 +19,9 @@ use super::Province;
 // enums
 use super::OrderKind;
 
-// external crates
-use indexmap::IndexSet;
-
-// standard library
-use std::collections::HashSet;
+// ============================================================================
+// definitions
+// ============================================================================
 
 pub trait MainOrderHelper {
     fn collect_not_assumed_orders(&self) -> Vec<Order>;
