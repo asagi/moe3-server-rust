@@ -46,3 +46,7 @@ pub(crate) use super::UserRepository;
 
 // type aliases
 pub(crate) use super::UserId;
+
+// handler functions
+pub(crate) use game_handler::CreateGameHandlerError;
+pub(crate) use game_handler::handle_create_game;

@@ -26,6 +26,8 @@ pub(crate) use repositories::DiscordProfile;
 pub(crate) use repositories::NewGame;
 pub(crate) use repositories::NewUser;
 pub(crate) use repositories::RepositoryError;
+pub(crate) use repositories::SqliteGameRepository;
+pub(crate) use repositories::SqliteUserRepository;
 pub(crate) use repositories::UserProfileUpdate;
 pub(crate) use repositories::UserRecord;
 pub(crate) use repositories::UserRepository;
@@ -56,3 +58,19 @@ pub(crate) use services::DiscordIdentityProvider;
 
 // type aliases
 pub(crate) use repositories::UserId;
+
+// ============================================================================
+// public API
+// ============================================================================
+
+pub async fn serve(addr: std::net::SocketAddr, db_path: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let user_repository = SqliteUserRepository::new(db_path)?;
+    let game_repository = SqliteGameRepository::new(db_path)?;
+    let game_service = GameService::new(user_repository, game_repository);
+    let state = api::AppState::new(game_service);
+    let router = api::create_router(state);
+
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    axum::serve(listener, router).await?;
+    Ok(())
+}

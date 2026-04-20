@@ -14,6 +14,8 @@ mod user_repository;
 
 // structs
 pub(crate) use game_repository::NewGame;
+pub(crate) use sqlite_game_repository::SqliteGameRepository;
+pub(crate) use sqlite_user_repository::SqliteUserRepository;
 pub(crate) use user_repository::DiscordProfile;
 pub(crate) use user_repository::NewUser;
 pub(crate) use user_repository::RepositoryError;
