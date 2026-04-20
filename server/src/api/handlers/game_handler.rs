@@ -27,7 +27,6 @@ use super::UserRepository;
 // definitions
 // ============================================================================
 
-#[allow(dead_code)]
 pub(crate) fn handle_create_game<U, G>(
     service: &GameService<U, G>,
     request: CreateGameRequest,
@@ -91,7 +90,6 @@ pub(crate) enum CreateGameHandlerError {
     Service(CreateGameError),
 }
 
-#[allow(dead_code)]
 impl CreateGameHandlerError {
     pub(crate) fn code(&self) -> &'static str {
         match self {
