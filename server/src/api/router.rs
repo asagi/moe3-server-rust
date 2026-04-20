@@ -12,6 +12,7 @@ use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
+use axum::response::Response;
 use axum::routing::post;
 use serde::Deserialize;
 use tokio::sync::Mutex;
@@ -85,23 +86,13 @@ struct PostGamesBody {
     requested_power: Option<String>,
 }
 
-async fn post_games<U, G>(
-    State(state): State<AppState<U, G>>,
-    headers: HeaderMap,
-    Json(body): Json<PostGamesBody>,
-) -> impl IntoResponse
+async fn run_game_write<U, G, F>(state: &AppState<U, G>, operation: F) -> Response
 where
     U: UserRepository + Send + Sync + 'static,
     G: GameRepository + Send + Sync + 'static,
+    F: FnOnce() -> Response,
 {
-    // Serialize game-related write paths so progression and request handlers cannot interleave.
     let _game_update_guard = state.game_update_lock.lock().await;
-
-    let authorization = headers
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
 
     if let Err(error) = state.pre_handler.run() {
         return (
@@ -114,6 +105,24 @@ where
             .into_response();
     }
 
+    operation()
+}
+
+async fn post_games<U, G>(
+    State(state): State<AppState<U, G>>,
+    headers: HeaderMap,
+    Json(body): Json<PostGamesBody>,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+{
+    let authorization = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
     let request = CreateGameRequest {
         authorization,
         face_type: body.face_type,
@@ -124,7 +133,7 @@ where
         requested_power: body.requested_power,
     };
 
-    match handle_create_game(&state.game_service, request) {
+    run_game_write(&state, || match handle_create_game(&state.game_service, request) {
         Ok(response) => (StatusCode::CREATED, Json(response)).into_response(),
         Err(error) => {
             let status = match &error {
@@ -134,7 +143,8 @@ where
             };
             (status, Json(error.to_api_error_response())).into_response()
         }
-    }
+    })
+    .await
 }
 
 pub(crate) fn create_router<U, G>(state: AppState<U, G>) -> Router
