@@ -5,6 +5,7 @@
 
 // standard library
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::Mutex;
 
 // external crates
@@ -47,8 +48,9 @@ use super::GameRepository;
 // definitions
 // ============================================================================
 
+#[derive(Clone)]
 pub(crate) struct SqliteGameRepository {
-    connection: Mutex<Connection>,
+    connection: Arc<Mutex<Connection>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -105,7 +107,7 @@ impl SqliteGameRepository {
             Connection::open(database_path).map_err(|error| RepositoryError::Unavailable(format!("open sqlite: {}", error)))?;
 
         let repository = Self {
-            connection: Mutex::new(connection),
+            connection: Arc::new(Mutex::new(connection)),
         };
         repository.init_schema()?;
         Ok(repository)
@@ -117,7 +119,7 @@ impl SqliteGameRepository {
             .map_err(|error| RepositoryError::Unavailable(format!("open sqlite in memory: {}", error)))?;
 
         let repository = Self {
-            connection: Mutex::new(connection),
+            connection: Arc::new(Mutex::new(connection)),
         };
         repository.init_schema()?;
         Ok(repository)

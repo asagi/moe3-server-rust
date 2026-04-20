@@ -14,6 +14,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::post;
 use serde::Deserialize;
+use tokio::sync::Mutex;
 
 // structs
 use super::ApiErrorResponse;
@@ -43,6 +44,7 @@ where
 {
     game_service: Arc<GameService<U, G>>,
     pre_handler: Arc<GlobalPreHandler<G>>,
+    game_update_lock: Arc<Mutex<()>>,
 }
 
 impl<U, G> Clone for AppState<U, G>
@@ -54,6 +56,7 @@ where
         Self {
             game_service: Arc::clone(&self.game_service),
             pre_handler: Arc::clone(&self.pre_handler),
+            game_update_lock: Arc::clone(&self.game_update_lock),
         }
     }
 }
@@ -67,6 +70,7 @@ where
         Self {
             game_service: Arc::new(game_service),
             pre_handler: Arc::new(pre_handler),
+            game_update_lock: Arc::new(Mutex::new(())),
         }
     }
 }
@@ -90,14 +94,24 @@ where
     U: UserRepository + Send + Sync + 'static,
     G: GameRepository + Send + Sync + 'static,
 {
+    // Serialize game-related write paths so progression and request handlers cannot interleave.
+    let _game_update_guard = state.game_update_lock.lock().await;
+
     let authorization = headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("")
         .to_string();
 
-    if let Err(e) = state.pre_handler.run() {
-        eprintln!("pre-handler error: {e}");
+    if let Err(error) = state.pre_handler.run() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiErrorResponse {
+                code: "pre_handler_failed",
+                message: error.to_string(),
+            }),
+        )
+            .into_response();
     }
 
     let request = CreateGameRequest {

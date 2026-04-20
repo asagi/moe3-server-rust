@@ -65,10 +65,9 @@ pub(crate) use repositories::UserId;
 
 pub async fn serve(addr: std::net::SocketAddr, db_path: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let user_repository = SqliteUserRepository::new(db_path)?;
-    let game_repository_for_service = SqliteGameRepository::new(db_path)?;
-    let game_repository_for_progression = SqliteGameRepository::new(db_path)?;
-    let game_service = GameService::new(user_repository, game_repository_for_service);
-    let pre_handler = api::GlobalPreHandler::new(game_repository_for_progression);
+    let game_repository = SqliteGameRepository::new(db_path)?;
+    let game_service = GameService::new(user_repository, game_repository.clone());
+    let pre_handler = api::GlobalPreHandler::new(game_repository);
     let state = api::AppState::new(game_service, pre_handler);
     let router = api::create_router(state);
 
