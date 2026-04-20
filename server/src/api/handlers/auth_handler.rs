@@ -118,7 +118,7 @@ mod tests {
     }
 
     impl DiscordIdentityProvider for FakeDiscordIdentityProvider {
-        fn fetch_profile(&self, _discord_access_token: &str) -> Result<DiscordProfile, crate::services::DiscordClientError> {
+        fn fetch_profile(&self, _discord_access_token: &str) -> Result<DiscordProfile, DiscordClientError> {
             Ok(self.profile.clone())
         }
     }

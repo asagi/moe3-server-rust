@@ -61,6 +61,10 @@ impl PhaseContext {
         self.is_draw
     }
 
+    pub(crate) fn is_solo(&self) -> bool {
+        self.is_solo
+    }
+
     pub(crate) fn set_draw(&mut self) {
         self.is_draw = true;
     }

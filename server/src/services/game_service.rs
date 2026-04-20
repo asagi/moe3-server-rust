@@ -220,6 +220,14 @@ mod tests {
             self.created.borrow_mut().push(new_game.game.clone());
             Ok(new_game.game)
         }
+
+        fn find_all_active(&self) -> Result<Vec<Game>, RepositoryError> {
+            Ok(Vec::new())
+        }
+
+        fn update(&self, _game: &Game) -> Result<(), RepositoryError> {
+            Ok(())
+        }
     }
 
     fn sample_regulation() -> Regulation {

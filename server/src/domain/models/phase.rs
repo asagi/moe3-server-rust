@@ -3,15 +3,7 @@
 // modules
 // ============================================================================
 
-mod context;
 mod methods;
-
-// ============================================================================
-// exports
-// ============================================================================
-
-// structs
-pub(crate) use context::PhaseContext;
 
 // ============================================================================
 // re-exports
@@ -19,6 +11,7 @@ pub(crate) use context::PhaseContext;
 
 // structs
 pub(crate) use super::Order;
+pub(crate) use super::PhaseContext;
 pub(crate) use super::Power;
 pub(crate) use super::Province;
 pub(crate) use super::Territory;

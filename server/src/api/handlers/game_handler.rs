@@ -10,17 +10,18 @@ use super::ApiErrorResponse;
 use super::CreateGameCommand;
 use super::CreateGameRequest;
 use super::CreateGameResponse;
+use super::Game;
 use super::GameService;
-use super::Power;
 use super::Regulation;
-
-// traits
-use super::GameRepository;
-use super::UserRepository;
 
 // enums
 use super::CreateGameError;
 use super::CreateGameRequestValidationError;
+use super::Power;
+
+// traits
+use super::GameRepository;
+use super::UserRepository;
 
 // ============================================================================
 // definitions
@@ -192,8 +193,16 @@ mod tests {
     struct InMemoryGameRepository;
 
     impl GameRepository for InMemoryGameRepository {
-        fn insert(&self, new_game: NewGame) -> Result<crate::domain::Game, RepositoryError> {
+        fn insert(&self, new_game: NewGame) -> Result<Game, RepositoryError> {
             Ok(new_game.game)
+        }
+
+        fn find_all_active(&self) -> Result<Vec<Game>, RepositoryError> {
+            Ok(Vec::new())
+        }
+
+        fn update(&self, _game: &Game) -> Result<(), RepositoryError> {
+            Ok(())
         }
     }
 
