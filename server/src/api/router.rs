@@ -89,14 +89,12 @@ struct PostGamesBody {
     requested_power: Option<String>,
 }
 
-async fn run_game_write<U, G, F>(state: &AppState<U, G>, operation: F) -> Response
+async fn run_game_write<U, G, F>(_state: &AppState<U, G>, operation: F) -> Response
 where
     U: UserRepository + Send + Sync + 'static,
     G: GameRepository + Send + Sync + 'static,
     F: FnOnce() -> Response,
 {
-    let _game_update_guard = state.game_update_lock.lock().await;
-
     operation()
 }
 
@@ -105,18 +103,34 @@ where
     U: UserRepository + Send + Sync + 'static,
     G: GameRepository + Send + Sync + 'static,
 {
-    // Keep progression checks serialized with game write paths.
+    // Serialize requests through one lock layer to avoid nested-lock deadlocks.
     let _game_update_guard = state.game_update_lock.lock().await;
 
-    if let Err(error) = state.pre_handler.run() {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiErrorResponse {
-                code: "pre_handler_failed",
-                message: error.to_string(),
-            }),
-        )
-            .into_response();
+    let pre_handler = Arc::clone(&state.pre_handler);
+    let pre_handler_result = tokio::task::spawn_blocking(move || pre_handler.run()).await;
+
+    match pre_handler_result {
+        Ok(Ok(())) => {}
+        Ok(Err(error)) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiErrorResponse {
+                    code: "pre_handler_failed",
+                    message: error.to_string(),
+                }),
+            )
+                .into_response();
+        }
+        Err(error) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiErrorResponse {
+                    code: "pre_handler_failed",
+                    message: format!("failed to execute pre-handler task: {}", error),
+                }),
+            )
+                .into_response();
+        }
     }
 
     next.run(request).await
