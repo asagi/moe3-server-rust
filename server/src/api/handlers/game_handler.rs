@@ -1,4 +1,3 @@
-#![cfg_attr(not(test), allow(dead_code))]
 // ============================================================================
 // imports
 // ============================================================================
@@ -19,7 +18,7 @@ use super::Regulation;
 use super::GameRepository;
 use super::UserRepository;
 
-//enums
+// enums
 use super::CreateGameError;
 use super::CreateGameRequestValidationError;
 
@@ -27,6 +26,7 @@ use super::CreateGameRequestValidationError;
 // definitions
 // ============================================================================
 
+#[allow(dead_code)]
 pub(crate) fn handle_create_game<U, G>(
     service: &GameService<U, G>,
     request: CreateGameRequest,

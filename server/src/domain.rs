@@ -6,6 +6,8 @@
 mod adjudicators;
 mod helpers;
 mod models;
+
+#[cfg(test)]
 mod tests;
 
 // ============================================================================
