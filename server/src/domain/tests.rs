@@ -1,7 +1,19 @@
-use crate::domain::models::Power;
-use crate::domain::models::Province;
-use crate::domain::models::Territory;
-use crate::domain::models::Unit;
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
+
+// structs
+use super::Province;
+use super::Territory;
+use super::Unit;
+
+// enums
+use super::Power;
+
+// ============================================================================
+// definitions
+// ============================================================================
 
 /// 地域オブジェクト生成
 pub(crate) fn p(code: &str) -> Province {

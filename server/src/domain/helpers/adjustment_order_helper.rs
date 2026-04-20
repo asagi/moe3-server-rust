@@ -1,9 +1,18 @@
-// models
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
+
+// structs
 use super::Order;
 use super::Power;
 
 // enums
 use super::OrderKind;
+
+// ============================================================================
+// definitions
+// ============================================================================
 
 pub(crate) trait AdjustmentOrderHelper {
     fn get_unresolved_build_idxs_by_power(&self, power: &Power) -> Option<usize>;

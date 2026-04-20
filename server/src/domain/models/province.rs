@@ -1,11 +1,20 @@
-// models
-use super::Path;
-use super::Power;
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
 
 // standard library
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fmt;
+
+// structs
+use super::Path;
+use super::Power;
+
+// ============================================================================
+// definitions
+// ============================================================================
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) struct Province(&'static str);
@@ -141,7 +150,6 @@ impl Province {
         self.data().supply
     }
 
-    #[allow(dead_code)]
     pub(crate) fn home(self) -> Option<&'static str> {
         self.data().home
     }
@@ -152,11 +160,6 @@ impl Province {
 
     pub(crate) fn is_coast(self) -> bool {
         self.kind() == "Coast"
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn is_inland(self) -> bool {
-        self.kind() == "Inland"
     }
 
     pub(crate) fn code_with_coast(self) -> &'static str {
@@ -245,6 +248,10 @@ impl From<Province> for String {
         value.code_with_coast().to_string()
     }
 }
+
+// ============================================================================
+// tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

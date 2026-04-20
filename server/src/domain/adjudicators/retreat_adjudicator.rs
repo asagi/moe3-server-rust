@@ -1,11 +1,20 @@
-// models
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
+
+// structs
 use super::Order;
 use super::Unit;
 
-// helpers
+// traits
 use super::RetreatOrderHelper;
 
 pub struct RetreatAdjudicator;
+
+// ============================================================================
+// definitions
+// ============================================================================
 
 impl RetreatAdjudicator {
     /// 撤退命令の妥当性を検査

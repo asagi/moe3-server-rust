@@ -1,5 +1,12 @@
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
+
+// standard library
 use std::sync::Mutex;
 
+// external crates
 use chrono::Utc;
 use rusqlite::Connection;
 use rusqlite::Transaction;
@@ -7,19 +14,28 @@ use rusqlite::params;
 use serde::Deserialize;
 use serde::Serialize;
 
-use super::GameRepository;
+// structs
+use super::Game;
 use super::NewGame;
+use super::Order;
+use super::Phase;
+use super::PhaseKind;
+use super::Province;
+use super::Territory;
+use super::Unit;
+
+// enums
+use super::OrderKind;
+use super::OrderStatus;
+use super::Power;
 use super::RepositoryError;
-use crate::domain::Game;
-use crate::domain::Order;
-use crate::domain::OrderKind;
-use crate::domain::OrderStatus;
-use crate::domain::Phase;
-use crate::domain::PhaseKind;
-use crate::domain::Power;
-use crate::domain::Province;
-use crate::domain::Territory;
-use crate::domain::Unit;
+
+// traits
+use super::GameRepository;
+
+// ============================================================================
+// definitions
+// ============================================================================
 
 pub(crate) struct SqliteGameRepository {
     connection: Mutex<Connection>,
@@ -73,7 +89,7 @@ struct TerritoryPayload {
 }
 
 impl SqliteGameRepository {
-    #[cfg_attr(test, allow(dead_code))]
+    #[allow(dead_code)]
     pub(crate) fn new(database_path: &str) -> Result<Self, RepositoryError> {
         let connection =
             Connection::open(database_path).map_err(|error| RepositoryError::Unavailable(format!("open sqlite: {}", error)))?;
@@ -548,6 +564,10 @@ impl GameRepository for SqliteGameRepository {
         Ok(game)
     }
 }
+
+// ============================================================================
+// tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

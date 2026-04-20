@@ -1,11 +1,19 @@
-// models
-use super::Power;
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
 
 // external crates
 use uuid::Uuid;
 
+// structs
+use super::Power;
+
+// ============================================================================
+// definitions
+// ============================================================================
+
 /// プレイヤーの定義
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Player {
     pub(crate) user_uuid: Uuid,

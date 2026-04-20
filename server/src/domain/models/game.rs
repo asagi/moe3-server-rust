@@ -1,13 +1,21 @@
-// models
-use super::Phase;
-use super::Player;
-use super::Regulation;
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
 
 // external crates
 use uuid::Uuid;
 
+// structs
+use super::Phase;
+use super::Player;
+use super::Regulation;
+
+// ============================================================================
+// definitions
+// ============================================================================
+
 /// 卓の定義
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Game {
     pub uuid: Uuid,

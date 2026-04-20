@@ -1,6 +1,15 @@
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
+
 // external crates
 use chrono::NaiveDate;
 use std::fmt;
+
+// ============================================================================
+// definitions
+// ============================================================================
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Regulation {
@@ -47,7 +56,6 @@ pub(crate) enum DurationType {
 }
 
 impl Regulation {
-    #[allow(dead_code)]
     pub(crate) fn new(
         face_type: FaceType,
         progress_mode: ProgressMode,
@@ -115,6 +123,10 @@ impl TryFrom<i32> for DurationType {
         }
     }
 }
+
+// ============================================================================
+// tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

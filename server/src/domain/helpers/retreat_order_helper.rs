@@ -1,11 +1,20 @@
-// models
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
+
+// standard library
+use std::collections::HashSet;
+
+// structs
 use super::Order;
 
 // enums
 use super::OrderKind;
 
-// standard library
-use std::collections::HashSet;
+// ============================================================================
+// definitions
+// ============================================================================
 
 pub trait RetreatOrderHelper {
     fn collect_not_assumed_retreats(&self) -> Vec<Order>;

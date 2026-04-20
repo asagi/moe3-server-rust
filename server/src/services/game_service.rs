@@ -1,17 +1,32 @@
+// ============================================================================
+// imports
+// ============================================================================
+
+// standard library
 use std::error::Error;
 use std::fmt;
 
+// external crates
 use uuid::Uuid;
 
-use crate::domain::Game;
-use crate::domain::Phase;
-use crate::domain::Player;
-use crate::domain::Power;
-use crate::domain::Regulation;
-use crate::repositories::GameRepository;
-use crate::repositories::NewGame;
-use crate::repositories::RepositoryError;
-use crate::repositories::UserRepository;
+// structs
+use super::Game;
+use super::NewGame;
+use super::Phase;
+use super::Player;
+use super::Regulation;
+
+// enums
+use super::Power;
+use super::RepositoryError;
+
+// traits
+use super::GameRepository;
+use super::UserRepository;
+
+// ============================================================================
+// definitions
+// ============================================================================
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct CreateGameCommand {
@@ -41,7 +56,7 @@ where
     U: UserRepository,
     G: GameRepository,
 {
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[allow(dead_code)]
     pub(crate) fn new(user_repository: U, game_repository: G) -> Self {
         Self {
             user_repository,
@@ -119,6 +134,10 @@ impl fmt::Display for CreateGameError {
 }
 
 impl Error for CreateGameError {}
+
+// ============================================================================
+// tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

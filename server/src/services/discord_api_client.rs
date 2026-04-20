@@ -1,13 +1,30 @@
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
+
+// standard library
 use std::time::Duration;
 
+// external crates
 use reqwest::StatusCode;
 use reqwest::blocking::Client;
 use serde::Deserialize;
 
-use super::DiscordClientError;
-use super::DiscordIdentityProvider;
-use crate::repositories::DiscordProfile;
+// structs
+use super::DiscordProfile;
 
+// enums
+use super::DiscordClientError;
+
+// traits
+use super::DiscordIdentityProvider;
+
+// ============================================================================
+// definitions
+// ============================================================================
+
+// constants
 const DISCORD_CONNECT_TIMEOUT_SECS: u64 = 3;
 const DISCORD_REQUEST_TIMEOUT_SECS: u64 = 10;
 
@@ -79,6 +96,10 @@ struct DiscordMeResponse {
     global_name: Option<String>,
     avatar: Option<String>,
 }
+
+// ============================================================================
+// tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

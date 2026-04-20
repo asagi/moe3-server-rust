@@ -1,11 +1,23 @@
-// models
-use super::Power;
-use super::Province;
-use super::Unit;
-use serde::{Deserialize, Serialize};
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
 
 // standard library
 use std::fmt;
+
+// external crates
+use serde::Deserialize;
+use serde::Serialize;
+
+// structs
+use super::Power;
+use super::Province;
+use super::Unit;
+
+// ============================================================================
+// definitions
+// ============================================================================
 
 /// 命令の定義
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -84,7 +96,6 @@ pub(crate) struct DisbandOrder {}
 
 /// 命令のロジック
 impl Order {
-    #[allow(dead_code)]
     pub(crate) fn new_hold(power: Power, unit: Unit) -> Self {
         Order {
             power,
@@ -95,7 +106,6 @@ impl Order {
         }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn new_move(power: Power, unit: Unit, dest: Province) -> Self {
         Order {
             power,
@@ -106,7 +116,6 @@ impl Order {
         }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn new_support(power: Power, unit: Unit, target_unit: Unit, target_dest: Option<Province>) -> Self {
         Order {
             power,
@@ -120,7 +129,6 @@ impl Order {
         }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn new_convoy(power: Power, unit: Unit, target_unit: Unit, target_dest: Province) -> Self {
         Order {
             power,
@@ -134,7 +142,6 @@ impl Order {
         }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn new_retreat(power: Power, unit: Unit, dest: Province) -> Self {
         Order {
             power,
@@ -145,7 +152,6 @@ impl Order {
         }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn new_build(power: Power, unit: Unit) -> Self {
         Order {
             power,
@@ -156,7 +162,6 @@ impl Order {
         }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn new_disband(power: Power, unit: Unit) -> Self {
         Order {
             power,
@@ -339,7 +344,6 @@ impl Order {
     }
 
     /// 命令を仮定命令に変換
-    #[allow(dead_code)]
     pub fn assumed_by(&mut self, power: Power) -> Self {
         self.power = power;
         *self
@@ -410,6 +414,10 @@ impl fmt::Display for Order {
         }
     }
 }
+
+// ============================================================================
+// tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

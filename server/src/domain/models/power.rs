@@ -1,9 +1,18 @@
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
+
 // external crates
 use strum::Display;
 use strum::EnumIter;
 use strum::EnumProperty;
 use strum::EnumString;
 use strum::IntoEnumIterator;
+
+// ============================================================================
+// definitions
+// ============================================================================
 
 /// 国の定義
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter, Display, EnumString, EnumProperty)]
@@ -62,6 +71,10 @@ impl<'de> serde::Deserialize<'de> for Power {
         Self::from_symbol(&s).ok_or_else(|| serde::de::Error::custom(format!("invalid power code: {}", s)))
     }
 }
+
+// ============================================================================
+// tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

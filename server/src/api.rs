@@ -1,33 +1,47 @@
+#![cfg_attr(not(test), allow(unused_imports))]
+// ============================================================================
 // modules
-#[cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+
 mod handlers;
-#[cfg_attr(not(test), allow(dead_code))]
 mod requests;
-#[cfg_attr(not(test), allow(dead_code))]
 mod responses;
 
-// handlers
-#[allow(unused_imports)]
-pub(crate) use handlers::AuthHandlerError;
-#[allow(unused_imports)]
-pub(crate) use handlers::CreateGameHandlerError;
-#[allow(unused_imports)]
-pub(crate) use handlers::handle_auth_login;
-#[allow(unused_imports)]
-pub(crate) use handlers::handle_create_game;
+// ============================================================================
+// exports
+// ============================================================================
 
-// requests
-#[allow(unused_imports)]
+// structs
 pub(crate) use requests::AuthLoginRequest;
-#[allow(unused_imports)]
 pub(crate) use requests::CreateGameRequest;
-
-// responses
-#[allow(unused_imports)]
 pub(crate) use responses::ApiErrorResponse;
-#[allow(unused_imports)]
 pub(crate) use responses::AuthLoginResponse;
-#[allow(unused_imports)]
 pub(crate) use responses::AuthLoginUserResponse;
-#[allow(unused_imports)]
 pub(crate) use responses::CreateGameResponse;
+
+// enums
+pub(crate) use requests::AuthRequestValidationError;
+pub(crate) use requests::CreateGameRequestValidationError;
+
+// ============================================================================
+// re-exports
+// ============================================================================
+
+// structs
+pub(crate) use super::AuthService;
+pub(crate) use super::CreateGameCommand;
+pub(crate) use super::GameService;
+pub(crate) use super::LoginCommand;
+pub(crate) use super::LoginUser;
+pub(crate) use super::Regulation;
+
+// enums
+pub(crate) use super::AuthError;
+pub(crate) use super::CreateGameError;
+pub(crate) use super::DiscordClientError;
+pub(crate) use super::Power;
+
+// traits
+pub(crate) use super::DiscordIdentityProvider;
+pub(crate) use super::GameRepository;
+pub(crate) use super::UserRepository;

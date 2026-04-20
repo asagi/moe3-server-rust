@@ -1,4 +1,12 @@
-// models
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
+
+// external crates
+use strum::IntoEnumIterator;
+
+// structs
 use super::AdjustmentPhase;
 use super::DebriefPhase;
 use super::FallMainPhase;
@@ -17,19 +25,18 @@ use super::Unit;
 use super::OrderKind;
 use super::PhaseKind;
 
-// adjudicators
+// traits
 use super::AdjustmentAdjudicator;
-use super::MainAdjudicator;
-use super::RetreatAdjudicator;
-
-// helpers
 use super::AdjustmentOrderHelper;
+use super::MainAdjudicator;
 use super::MainOrderHelper;
+use super::RetreatAdjudicator;
 use super::RetreatOrderHelper;
 use super::UnitHelper;
 
-// external crates
-use strum::IntoEnumIterator;
+// ============================================================================
+// definitions
+// ============================================================================
 
 // constants
 use super::SUPPLY_CENTERS_FOR_SOLO;
@@ -37,7 +44,6 @@ use super::SUPPLY_CENTERS_FOR_SOLO;
 /// フェイズのロジック
 impl Phase {
     /// フェイズを締め切り命令を解決する。
-    #[allow(dead_code)]
     pub(crate) fn close(mut self, context: &mut PhaseContext) {
         match self.kind {
             PhaseKind::Ready(r) => r.close(&mut self, context),
@@ -123,7 +129,6 @@ impl Phase {
     }
 
     /// 準備フェイズを生成する。
-    #[allow(dead_code)]
     pub(crate) fn new_ready() -> Self {
         let mut phase = Self::new(1900, 0, PhaseKind::Ready(ReadyPhase {}));
 
@@ -210,7 +215,6 @@ impl Phase {
     }
 
     /// 感想戦フェイズを生成する。
-    #[allow(dead_code)]
     pub(crate) fn new_debrief(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseKind::Debrief(DebriefPhase {}))
     }
@@ -632,6 +636,10 @@ fn resolve_orders_for_adjustment_phase(current_phase: &mut Phase) {
         }
     }
 }
+
+// ============================================================================
+// tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

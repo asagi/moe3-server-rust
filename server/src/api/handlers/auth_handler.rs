@@ -1,15 +1,29 @@
-use crate::api::requests::AuthLoginRequest;
-use crate::api::requests::AuthRequestValidationError;
-use crate::api::responses::ApiErrorResponse;
-use crate::api::responses::AuthLoginResponse;
-use crate::api::responses::AuthLoginUserResponse;
-use crate::repositories::UserRepository;
-use crate::services::AuthError;
-use crate::services::AuthService;
-use crate::services::DiscordClientError;
-use crate::services::DiscordIdentityProvider;
-use crate::services::LoginCommand;
-use crate::services::LoginUser;
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
+
+// structs
+use super::ApiErrorResponse;
+use super::AuthLoginRequest;
+use super::AuthLoginResponse;
+use super::AuthLoginUserResponse;
+use super::AuthService;
+use super::LoginCommand;
+use super::LoginUser;
+
+// traits
+use super::DiscordIdentityProvider;
+use super::UserRepository;
+
+// enums
+use super::AuthError;
+use super::AuthRequestValidationError;
+use super::DiscordClientError;
+
+// ============================================================================
+// definitions
+// ============================================================================
 
 pub(crate) fn handle_auth_login<U, D>(
     service: &AuthService<U, D>,
@@ -79,6 +93,10 @@ impl AuthHandlerError {
         }
     }
 }
+
+// ============================================================================
+// tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

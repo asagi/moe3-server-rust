@@ -1,8 +1,21 @@
-use crate::repositories::UserId;
+#![cfg_attr(not(test), allow(dead_code))]
+// ============================================================================
+// imports
+// ============================================================================
 
+// standard library
 use std::error::Error;
 use std::fmt;
+
+// external crates
 use uuid::Uuid;
+
+// type aliases
+use super::UserId;
+
+// ============================================================================
+// definitions
+// ============================================================================
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DiscordProfile {
@@ -56,7 +69,6 @@ impl From<&DiscordProfile> for UserProfileUpdate {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum RepositoryError {
     NotFound,
     Conflict,
