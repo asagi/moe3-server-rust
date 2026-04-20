@@ -8,6 +8,7 @@ mod handlers;
 mod middleware;
 mod requests;
 mod responses;
+mod router;
 
 // ============================================================================
 // exports
@@ -21,6 +22,8 @@ pub(crate) use responses::ApiErrorResponse;
 pub(crate) use responses::AuthLoginResponse;
 pub(crate) use responses::AuthLoginUserResponse;
 pub(crate) use responses::CreateGameResponse;
+pub(crate) use router::AppState;
+pub(crate) use router::create_router;
 
 // enums
 pub(crate) use requests::AuthRequestValidationError;

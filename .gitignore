@@ -27,3 +27,4 @@ target
 
 # ignore sqlite dbs
 server/*.db
+*.sqlite3

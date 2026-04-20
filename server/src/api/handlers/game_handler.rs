@@ -27,7 +27,6 @@ use super::UserRepository;
 // definitions
 // ============================================================================
 
-#[allow(dead_code)]
 pub(crate) fn handle_create_game<U, G>(
     service: &GameService<U, G>,
     request: CreateGameRequest,
@@ -91,7 +90,6 @@ pub(crate) enum CreateGameHandlerError {
     Service(CreateGameError),
 }
 
-#[allow(dead_code)]
 impl CreateGameHandlerError {
     pub(crate) fn code(&self) -> &'static str {
         match self {
@@ -207,24 +205,6 @@ mod tests {
 
         fn find_progress_candidates(&self, _now: chrono::NaiveDateTime) -> Result<Vec<uuid::Uuid>, RepositoryError> {
             Ok(Vec::new())
-        }
-
-        fn try_claim_progression(
-            &self,
-            _game_uuid: uuid::Uuid,
-            _lock_id: uuid::Uuid,
-            _lock_until: chrono::NaiveDateTime,
-            _now: chrono::NaiveDateTime,
-        ) -> Result<bool, RepositoryError> {
-            Ok(false)
-        }
-
-        fn update_if_claimed(&self, _game: &Game, _lock_id: uuid::Uuid) -> Result<bool, RepositoryError> {
-            Ok(false)
-        }
-
-        fn release_progression_claim(&self, _game_uuid: uuid::Uuid, _lock_id: uuid::Uuid) -> Result<(), RepositoryError> {
-            Ok(())
         }
 
         fn update(&self, _game: &Game) -> Result<(), RepositoryError> {
