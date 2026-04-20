@@ -8,9 +8,12 @@ use std::sync::Arc;
 // external crates
 use axum::Router;
 use axum::extract::Json;
+use axum::extract::Request;
 use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
+use axum::middleware::Next;
+use axum::middleware::from_fn_with_state;
 use axum::response::IntoResponse;
 use axum::response::Response;
 use axum::routing::post;
@@ -94,6 +97,17 @@ where
 {
     let _game_update_guard = state.game_update_lock.lock().await;
 
+    operation()
+}
+
+async fn run_global_pre_handler<U, G>(State(state): State<AppState<U, G>>, request: Request, next: Next) -> Response
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+{
+    // Keep progression checks serialized with game write paths.
+    let _game_update_guard = state.game_update_lock.lock().await;
+
     if let Err(error) = state.pre_handler.run() {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -105,7 +119,7 @@ where
             .into_response();
     }
 
-    operation()
+    next.run(request).await
 }
 
 async fn post_games<U, G>(
@@ -152,5 +166,8 @@ where
     U: UserRepository + Send + Sync + 'static,
     G: GameRepository + Send + Sync + 'static,
 {
-    Router::new().route("/games", post(post_games::<U, G>)).with_state(state)
+    Router::new()
+        .route("/games", post(post_games::<U, G>))
+        .with_state(state.clone())
+        .layer(from_fn_with_state(state, run_global_pre_handler::<U, G>))
 }
