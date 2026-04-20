@@ -26,6 +26,9 @@ pub(crate) struct Game {
     pub(crate) players: Vec<Player>,
     pub(crate) phases: Vec<Phase>,
     pub(crate) status: GameStatus,
+    pub(crate) is_canceld: bool,
+    pub(crate) is_draw: bool,
+    pub(crate) is_solo: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,8 +37,6 @@ pub(crate) enum GameStatus {
     Preparing,
     Ready,
     InProgress,
-    Draw,
-    Solo,
-    ClosedOnDraw,
-    ClosedOnSolo,
+    Finished,
+    Closed,
 }

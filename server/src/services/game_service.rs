@@ -92,6 +92,9 @@ where
             players: vec![owner],
             phases: vec![Phase::new_ready()],
             status: GameStatus::Preparing,
+            is_canceld: false,
+            is_draw: false,
+            is_solo: false,
         };
 
         let created = self

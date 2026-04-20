@@ -606,6 +606,9 @@ mod tests {
             }],
             phases: vec![Phase::new_ready()],
             status: GameStatus::Preparing,
+            is_canceld: false,
+            is_draw: false,
+            is_solo: false,
         };
 
         let created = repository
@@ -658,6 +661,9 @@ mod tests {
             }],
             phases: vec![phase.clone()],
             status: GameStatus::Preparing,
+            is_canceld: false,
+            is_draw: false,
+            is_solo: false,
         };
 
         repository.insert(NewGame { game }).expect("insert should succeed");
@@ -796,6 +802,9 @@ mod transaction_tests {
             }],
             phases: vec![Phase::new_ready()],
             status: GameStatus::Preparing,
+            is_canceld: false,
+            is_draw: false,
+            is_solo: false,
         };
 
         let error = repository
