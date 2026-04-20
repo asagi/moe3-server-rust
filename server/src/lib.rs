@@ -60,10 +60,40 @@ pub(crate) use services::DiscordIdentityProvider;
 pub(crate) use repositories::UserId;
 
 // ============================================================================
+// internal: single-instance lock
+// ============================================================================
+
+use fs4::FileExt;
+use std::fs::File;
+use std::sync::Arc;
+use std::sync::Mutex;
+
+/// Global lock file handle. Held for the lifetime of the server process.
+static INSTANCE_LOCK: Mutex<Option<Arc<File>>> = Mutex::new(None);
+
+fn acquire_instance_lock(db_path: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let lock_path = format!("{}.lock", db_path);
+    let file = File::create(&lock_path)?;
+
+    match file.try_lock_exclusive() {
+        Ok(()) => {
+            let mut lock = INSTANCE_LOCK.lock().unwrap();
+            *lock = Some(Arc::new(file));
+            println!("[LOCK] Acquired exclusive lock on {}", lock_path);
+            Ok(())
+        }
+        Err(_) => Err(format!("Another instance is already running (lock file: {})", lock_path).into()),
+    }
+}
+
+// ============================================================================
 // public API
 // ============================================================================
 
 pub async fn serve(addr: std::net::SocketAddr, db_path: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // Ensure single instance
+    acquire_instance_lock(db_path)?;
+
     let user_repository = SqliteUserRepository::new(db_path)?;
     let game_repository = SqliteGameRepository::new(db_path)?;
     let game_service = GameService::new(user_repository, game_repository.clone());
