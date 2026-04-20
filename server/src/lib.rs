@@ -77,12 +77,17 @@ fn acquire_instance_lock(db_path: &str) -> Result<(), Box<dyn std::error::Error 
 
     match file.try_lock_exclusive() {
         Ok(()) => {
-            let mut lock = INSTANCE_LOCK.lock().unwrap();
+            let mut lock = INSTANCE_LOCK
+                .lock()
+                .map_err(|_| std::io::Error::other(format!("instance lock mutex was poisoned while acquiring {}", lock_path)))?;
             *lock = Some(Arc::new(file));
             println!("[LOCK] Acquired exclusive lock on {}", lock_path);
             Ok(())
         }
-        Err(_) => Err(format!("Another instance is already running (lock file: {})", lock_path).into()),
+        Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
+            Err(format!("Another instance is already running (lock file: {})", lock_path).into())
+        }
+        Err(err) => Err(format!("Failed to acquire instance lock on {}: {}", lock_path, err).into()),
     }
 }
 

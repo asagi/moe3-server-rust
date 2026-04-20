@@ -89,21 +89,12 @@ struct PostGamesBody {
     requested_power: Option<String>,
 }
 
-async fn run_game_write<U, G, F>(_state: &AppState<U, G>, operation: F) -> Response
-where
-    U: UserRepository + Send + Sync + 'static,
-    G: GameRepository + Send + Sync + 'static,
-    F: FnOnce() -> Response,
-{
-    operation()
-}
-
 async fn run_global_pre_handler<U, G>(State(state): State<AppState<U, G>>, request: Request, next: Next) -> Response
 where
     U: UserRepository + Send + Sync + 'static,
     G: GameRepository + Send + Sync + 'static,
 {
-    // Serialize requests through one lock layer to avoid nested-lock deadlocks.
+    // Serialize progression updates (not entire request) through lock.
     let _game_update_guard = state.game_update_lock.lock().await;
 
     let pre_handler = Arc::clone(&state.pre_handler);
@@ -133,6 +124,7 @@ where
         }
     }
 
+    drop(_game_update_guard);
     next.run(request).await
 }
 
@@ -161,7 +153,10 @@ where
         requested_power: body.requested_power,
     };
 
-    run_game_write(&state, || match handle_create_game(&state.game_service, request) {
+    let state_clone = state.clone();
+    let request_clone = request.clone();
+
+    match tokio::task::spawn_blocking(move || match handle_create_game(&state_clone.game_service, request_clone) {
         Ok(response) => (StatusCode::CREATED, Json(response)).into_response(),
         Err(error) => {
             let status = match &error {
@@ -173,6 +168,10 @@ where
         }
     })
     .await
+    {
+        Ok(response) => response,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
 }
 
 pub(crate) fn create_router<U, G>(state: AppState<U, G>) -> Router
