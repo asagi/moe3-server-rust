@@ -201,6 +201,32 @@ mod tests {
             Ok(Vec::new())
         }
 
+        fn find_by_uuid(&self, _game_uuid: uuid::Uuid) -> Result<Option<Game>, RepositoryError> {
+            Ok(None)
+        }
+
+        fn find_progress_candidates(&self, _now: chrono::NaiveDateTime) -> Result<Vec<uuid::Uuid>, RepositoryError> {
+            Ok(Vec::new())
+        }
+
+        fn try_claim_progression(
+            &self,
+            _game_uuid: uuid::Uuid,
+            _lock_id: uuid::Uuid,
+            _lock_until: chrono::NaiveDateTime,
+            _now: chrono::NaiveDateTime,
+        ) -> Result<bool, RepositoryError> {
+            Ok(false)
+        }
+
+        fn update_if_claimed(&self, _game: &Game, _lock_id: uuid::Uuid) -> Result<bool, RepositoryError> {
+            Ok(false)
+        }
+
+        fn release_progression_claim(&self, _game_uuid: uuid::Uuid, _lock_id: uuid::Uuid) -> Result<(), RepositoryError> {
+            Ok(())
+        }
+
         fn update(&self, _game: &Game) -> Result<(), RepositoryError> {
             Ok(())
         }

@@ -138,6 +138,8 @@ impl SqliteGameRepository {
                 is_draw INTEGER NOT NULL DEFAULT 0,
                 is_solo INTEGER NOT NULL DEFAULT 0,
                 next_update TEXT,
+                progression_lock_id TEXT,
+                progression_lock_until TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -451,6 +453,215 @@ impl SqliteGameRepository {
             .unwrap_or_else(|_| text.split(',').map(|value| value.to_string()).collect::<Vec<_>>())
     }
 
+    fn load_games_by_query<P>(connection: &Connection, sql: &str, params: P) -> Result<Vec<Game>, RepositoryError>
+    where
+        P: rusqlite::Params,
+    {
+        struct GameRow {
+            uuid: String,
+            game_number: Option<i32>,
+            face_type: i32,
+            progress_mode: i32,
+            duration_type: i32,
+            start_date: String,
+            first_period_hour: i32,
+            status: String,
+            is_canceled: i32,
+            is_draw: i32,
+            is_solo: i32,
+            next_update: Option<String>,
+        }
+
+        let game_rows: Vec<GameRow> = {
+            let mut stmt = connection
+                .prepare(sql)
+                .map_err(|error| RepositoryError::Unavailable(format!("prepare load games: {}", error)))?;
+
+            stmt.query_map(params, |row| {
+                Ok(GameRow {
+                    uuid: row.get(0)?,
+                    game_number: row.get(1)?,
+                    face_type: row.get(2)?,
+                    progress_mode: row.get(3)?,
+                    duration_type: row.get(4)?,
+                    start_date: row.get(5)?,
+                    first_period_hour: row.get(6)?,
+                    status: row.get(7)?,
+                    is_canceled: row.get(8)?,
+                    is_draw: row.get(9)?,
+                    is_solo: row.get(10)?,
+                    next_update: row.get(11)?,
+                })
+            })
+            .map_err(|error| RepositoryError::Unavailable(format!("query load games: {}", error)))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| RepositoryError::Unavailable(format!("collect load game rows: {}", error)))?
+        };
+
+        let mut games = Vec::new();
+
+        for row in game_rows {
+            let regulation = Regulation::new(
+                FaceType::try_from(row.face_type).map_err(|e| RepositoryError::Unavailable(e.to_string()))?,
+                ProgressMode::try_from(row.progress_mode).map_err(|e| RepositoryError::Unavailable(e.to_string()))?,
+                DurationType::try_from(row.duration_type).map_err(|e| RepositoryError::Unavailable(e.to_string()))?,
+                NaiveDate::parse_from_str(&row.start_date, "%Y-%m-%d")
+                    .map_err(|error| RepositoryError::Unavailable(format!("parse start_date: {}", error)))?,
+                row.first_period_hour as u8,
+            )
+            .map_err(|e| RepositoryError::Unavailable(e.to_string()))?;
+
+            let uuid = Uuid::parse_str(&row.uuid)
+                .map_err(|error| RepositoryError::Unavailable(format!("parse game uuid: {}", error)))?;
+
+            let players: Vec<Player> = {
+                let mut stmt = connection
+                    .prepare(
+                        r#"
+                        SELECT user_uuid, power, is_accepting_draw, is_owner, requested_power
+                        FROM game_players
+                        WHERE game_uuid = ?1
+                        "#,
+                    )
+                    .map_err(|error| RepositoryError::Unavailable(format!("prepare load players: {}", error)))?;
+
+                let raw_rows = stmt
+                    .query_map(params![row.uuid], |r| {
+                        Ok((
+                            r.get::<_, String>(0)?,
+                            r.get::<_, Option<i32>>(1)?,
+                            r.get::<_, i32>(2)?,
+                            r.get::<_, i32>(3)?,
+                            r.get::<_, Option<i32>>(4)?,
+                        ))
+                    })
+                    .map_err(|error| RepositoryError::Unavailable(format!("query players: {}", error)))?
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|error| RepositoryError::Unavailable(format!("collect player rows: {}", error)))?;
+
+                raw_rows
+                    .into_iter()
+                    .map(
+                        |(user_uuid_str, power_val, is_accepting_draw, is_owner, requested_power_val)| {
+                            let user_uuid = Uuid::parse_str(&user_uuid_str)
+                                .map_err(|error| RepositoryError::Unavailable(format!("parse player uuid: {}", error)))?;
+                            let power = power_val.map(Self::power_from_i32).transpose()?;
+                            let requested_power = requested_power_val.map(Self::power_from_i32).transpose()?;
+                            Ok(Player {
+                                user_uuid,
+                                power,
+                                is_accepting_draw: is_accepting_draw != 0,
+                                is_owner: is_owner != 0,
+                                requested_power,
+                            })
+                        },
+                    )
+                    .collect::<Result<Vec<_>, RepositoryError>>()?
+            };
+
+            struct PhaseRow {
+                id: i64,
+                phase_index: i32,
+                phase_year: i32,
+                phase_kind: String,
+                units: String,
+                territories: String,
+                standoff_codes: String,
+            }
+
+            let phase_rows: Vec<PhaseRow> = {
+                let mut stmt = connection
+                    .prepare(
+                        r#"
+                        SELECT id, phase_index, phase_year, phase_kind, units, territories, standoff_codes
+                        FROM game_phases
+                        WHERE game_uuid = ?1
+                        ORDER BY phase_index ASC
+                        "#,
+                    )
+                    .map_err(|error| RepositoryError::Unavailable(format!("prepare load phases: {}", error)))?;
+
+                stmt.query_map(params![row.uuid], |r| {
+                    Ok(PhaseRow {
+                        id: r.get(0)?,
+                        phase_index: r.get(1)?,
+                        phase_year: r.get(2)?,
+                        phase_kind: r.get(3)?,
+                        units: r.get(4)?,
+                        territories: r.get(5)?,
+                        standoff_codes: r.get(6)?,
+                    })
+                })
+                .map_err(|error| RepositoryError::Unavailable(format!("query phases: {}", error)))?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| RepositoryError::Unavailable(format!("collect phase rows: {}", error)))?
+            };
+
+            let mut phases = Vec::new();
+            for phase_row in phase_rows {
+                let orders: Vec<Order> = {
+                    let mut stmt = connection
+                        .prepare(
+                            r#"
+                            SELECT order_json
+                            FROM game_phase_orders
+                            WHERE phase_id = ?1
+                            "#,
+                        )
+                        .map_err(|error| RepositoryError::Unavailable(format!("prepare load orders: {}", error)))?;
+
+                    let order_jsons: Vec<String> = stmt
+                        .query_map(params![phase_row.id], |r| r.get(0))
+                        .map_err(|error| RepositoryError::Unavailable(format!("query orders: {}", error)))?
+                        .collect::<Result<Vec<_>, _>>()
+                        .map_err(|error| RepositoryError::Unavailable(format!("collect order jsons: {}", error)))?;
+
+                    order_jsons
+                        .iter()
+                        .map(|json| Self::deserialize_order(json))
+                        .collect::<Result<Vec<_>, _>>()?
+                };
+
+                let phase = Phase {
+                    game_number: None,
+                    index: phase_row.phase_index,
+                    year: phase_row.phase_year,
+                    kind: Self::deserialize_phase_kind(&phase_row.phase_kind)?,
+                    orders,
+                    units: Self::deserialize_units(&phase_row.units)?,
+                    territories: Self::deserialize_territories(&phase_row.territories)?,
+                    standoff_codes: Self::deserialize_codes(&phase_row.standoff_codes),
+                };
+                phases.push(phase);
+            }
+
+            let next_update = row
+                .next_update
+                .as_deref()
+                .map(|s| {
+                    NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f")
+                        .or_else(|_| NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S"))
+                        .map_err(|error| RepositoryError::Unavailable(format!("parse next_update: {}", error)))
+                })
+                .transpose()?;
+
+            games.push(Game {
+                uuid,
+                game_number: row.game_number,
+                regulation,
+                players,
+                phases,
+                status: Self::status_from_str(&row.status)?,
+                is_canceled: row.is_canceled != 0,
+                is_draw: row.is_draw != 0,
+                is_solo: row.is_solo != 0,
+                next_update,
+            });
+        }
+
+        Ok(games)
+    }
+
     fn insert_phase_orders(
         transaction: &Transaction<'_>,
         phase_id: i64,
@@ -627,217 +838,274 @@ impl GameRepository for SqliteGameRepository {
             .lock()
             .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
 
-        struct GameRow {
-            uuid: String,
-            game_number: Option<i32>,
-            face_type: i32,
-            progress_mode: i32,
-            duration_type: i32,
-            start_date: String,
-            first_period_hour: i32,
-            status: String,
-            is_canceled: i32,
-            is_draw: i32,
-            is_solo: i32,
-            next_update: Option<String>,
+        Self::load_games_by_query(
+            &connection,
+            r#"
+            SELECT uuid, game_number, regulation_face_type, regulation_progress_mode,
+                   regulation_duration_type, regulation_start_date, regulation_first_period_hour,
+                   status, is_canceled, is_draw, is_solo, next_update
+            FROM games
+            WHERE status != 'closed'
+            "#,
+            [],
+        )
+    }
+
+    fn find_by_uuid(&self, game_uuid: Uuid) -> Result<Option<Game>, RepositoryError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
+
+        let mut games = Self::load_games_by_query(
+            &connection,
+            r#"
+            SELECT uuid, game_number, regulation_face_type, regulation_progress_mode,
+                   regulation_duration_type, regulation_start_date, regulation_first_period_hour,
+                   status, is_canceled, is_draw, is_solo, next_update
+            FROM games
+            WHERE uuid = ?1
+            "#,
+            params![game_uuid.to_string()],
+        )?;
+
+        Ok(games.pop())
+    }
+
+    fn find_progress_candidates(&self, now: NaiveDateTime) -> Result<Vec<Uuid>, RepositoryError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
+
+        let mut stmt = connection
+            .prepare(
+                r#"
+                SELECT uuid
+                FROM games
+                WHERE status != 'closed'
+                  AND next_update IS NOT NULL
+                  AND next_update <= ?1
+                ORDER BY next_update ASC, uuid ASC
+                "#,
+            )
+            .map_err(|error| RepositoryError::Unavailable(format!("prepare find_progress_candidates: {}", error)))?;
+
+        let uuid_rows = stmt
+            .query_map(params![now.to_string()], |row| row.get::<_, String>(0))
+            .map_err(|error| RepositoryError::Unavailable(format!("query find_progress_candidates: {}", error)))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| RepositoryError::Unavailable(format!("collect find_progress_candidates: {}", error)))?;
+
+        uuid_rows
+            .into_iter()
+            .map(|value| {
+                Uuid::parse_str(&value)
+                    .map_err(|error| RepositoryError::Unavailable(format!("parse progress candidate uuid: {}", error)))
+            })
+            .collect()
+    }
+
+    fn try_claim_progression(
+        &self,
+        game_uuid: Uuid,
+        lock_id: Uuid,
+        lock_until: NaiveDateTime,
+        now: NaiveDateTime,
+    ) -> Result<bool, RepositoryError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
+
+        let affected = connection
+            .execute(
+                r#"
+                UPDATE games
+                SET progression_lock_id = ?2,
+                    progression_lock_until = ?3,
+                    updated_at = ?4
+                WHERE uuid = ?1
+                  AND status != 'closed'
+                  AND next_update IS NOT NULL
+                  AND next_update <= ?5
+                  AND (
+                        progression_lock_until IS NULL
+                        OR progression_lock_until <= ?6
+                  )
+                "#,
+                params![
+                    game_uuid.to_string(),
+                    lock_id.to_string(),
+                    lock_until.to_string(),
+                    Utc::now().to_rfc3339(),
+                    now.to_string(),
+                    now.to_string(),
+                ],
+            )
+            .map_err(|error| RepositoryError::Unavailable(format!("claim progression lock: {}", error)))?;
+
+        Ok(affected == 1)
+    }
+
+    fn update_if_claimed(&self, game: &Game, lock_id: Uuid) -> Result<bool, RepositoryError> {
+        let now = Utc::now().to_rfc3339();
+
+        let mut connection = self
+            .connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
+
+        let transaction = connection
+            .transaction()
+            .map_err(|error| RepositoryError::Unavailable(format!("begin claimed game update transaction: {}", error)))?;
+
+        let affected = transaction
+            .execute(
+                r#"
+                UPDATE games
+                SET status = ?2,
+                    is_canceled = ?3,
+                    is_draw = ?4,
+                    is_solo = ?5,
+                    next_update = ?6,
+                    progression_lock_id = NULL,
+                    progression_lock_until = NULL,
+                    updated_at = ?7
+                WHERE uuid = ?1
+                  AND progression_lock_id = ?8
+                "#,
+                params![
+                    game.uuid.to_string(),
+                    Self::serialize_status(game.status),
+                    game.is_canceled as i32,
+                    game.is_draw as i32,
+                    game.is_solo as i32,
+                    game.next_update.map(|dt| dt.to_string()),
+                    now,
+                    lock_id.to_string(),
+                ],
+            )
+            .map_err(|error| RepositoryError::Unavailable(format!("update claimed game: {}", error)))?;
+
+        if affected == 0 {
+            transaction
+                .rollback()
+                .map_err(|error| RepositoryError::Unavailable(format!("rollback claimed game update transaction: {}", error)))?;
+            return Ok(false);
         }
 
-        let game_rows: Vec<GameRow> = {
-            let mut stmt = connection
-                .prepare(
-                    r#"
-                    SELECT uuid, game_number, regulation_face_type, regulation_progress_mode,
-                           regulation_duration_type, regulation_start_date, regulation_first_period_hour,
-                           status, is_canceled, is_draw, is_solo, next_update
-                    FROM games
-                    WHERE status != 'closed'
-                    "#,
-                )
-                .map_err(|error| RepositoryError::Unavailable(format!("prepare find_all_active: {}", error)))?;
+        let existing_phase_ids: HashMap<i32, i64> = {
+            let mut stmt = transaction
+                .prepare("SELECT phase_index, id FROM game_phases WHERE game_uuid = ?1")
+                .map_err(|error| RepositoryError::Unavailable(format!("prepare existing phases: {}", error)))?;
 
-            stmt.query_map([], |row| {
-                Ok(GameRow {
-                    uuid: row.get(0)?,
-                    game_number: row.get(1)?,
-                    face_type: row.get(2)?,
-                    progress_mode: row.get(3)?,
-                    duration_type: row.get(4)?,
-                    start_date: row.get(5)?,
-                    first_period_hour: row.get(6)?,
-                    status: row.get(7)?,
-                    is_canceled: row.get(8)?,
-                    is_draw: row.get(9)?,
-                    is_solo: row.get(10)?,
-                    next_update: row.get(11)?,
+            let rows = stmt
+                .query_map(params![game.uuid.to_string()], |row| {
+                    Ok((row.get::<_, i32>(0)?, row.get::<_, i64>(1)?))
                 })
-            })
-            .map_err(|error| RepositoryError::Unavailable(format!("query find_all_active: {}", error)))?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| RepositoryError::Unavailable(format!("collect game rows: {}", error)))?
+                .map_err(|error| RepositoryError::Unavailable(format!("query existing phases: {}", error)))?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| RepositoryError::Unavailable(format!("collect existing phase ids: {}", error)))?;
+
+            rows.into_iter().collect()
         };
 
-        let mut games = Vec::new();
-
-        for row in game_rows {
-            let regulation = Regulation::new(
-                FaceType::try_from(row.face_type).map_err(|e| RepositoryError::Unavailable(e.to_string()))?,
-                ProgressMode::try_from(row.progress_mode).map_err(|e| RepositoryError::Unavailable(e.to_string()))?,
-                DurationType::try_from(row.duration_type).map_err(|e| RepositoryError::Unavailable(e.to_string()))?,
-                NaiveDate::parse_from_str(&row.start_date, "%Y-%m-%d")
-                    .map_err(|error| RepositoryError::Unavailable(format!("parse start_date: {}", error)))?,
-                row.first_period_hour as u8,
-            )
-            .map_err(|e| RepositoryError::Unavailable(e.to_string()))?;
-
-            let uuid = Uuid::parse_str(&row.uuid)
-                .map_err(|error| RepositoryError::Unavailable(format!("parse game uuid: {}", error)))?;
-
-            let players: Vec<Player> = {
-                let mut stmt = connection
-                    .prepare(
+        for phase in &game.phases {
+            if let Some(phase_id) = existing_phase_ids.get(&phase.index).copied() {
+                transaction
+                    .execute(
                         r#"
-                        SELECT user_uuid, power, is_accepting_draw, is_owner, requested_power
-                        FROM game_players
-                        WHERE game_uuid = ?1
+                        UPDATE game_phases
+                        SET phase_year = ?1,
+                            phase_kind = ?2,
+                            units = ?3,
+                            territories = ?4,
+                            standoff_codes = ?5,
+                            updated_at = ?6
+                        WHERE id = ?7
                         "#,
+                        params![
+                            phase.year,
+                            Self::serialize_phase_kind(&phase.kind)?,
+                            Self::serialize_units(&phase.units)?,
+                            Self::serialize_territories(&phase.territories),
+                            Self::serialize_codes(&phase.standoff_codes),
+                            now,
+                            phase_id,
+                        ],
                     )
-                    .map_err(|error| RepositoryError::Unavailable(format!("prepare load players: {}", error)))?;
+                    .map_err(|error| RepositoryError::Unavailable(format!("update existing game phase: {}", error)))?;
 
-                let raw_rows = stmt
-                    .query_map(params![row.uuid], |r| {
-                        Ok((
-                            r.get::<_, String>(0)?,
-                            r.get::<_, Option<i32>>(1)?,
-                            r.get::<_, i32>(2)?,
-                            r.get::<_, i32>(3)?,
-                            r.get::<_, Option<i32>>(4)?,
-                        ))
-                    })
-                    .map_err(|error| RepositoryError::Unavailable(format!("query players: {}", error)))?
-                    .collect::<Result<Vec<_>, _>>()
-                    .map_err(|error| RepositoryError::Unavailable(format!("collect player rows: {}", error)))?;
+                transaction
+                    .execute("DELETE FROM game_phase_orders WHERE phase_id = ?1", params![phase_id])
+                    .map_err(|error| RepositoryError::Unavailable(format!("delete existing phase orders: {}", error)))?;
 
-                raw_rows
-                    .into_iter()
-                    .map(
-                        |(user_uuid_str, power_val, is_accepting_draw, is_owner, requested_power_val)| {
-                            let user_uuid = Uuid::parse_str(&user_uuid_str)
-                                .map_err(|error| RepositoryError::Unavailable(format!("parse player uuid: {}", error)))?;
-                            let power = power_val.map(Self::power_from_i32).transpose()?;
-                            let requested_power = requested_power_val.map(Self::power_from_i32).transpose()?;
-                            Ok(Player {
-                                user_uuid,
-                                power,
-                                is_accepting_draw: is_accepting_draw != 0,
-                                is_owner: is_owner != 0,
-                                requested_power,
-                            })
-                        },
-                    )
-                    .collect::<Result<Vec<_>, RepositoryError>>()?
-            };
-
-            struct PhaseRow {
-                id: i64,
-                phase_index: i32,
-                phase_year: i32,
-                phase_kind: String,
-                units: String,
-                territories: String,
-                standoff_codes: String,
+                Self::insert_phase_orders(&transaction, phase_id, phase, &now)?;
+                continue;
             }
 
-            let phase_rows: Vec<PhaseRow> = {
-                let mut stmt = connection
-                    .prepare(
-                        r#"
-                        SELECT id, phase_index, phase_year, phase_kind, units, territories, standoff_codes
-                        FROM game_phases
-                        WHERE game_uuid = ?1
-                        ORDER BY phase_index ASC
-                        "#,
-                    )
-                    .map_err(|error| RepositoryError::Unavailable(format!("prepare load phases: {}", error)))?;
+            transaction
+                .execute(
+                    r#"
+                    INSERT INTO game_phases (
+                        game_uuid,
+                        phase_index,
+                        phase_year,
+                        phase_kind,
+                        units,
+                        territories,
+                        standoff_codes,
+                        created_at,
+                        updated_at
+                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+                    "#,
+                    params![
+                        game.uuid.to_string(),
+                        phase.index,
+                        phase.year,
+                        Self::serialize_phase_kind(&phase.kind)?,
+                        Self::serialize_units(&phase.units)?,
+                        Self::serialize_territories(&phase.territories),
+                        Self::serialize_codes(&phase.standoff_codes),
+                        now,
+                        now,
+                    ],
+                )
+                .map_err(|error| RepositoryError::Unavailable(format!("insert new game phase: {}", error)))?;
 
-                stmt.query_map(params![row.uuid], |r| {
-                    Ok(PhaseRow {
-                        id: r.get(0)?,
-                        phase_index: r.get(1)?,
-                        phase_year: r.get(2)?,
-                        phase_kind: r.get(3)?,
-                        units: r.get(4)?,
-                        territories: r.get(5)?,
-                        standoff_codes: r.get(6)?,
-                    })
-                })
-                .map_err(|error| RepositoryError::Unavailable(format!("query phases: {}", error)))?
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|error| RepositoryError::Unavailable(format!("collect phase rows: {}", error)))?
-            };
-
-            let mut phases = Vec::new();
-            for phase_row in phase_rows {
-                let orders: Vec<Order> = {
-                    let mut stmt = connection
-                        .prepare(
-                            r#"
-                            SELECT order_json
-                            FROM game_phase_orders
-                            WHERE phase_id = ?1
-                            "#,
-                        )
-                        .map_err(|error| RepositoryError::Unavailable(format!("prepare load orders: {}", error)))?;
-
-                    let order_jsons: Vec<String> = stmt
-                        .query_map(params![phase_row.id], |r| r.get(0))
-                        .map_err(|error| RepositoryError::Unavailable(format!("query orders: {}", error)))?
-                        .collect::<Result<Vec<_>, _>>()
-                        .map_err(|error| RepositoryError::Unavailable(format!("collect order jsons: {}", error)))?;
-
-                    order_jsons
-                        .iter()
-                        .map(|json| Self::deserialize_order(json))
-                        .collect::<Result<Vec<_>, _>>()?
-                };
-
-                let phase = Phase {
-                    game_number: None,
-                    index: phase_row.phase_index,
-                    year: phase_row.phase_year,
-                    kind: Self::deserialize_phase_kind(&phase_row.phase_kind)?,
-                    orders,
-                    units: Self::deserialize_units(&phase_row.units)?,
-                    territories: Self::deserialize_territories(&phase_row.territories)?,
-                    standoff_codes: Self::deserialize_codes(&phase_row.standoff_codes),
-                };
-                phases.push(phase);
-            }
-
-            let next_update = row
-                .next_update
-                .as_deref()
-                .map(|s| {
-                    NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f")
-                        .or_else(|_| NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S"))
-                        .map_err(|error| RepositoryError::Unavailable(format!("parse next_update: {}", error)))
-                })
-                .transpose()?;
-
-            games.push(Game {
-                uuid,
-                game_number: row.game_number,
-                regulation,
-                players,
-                phases,
-                status: Self::status_from_str(&row.status)?,
-                is_canceled: row.is_canceled != 0,
-                is_draw: row.is_draw != 0,
-                is_solo: row.is_solo != 0,
-                next_update,
-            });
+            let phase_id = transaction.last_insert_rowid();
+            Self::insert_phase_orders(&transaction, phase_id, phase, &now)?;
         }
 
-        Ok(games)
+        transaction
+            .commit()
+            .map_err(|error| RepositoryError::Unavailable(format!("commit claimed game update transaction: {}", error)))?;
+
+        Ok(true)
+    }
+
+    fn release_progression_claim(&self, game_uuid: Uuid, lock_id: Uuid) -> Result<(), RepositoryError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
+
+        connection
+            .execute(
+                r#"
+                UPDATE games
+                SET progression_lock_id = NULL,
+                    progression_lock_until = NULL,
+                    updated_at = ?3
+                WHERE uuid = ?1
+                  AND progression_lock_id = ?2
+                "#,
+                params![game_uuid.to_string(), lock_id.to_string(), Utc::now().to_rfc3339()],
+            )
+            .map_err(|error| RepositoryError::Unavailable(format!("release progression lock: {}", error)))?;
+
+        Ok(())
     }
 
     fn update(&self, game: &Game) -> Result<(), RepositoryError> {
@@ -1268,6 +1536,74 @@ mod tests {
         assert_eq!(restored_phase.orders.len(), 1);
         assert!(matches!(restored_phase.orders[0].kind, OrderKind::Move(_)));
         assert!(restored_phase.orders[0].is_success());
+    }
+
+    #[test]
+    fn progression_claim_allows_only_single_owner_and_owner_only_save() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+
+        let regulation = Regulation::new(
+            FaceType::Girls,
+            ProgressMode::Scheduled,
+            DurationType::Short,
+            chrono::NaiveDate::from_ymd_opt(2026, 4, 19).expect("valid date"),
+            12,
+        )
+        .expect("valid regulation");
+
+        let now = chrono::Utc::now().naive_utc();
+        let game = Game {
+            uuid: uuid::Uuid::now_v7(),
+            game_number: None,
+            regulation,
+            players: vec![Player {
+                user_uuid: uuid::Uuid::now_v7(),
+                power: Some(Power::France),
+                is_accepting_draw: false,
+                is_owner: true,
+                requested_power: Some(Power::France),
+            }],
+            phases: vec![Phase::new_ready()],
+            status: GameStatus::Preparing,
+            is_canceled: false,
+            is_draw: false,
+            is_solo: false,
+            next_update: Some(now - chrono::Duration::minutes(5)),
+        };
+
+        let created = repository.insert(NewGame { game }).expect("insert should succeed");
+        let lock_id = uuid::Uuid::now_v7();
+
+        let claimed = repository
+            .try_claim_progression(created.uuid, lock_id, now + chrono::Duration::minutes(1), now)
+            .expect("claim should succeed");
+        assert!(claimed);
+
+        let second_claim = repository
+            .try_claim_progression(created.uuid, uuid::Uuid::now_v7(), now + chrono::Duration::minutes(1), now)
+            .expect("second claim should execute");
+        assert!(!second_claim);
+
+        let mut updated = created.clone();
+        updated.status = GameStatus::InProgress;
+        updated.next_update = None;
+
+        let wrong_lock_saved = repository
+            .update_if_claimed(&updated, uuid::Uuid::now_v7())
+            .expect("update with wrong lock should execute");
+        assert!(!wrong_lock_saved);
+
+        let owner_saved = repository
+            .update_if_claimed(&updated, lock_id)
+            .expect("update with owner lock should execute");
+        assert!(owner_saved);
+
+        let restored = repository
+            .find_by_uuid(created.uuid)
+            .expect("find_by_uuid should succeed")
+            .expect("game should exist");
+        assert_eq!(restored.status, GameStatus::InProgress);
+        assert!(restored.next_update.is_none());
     }
 }
 
