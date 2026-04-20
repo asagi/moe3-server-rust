@@ -7,6 +7,7 @@ use std::error::Error;
 use std::fmt;
 
 // external crates
+use chrono::NaiveDateTime;
 use uuid::Uuid;
 
 // structs
@@ -85,6 +86,12 @@ where
             requested_power: command.requested_power,
         };
 
+        let date_str = command.regulation.start_date.format("%Y-%m-%d").to_string()
+            + " "
+            + command.regulation.first_period_hour.to_string().as_str()
+            + ":00:00";
+        let dt = NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M");
+
         let game = Game {
             uuid: Uuid::now_v7(),
             game_number: None,
@@ -95,6 +102,7 @@ where
             is_canceld: false,
             is_draw: false,
             is_solo: false,
+            next_update: dt.ok(),
         };
 
         let created = self

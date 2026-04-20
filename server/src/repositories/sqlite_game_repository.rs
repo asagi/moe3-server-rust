@@ -609,6 +609,7 @@ mod tests {
             is_canceld: false,
             is_draw: false,
             is_solo: false,
+            next_update: None,
         };
 
         let created = repository
@@ -664,6 +665,7 @@ mod tests {
             is_canceld: false,
             is_draw: false,
             is_solo: false,
+            next_update: None,
         };
 
         repository.insert(NewGame { game }).expect("insert should succeed");
@@ -805,6 +807,7 @@ mod transaction_tests {
             is_canceld: false,
             is_draw: false,
             is_solo: false,
+            next_update: None,
         };
 
         let error = repository
