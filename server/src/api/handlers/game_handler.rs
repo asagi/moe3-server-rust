@@ -17,6 +17,7 @@ use super::CreateGameRequest;
 use super::CreateGameRequestBody;
 use super::CreateGameRequestValidationError;
 use super::CreateGameResponse;
+use super::DiscordIdentityProvider;
 use super::GameRepository;
 use super::GameService;
 use super::Power;
@@ -30,14 +31,15 @@ use super::UserRepository;
 ///
 /// 卓作成リクエストハンドラ関数
 ///
-pub(crate) async fn post_games<U, G>(
-    State(state): State<AppState<U, G>>,
+pub(crate) async fn post_games<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
     headers: HeaderMap,
     Json(body): Json<CreateGameRequestBody>,
 ) -> impl IntoResponse
 where
     U: UserRepository + Send + Sync + 'static,
     G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
 {
     let authorization = headers
         .get("authorization")

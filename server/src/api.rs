@@ -34,6 +34,7 @@ pub(crate) use super::AuthError;
 pub(crate) use super::AuthService;
 pub(crate) use super::CreateGameCommand;
 pub(crate) use super::CreateGameError;
+pub(crate) use super::DiscordApiClient;
 pub(crate) use super::DiscordClientError;
 pub(crate) use super::DiscordIdentityProvider;
 pub(crate) use super::GameProgressionError;

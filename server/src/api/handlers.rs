@@ -12,6 +12,7 @@ mod game_handler;
 
 pub(crate) use error::AuthHandlerError;
 pub(crate) use error::CreateGameHandlerError;
+pub(crate) use auth_handler::post_auth_login;
 pub(crate) use game_handler::post_games;
 
 // ============================================================================

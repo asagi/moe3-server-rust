@@ -2,24 +2,63 @@
 // imports
 // ============================================================================
 
+use std::sync::Arc;
+
+use axum::extract::Json;
+use axum::extract::State;
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
+
+use super::AppState;
 use super::AuthHandlerError;
 use super::AuthLoginRequest;
 use super::AuthLoginResponse;
 use super::AuthLoginResponseUser;
 use super::AuthService;
+use super::DiscordClientError;
 use super::DiscordIdentityProvider;
+use super::GameRepository;
 use super::LoginCommand;
 use super::UserRepository;
 
 #[cfg_attr(not(test), allow(unused_imports))]
 use super::AuthRequestValidationError;
 
-#[cfg_attr(not(test), allow(unused_imports))]
-use super::DiscordClientError;
-
 // ============================================================================
 // functions
 // ============================================================================
+
+///
+/// ログインリクエスト Axum ハンドラ関数
+///
+pub(crate) async fn post_auth_login<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    Json(body): Json<AuthLoginRequest>,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    let auth_service = Arc::clone(&state.auth_service);
+    match tokio::task::spawn_blocking(move || handle_auth_login(&auth_service, body)).await {
+        Ok(Ok(response)) => (StatusCode::OK, Json(response)).into_response(),
+        Ok(Err(error)) => {
+            let status = match &error {
+                AuthHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+                AuthHandlerError::Service(super::AuthError::DiscordClient(DiscordClientError::Unauthorized)) => {
+                    StatusCode::UNAUTHORIZED
+                }
+                AuthHandlerError::Service(super::AuthError::DiscordClient(DiscordClientError::Unavailable(_))) => {
+                    StatusCode::BAD_GATEWAY
+                }
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            };
+            (status, Json(error.to_api_error_response())).into_response()
+        }
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
 
 ///
 /// ログインリクエストハンドラ関数
