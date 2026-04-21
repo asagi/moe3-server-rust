@@ -16,6 +16,7 @@ pub(crate) use auth_service::AuthService;
 pub(crate) use auth_service::DiscordIdentityProvider;
 pub(crate) use auth_service::LoginCommand;
 pub(crate) use auth_service::LoginUser;
+pub(crate) use discord_api_client::DiscordApiClient;
 pub(crate) use error::AuthError;
 pub(crate) use error::CreateGameError;
 pub(crate) use error::DiscordClientError;

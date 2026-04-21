@@ -44,6 +44,7 @@ pub(crate) use services::AuthError;
 pub(crate) use services::AuthService;
 pub(crate) use services::CreateGameCommand;
 pub(crate) use services::CreateGameError;
+pub(crate) use services::DiscordApiClient;
 pub(crate) use services::DiscordClientError;
 pub(crate) use services::DiscordIdentityProvider;
 pub(crate) use services::GameProgressionError;

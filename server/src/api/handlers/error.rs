@@ -16,7 +16,6 @@ use super::DiscordClientError;
 ///
 /// ログインリクエストハンドラのエラーの列挙体
 ///
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug)]
 pub(crate) enum AuthHandlerError {
     InvalidRequest(AuthRequestValidationError),

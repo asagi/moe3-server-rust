@@ -10,6 +10,7 @@ mod game_handler;
 // exports
 // ============================================================================
 
+pub(crate) use auth_handler::post_auth_login;
 pub(crate) use error::AuthHandlerError;
 pub(crate) use error::CreateGameHandlerError;
 pub(crate) use game_handler::post_games;
@@ -39,4 +40,5 @@ pub(crate) use super::GameService;
 pub(crate) use super::LoginCommand;
 pub(crate) use super::Power;
 pub(crate) use super::Regulation;
+pub(crate) use super::RepositoryError;
 pub(crate) use super::UserRepository;

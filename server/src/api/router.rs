@@ -24,12 +24,16 @@ use fs4::FileExt;
 use tokio::sync::Mutex as TokioMutex;
 
 use super::ApiErrorResponse;
+use super::AuthService;
+use super::DiscordApiClient;
+use super::DiscordIdentityProvider;
 use super::GameRepository;
 use super::GameService;
 use super::GlobalPreHandler;
 use super::SqliteGameRepository;
 use super::SqliteUserRepository;
 use super::UserRepository;
+use super::handlers::post_auth_login;
 use super::handlers::post_games;
 
 // ============================================================================
@@ -42,25 +46,33 @@ static INSTANCE_LOCK: Mutex<Option<Arc<File>>> = Mutex::new(None);
 ///
 /// ルーター起動パラメータ構造体
 ///
-pub(crate) struct AppState<U, G>
+pub(crate) struct AppState<U, G, D>
 where
     U: UserRepository + Send + Sync + 'static,
     G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
 {
     pub game_service: Arc<GameService<U, G>>,
+    pub auth_service: Arc<AuthService<U, D>>,
     pub pre_handler: Arc<GlobalPreHandler<G>>,
     pub game_update_lock: Arc<TokioMutex<()>>,
 }
 
 /// ルーター起動パラメータ構造体の実装
-impl<U, G> AppState<U, G>
+impl<U, G, D> AppState<U, G, D>
 where
     U: UserRepository + Send + Sync + 'static,
     G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
 {
-    pub(crate) fn new(game_service: GameService<U, G>, pre_handler: GlobalPreHandler<G>) -> Self {
+    pub(crate) fn new(
+        game_service: GameService<U, G>,
+        auth_service: AuthService<U, D>,
+        pre_handler: GlobalPreHandler<G>,
+    ) -> Self {
         Self {
             game_service: Arc::new(game_service),
+            auth_service: Arc::new(auth_service),
             pre_handler: Arc::new(pre_handler),
             game_update_lock: Arc::new(TokioMutex::new(())),
         }
@@ -68,14 +80,16 @@ where
 }
 
 /// ルーター起動パラメータ構造体の実装（Clone トレイト）
-impl<U, G> Clone for AppState<U, G>
+impl<U, G, D> Clone for AppState<U, G, D>
 where
     U: UserRepository + Send + Sync + 'static,
     G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
 {
     fn clone(&self) -> Self {
         Self {
             game_service: Arc::clone(&self.game_service),
+            auth_service: Arc::clone(&self.auth_service),
             pre_handler: Arc::clone(&self.pre_handler),
             game_update_lock: Arc::clone(&self.game_update_lock),
         }
@@ -95,9 +109,10 @@ pub async fn serve(addr: SocketAddr, db_path: &str) -> Result<(), Box<dyn Error 
 
     let user_repository = SqliteUserRepository::new(db_path)?;
     let game_repository = SqliteGameRepository::new(db_path)?;
-    let game_service = GameService::new(user_repository, game_repository.clone());
+    let game_service = GameService::new(user_repository.clone(), game_repository.clone());
+    let auth_service = AuthService::new(user_repository, DiscordApiClient::new());
     let pre_handler = GlobalPreHandler::new(game_repository);
-    let state = AppState::new(game_service, pre_handler);
+    let state = AppState::new(game_service, auth_service, pre_handler);
     let router = create_router(state);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
@@ -105,7 +120,9 @@ pub async fn serve(addr: SocketAddr, db_path: &str) -> Result<(), Box<dyn Error 
     Ok(())
 }
 
+///
 /// グローバルロック獲得関数
+///
 fn acquire_instance_lock(db_path: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
     let lock_path = format!("{}.lock", db_path);
     let file = File::create(&lock_path)?;
@@ -126,23 +143,14 @@ fn acquire_instance_lock(db_path: &str) -> Result<(), Box<dyn Error + Send + Syn
     }
 }
 
-/// API ルーター生成関数
-fn create_router<U, G>(state: AppState<U, G>) -> Router
-where
-    U: UserRepository + Send + Sync + 'static,
-    G: GameRepository + Send + Sync + 'static,
-{
-    Router::new()
-        .route("/games", post(post_games::<U, G>))
-        .with_state(state.clone())
-        .layer(from_fn_with_state(state, run_global_pre_handler::<U, G>))
-}
-
+///
 /// グローバルプリハンドラ実行非同期関数
-async fn run_global_pre_handler<U, G>(State(state): State<AppState<U, G>>, request: Request, next: Next) -> Response
+///
+async fn run_global_pre_handler<U, G, D>(State(state): State<AppState<U, G, D>>, request: Request, next: Next) -> Response
 where
     U: UserRepository + Send + Sync + 'static,
     G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
 {
     // Serialize progression updates (not entire request) through lock.
     let _game_update_guard = state.game_update_lock.lock().await;
@@ -176,4 +184,20 @@ where
 
     drop(_game_update_guard);
     next.run(request).await
+}
+
+///
+/// API ルーター生成関数
+///
+fn create_router<U, G, D>(state: AppState<U, G, D>) -> Router
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    Router::new()
+        .route("/games", post(post_games::<U, G, D>))
+        .route("/auth/login", post(post_auth_login::<U, G, D>))
+        .with_state(state.clone())
+        .layer(from_fn_with_state(state, run_global_pre_handler::<U, G, D>))
 }

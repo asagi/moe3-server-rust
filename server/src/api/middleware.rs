@@ -17,7 +17,6 @@ use super::GameRepository;
 ///
 /// リクエストハンドラ呼び出し前に [`GlobalPreHandler::run`] を実行することで、
 /// 卓の更新チェックや進行処理などの定期処理が自動的に実行される。
-#[allow(dead_code)]
 pub(crate) struct GlobalPreHandler<G>
 where
     G: GameRepository,
@@ -26,7 +25,6 @@ where
 }
 
 /// グローバルプリハンドラの構造体の実装
-#[allow(dead_code)]
 impl<G> GlobalPreHandler<G>
 where
     G: GameRepository,
@@ -50,7 +48,6 @@ where
 /// グローバルプリハンドラのエラーの列挙体
 ///
 #[derive(Debug)]
-#[allow(dead_code)]
 pub(crate) enum PreHandlerError {
     GameProgression(GameProgressionError),
 }
