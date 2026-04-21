@@ -9,10 +9,10 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use chrono::NaiveDate;
 
-use super::ApiErrorResponse;
 use super::AppState;
 use super::CreateGameCommand;
 use super::CreateGameError;
+use super::CreateGameHandlerError;
 use super::CreateGameRequest;
 use super::CreateGameRequestBody;
 use super::CreateGameRequestValidationError;
@@ -22,67 +22,6 @@ use super::GameService;
 use super::Power;
 use super::Regulation;
 use super::UserRepository;
-
-#[cfg(test)]
-use super::Game;
-
-// ============================================================================
-// definitions
-// ============================================================================
-
-///
-/// 卓作成リクエストハンドラのエラーの列挙体
-///
-#[derive(Debug)]
-pub(crate) enum CreateGameHandlerError {
-    InvalidRequest(CreateGameRequestValidationError),
-    Service(CreateGameError),
-}
-
-/// 卓作成リクエストハンドラのエラーの列挙体の実装
-impl CreateGameHandlerError {
-    pub(crate) fn code(&self) -> &'static str {
-        match self {
-            Self::InvalidRequest(_) => "invalid_request",
-            Self::Service(CreateGameError::InvalidRequest(_)) => "invalid_request",
-            Self::Service(CreateGameError::Unauthorized) => "unauthorized",
-            Self::Service(CreateGameError::Repository(_)) => "repository_error",
-            Self::Service(CreateGameError::Internal(_)) => "internal_error",
-        }
-    }
-
-    pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
-        ApiErrorResponse {
-            code: self.code(),
-            message: self.message(),
-        }
-    }
-
-    fn message(&self) -> String {
-        match self {
-            Self::InvalidRequest(CreateGameRequestValidationError::MissingAuthorization) => {
-                "authorization header is required".to_string()
-            }
-            Self::InvalidRequest(CreateGameRequestValidationError::InvalidAuthorizationScheme) => {
-                "authorization must start with 'Bearer <token>'".to_string()
-            }
-            Self::InvalidRequest(CreateGameRequestValidationError::MissingAccessToken) => "access token is required".to_string(),
-            Self::InvalidRequest(CreateGameRequestValidationError::InvalidFaceType) => "face_type is invalid".to_string(),
-            Self::InvalidRequest(CreateGameRequestValidationError::InvalidProgressMode) => "progress_mode is invalid".to_string(),
-            Self::InvalidRequest(CreateGameRequestValidationError::InvalidDurationType) => "duration_type is invalid".to_string(),
-            Self::InvalidRequest(CreateGameRequestValidationError::InvalidFirstPeriodHour) => {
-                "first_period_hour must be between 0 and 23".to_string()
-            }
-            Self::InvalidRequest(CreateGameRequestValidationError::InvalidStartDate) => {
-                "start_date is invalid (expected YYYY-MM-DD)".to_string()
-            }
-            Self::InvalidRequest(CreateGameRequestValidationError::InvalidRequestedPower) => {
-                "requested_power is invalid".to_string()
-            }
-            Self::Service(error) => error.to_string(),
-        }
-    }
-}
 
 // ============================================================================
 // functions
@@ -210,6 +149,7 @@ mod tests {
     use std::rc::Rc;
 
     use super::*;
+    use crate::domain::Game;
     use crate::repositories::NewGame;
     use crate::repositories::NewUser;
     use crate::repositories::RepositoryError;

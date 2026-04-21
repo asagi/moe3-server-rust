@@ -37,7 +37,6 @@ pub(crate) use repositories::NewUser;
 pub(crate) use repositories::RepositoryError;
 pub(crate) use repositories::SqliteGameRepository;
 pub(crate) use repositories::SqliteUserRepository;
-pub(crate) use repositories::UserId;
 pub(crate) use repositories::UserProfileUpdate;
 pub(crate) use repositories::UserRecord;
 pub(crate) use repositories::UserRepository;

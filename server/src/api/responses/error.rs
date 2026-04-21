@@ -1,17 +1,18 @@
 // ============================================================================
-// modules
+// imports
 // ============================================================================
 
-mod auth_request;
-mod error;
-mod game_request;
+use serde::Serialize;
 
 // ============================================================================
-// exports
+// definitions
 // ============================================================================
 
-pub(crate) use auth_request::AuthLoginRequest;
-pub(crate) use error::AuthRequestValidationError;
-pub(crate) use error::CreateGameRequestValidationError;
-pub(crate) use game_request::CreateGameRequest;
-pub(crate) use game_request::CreateGameRequestBody;
+///
+/// API エラーレスポンスの構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(crate) struct ApiErrorResponse {
+    pub code: &'static str,
+    pub message: String,
+}

@@ -3,16 +3,16 @@
 // ============================================================================
 
 mod auth_handler;
+mod error;
 mod game_handler;
 
 // ============================================================================
 // exports
 // ============================================================================
 
+pub(crate) use error::AuthHandlerError;
+pub(crate) use error::CreateGameHandlerError;
 pub(crate) use game_handler::post_games;
-
-#[allow(unused_imports)]
-pub(crate) use game_handler::CreateGameHandlerError;
 
 // ============================================================================
 // re-exports
@@ -40,27 +40,3 @@ pub(crate) use super::LoginCommand;
 pub(crate) use super::Power;
 pub(crate) use super::Regulation;
 pub(crate) use super::UserRepository;
-
-#[cfg_attr(not(test), allow(unused_imports))]
-pub(crate) use super::Game;
-
-#[allow(unused_imports)]
-pub(crate) use super::LoginUser;
-
-#[allow(unused_imports)]
-pub(crate) use super::NewGame;
-
-#[allow(unused_imports)]
-pub(crate) use super::NewUser;
-
-#[allow(unused_imports)]
-pub(crate) use super::RepositoryError;
-
-#[allow(unused_imports)]
-pub(crate) use super::UserId;
-
-#[allow(unused_imports)]
-pub(crate) use super::UserProfileUpdate;
-
-#[allow(unused_imports)]
-pub(crate) use super::UserRecord;

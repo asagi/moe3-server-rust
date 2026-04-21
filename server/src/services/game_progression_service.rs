@@ -2,15 +2,12 @@
 // imports
 // ============================================================================
 
-use std::error::Error;
-use std::fmt;
-
 use chrono::Utc;
 
+use super::GameProgressionError;
 use super::GameRepository;
 use super::GameStatus;
 use super::PhaseContext;
-use super::RepositoryError;
 
 // ============================================================================
 // definitions
@@ -96,26 +93,6 @@ where
     }
 }
 
-///
-/// 卓進行エラーの列挙体
-///
-#[derive(Debug)]
-pub(crate) enum GameProgressionError {
-    Repository(RepositoryError),
-}
-
-/// 卓進行エラーの列挙体の実装（Error トレイト）
-impl Error for GameProgressionError {}
-
-/// 卓進行エラーの列挙体の実装（fmt::Display トレイト）
-impl fmt::Display for GameProgressionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Repository(error) => write!(f, "repository error: {}", error),
-        }
-    }
-}
-
 // ============================================================================
 // tests
 // ============================================================================
@@ -135,6 +112,7 @@ mod tests {
     use crate::domain::ProgressMode;
     use crate::domain::Regulation;
     use crate::repositories::NewGame;
+    use crate::repositories::RepositoryError;
 
     #[derive(Debug, Clone)]
     struct InMemoryGameRepository {

@@ -4,6 +4,8 @@
 
 use serde::Deserialize;
 
+use super::AuthRequestValidationError;
+
 // ============================================================================
 // definitions
 // ============================================================================
@@ -25,12 +27,4 @@ impl AuthLoginRequest {
 
         Ok(())
     }
-}
-
-///
-/// ログインリクエストのバリデーションエラーの列挙体
-///
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum AuthRequestValidationError {
-    MissingDiscordAccessToken,
 }

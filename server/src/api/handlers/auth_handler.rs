@@ -2,61 +2,20 @@
 // imports
 // ============================================================================
 
-use super::ApiErrorResponse;
-use super::AuthError;
+use super::AuthHandlerError;
 use super::AuthLoginRequest;
 use super::AuthLoginResponse;
 use super::AuthLoginResponseUser;
-use super::AuthRequestValidationError;
 use super::AuthService;
-use super::DiscordClientError;
 use super::DiscordIdentityProvider;
 use super::LoginCommand;
 use super::UserRepository;
 
-// ============================================================================
-// definitions
-// ============================================================================
+#[cfg_attr(not(test), allow(unused_imports))]
+use super::AuthRequestValidationError;
 
-///
-/// ログインリクエストハンドラのエラーの列挙体
-///
-#[cfg_attr(not(test), allow(dead_code))]
-#[derive(Debug)]
-pub(crate) enum AuthHandlerError {
-    InvalidRequest(AuthRequestValidationError),
-    Service(AuthError),
-}
-
-/// ログインリクエストハンドラのエラーの列挙体の実装
-impl AuthHandlerError {
-    #![cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn code(&self) -> &'static str {
-        match self {
-            Self::InvalidRequest(_) => "invalid_request",
-            Self::Service(AuthError::InvalidRequest(_)) => "invalid_request",
-            Self::Service(AuthError::DiscordClient(DiscordClientError::Unauthorized)) => "unauthorized",
-            Self::Service(AuthError::DiscordClient(DiscordClientError::Unavailable(_))) => "discord_unavailable",
-            Self::Service(AuthError::Repository(_)) => "repository_error",
-        }
-    }
-
-    pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
-        ApiErrorResponse {
-            code: self.code(),
-            message: self.message(),
-        }
-    }
-
-    fn message(&self) -> String {
-        match self {
-            Self::InvalidRequest(AuthRequestValidationError::MissingDiscordAccessToken) => {
-                "discord_access_token is required".to_string()
-            }
-            Self::Service(error) => error.to_string(),
-        }
-    }
-}
+#[cfg_attr(not(test), allow(unused_imports))]
+use super::DiscordClientError;
 
 // ============================================================================
 // functions
