@@ -15,8 +15,12 @@ use super::UnitHelper;
 // definitions
 // ============================================================================
 
+///
+/// 調整フェイズ裁定者の構造体
+///
 pub struct AdjustmentAdjudicator;
 
+/// 調整フェイズ裁定者の構造体の実装
 impl AdjustmentAdjudicator {
     /// 増設命令の検証
     pub(crate) fn validate_build_orders(current_phase: &mut Phase) {

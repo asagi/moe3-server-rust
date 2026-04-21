@@ -10,7 +10,9 @@ use super::Power;
 // definitions
 // ============================================================================
 
-/// プレイヤーの定義
+///
+/// プレイヤーの構造体
+///
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Player {
     pub(crate) user_uuid: Uuid,

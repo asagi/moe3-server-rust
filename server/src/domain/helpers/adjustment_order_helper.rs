@@ -10,6 +10,9 @@ use super::Power;
 // definitions
 // ============================================================================
 
+///
+/// 調整フェイズの命令処理補助関数を提供するトレイト
+///
 pub(crate) trait AdjustmentOrderHelper {
     fn get_unresolved_build_idxs_by_power(&self, power: &Power) -> Option<usize>;
     fn collect_unresolved_adjustment_idxs(&self) -> Vec<usize>;
@@ -17,6 +20,7 @@ pub(crate) trait AdjustmentOrderHelper {
     fn collect_valid_adjustment_idxs(&self) -> Vec<usize>;
 }
 
+/// 調整フェイズの命令処理補助関数を提供するトレイトの実装
 impl AdjustmentOrderHelper for [Order] {
     /// 指定した国の未処理の建造命令のインデックスを取得
     fn get_unresolved_build_idxs_by_power(&self, power: &Power) -> Option<usize> {

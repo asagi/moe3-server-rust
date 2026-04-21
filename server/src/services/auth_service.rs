@@ -19,11 +19,17 @@ use super::UserRepository;
 // definitions
 // ============================================================================
 
+///
+/// ログインコマンドの構造体
+///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct LoginCommand {
     pub discord_access_token: String,
 }
 
+///
+/// ログインユーザーの構造体
+///
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub(crate) struct LoginUser {
     pub uuid: Uuid,
@@ -34,16 +40,25 @@ pub(crate) struct LoginUser {
     pub avatar_url: Option<String>,
 }
 
+///
+/// ログイン処理結果の構造体
+///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct LoginResult {
     pub access_token: String,
     pub user: LoginUser,
 }
 
+///
+/// Discord 認証プロバイダのトレイト
+///
 pub(crate) trait DiscordIdentityProvider {
     fn fetch_profile(&self, discord_access_token: &str) -> Result<DiscordProfile, DiscordClientError>;
 }
 
+///
+/// 認証サービスの構造体
+///
 pub(crate) struct AuthService<U, D>
 where
     U: UserRepository,
@@ -53,6 +68,7 @@ where
     discord_identity_provider: D,
 }
 
+/// 認証サービスの構造体の実装
 impl<U, D> AuthService<U, D>
 where
     U: UserRepository,
@@ -121,12 +137,19 @@ where
     }
 }
 
+///
+/// Dicord クライアントエラーの列挙体
+///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum DiscordClientError {
     Unauthorized,
     Unavailable(String),
 }
 
+/// Discord クライアントエラーの列挙体の実装（Error トレイト）
+impl Error for DiscordClientError {}
+
+/// Discorad クライアントエラーの表示の実装（fmt::Display トレイト）
 impl fmt::Display for DiscordClientError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -136,8 +159,9 @@ impl fmt::Display for DiscordClientError {
     }
 }
 
-impl Error for DiscordClientError {}
-
+///
+/// 認証エラーの列挙体
+///
 #[derive(Debug, Clone)]
 pub(crate) enum AuthError {
     InvalidRequest(String),
@@ -145,6 +169,10 @@ pub(crate) enum AuthError {
     Repository(RepositoryError),
 }
 
+/// 認証エラーの列挙体の実装（Error トレイト）
+impl Error for AuthError {}
+
+/// 認証エラーの列挙体の実装（fmt::Display トレイト）
 impl fmt::Display for AuthError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -154,8 +182,6 @@ impl fmt::Display for AuthError {
         }
     }
 }
-
-impl Error for AuthError {}
 
 // ============================================================================
 // tests

@@ -1,4 +1,3 @@
-#![cfg_attr(not(test), allow(dead_code))]
 // ============================================================================
 // imports
 // ============================================================================
@@ -7,61 +6,31 @@ use super::ApiErrorResponse;
 use super::AuthError;
 use super::AuthLoginRequest;
 use super::AuthLoginResponse;
-use super::AuthLoginUserResponse;
+use super::AuthLoginResponseUser;
 use super::AuthRequestValidationError;
 use super::AuthService;
 use super::DiscordClientError;
 use super::DiscordIdentityProvider;
 use super::LoginCommand;
-use super::LoginUser;
 use super::UserRepository;
 
 // ============================================================================
 // definitions
 // ============================================================================
 
-pub(crate) fn handle_auth_login<U, D>(
-    service: &AuthService<U, D>,
-    request: AuthLoginRequest,
-) -> Result<AuthLoginResponse, AuthHandlerError>
-where
-    U: UserRepository,
-    D: DiscordIdentityProvider,
-{
-    request.validate().map_err(AuthHandlerError::InvalidRequest)?;
-
-    let result = service
-        .login(LoginCommand {
-            discord_access_token: request.discord_access_token,
-        })
-        .map_err(AuthHandlerError::Service)?;
-
-    Ok(AuthLoginResponse {
-        access_token: result.access_token,
-        user: AuthLoginUserResponse::from(result.user),
-    })
-}
-
-impl From<LoginUser> for AuthLoginUserResponse {
-    fn from(user: LoginUser) -> Self {
-        Self {
-            uuid: user.uuid,
-            discord_user_id: user.discord_user_id,
-            username: user.username,
-            global_name: user.global_name,
-            avatar_hash: user.avatar_hash,
-            avatar_url: user.avatar_url,
-        }
-    }
-}
-
+///
+/// ログインリクエストハンドラのエラーの列挙体
+///
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug)]
 pub(crate) enum AuthHandlerError {
     InvalidRequest(AuthRequestValidationError),
     Service(AuthError),
 }
 
+/// ログインリクエストハンドラのエラーの列挙体の実装
 impl AuthHandlerError {
+    #![cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn code(&self) -> &'static str {
         match self {
             Self::InvalidRequest(_) => "invalid_request",
@@ -87,6 +56,36 @@ impl AuthHandlerError {
             Self::Service(error) => error.to_string(),
         }
     }
+}
+
+// ============================================================================
+// functions
+// ============================================================================
+
+///
+/// ログインリクエストハンドラ関数
+///
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn handle_auth_login<U, D>(
+    service: &AuthService<U, D>,
+    request: AuthLoginRequest,
+) -> Result<AuthLoginResponse, AuthHandlerError>
+where
+    U: UserRepository,
+    D: DiscordIdentityProvider,
+{
+    request.validate().map_err(AuthHandlerError::InvalidRequest)?;
+
+    let result = service
+        .login(LoginCommand {
+            discord_access_token: request.discord_access_token,
+        })
+        .map_err(AuthHandlerError::Service)?;
+
+    Ok(AuthLoginResponse {
+        access_token: result.access_token,
+        user: AuthLoginResponseUser::from(result.user),
+    })
 }
 
 // ============================================================================

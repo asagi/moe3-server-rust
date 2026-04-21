@@ -16,7 +16,9 @@ use super::RepositoryError;
 // definitions
 // ============================================================================
 
-#[allow(dead_code)]
+///
+/// 卓進行サービスの構造体
+///
 pub(crate) struct GameProgressionService<G>
 where
     G: GameRepository,
@@ -24,7 +26,7 @@ where
     game_repository: G,
 }
 
-#[allow(dead_code)]
+/// 卓進行サービスの構造体の実装
 impl<G> GameProgressionService<G>
 where
     G: GameRepository,
@@ -94,12 +96,18 @@ where
     }
 }
 
+///
+/// 卓進行エラーの列挙体
+///
 #[derive(Debug)]
-#[allow(dead_code)]
 pub(crate) enum GameProgressionError {
     Repository(RepositoryError),
 }
 
+/// 卓進行エラーの列挙体の実装（Error トレイト）
+impl Error for GameProgressionError {}
+
+/// 卓進行エラーの列挙体の実装（fmt::Display トレイト）
 impl fmt::Display for GameProgressionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -107,8 +115,6 @@ impl fmt::Display for GameProgressionError {
         }
     }
 }
-
-impl Error for GameProgressionError {}
 
 // ============================================================================
 // tests

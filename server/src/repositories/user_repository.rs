@@ -2,17 +2,18 @@
 // imports
 // ============================================================================
 
-use std::error::Error;
-use std::fmt;
-
 use uuid::Uuid;
 
+use super::RepositoryError;
 use super::UserId;
 
 // ============================================================================
 // definitions
 // ============================================================================
 
+///
+/// Discord プロフィールの構造体
+///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DiscordProfile {
     pub discord_user_id: String,
@@ -22,6 +23,9 @@ pub(crate) struct DiscordProfile {
     pub avatar_url: Option<String>,
 }
 
+///
+/// ユーザーレコードの構造体
+///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct UserRecord {
     pub id: UserId,
@@ -34,6 +38,9 @@ pub(crate) struct UserRecord {
     pub access_token: String,
 }
 
+///
+/// 新規ユーザー生成用の構造体
+///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct NewUser {
     pub uuid: Uuid,
@@ -45,6 +52,9 @@ pub(crate) struct NewUser {
     pub access_token: String,
 }
 
+///
+/// ユーザープロフィール更新用の構造体
+///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct UserProfileUpdate {
     pub username: String,
@@ -53,6 +63,7 @@ pub(crate) struct UserProfileUpdate {
     pub avatar_url: Option<String>,
 }
 
+/// ユーザープロフィール更新用の構造体への変換の実装（From トレイト）
 impl From<&DiscordProfile> for UserProfileUpdate {
     fn from(profile: &DiscordProfile) -> Self {
         Self {
@@ -64,25 +75,9 @@ impl From<&DiscordProfile> for UserProfileUpdate {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum RepositoryError {
-    NotFound,
-    Conflict,
-    Unavailable(String),
-}
-
-impl fmt::Display for RepositoryError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::NotFound => write!(f, "record not found"),
-            Self::Conflict => write!(f, "record conflict"),
-            Self::Unavailable(message) => write!(f, "repository unavailable: {}", message),
-        }
-    }
-}
-
-impl Error for RepositoryError {}
-
+///
+/// ユーザリポジトリのトレイト
+///
 pub(crate) trait UserRepository {
     fn find_by_discord_user_id(&self, discord_user_id: &str) -> Result<Option<UserRecord>, RepositoryError>;
 

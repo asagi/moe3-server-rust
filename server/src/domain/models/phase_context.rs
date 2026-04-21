@@ -13,7 +13,9 @@ use super::Power;
 // definitions
 // ============================================================================
 
-/// フェイズ遷移のコンテキスト
+///
+/// フェイズ更新コンテキストの構造体
+///
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct PhaseContext {
     active_powers: Vec<Power>,
@@ -22,6 +24,7 @@ pub(crate) struct PhaseContext {
     is_solo: bool,
 }
 
+/// フェイズ更新コンテキストの構造体の実装
 impl PhaseContext {
     pub(crate) fn new() -> Self {
         Self {

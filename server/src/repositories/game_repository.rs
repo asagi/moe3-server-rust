@@ -12,11 +12,17 @@ use super::RepositoryError;
 // definitions
 // ============================================================================
 
+///
+/// 新規卓生成用の構造体
+///
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct NewGame {
     pub game: Game,
 }
 
+///
+/// 卓リポジトリのトレイト
+///
 pub(crate) trait GameRepository {
     fn insert(&self, new_game: NewGame) -> Result<Game, RepositoryError>;
 
