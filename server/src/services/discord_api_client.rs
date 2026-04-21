@@ -32,7 +32,6 @@ pub(crate) struct DiscordApiClient {
 
 /// Discord API クライアントの構造体の実装
 impl DiscordApiClient {
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn new() -> Self {
         let http_client = Client::builder()
             .connect_timeout(Duration::from_secs(DISCORD_CONNECT_TIMEOUT_SECS))

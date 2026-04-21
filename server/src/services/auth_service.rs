@@ -72,7 +72,6 @@ where
     U: UserRepository,
     D: DiscordIdentityProvider,
 {
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn new(user_repository: U, discord_identity_provider: D) -> Self {
         Self {
             user_repository,

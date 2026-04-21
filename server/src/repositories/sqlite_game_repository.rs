@@ -50,7 +50,6 @@ pub(crate) struct SqliteGameRepository {
 
 /// SQLite 用の卓リポジトリ構造体の実装
 impl SqliteGameRepository {
-    #[allow(dead_code)]
     pub(crate) fn new(database_path: &str) -> Result<Self, RepositoryError> {
         let connection =
             Connection::open(database_path).map_err(|error| RepositoryError::Unavailable(format!("open sqlite: {}", error)))?;
