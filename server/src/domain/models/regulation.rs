@@ -110,6 +110,24 @@ impl TryFrom<i32> for ProgressMode {
     }
 }
 
+impl DurationType {
+    /// メインフェイズの時間（分）
+    pub(crate) const fn main_phase_minutes(self) -> u32 {
+        match self {
+            DurationType::Short => 30,
+            DurationType::Normal => 60 * 24,
+        }
+    }
+
+    /// 撤退調整フェイズの時間（分）
+    pub(crate) const fn retreat_phase_minutes(self) -> u32 {
+        match self {
+            DurationType::Short => 10,
+            DurationType::Normal => 60,
+        }
+    }
+}
+
 impl TryFrom<i32> for DurationType {
     type Error = RegulationError;
 
@@ -168,6 +186,14 @@ mod tests {
     fn duration_type_try_from_rejects_unknown_values() {
         assert_eq!(DurationType::try_from(0), Err(RegulationError::UnknownDurationType(0)));
         assert_eq!(DurationType::try_from(-1), Err(RegulationError::UnknownDurationType(-1)));
+    }
+
+    #[test]
+    fn duration_type_phase_minutes() {
+        assert_eq!(DurationType::Short.main_phase_minutes(), 30);
+        assert_eq!(DurationType::Short.retreat_phase_minutes(), 10);
+        assert_eq!(DurationType::Normal.main_phase_minutes(), 60 * 24);
+        assert_eq!(DurationType::Normal.retreat_phase_minutes(), 60);
     }
 
     #[test]
