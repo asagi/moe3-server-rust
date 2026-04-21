@@ -2,12 +2,15 @@
 // imports
 // ============================================================================
 
+use chrono::Timelike;
 use chrono::Utc;
 
 use super::GameProgressionError;
 use super::GameRepository;
 use super::GameStatus;
+use super::Phase;
 use super::PhaseContext;
+use crate::domain::PhaseKind;
 
 // ============================================================================
 // definitions
@@ -58,20 +61,30 @@ where
             return Ok(());
         };
 
-        let Some(next_update) = game.next_update else {
+        let Some(previous_next_update) = game.next_update else {
             return Ok(());
         };
 
-        if game.status == GameStatus::Closed || next_update > now {
+        if game.status == GameStatus::Closed || previous_next_update > now {
             return Ok(());
         }
-
-        game.next_update = None; // FIXME: 暫定
 
         let latest_phase = game.phases.pop().expect("game should have at least one phase");
 
         let mut context = PhaseContext::new();
         latest_phase.close(&mut context);
+
+        let is_finished = context.is_finished();
+        let new_next_update = if is_finished {
+            None
+        } else {
+            let next_phase = context.phases().back().expect("in-progress game should have next phase");
+            Some(Self::calculate_next_update(
+                previous_next_update,
+                next_phase,
+                game.regulation.duration_type,
+            ))
+        };
 
         // PhaseContext の結果を Game に反映
         for phase in context.phases().iter() {
@@ -79,17 +92,57 @@ where
         }
         game.is_draw = context.is_draw();
         game.is_solo = context.is_solo();
-        game.status = if context.is_finished() {
+        game.status = if is_finished {
             GameStatus::Finished
         } else {
             GameStatus::InProgress
         };
-
-        // TODO: 次のフェイズの更新予定時刻を設定する
+        game.next_update = new_next_update;
 
         self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
 
         Ok(())
+    }
+
+    fn calculate_next_update(
+        previous_next_update: chrono::NaiveDateTime,
+        next_phase: &Phase,
+        duration_type: crate::domain::DurationType,
+    ) -> chrono::NaiveDateTime {
+        let duration_minutes = if Self::is_sub_phase(next_phase) {
+            duration_type.sub_phase_minutes()
+        } else {
+            duration_type.main_phase_minutes()
+        };
+
+        let raw_next_update = previous_next_update + chrono::Duration::minutes(i64::from(duration_minutes));
+        Self::ceil_to_5_minutes(raw_next_update)
+    }
+
+    fn is_sub_phase(phase: &Phase) -> bool {
+        matches!(
+            phase.kind,
+            PhaseKind::SpringRetreat(_) | PhaseKind::FallRetreat(_) | PhaseKind::Adjustment(_)
+        )
+    }
+
+    fn ceil_to_5_minutes(dt: chrono::NaiveDateTime) -> chrono::NaiveDateTime {
+        let truncated =
+            dt - chrono::Duration::seconds(i64::from(dt.second())) - chrono::Duration::nanoseconds(i64::from(dt.nanosecond()));
+
+        // 秒以下がある時刻は分境界を過ぎているため、1分進めてから5分単位へ切り上げる。
+        let minute_aligned = if dt.second() == 0 && dt.nanosecond() == 0 {
+            truncated
+        } else {
+            truncated + chrono::Duration::minutes(1)
+        };
+
+        let remainder = minute_aligned.minute() % 5;
+        if remainder == 0 {
+            minute_aligned
+        } else {
+            minute_aligned + chrono::Duration::minutes(i64::from(5 - remainder))
+        }
     }
 }
 
@@ -222,7 +275,8 @@ mod tests {
 
     #[test]
     fn progress_games_updates_when_next_update_is_in_past() {
-        let past = chrono::Utc::now().naive_utc() - chrono::Duration::minutes(5);
+        let past_date = (chrono::Utc::now().naive_utc() - chrono::Duration::days(1)).date();
+        let past = past_date.and_hms_opt(14, 32, 0).expect("valid datetime");
         let repository = InMemoryGameRepository::new(vec![sample_game(Some(past))]);
         let service = GameProgressionService::new(repository.clone());
 
@@ -231,6 +285,27 @@ mod tests {
         assert_eq!(repository.updated_len(), 1);
         let updated = repository.updated_first().expect("updated game should exist");
         assert_eq!(updated.status, GameStatus::InProgress);
-        assert!(updated.next_update.is_none());
+        assert_eq!(
+            updated.next_update,
+            Some(past_date.and_hms_opt(15, 5, 0).expect("valid datetime"))
+        );
+    }
+
+    #[test]
+    fn ceil_to_5_minutes_rounds_up_when_seconds_exist() {
+        let dt = chrono::NaiveDate::from_ymd_opt(2026, 4, 22)
+            .expect("valid date")
+            .and_hms_opt(14, 30, 1)
+            .expect("valid datetime");
+
+        let rounded = GameProgressionService::<InMemoryGameRepository>::ceil_to_5_minutes(dt);
+
+        assert_eq!(
+            rounded,
+            chrono::NaiveDate::from_ymd_opt(2026, 4, 22)
+                .expect("valid date")
+                .and_hms_opt(14, 35, 0)
+                .expect("valid datetime")
+        );
     }
 }

@@ -9,6 +9,9 @@ use std::fmt;
 // definitions
 // ============================================================================
 
+///
+/// 卓レギュレーションの構造体
+///
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Regulation {
     pub(crate) face_type: FaceType,
@@ -18,41 +21,7 @@ pub(crate) struct Regulation {
     pub(crate) first_period_hour: u8,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum RegulationError {
-    FirstPeriodHourOutOfRange(u8),
-    UnknownFaceType(i32),
-    UnknownProgressMode(i32),
-    UnknownDurationType(i32),
-}
-
-/// 画像タイプ
-/// - Girls: 娘
-/// - Flags: 旗
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) enum FaceType {
-    Girls = 1,
-    Flags = 2,
-}
-
-/// 進行モード
-/// - Scheduled: 定時進行
-/// - Consensus: 参加者の合意で即時進行
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) enum ProgressMode {
-    Scheduled = 1,
-    Consensus = 2,
-}
-
-/// 期間
-/// - Short: 短期
-/// - Normal: 通常期間
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) enum DurationType {
-    Short = 1,
-    Normal = 2,
-}
-
+/// 卓レギュレーションの構造体の実装
 impl Regulation {
     pub(crate) fn new(
         face_type: FaceType,
@@ -75,17 +44,18 @@ impl Regulation {
     }
 }
 
-impl fmt::Display for RegulationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            RegulationError::FirstPeriodHourOutOfRange(v) => write!(f, "invalid first_period_hour: {}", v),
-            RegulationError::UnknownFaceType(v) => write!(f, "invalid FaceType value: {}", v),
-            RegulationError::UnknownProgressMode(v) => write!(f, "invalid ProgressMode value: {}", v),
-            RegulationError::UnknownDurationType(v) => write!(f, "invalid DurationType value: {}", v),
-        }
-    }
+///
+/// 卓レギュレーションの画像タイプの列挙体
+///
+/// - Girls: 娘
+/// - Flags: 旗
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum FaceType {
+    Girls = 1,
+    Flags = 2,
 }
 
+/// 卓レギュレーションの画像タイプの列挙体の実装（TryFrom トレイト）
 impl TryFrom<i32> for FaceType {
     type Error = RegulationError;
 
@@ -96,6 +66,28 @@ impl TryFrom<i32> for FaceType {
             _ => Err(RegulationError::UnknownFaceType(value)),
         }
     }
+}
+
+///
+/// 卓レギュレーションの進行モードの列挙体
+///
+/// - Scheduled: 定時進行
+/// - Consensus: 参加者の合意で即時進行
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum ProgressMode {
+    Scheduled = 1,
+    Consensus = 2,
+}
+
+///
+/// 卓レギュレーションの期間タイプの列挙体
+///
+/// - Short: 短期
+/// - Normal: 通常期間
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum DurationType {
+    Short = 1,
+    Normal = 2,
 }
 
 impl TryFrom<i32> for ProgressMode {
@@ -110,6 +102,26 @@ impl TryFrom<i32> for ProgressMode {
     }
 }
 
+/// 卓レギュレーションの期間タイプの列挙体の実装
+impl DurationType {
+    /// メインフェイズの時間（分）
+    pub(crate) const fn main_phase_minutes(self) -> u32 {
+        match self {
+            DurationType::Short => 30,
+            DurationType::Normal => 60 * 24,
+        }
+    }
+
+    /// 撤退調整フェイズの時間（分）
+    pub(crate) const fn sub_phase_minutes(self) -> u32 {
+        match self {
+            DurationType::Short => 10,
+            DurationType::Normal => 60,
+        }
+    }
+}
+
+/// 卓レギュレーションの期間タイプの列挙体の実装（TryFrom トレイト）
 impl TryFrom<i32> for DurationType {
     type Error = RegulationError;
 
@@ -118,6 +130,29 @@ impl TryFrom<i32> for DurationType {
             1 => Ok(DurationType::Short),
             2 => Ok(DurationType::Normal),
             _ => Err(RegulationError::UnknownDurationType(value)),
+        }
+    }
+}
+
+///
+/// 卓レギュレーションのエラーの列挙体
+///
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RegulationError {
+    FirstPeriodHourOutOfRange(u8),
+    UnknownFaceType(i32),
+    UnknownProgressMode(i32),
+    UnknownDurationType(i32),
+}
+
+/// 卓レギュレーションのエラーの実装
+impl fmt::Display for RegulationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RegulationError::FirstPeriodHourOutOfRange(v) => write!(f, "invalid first_period_hour: {}", v),
+            RegulationError::UnknownFaceType(v) => write!(f, "invalid FaceType value: {}", v),
+            RegulationError::UnknownProgressMode(v) => write!(f, "invalid ProgressMode value: {}", v),
+            RegulationError::UnknownDurationType(v) => write!(f, "invalid DurationType value: {}", v),
         }
     }
 }
@@ -168,6 +203,14 @@ mod tests {
     fn duration_type_try_from_rejects_unknown_values() {
         assert_eq!(DurationType::try_from(0), Err(RegulationError::UnknownDurationType(0)));
         assert_eq!(DurationType::try_from(-1), Err(RegulationError::UnknownDurationType(-1)));
+    }
+
+    #[test]
+    fn duration_type_phase_minutes() {
+        assert_eq!(DurationType::Short.main_phase_minutes(), 30);
+        assert_eq!(DurationType::Short.sub_phase_minutes(), 10);
+        assert_eq!(DurationType::Normal.main_phase_minutes(), 60 * 24);
+        assert_eq!(DurationType::Normal.sub_phase_minutes(), 60);
     }
 
     #[test]
