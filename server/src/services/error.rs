@@ -23,7 +23,7 @@ pub(crate) enum DiscordClientError {
 /// Discord クライアントエラーの列挙体の実装（Error トレイト）
 impl Error for DiscordClientError {}
 
-/// Discorad クライアントエラーの表示の実装（fmt::Display トレイト）
+/// Discord クライアントエラーの表示の実装（fmt::Display トレイト）
 impl fmt::Display for DiscordClientError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
