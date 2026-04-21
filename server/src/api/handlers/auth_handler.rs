@@ -21,9 +21,6 @@ use super::GameRepository;
 use super::LoginCommand;
 use super::UserRepository;
 
-#[cfg_attr(not(test), allow(unused_imports))]
-use super::AuthRequestValidationError;
-
 // ============================================================================
 // functions
 // ============================================================================
@@ -63,7 +60,6 @@ where
 ///
 /// ログインリクエストハンドラ関数
 ///
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn handle_auth_login<U, D>(
     service: &AuthService<U, D>,
     request: AuthLoginRequest,
@@ -97,6 +93,7 @@ mod tests {
     use std::rc::Rc;
 
     use super::*;
+    use crate::api::requests::AuthRequestValidationError;
     use crate::repositories::DiscordProfile;
     use crate::repositories::NewUser;
     use crate::repositories::RepositoryError;
