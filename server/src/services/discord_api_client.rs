@@ -16,15 +16,21 @@ use super::DiscordProfile;
 // definitions
 // ============================================================================
 
-// constants
+/// コネクションタイムアウト（秒）
 const DISCORD_CONNECT_TIMEOUT_SECS: u64 = 3;
+
+/// リクエストタイムアウト（秒）
 const DISCORD_REQUEST_TIMEOUT_SECS: u64 = 10;
 
+///
+/// Discord API クライアントの構造体
+///
 pub(crate) struct DiscordApiClient {
     base_url: String,
     http_client: Client,
 }
 
+/// Discord API クライアントの構造体の実装
 impl DiscordApiClient {
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn new() -> Self {
@@ -45,6 +51,7 @@ impl DiscordApiClient {
     }
 }
 
+/// Discord API クライアントの構造体の実装（DiscordIdentityProvider トレイトの実装）
 impl DiscordIdentityProvider for DiscordApiClient {
     fn fetch_profile(&self, discord_access_token: &str) -> Result<DiscordProfile, DiscordClientError> {
         let endpoint = format!("{}/users/@me", self.base_url);
@@ -82,6 +89,7 @@ impl DiscordIdentityProvider for DiscordApiClient {
     }
 }
 
+/// Discord アカウント情報取得API のレスポンスの構造体
 #[derive(Debug, Deserialize)]
 struct DiscordMeResponse {
     id: String,

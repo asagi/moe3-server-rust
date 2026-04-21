@@ -53,7 +53,7 @@ impl Power {
     }
 }
 
-/// 国のれ巨体の実装（serde::Serialize トレイト）
+/// 国の列挙体の実装（serde::Serialize トレイト）
 impl serde::Serialize for Power {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

@@ -1,4 +1,3 @@
-#![cfg_attr(not(test), allow(dead_code))]
 // ============================================================================
 // imports
 // ============================================================================
@@ -13,7 +12,6 @@ use super::AuthService;
 use super::DiscordClientError;
 use super::DiscordIdentityProvider;
 use super::LoginCommand;
-use super::LoginUser;
 use super::UserRepository;
 
 // ============================================================================
@@ -23,6 +21,7 @@ use super::UserRepository;
 ///
 /// ログインリクエストハンドラのエラーの列挙体
 ///
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug)]
 pub(crate) enum AuthHandlerError {
     InvalidRequest(AuthRequestValidationError),
@@ -31,6 +30,7 @@ pub(crate) enum AuthHandlerError {
 
 /// ログインリクエストハンドラのエラーの列挙体の実装
 impl AuthHandlerError {
+    #![cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn code(&self) -> &'static str {
         match self {
             Self::InvalidRequest(_) => "invalid_request",
@@ -65,6 +65,7 @@ impl AuthHandlerError {
 ///
 /// ログインリクエストハンドラ関数
 ///
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn handle_auth_login<U, D>(
     service: &AuthService<U, D>,
     request: AuthLoginRequest,

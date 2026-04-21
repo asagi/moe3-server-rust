@@ -2,16 +2,11 @@
 // imports
 // ============================================================================
 
-use axum::Router;
 use axum::extract::Json;
-use axum::extract::Request;
 use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
-use axum::middleware::Next;
-use axum::middleware::from_fn_with_state;
 use axum::response::IntoResponse;
-use axum::response::Response;
 use chrono::NaiveDate;
 
 use super::ApiErrorResponse;
@@ -22,12 +17,15 @@ use super::CreateGameRequest;
 use super::CreateGameRequestBody;
 use super::CreateGameRequestValidationError;
 use super::CreateGameResponse;
-use super::Game;
 use super::GameRepository;
 use super::GameService;
 use super::Power;
 use super::Regulation;
 use super::UserRepository;
+
+#[cfg(test)]
+use super::Game;
+
 // ============================================================================
 // definitions
 // ============================================================================

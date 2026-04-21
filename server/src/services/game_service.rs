@@ -22,6 +22,9 @@ use super::UserRepository;
 // definitions
 // ============================================================================
 
+///
+/// 新卓作成コマンドの構造体
+///
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct CreateGameCommand {
     pub access_token: String,
@@ -29,6 +32,9 @@ pub(crate) struct CreateGameCommand {
     pub requested_power: Option<Power>,
 }
 
+///
+/// 新卓作成処理結果の構造体
+///
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct CreateGameResult {
     pub game: Game,
@@ -36,6 +42,9 @@ pub(crate) struct CreateGameResult {
     pub requested_power: Option<Power>,
 }
 
+///
+/// 卓サービスの構造体
+///
 pub(crate) struct GameService<U, G>
 where
     U: UserRepository,
@@ -45,6 +54,7 @@ where
     game_repository: G,
 }
 
+/// 卓サービスの構造体の実装
 impl<U, G> GameService<U, G>
 where
     U: UserRepository,
@@ -121,6 +131,7 @@ where
     }
 }
 
+/// 新卓作成エラーの列挙体
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum CreateGameError {
     InvalidRequest(String),
@@ -129,6 +140,10 @@ pub(crate) enum CreateGameError {
     Internal(String),
 }
 
+/// 新卓作成エラーの列挙体の実装（Error トレイト）
+impl Error for CreateGameError {}
+
+/// 新卓作成エラーの列挙体の実装（fmt::Display トレイト）
 impl fmt::Display for CreateGameError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -139,8 +154,6 @@ impl fmt::Display for CreateGameError {
         }
     }
 }
-
-impl Error for CreateGameError {}
 
 // ============================================================================
 // tests
