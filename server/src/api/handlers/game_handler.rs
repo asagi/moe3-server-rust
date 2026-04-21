@@ -2,12 +2,24 @@
 // imports
 // ============================================================================
 
+use axum::Router;
+use axum::extract::Json;
+use axum::extract::Request;
+use axum::extract::State;
+use axum::http::HeaderMap;
+use axum::http::StatusCode;
+use axum::middleware::Next;
+use axum::middleware::from_fn_with_state;
+use axum::response::IntoResponse;
+use axum::response::Response;
 use chrono::NaiveDate;
 
 use super::ApiErrorResponse;
+use super::AppState;
 use super::CreateGameCommand;
 use super::CreateGameError;
 use super::CreateGameRequest;
+use super::CreateGameRequestBody;
 use super::CreateGameRequestValidationError;
 use super::CreateGameResponse;
 use super::Game;
@@ -16,74 +28,20 @@ use super::GameService;
 use super::Power;
 use super::Regulation;
 use super::UserRepository;
-
 // ============================================================================
 // definitions
 // ============================================================================
 
-pub(crate) fn handle_create_game<U, G>(
-    service: &GameService<U, G>,
-    request: CreateGameRequest,
-) -> Result<CreateGameResponse, CreateGameHandlerError>
-where
-    U: UserRepository,
-    G: GameRepository,
-{
-    request.validate().map_err(CreateGameHandlerError::InvalidRequest)?;
-
-    let regulation = parse_regulation(&request)?;
-    let requested_power = parse_requested_power(request.requested_power.as_deref())?;
-    let access_token = request.authorization.trim().trim_start_matches("Bearer ").trim().to_string();
-
-    let result = service
-        .create_game(CreateGameCommand {
-            access_token,
-            regulation,
-            requested_power,
-        })
-        .map_err(CreateGameHandlerError::Service)?;
-
-    Ok(CreateGameResponse {
-        game_uuid: result.game.uuid,
-        owner_user_uuid: result.owner_user_uuid,
-        requested_power: result.requested_power.map(|power| power.to_string()),
-    })
-}
-
-fn parse_regulation(request: &CreateGameRequest) -> Result<Regulation, CreateGameHandlerError> {
-    let face_type = parse_enum(request.face_type, CreateGameRequestValidationError::InvalidFaceType)?;
-    let progress_mode = parse_enum(request.progress_mode, CreateGameRequestValidationError::InvalidProgressMode)?;
-    let duration_type = parse_enum(request.duration_type, CreateGameRequestValidationError::InvalidDurationType)?;
-    let start_date = NaiveDate::parse_from_str(&request.start_date, "%Y-%m-%d")
-        .map_err(|_| invalid_request(CreateGameRequestValidationError::InvalidStartDate))?;
-
-    Regulation::new(face_type, progress_mode, duration_type, start_date, request.first_period_hour)
-        .map_err(|_| invalid_request(CreateGameRequestValidationError::InvalidFirstPeriodHour))
-}
-
-fn parse_requested_power(value: Option<&str>) -> Result<Option<Power>, CreateGameHandlerError> {
-    value
-        .map(|code| Power::try_from(code).map_err(|_| invalid_request(CreateGameRequestValidationError::InvalidRequestedPower)))
-        .transpose()
-}
-
-fn parse_enum<T>(value: i32, validation_error: CreateGameRequestValidationError) -> Result<T, CreateGameHandlerError>
-where
-    T: TryFrom<i32>,
-{
-    T::try_from(value).map_err(|_| invalid_request(validation_error))
-}
-
-fn invalid_request(validation_error: CreateGameRequestValidationError) -> CreateGameHandlerError {
-    CreateGameHandlerError::InvalidRequest(validation_error)
-}
-
+///
+/// 卓作成リクエストハンドラのエラーの列挙体
+///
 #[derive(Debug)]
 pub(crate) enum CreateGameHandlerError {
     InvalidRequest(CreateGameRequestValidationError),
     Service(CreateGameError),
 }
 
+/// 卓作成リクエストハンドラのエラーの列挙体の実装
 impl CreateGameHandlerError {
     pub(crate) fn code(&self) -> &'static str {
         match self {
@@ -126,6 +84,121 @@ impl CreateGameHandlerError {
             Self::Service(error) => error.to_string(),
         }
     }
+}
+
+// ============================================================================
+// functions
+// ============================================================================
+
+///
+/// 卓作成リクエストハンドラ関数
+///
+pub(crate) async fn post_games<U, G>(
+    State(state): State<AppState<U, G>>,
+    headers: HeaderMap,
+    Json(body): Json<CreateGameRequestBody>,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+{
+    let authorization = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
+    let request = CreateGameRequest {
+        authorization,
+        face_type: body.face_type,
+        progress_mode: body.progress_mode,
+        duration_type: body.duration_type,
+        start_date: body.start_date,
+        first_period_hour: body.first_period_hour,
+        requested_power: body.requested_power,
+    };
+
+    let state_clone = state.clone();
+    let request_clone = request.clone();
+
+    match tokio::task::spawn_blocking(move || match handle_create_game(&state_clone.game_service, request_clone) {
+        Ok(response) => (StatusCode::CREATED, Json(response)).into_response(),
+        Err(error) => {
+            let status = match &error {
+                CreateGameHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+                CreateGameHandlerError::Service(CreateGameError::Unauthorized) => StatusCode::UNAUTHORIZED,
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            };
+            (status, Json(error.to_api_error_response())).into_response()
+        }
+    })
+    .await
+    {
+        Ok(response) => response,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+/// 卓作成リクエストハンドラ関数
+fn handle_create_game<U, G>(
+    service: &GameService<U, G>,
+    request: CreateGameRequest,
+) -> Result<CreateGameResponse, CreateGameHandlerError>
+where
+    U: UserRepository,
+    G: GameRepository,
+{
+    request.validate().map_err(CreateGameHandlerError::InvalidRequest)?;
+
+    let regulation = parse_regulation(&request)?;
+    let requested_power = parse_requested_power(request.requested_power.as_deref())?;
+    let access_token = request.authorization.trim().trim_start_matches("Bearer ").trim().to_string();
+
+    let result = service
+        .create_game(CreateGameCommand {
+            access_token,
+            regulation,
+            requested_power,
+        })
+        .map_err(CreateGameHandlerError::Service)?;
+
+    Ok(CreateGameResponse {
+        game_uuid: result.game.uuid,
+        owner_user_uuid: result.owner_user_uuid,
+        requested_power: result.requested_power.map(|power| power.to_string()),
+    })
+}
+
+/// 卓作成リクエストパラメータのレギュレーションのパース関数
+fn parse_regulation(request: &CreateGameRequest) -> Result<Regulation, CreateGameHandlerError> {
+    let face_type = parse_enum(request.face_type, CreateGameRequestValidationError::InvalidFaceType)?;
+    let progress_mode = parse_enum(request.progress_mode, CreateGameRequestValidationError::InvalidProgressMode)?;
+    let duration_type = parse_enum(request.duration_type, CreateGameRequestValidationError::InvalidDurationType)?;
+    let start_date = NaiveDate::parse_from_str(&request.start_date, "%Y-%m-%d")
+        .map_err(|_| invalid_request(CreateGameRequestValidationError::InvalidStartDate))?;
+
+    Regulation::new(face_type, progress_mode, duration_type, start_date, request.first_period_hour)
+        .map_err(|_| invalid_request(CreateGameRequestValidationError::InvalidFirstPeriodHour))
+}
+
+/// 卓作成リクエストパラメータの担当希望国のパース関数
+fn parse_requested_power(value: Option<&str>) -> Result<Option<Power>, CreateGameHandlerError> {
+    value
+        .map(|code| Power::try_from(code).map_err(|_| invalid_request(CreateGameRequestValidationError::InvalidRequestedPower)))
+        .transpose()
+}
+
+/// 卓作成リクエストパラメータの列挙体パース関数
+fn parse_enum<T>(value: i32, validation_error: CreateGameRequestValidationError) -> Result<T, CreateGameHandlerError>
+where
+    T: TryFrom<i32>,
+{
+    T::try_from(value).map_err(|_| invalid_request(validation_error))
+}
+
+/// 卓作成リクエストパラメータのパースエラーマッピング関数
+fn invalid_request(validation_error: CreateGameRequestValidationError) -> CreateGameHandlerError {
+    CreateGameHandlerError::InvalidRequest(validation_error)
 }
 
 // ============================================================================

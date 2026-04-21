@@ -12,7 +12,9 @@ use strum::IntoEnumIterator;
 // definitions
 // ============================================================================
 
-/// 国の定義
+///
+/// 国の列挙体
+///
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter, Display, EnumString, EnumProperty)]
 pub(crate) enum Power {
     #[strum(serialize = "Austria", serialize = "a", props(Symbol = "a", Adj = "Austrian"))]
@@ -31,7 +33,7 @@ pub(crate) enum Power {
     Turkey = 7,
 }
 
-/// 国のロジック
+/// 国の列挙体の実装
 impl Power {
     pub(crate) fn from_symbol(symbol: &str) -> Option<Self> {
         Self::iter().find(|p| p.symbol().eq_ignore_ascii_case(symbol))
@@ -51,6 +53,7 @@ impl Power {
     }
 }
 
+/// 国のれ巨体の実装（serde::Serialize トレイト）
 impl serde::Serialize for Power {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -60,6 +63,7 @@ impl serde::Serialize for Power {
     }
 }
 
+/// 国の列挙体の実装（serde::Deserialize トレイト）
 impl<'de> serde::Deserialize<'de> for Power {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

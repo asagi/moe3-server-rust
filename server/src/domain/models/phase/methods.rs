@@ -21,6 +21,7 @@ use super::Province;
 use super::ReadyPhase;
 use super::RetreatAdjudicator;
 use super::RetreatOrderHelper;
+use super::SUPPLY_CENTERS_FOR_SOLO;
 use super::SpringMainPhase;
 use super::SpringRetreatPhase;
 use super::Territory;
@@ -31,10 +32,9 @@ use super::UnitHelper;
 // definitions
 // ============================================================================
 
-// constants
-use super::SUPPLY_CENTERS_FOR_SOLO;
-
-/// フェイズのロジック
+///
+/// フェイズ構造体の実装
+///
 impl Phase {
     /// フェイズを締め切り命令を解決する。
     pub(crate) fn close(mut self, context: &mut PhaseContext) {
@@ -227,7 +227,9 @@ impl Phase {
     }
 }
 
-/// フェイズの終了ロジック
+///
+/// フェイズ終了ロジックを提供するトレイト
+///
 trait PhaseCloseLogic {
     /// フェイズ終了処理
     fn close(&self, current_phase: &mut Phase, context: &mut PhaseContext) {

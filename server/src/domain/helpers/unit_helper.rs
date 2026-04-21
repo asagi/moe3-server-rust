@@ -11,11 +11,15 @@ use super::Unit;
 // definitions
 // ============================================================================
 
+///
+/// ユニットに関する補助関数を提供するトレイト
+///
 pub trait UnitHelper {
     fn collect_all_idxs(&self) -> Vec<usize>;
     fn collect_units_for_civil_disorder(&self, power: &Power, territories: &[Territory]) -> Vec<Unit>;
 }
 
+/// ユニットに関する補助関数を提供するトレイトの実装
 impl UnitHelper for [Unit] {
     /// すべてのユニットのインデックスを取得する
     fn collect_all_idxs(&self) -> Vec<usize> {

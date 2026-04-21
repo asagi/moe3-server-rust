@@ -12,22 +12,24 @@ mod game_handler;
 // ============================================================================
 
 pub(crate) use game_handler::CreateGameHandlerError;
-pub(crate) use game_handler::handle_create_game;
+pub(crate) use game_handler::post_games;
 
 // ============================================================================
 // re-exports
 // ============================================================================
 
 pub(crate) use super::ApiErrorResponse;
+pub(crate) use super::AppState;
 pub(crate) use super::AuthError;
 pub(crate) use super::AuthLoginRequest;
 pub(crate) use super::AuthLoginResponse;
-pub(crate) use super::AuthLoginUserResponse;
+pub(crate) use super::AuthLoginResponseUser;
 pub(crate) use super::AuthRequestValidationError;
 pub(crate) use super::AuthService;
 pub(crate) use super::CreateGameCommand;
 pub(crate) use super::CreateGameError;
 pub(crate) use super::CreateGameRequest;
+pub(crate) use super::CreateGameRequestBody;
 pub(crate) use super::CreateGameRequestValidationError;
 pub(crate) use super::CreateGameResponse;
 pub(crate) use super::DiscordClientError;

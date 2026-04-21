@@ -14,7 +14,6 @@ use axum::Router;
 use axum::extract::Json;
 use axum::extract::Request;
 use axum::extract::State;
-use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::middleware::Next;
 use axum::middleware::from_fn_with_state;
@@ -22,30 +21,76 @@ use axum::response::IntoResponse;
 use axum::response::Response;
 use axum::routing::post;
 use fs4::FileExt;
-use serde::Deserialize;
 use tokio::sync::Mutex as TokioMutex;
 
 use super::ApiErrorResponse;
-use super::CreateGameError;
-use super::CreateGameRequest;
 use super::GameRepository;
 use super::GameService;
 use super::GlobalPreHandler;
 use super::SqliteGameRepository;
 use super::SqliteUserRepository;
 use super::UserRepository;
-use super::handlers::CreateGameHandlerError;
-use super::handlers::handle_create_game;
+use super::handlers::post_games;
 
 // ============================================================================
 // definitions
 // ============================================================================
 
-/// Global lock file handle. Held for the lifetime of the server process.
+/// グローバルロックファイルハンドル
 static INSTANCE_LOCK: Mutex<Option<Arc<File>>> = Mutex::new(None);
 
+///
+/// ルーター起動パラメータ構造体
+///
+pub(crate) struct AppState<U, G>
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+{
+    pub game_service: Arc<GameService<U, G>>,
+    pub pre_handler: Arc<GlobalPreHandler<G>>,
+    pub game_update_lock: Arc<TokioMutex<()>>,
+}
+
+/// ルーター起動パラメータ構造体の実装
+impl<U, G> AppState<U, G>
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+{
+    pub(crate) fn new(game_service: GameService<U, G>, pre_handler: GlobalPreHandler<G>) -> Self {
+        Self {
+            game_service: Arc::new(game_service),
+            pre_handler: Arc::new(pre_handler),
+            game_update_lock: Arc::new(TokioMutex::new(())),
+        }
+    }
+}
+
+/// ルーター起動パラメータ構造体の実装（Clone トレイト）
+impl<U, G> Clone for AppState<U, G>
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+{
+    fn clone(&self) -> Self {
+        Self {
+            game_service: Arc::clone(&self.game_service),
+            pre_handler: Arc::clone(&self.pre_handler),
+            game_update_lock: Arc::clone(&self.game_update_lock),
+        }
+    }
+}
+
+// ============================================================================
+// functions
+// ============================================================================
+
+///
+/// API サーバーを起動する非同期関数
+///
 pub async fn serve(addr: SocketAddr, db_path: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // Ensure single instance
+    // 複数起動防止インスタンスロック獲得
     acquire_instance_lock(db_path)?;
 
     let user_repository = SqliteUserRepository::new(db_path)?;
@@ -60,17 +105,7 @@ pub async fn serve(addr: SocketAddr, db_path: &str) -> Result<(), Box<dyn Error 
     Ok(())
 }
 
-pub(crate) fn create_router<U, G>(state: AppState<U, G>) -> Router
-where
-    U: UserRepository + Send + Sync + 'static,
-    G: GameRepository + Send + Sync + 'static,
-{
-    Router::new()
-        .route("/games", post(post_games::<U, G>))
-        .with_state(state.clone())
-        .layer(from_fn_with_state(state, run_global_pre_handler::<U, G>))
-}
-
+/// グローバルロック獲得関数
 fn acquire_instance_lock(db_path: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
     let lock_path = format!("{}.lock", db_path);
     let file = File::create(&lock_path)?;
@@ -91,54 +126,19 @@ fn acquire_instance_lock(db_path: &str) -> Result<(), Box<dyn Error + Send + Syn
     }
 }
 
-pub(crate) struct AppState<U, G>
+/// API ルーター生成関数
+fn create_router<U, G>(state: AppState<U, G>) -> Router
 where
     U: UserRepository + Send + Sync + 'static,
     G: GameRepository + Send + Sync + 'static,
 {
-    game_service: Arc<GameService<U, G>>,
-    pre_handler: Arc<GlobalPreHandler<G>>,
-    game_update_lock: Arc<TokioMutex<()>>,
+    Router::new()
+        .route("/games", post(post_games::<U, G>))
+        .with_state(state.clone())
+        .layer(from_fn_with_state(state, run_global_pre_handler::<U, G>))
 }
 
-impl<U, G> Clone for AppState<U, G>
-where
-    U: UserRepository + Send + Sync + 'static,
-    G: GameRepository + Send + Sync + 'static,
-{
-    fn clone(&self) -> Self {
-        Self {
-            game_service: Arc::clone(&self.game_service),
-            pre_handler: Arc::clone(&self.pre_handler),
-            game_update_lock: Arc::clone(&self.game_update_lock),
-        }
-    }
-}
-
-impl<U, G> AppState<U, G>
-where
-    U: UserRepository + Send + Sync + 'static,
-    G: GameRepository + Send + Sync + 'static,
-{
-    pub(crate) fn new(game_service: GameService<U, G>, pre_handler: GlobalPreHandler<G>) -> Self {
-        Self {
-            game_service: Arc::new(game_service),
-            pre_handler: Arc::new(pre_handler),
-            game_update_lock: Arc::new(TokioMutex::new(())),
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct PostGamesBody {
-    face_type: i32,
-    progress_mode: i32,
-    duration_type: i32,
-    start_date: String,
-    first_period_hour: u8,
-    requested_power: Option<String>,
-}
-
+/// グローバルプリハンドラ実行非同期関数
 async fn run_global_pre_handler<U, G>(State(state): State<AppState<U, G>>, request: Request, next: Next) -> Response
 where
     U: UserRepository + Send + Sync + 'static,
@@ -176,50 +176,4 @@ where
 
     drop(_game_update_guard);
     next.run(request).await
-}
-
-async fn post_games<U, G>(
-    State(state): State<AppState<U, G>>,
-    headers: HeaderMap,
-    Json(body): Json<PostGamesBody>,
-) -> impl IntoResponse
-where
-    U: UserRepository + Send + Sync + 'static,
-    G: GameRepository + Send + Sync + 'static,
-{
-    let authorization = headers
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-
-    let request = CreateGameRequest {
-        authorization,
-        face_type: body.face_type,
-        progress_mode: body.progress_mode,
-        duration_type: body.duration_type,
-        start_date: body.start_date,
-        first_period_hour: body.first_period_hour,
-        requested_power: body.requested_power,
-    };
-
-    let state_clone = state.clone();
-    let request_clone = request.clone();
-
-    match tokio::task::spawn_blocking(move || match handle_create_game(&state_clone.game_service, request_clone) {
-        Ok(response) => (StatusCode::CREATED, Json(response)).into_response(),
-        Err(error) => {
-            let status = match &error {
-                CreateGameHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
-                CreateGameHandlerError::Service(CreateGameError::Unauthorized) => StatusCode::UNAUTHORIZED,
-                _ => StatusCode::INTERNAL_SERVER_ERROR,
-            };
-            (status, Json(error.to_api_error_response())).into_response()
-        }
-    })
-    .await
-    {
-        Ok(response) => response,
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-    }
 }

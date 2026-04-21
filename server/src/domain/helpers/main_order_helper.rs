@@ -17,6 +17,9 @@ use super::Province;
 // definitions
 // ============================================================================
 
+///
+/// メインフェイズの命令処理補助関数を提供するトレイト
+///
 pub trait MainOrderHelper {
     fn collect_not_assumed_orders(&self) -> Vec<Order>;
     fn collect_not_invalid_main_orders(&self) -> Vec<Order>;
@@ -50,6 +53,7 @@ pub trait MainOrderHelper {
     fn has_supports_excluding_occupant_power(&self, move_idx: usize, target_power: Option<Power>) -> bool;
 }
 
+/// メインフェイズの命令処理補助関数を提供するトレイトの実装
 impl MainOrderHelper for [Order] {
     /// 全ての非仮定命令のコレクションを作成
     fn collect_not_assumed_orders(&self) -> Vec<Order> {

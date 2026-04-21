@@ -13,6 +13,9 @@ use super::UnitKind;
 // definitions
 // ============================================================================
 
+///
+/// 経路の構造体
+///
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Path {
     pub(crate) origin: &'static str,
@@ -21,6 +24,7 @@ pub(crate) struct Path {
     pub(crate) fleet: bool,
 }
 
+/// 経路情報の定数配列
 #[rustfmt::skip]
 const PATHS: &[Path] = &[
     Path { origin: "adr", dest: "apu", army: false, fleet: true },
@@ -461,6 +465,7 @@ const PATHS: &[Path] = &[
     Path { origin: "yor", dest: "lvp", army: true, fleet: false },
 ];
 
+/// 経路情報の定数配列の実装
 impl Path {
     /// 2つの地名コードが隣接しているか判定する（origin→dest方向のみ）
     pub(crate) fn is_adjacent(origin: &str, dest: &str) -> bool {

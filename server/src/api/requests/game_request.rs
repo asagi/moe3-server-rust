@@ -8,6 +8,22 @@ use serde::Deserialize;
 // definitions
 // ============================================================================
 
+///
+/// 卓作成リクエストパラメータボディ構造体
+///
+#[derive(Debug, Deserialize)]
+pub(crate) struct CreateGameRequestBody {
+    pub face_type: i32,
+    pub progress_mode: i32,
+    pub duration_type: i32,
+    pub start_date: String,
+    pub first_period_hour: u8,
+    pub requested_power: Option<String>,
+}
+
+///
+/// 卓作成リクエストの構造体
+///
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub(crate) struct CreateGameRequest {
     pub authorization: String,
@@ -19,6 +35,7 @@ pub(crate) struct CreateGameRequest {
     pub requested_power: Option<String>,
 }
 
+/// 卓作成リクエストの構造体の実装
 impl CreateGameRequest {
     pub(crate) fn validate(&self) -> Result<(), CreateGameRequestValidationError> {
         let auth = self.authorization.trim();
@@ -39,6 +56,9 @@ impl CreateGameRequest {
     }
 }
 
+///
+/// 卓作成リクエストのバリデーションエラーの列挙体
+///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum CreateGameRequestValidationError {
     MissingAuthorization,

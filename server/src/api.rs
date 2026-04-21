@@ -18,11 +18,13 @@ pub(crate) use middleware::GlobalPreHandler;
 pub(crate) use requests::AuthLoginRequest;
 pub(crate) use requests::AuthRequestValidationError;
 pub(crate) use requests::CreateGameRequest;
+pub(crate) use requests::CreateGameRequestBody;
 pub(crate) use requests::CreateGameRequestValidationError;
 pub(crate) use responses::ApiErrorResponse;
 pub(crate) use responses::AuthLoginResponse;
-pub(crate) use responses::AuthLoginUserResponse;
+pub(crate) use responses::AuthLoginResponseUser;
 pub(crate) use responses::CreateGameResponse;
+pub(crate) use router::AppState;
 
 // ============================================================================
 // re-exports

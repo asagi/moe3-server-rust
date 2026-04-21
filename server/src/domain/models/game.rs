@@ -15,7 +15,9 @@ use super::Regulation;
 // definitions
 // ============================================================================
 
-/// 卓の定義
+///
+/// 卓の構造体
+///
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Game {
     pub uuid: Uuid,
@@ -30,6 +32,9 @@ pub(crate) struct Game {
     pub(crate) next_update: Option<NaiveDateTime>,
 }
 
+///
+/// 卓のステータスの列挙体
+///
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum GameStatus {

@@ -15,17 +15,9 @@ use super::Unit;
 // definitions
 // ============================================================================
 
-/// 命令の定義
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct Order {
-    pub(crate) power: Power,
-    pub(crate) unit: Unit,
-    pub(crate) dislodged_from: Option<Province>,
-    pub(crate) status: OrderStatus,
-    pub(crate) kind: OrderKind,
-}
-
-/// 命令の状態
+///
+/// 命令のステータスの列挙体
+///
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum OrderStatus {
@@ -39,7 +31,9 @@ pub(crate) enum OrderStatus {
     Unreachable,
 }
 
-/// 命令の種類
+///
+/// 命令の種類の列挙体
+///
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum OrderKind {
     Hold(HoldOrder),
@@ -51,46 +45,21 @@ pub(crate) enum OrderKind {
     Disband(DisbandOrder),
 }
 
-/// ホールド命令
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct HoldOrder {}
-
-/// 移動命令
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct MoveOrder {
-    pub(crate) dest: Province,
-    pub(crate) via_convoy: bool,
+///
+/// 命令の構造体
+///
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Order {
+    pub(crate) power: Power,
+    pub(crate) unit: Unit,
+    pub(crate) dislodged_from: Option<Province>,
+    pub(crate) status: OrderStatus,
+    pub(crate) kind: OrderKind,
 }
 
-/// サポート命令
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct SupportOrder {
-    pub(crate) target_unit: Unit,
-    pub(crate) target_dest: Option<Province>,
-}
-
-/// 輸送命令
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct ConvoyOrder {
-    pub(crate) target_unit: Unit,
-    pub(crate) target_dest: Province,
-}
-
-/// 撤退命令
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct RetreatOrder {
-    pub(crate) dest: Province,
-}
-
-/// 建造命令
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BuildOrder {}
-
-/// 解体命令
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct DisbandOrder {}
-
-/// 命令のロジック
+///
+/// 命令の構造体の実装
+///
 impl Order {
     pub(crate) fn new_hold(power: Power, unit: Unit) -> Self {
         Order {
@@ -360,14 +329,15 @@ impl Order {
     }
 }
 
-/// 命令を Diplomacy 風の短縮表記で整形する。
-///
-/// 例:
-/// - Hold: A Lon Holds
-/// - Move: A Lon - Wal
-/// - Support: A Lon S A Wal - Yor
-/// - Convoy: F Eng C A Lon - Bre
+/// 命令の構造体の実装（fmt::Display トレイト）
 impl fmt::Display for Order {
+    /// 命令を Diplomacy 風の短縮表記で整形する。
+    ///
+    /// 例:
+    /// - Hold: A Lon Holds
+    /// - Move: A Lon - Wal
+    /// - Support: A Lon S A Wal - Yor
+    /// - Convoy: F Eng C A Lon - Bre
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.kind {
             OrderKind::Hold(_) => {
@@ -411,6 +381,59 @@ impl fmt::Display for Order {
         }
     }
 }
+
+///
+/// 維持命令の構造体
+///
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HoldOrder {}
+
+///
+/// 移動命令の構造体
+///
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct MoveOrder {
+    pub(crate) dest: Province,
+    pub(crate) via_convoy: bool,
+}
+
+///
+/// 支援命令の構造体
+///
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SupportOrder {
+    pub(crate) target_unit: Unit,
+    pub(crate) target_dest: Option<Province>,
+}
+
+///
+/// 輸送命令の構造体
+///
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ConvoyOrder {
+    pub(crate) target_unit: Unit,
+    pub(crate) target_dest: Province,
+}
+
+///
+/// 撤退命令の構造体
+///
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct RetreatOrder {
+    pub(crate) dest: Province,
+}
+
+///
+/// 建造命令の構造体
+///
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BuildOrder {}
+
+///
+/// 解体命令の構造体
+///
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DisbandOrder {}
 
 // ============================================================================
 // tests

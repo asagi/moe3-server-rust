@@ -11,6 +11,9 @@ use super::OrderKind;
 // definitions
 // ============================================================================
 
+///
+/// 撤退フェイズの命令処理補助関数を提供するトレイト
+///
 pub trait RetreatOrderHelper {
     fn collect_not_assumed_retreats(&self) -> Vec<Order>;
     fn collect_retreat_destination_code_set(&self) -> HashSet<&'static str>;
@@ -18,6 +21,7 @@ pub trait RetreatOrderHelper {
     fn collect_unresolved_retreat_idxs_by_dest(&self, dest_code: &str) -> Vec<usize>;
 }
 
+/// 撤退フェイズの命令処理補助関数を提供するトレイトの実装
 impl RetreatOrderHelper for [Order] {
     /// 全ての非仮定命令のコレクションを作成
     fn collect_not_assumed_retreats(&self) -> Vec<Order> {

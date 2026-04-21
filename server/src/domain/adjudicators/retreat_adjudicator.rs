@@ -5,12 +5,17 @@
 use super::Order;
 use super::RetreatOrderHelper;
 use super::Unit;
-pub struct RetreatAdjudicator;
 
 // ============================================================================
 // definitions
 // ============================================================================
 
+///
+/// 撤退フェイズ裁定者の構造体
+///
+pub struct RetreatAdjudicator;
+
+/// 撤退フェイズ裁定者の構造体の実装
 impl RetreatAdjudicator {
     /// 撤退命令の妥当性を検査
     pub(crate) fn validate_retreat_orders(orders: &mut [Order], units: &[Unit], standoff_codes: &[String]) {

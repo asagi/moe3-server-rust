@@ -40,58 +40,15 @@ use super::Unit;
 // definitions
 // ============================================================================
 
+///
+/// SQLite 用の卓リポジトリ構造体
+///
 #[derive(Clone)]
 pub(crate) struct SqliteGameRepository {
     connection: Arc<Mutex<Connection>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct UnitPayload {
-    power: Power,
-    unit_kind: String,
-    location: String,
-    dislodged: bool,
-    dislodged_from: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-enum OrderKindPayload {
-    Hold,
-    Move {
-        dest: String,
-        via_convoy: bool,
-    },
-    Support {
-        target_unit: UnitPayload,
-        target_dest: Option<String>,
-    },
-    Convoy {
-        target_unit: UnitPayload,
-        target_dest: String,
-    },
-    Retreat {
-        dest: String,
-    },
-    Build,
-    Disband,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct OrderPayload {
-    power: Power,
-    unit: UnitPayload,
-    dislodged_from: Option<String>,
-    status: OrderStatus,
-    kind: OrderKindPayload,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct TerritoryPayload {
-    power: Power,
-    code: String,
-}
-
+/// SQLite 用の卓リポジトリ構造体の実装
 impl SqliteGameRepository {
     #[allow(dead_code)]
     pub(crate) fn new(database_path: &str) -> Result<Self, RepositoryError> {
@@ -705,6 +662,7 @@ impl SqliteGameRepository {
     }
 }
 
+/// SQLite 用の卓リポジトリ構造体の実装（GameRepository トレイト）
 impl GameRepository for SqliteGameRepository {
     fn insert(&self, new_game: NewGame) -> Result<Game, RepositoryError> {
         let now = Utc::now().to_rfc3339();
@@ -1023,6 +981,65 @@ impl GameRepository for SqliteGameRepository {
 
         Ok(())
     }
+}
+
+///
+/// ユニット情報のペイロード構造体
+///
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct UnitPayload {
+    power: Power,
+    unit_kind: String,
+    location: String,
+    dislodged: bool,
+    dislodged_from: Option<String>,
+}
+
+///
+/// 命令情報のペイロード構造体
+///
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct OrderPayload {
+    power: Power,
+    unit: UnitPayload,
+    dislodged_from: Option<String>,
+    status: OrderStatus,
+    kind: OrderKindPayload,
+}
+
+///
+/// 命令種別情報のペイロード構造体
+///
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum OrderKindPayload {
+    Hold,
+    Move {
+        dest: String,
+        via_convoy: bool,
+    },
+    Support {
+        target_unit: UnitPayload,
+        target_dest: Option<String>,
+    },
+    Convoy {
+        target_unit: UnitPayload,
+        target_dest: String,
+    },
+    Retreat {
+        dest: String,
+    },
+    Build,
+    Disband,
+}
+
+///
+/// 領土情報のペイロード構造体
+///
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct TerritoryPayload {
+    power: Power,
+    code: String,
 }
 
 // ============================================================================

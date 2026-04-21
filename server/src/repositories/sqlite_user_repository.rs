@@ -20,10 +20,14 @@ use super::UserRepository;
 // definitions
 // ============================================================================
 
+///
+/// SQLite 用のユーザリポジトリ構造体
+///
 pub(crate) struct SqliteUserRepository {
     connection: Mutex<Connection>,
 }
 
+/// SQLite 用のユーザリポジトリ構造体の実装
 impl SqliteUserRepository {
     pub(crate) fn new(database_path: &str) -> Result<Self, RepositoryError> {
         let connection =
@@ -108,6 +112,7 @@ impl SqliteUserRepository {
     }
 }
 
+/// SQLite 用のユーザリポジトリ構造体の実装（UserRepository トレイト）
 impl UserRepository for SqliteUserRepository {
     fn find_by_discord_user_id(&self, discord_user_id: &str) -> Result<Option<UserRecord>, RepositoryError> {
         let sql = r#"

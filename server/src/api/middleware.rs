@@ -12,9 +12,11 @@ use super::GameRepository;
 // definitions
 // ============================================================================
 
-/// 全リクエストの直前に実行するグローバルプリハンドラー。
-/// ハンドラ呼び出し前に [`GlobalPreHandler::run`] を実行することで、
-/// ゲームのフェイズ進行などの定期処理が自動的に適用される。
+///
+/// グローバルプリハンドラの構造体
+///
+/// リクエストハンドラ呼び出し前に [`GlobalPreHandler::run`] を実行することで、
+/// 卓の更新チェックや進行処理などの定期処理が自動的に実行される。
 #[allow(dead_code)]
 pub(crate) struct GlobalPreHandler<G>
 where
@@ -23,6 +25,7 @@ where
     progression_service: GameProgressionService<G>,
 }
 
+/// グローバルプリハンドラの構造体の実装
 #[allow(dead_code)]
 impl<G> GlobalPreHandler<G>
 where
@@ -43,12 +46,16 @@ where
     }
 }
 
+///
+/// グローバルプリハンドラのエラーの列挙体
+///
 #[derive(Debug)]
 #[allow(dead_code)]
 pub(crate) enum PreHandlerError {
     GameProgression(GameProgressionError),
 }
 
+/// グローバルプリハンドラのエラーの列挙体の実装（fmt::Display トレイト）
 impl fmt::Display for PreHandlerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

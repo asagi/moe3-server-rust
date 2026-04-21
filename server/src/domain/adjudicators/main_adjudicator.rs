@@ -19,8 +19,12 @@ use super::UnitKind;
 // definitions
 // ============================================================================
 
+///
+/// メインフェイズ裁定者の構造体
+///
 pub struct MainAdjudicator;
 
+/// メインフェイズ裁定者の構造体の実装
 impl MainAdjudicator {
     /// 移動命令検証
     pub(crate) fn validate_move_orders(orders: &mut [Order]) {
@@ -438,6 +442,10 @@ impl MainAdjudicator {
         }
     }
 }
+
+// ============================================================================
+// functions
+// ============================================================================
 
 /// 輸送経路が成立する最低限の可能性があるかを判定する。
 fn can_move_via_unresolved_matched_convoy(orders: &[Order], move_idx: usize) -> bool {
