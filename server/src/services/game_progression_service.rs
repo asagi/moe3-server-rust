@@ -61,11 +61,11 @@ where
             return Ok(());
         };
 
-        let Some(next_update) = game.next_update else {
+        let Some(previous_next_update) = game.next_update else {
             return Ok(());
         };
 
-        if game.status == GameStatus::Closed || next_update > now {
+        if game.status == GameStatus::Closed || previous_next_update > now {
             return Ok(());
         }
 
@@ -75,12 +75,12 @@ where
         latest_phase.close(&mut context);
 
         let is_finished = context.is_finished();
-        let next_update = if is_finished {
+        let new_next_update = if is_finished {
             None
         } else {
             let next_phase = context.phases().back().expect("in-progress game should have next phase");
             Some(Self::calculate_next_update(
-                next_update,
+                previous_next_update,
                 next_phase,
                 game.regulation.duration_type,
             ))
@@ -97,7 +97,7 @@ where
         } else {
             GameStatus::InProgress
         };
-        game.next_update = next_update;
+        game.next_update = new_next_update;
 
         self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
 
@@ -116,7 +116,7 @@ where
         };
 
         let raw_next_update = previous_next_update + chrono::Duration::minutes(i64::from(duration_minutes));
-        Self::ceil_to_10_minutes(raw_next_update)
+        Self::ceil_to_5_minutes(raw_next_update)
     }
 
     fn is_sub_phase(phase: &Phase) -> bool {
@@ -126,15 +126,22 @@ where
         )
     }
 
-    fn ceil_to_10_minutes(dt: chrono::NaiveDateTime) -> chrono::NaiveDateTime {
-        let normalized =
+    fn ceil_to_5_minutes(dt: chrono::NaiveDateTime) -> chrono::NaiveDateTime {
+        let truncated =
             dt - chrono::Duration::seconds(i64::from(dt.second())) - chrono::Duration::nanoseconds(i64::from(dt.nanosecond()));
 
-        let remainder = normalized.minute() % 10;
-        if remainder == 0 {
-            normalized
+        // 秒以下がある時刻は分境界を過ぎているため、1分進めてから5分単位へ切り上げる。
+        let minute_aligned = if dt.second() == 0 && dt.nanosecond() == 0 {
+            truncated
         } else {
-            normalized + chrono::Duration::minutes(i64::from(10 - remainder))
+            truncated + chrono::Duration::minutes(1)
+        };
+
+        let remainder = minute_aligned.minute() % 5;
+        if remainder == 0 {
+            minute_aligned
+        } else {
+            minute_aligned + chrono::Duration::minutes(i64::from(5 - remainder))
         }
     }
 }
@@ -280,7 +287,25 @@ mod tests {
         assert_eq!(updated.status, GameStatus::InProgress);
         assert_eq!(
             updated.next_update,
-            Some(past_date.and_hms_opt(15, 10, 0).expect("valid datetime"))
+            Some(past_date.and_hms_opt(15, 5, 0).expect("valid datetime"))
+        );
+    }
+
+    #[test]
+    fn ceil_to_5_minutes_rounds_up_when_seconds_exist() {
+        let dt = chrono::NaiveDate::from_ymd_opt(2026, 4, 22)
+            .expect("valid date")
+            .and_hms_opt(14, 30, 1)
+            .expect("valid datetime");
+
+        let rounded = GameProgressionService::<InMemoryGameRepository>::ceil_to_5_minutes(dt);
+
+        assert_eq!(
+            rounded,
+            chrono::NaiveDate::from_ymd_opt(2026, 4, 22)
+                .expect("valid date")
+                .and_hms_opt(14, 35, 0)
+                .expect("valid datetime")
         );
     }
 }
