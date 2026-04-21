@@ -57,7 +57,6 @@ where
     U: UserRepository,
     G: GameRepository,
 {
-    #[allow(dead_code)]
     pub(crate) fn new(user_repository: U, game_repository: G) -> Self {
         Self {
             user_repository,
