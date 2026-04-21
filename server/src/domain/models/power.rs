@@ -1,9 +1,7 @@
-#![cfg_attr(not(test), allow(dead_code))]
 // ============================================================================
 // imports
 // ============================================================================
 
-// external crates
 use strum::Display;
 use strum::EnumIter;
 use strum::EnumProperty;

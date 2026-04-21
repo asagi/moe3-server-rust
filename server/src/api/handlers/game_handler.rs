@@ -2,25 +2,19 @@
 // imports
 // ============================================================================
 
-// external crates
 use chrono::NaiveDate;
 
-// structs
 use super::ApiErrorResponse;
 use super::CreateGameCommand;
+use super::CreateGameError;
 use super::CreateGameRequest;
+use super::CreateGameRequestValidationError;
 use super::CreateGameResponse;
 use super::Game;
-use super::GameService;
-use super::Regulation;
-
-// enums
-use super::CreateGameError;
-use super::CreateGameRequestValidationError;
-use super::Power;
-
-// traits
 use super::GameRepository;
+use super::GameService;
+use super::Power;
+use super::Regulation;
 use super::UserRepository;
 
 // ============================================================================

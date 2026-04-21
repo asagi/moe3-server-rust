@@ -1,15 +1,11 @@
-#![allow(dead_code)] // TODO: 後で削除する
 // ============================================================================
 // imports
 // ============================================================================
 
-// standard library
 use std::collections::VecDeque;
 
-// external crates
 use strum::IntoEnumIterator;
 
-// structs
 use super::Phase;
 use super::Power;
 
@@ -49,6 +45,7 @@ impl PhaseContext {
         self.phases.push_back(phase);
     }
 
+    #[allow(dead_code)]
     pub(crate) fn pop_phase(&mut self) -> Option<Phase> {
         self.phases.pop_back()
     }

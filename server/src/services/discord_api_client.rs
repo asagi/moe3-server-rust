@@ -1,24 +1,16 @@
-#![cfg_attr(not(test), allow(dead_code))]
 // ============================================================================
 // imports
 // ============================================================================
 
-// standard library
 use std::time::Duration;
 
-// external crates
 use reqwest::StatusCode;
 use reqwest::blocking::Client;
 use serde::Deserialize;
 
-// structs
-use super::DiscordProfile;
-
-// enums
 use super::DiscordClientError;
-
-// traits
 use super::DiscordIdentityProvider;
+use super::DiscordProfile;
 
 // ============================================================================
 // definitions
@@ -34,6 +26,7 @@ pub(crate) struct DiscordApiClient {
 }
 
 impl DiscordApiClient {
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn new() -> Self {
         let http_client = Client::builder()
             .connect_timeout(Duration::from_secs(DISCORD_CONNECT_TIMEOUT_SECS))

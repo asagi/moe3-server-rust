@@ -1,26 +1,18 @@
-#![cfg_attr(not(test), allow(dead_code))]
 // ============================================================================
 // imports
 // ============================================================================
 
-// standard library
 use std::error::Error;
 use std::fmt;
 
-// external crates
 use serde::Serialize;
 use uuid::Uuid;
 
-// structs
 use super::DiscordProfile;
 use super::NewUser;
+use super::RepositoryError;
 use super::UserProfileUpdate;
 use super::UserRecord;
-
-// enums
-use super::RepositoryError;
-
-// traits
 use super::UserRepository;
 
 // ============================================================================
@@ -66,6 +58,7 @@ where
     U: UserRepository,
     D: DiscordIdentityProvider,
 {
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn new(user_repository: U, discord_identity_provider: D) -> Self {
         Self {
             user_repository,

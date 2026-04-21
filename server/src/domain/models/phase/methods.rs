@@ -2,35 +2,29 @@
 // imports
 // ============================================================================
 
-// external crates
 use strum::IntoEnumIterator;
 
-// structs
+use super::AdjustmentAdjudicator;
+use super::AdjustmentOrderHelper;
 use super::AdjustmentPhase;
 use super::DebriefPhase;
 use super::FallMainPhase;
 use super::FallRetreatPhase;
+use super::MainAdjudicator;
+use super::MainOrderHelper;
+use super::OrderKind;
 use super::Phase;
 use super::PhaseContext;
+use super::PhaseKind;
 use super::Power;
 use super::Province;
 use super::ReadyPhase;
+use super::RetreatAdjudicator;
+use super::RetreatOrderHelper;
 use super::SpringMainPhase;
 use super::SpringRetreatPhase;
 use super::Territory;
 use super::Unit;
-
-// enums
-use super::OrderKind;
-use super::PhaseKind;
-
-// traits
-use super::AdjustmentAdjudicator;
-use super::AdjustmentOrderHelper;
-use super::MainAdjudicator;
-use super::MainOrderHelper;
-use super::RetreatAdjudicator;
-use super::RetreatOrderHelper;
 use super::UnitHelper;
 
 // ============================================================================

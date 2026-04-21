@@ -1,14 +1,11 @@
-#![cfg_attr(not(test), allow(dead_code))]
 // ============================================================================
 // imports
 // ============================================================================
 
-// standard library
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fmt;
 
-// structs
 use super::Path;
 use super::Power;
 
@@ -150,6 +147,7 @@ impl Province {
         self.data().supply
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn home(self) -> Option<&'static str> {
         self.data().home
     }

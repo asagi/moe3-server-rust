@@ -1,16 +1,12 @@
-#![cfg_attr(not(test), allow(dead_code))]
 // ============================================================================
 // imports
 // ============================================================================
 
-// standard library
 use std::error::Error;
 use std::fmt;
 
-// external crates
 use uuid::Uuid;
 
-// type aliases
 use super::UserId;
 
 // ============================================================================

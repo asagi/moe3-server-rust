@@ -2,23 +2,15 @@
 // imports
 // ============================================================================
 
-// standard library
 use std::error::Error;
 use std::fmt;
 
-// external crates
 use chrono::Utc;
 
-// structs
-use super::Game;
-use super::PhaseContext;
-
-// enums
-use super::GameStatus;
-use super::RepositoryError;
-
-// traits
 use super::GameRepository;
+use super::GameStatus;
+use super::PhaseContext;
+use super::RepositoryError;
 
 // ============================================================================
 // definitions
@@ -130,6 +122,7 @@ mod tests {
     use super::*;
     use crate::domain::DurationType;
     use crate::domain::FaceType;
+    use crate::domain::Game;
     use crate::domain::Phase;
     use crate::domain::Player;
     use crate::domain::Power;

@@ -1,16 +1,12 @@
-#![cfg_attr(not(test), allow(dead_code))]
 // ============================================================================
 // imports
 // ============================================================================
 
-// standard library
 use std::fmt;
 
-// external crates
 use serde::Deserialize;
 use serde::Serialize;
 
-// structs
 use super::Power;
 use super::Province;
 use super::Unit;
@@ -344,6 +340,7 @@ impl Order {
     }
 
     /// 命令を仮定命令に変換
+    #[allow(dead_code)]
     pub fn assumed_by(&mut self, power: Power) -> Self {
         self.power = power;
         *self

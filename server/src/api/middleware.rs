@@ -2,14 +2,10 @@
 // imports
 // ============================================================================
 
-// standard library
 use std::fmt;
 
-// structs
 use super::GameProgressionError;
 use super::GameProgressionService;
-
-// traits
 use super::GameRepository;
 
 // ============================================================================

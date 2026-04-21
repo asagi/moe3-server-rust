@@ -1,29 +1,19 @@
-#![cfg_attr(not(test), allow(dead_code))]
 // ============================================================================
 // imports
 // ============================================================================
 
-// standard library
 use std::sync::Mutex;
 
-// external crates
 use chrono::Utc;
 use rusqlite::Connection;
 use rusqlite::OptionalExtension;
 use rusqlite::params;
 
-// type aliases
-use super::UserId;
-
-// structs
 use super::NewUser;
+use super::RepositoryError;
+use super::UserId;
 use super::UserProfileUpdate;
 use super::UserRecord;
-
-// enums
-use super::RepositoryError;
-
-// traits
 use super::UserRepository;
 
 // ============================================================================
@@ -46,6 +36,7 @@ impl SqliteUserRepository {
         Ok(repository)
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn new_in_memory() -> Result<Self, RepositoryError> {
         let connection = Connection::open_in_memory()
             .map_err(|error| RepositoryError::Unavailable(format!("open sqlite in memory: {}", error)))?;

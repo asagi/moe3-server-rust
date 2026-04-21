@@ -1,19 +1,14 @@
-#![cfg_attr(not(test), allow(dead_code))]
 // ============================================================================
 // imports
 // ============================================================================
 
-// external crates
 use strum::IntoEnumIterator;
 
-// structs
+use super::AdjustmentOrderHelper;
 use super::Path;
 use super::Phase;
 use super::Power;
 use super::Province;
-
-// traits
-use super::AdjustmentOrderHelper;
 use super::UnitHelper;
 
 // ============================================================================
