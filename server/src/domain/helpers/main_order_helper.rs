@@ -1,23 +1,17 @@
-#![cfg_attr(not(test), allow(dead_code))]
 // ============================================================================
 // imports
 // ============================================================================
 
-// standard library
 use std::collections::HashSet;
 
-// external crates
 use indexmap::IndexSet;
 
-// structs
 use super::ConvoyOrder;
 use super::MoveOrder;
 use super::Order;
+use super::OrderKind;
 use super::Power;
 use super::Province;
-
-// enums
-use super::OrderKind;
 
 // ============================================================================
 // definitions

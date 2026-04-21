@@ -1,9 +1,7 @@
-#![cfg_attr(not(test), allow(dead_code))]
 // ============================================================================
 // imports
 // ============================================================================
 
-// structs
 use super::Power;
 use super::Province;
 use super::Territory;

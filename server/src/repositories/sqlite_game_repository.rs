@@ -1,14 +1,11 @@
-#![cfg_attr(not(test), allow(dead_code))]
 // ============================================================================
 // imports
 // ============================================================================
 
-// standard library
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-// external crates
 use chrono::NaiveDate;
 use chrono::NaiveDateTime;
 use chrono::Utc;
@@ -19,30 +16,25 @@ use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
-// structs
 use super::DurationType;
 use super::FaceType;
 use super::Game;
+use super::GameRepository;
+use super::GameStatus;
 use super::NewGame;
 use super::Order;
+use super::OrderKind;
+use super::OrderStatus;
 use super::Phase;
 use super::PhaseKind;
 use super::Player;
+use super::Power;
 use super::ProgressMode;
 use super::Province;
 use super::Regulation;
+use super::RepositoryError;
 use super::Territory;
 use super::Unit;
-
-// enums
-use super::GameStatus;
-use super::OrderKind;
-use super::OrderStatus;
-use super::Power;
-use super::RepositoryError;
-
-// traits
-use super::GameRepository;
 
 // ============================================================================
 // definitions

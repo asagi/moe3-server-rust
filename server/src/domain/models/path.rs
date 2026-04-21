@@ -1,17 +1,12 @@
-#![cfg_attr(not(test), allow(dead_code))]
 // ============================================================================
 // imports
 // ============================================================================
 
-// standard library
 use std::collections::HashSet;
 use std::collections::VecDeque;
 
-// structs
 use super::Province;
 use super::Unit;
-
-// enums
 use super::UnitKind;
 
 // ============================================================================

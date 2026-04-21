@@ -3,23 +3,18 @@
 // imports
 // ============================================================================
 
-// structs
 use super::ApiErrorResponse;
+use super::AuthError;
 use super::AuthLoginRequest;
 use super::AuthLoginResponse;
 use super::AuthLoginUserResponse;
+use super::AuthRequestValidationError;
 use super::AuthService;
+use super::DiscordClientError;
+use super::DiscordIdentityProvider;
 use super::LoginCommand;
 use super::LoginUser;
-
-// traits
-use super::DiscordIdentityProvider;
 use super::UserRepository;
-
-// enums
-use super::AuthError;
-use super::AuthRequestValidationError;
-use super::DiscordClientError;
 
 // ============================================================================
 // definitions

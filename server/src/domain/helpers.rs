@@ -1,4 +1,3 @@
-#![cfg_attr(not(test), allow(unused_imports))]
 // ============================================================================
 // modules
 // ============================================================================
@@ -12,7 +11,6 @@ mod unit_helper;
 // exports
 // ============================================================================
 
-// traits
 pub(crate) use adjustment_order_helper::AdjustmentOrderHelper;
 pub(crate) use main_order_helper::MainOrderHelper;
 pub(crate) use retreat_order_helper::RetreatOrderHelper;
@@ -22,14 +20,11 @@ pub(crate) use unit_helper::UnitHelper;
 // re-exports
 // ============================================================================
 
-// structs
 pub(crate) use super::ConvoyOrder;
 pub(crate) use super::MoveOrder;
 pub(crate) use super::Order;
+pub(crate) use super::OrderKind;
+pub(crate) use super::Power;
 pub(crate) use super::Province;
 pub(crate) use super::Territory;
 pub(crate) use super::Unit;
-
-// enums
-pub(crate) use super::OrderKind;
-pub(crate) use super::Power;

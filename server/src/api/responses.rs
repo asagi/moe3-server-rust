@@ -10,7 +10,6 @@ mod game_response;
 // exports
 // ============================================================================
 
-// structs
 pub(crate) use auth_response::ApiErrorResponse;
 pub(crate) use auth_response::AuthLoginResponse;
 pub(crate) use auth_response::AuthLoginUserResponse;

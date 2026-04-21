@@ -1,15 +1,10 @@
-#![cfg_attr(not(test), allow(dead_code))]
 // ============================================================================
 // imports
 // ============================================================================
 
-// structs
 use super::Order;
-use super::Unit;
-
-// traits
 use super::RetreatOrderHelper;
-
+use super::Unit;
 pub struct RetreatAdjudicator;
 
 // ============================================================================

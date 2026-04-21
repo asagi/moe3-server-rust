@@ -1,23 +1,19 @@
-#![cfg_attr(not(test), allow(dead_code))]
 // ============================================================================
 // imports
 // ============================================================================
 
-// structs
 use super::BuildOrder;
 use super::ConvoyOrder;
 use super::DisbandOrder;
 use super::HoldOrder;
 use super::MoveOrder;
 use super::Order;
+use super::OrderKind;
+use super::OrderStatus;
 use super::Power;
 use super::Province;
 use super::RetreatOrder;
 use super::SupportOrder;
-
-// enums
-use super::OrderKind;
-use super::OrderStatus;
 
 // ============================================================================
 // definitions
@@ -109,6 +105,7 @@ impl Unit {
     }
 
     /// 移動命令を生成
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn move_to(&self, dest: Province) -> Order {
         Order {
             power: self.power,
@@ -120,16 +117,19 @@ impl Unit {
     }
 
     /// 維持サポート命令を生成
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn support_hold(&self, target_unit: Unit) -> Order {
         self.support(target_unit, None)
     }
 
     /// 移動サポート命令を生成
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn support_move(&self, target_unit: Unit, target_dest: Province) -> Order {
         self.support(target_unit, Some(target_dest))
     }
 
     /// サポート命令を生成
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn support(&self, target_unit: Unit, target_dest: Option<Province>) -> Order {
         Order {
             power: self.power,
@@ -144,6 +144,7 @@ impl Unit {
     }
 
     /// 輸送命令を生成
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn convoy(&self, target_unit: Unit, target_dest: Province) -> Order {
         if !self.is_fleet() {
             panic!("Only fleets can convoy");
@@ -162,6 +163,7 @@ impl Unit {
     }
 
     /// 撤退命令を生成
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn retreat_to(&self, dest: Province) -> Order {
         Order {
             power: self.power,
@@ -173,6 +175,7 @@ impl Unit {
     }
 
     /// 建造命令を生成
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn build(&self) -> Order {
         Order {
             power: self.power,

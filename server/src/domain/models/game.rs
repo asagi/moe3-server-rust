@@ -1,15 +1,12 @@
-#![allow(dead_code)] // TODO: 後で削除する
 // ============================================================================
 // imports
 // ============================================================================
 
-// external crates
 use chrono::NaiveDateTime;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
-// structs
 use super::Phase;
 use super::Player;
 use super::Regulation;

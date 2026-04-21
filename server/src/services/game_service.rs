@@ -2,27 +2,20 @@
 // imports
 // ============================================================================
 
-// standard library
 use std::error::Error;
 use std::fmt;
 
-// external crates
 use uuid::Uuid;
 
-// structs
 use super::Game;
+use super::GameRepository;
+use super::GameStatus;
 use super::NewGame;
 use super::Phase;
 use super::Player;
-use super::Regulation;
-
-// enums
-use super::GameStatus;
 use super::Power;
+use super::Regulation;
 use super::RepositoryError;
-
-// traits
-use super::GameRepository;
 use super::UserRepository;
 
 // ============================================================================
