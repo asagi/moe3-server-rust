@@ -25,7 +25,7 @@ pub(crate) enum AuthHandlerError {
 
 /// ログインリクエストハンドラのエラーの列挙体の実装
 impl AuthHandlerError {
-    #![cfg_attr(not(test), allow(dead_code))]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn code(&self) -> &'static str {
         match self {
             Self::InvalidRequest(_) => "invalid_request",
@@ -36,6 +36,7 @@ impl AuthHandlerError {
         }
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
         ApiErrorResponse {
             code: self.code(),
