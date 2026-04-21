@@ -10,6 +10,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 
 use super::AppState;
+use super::AuthError;
 use super::AuthHandlerError;
 use super::AuthLoginRequest;
 use super::AuthLoginResponse;
@@ -19,6 +20,7 @@ use super::DiscordClientError;
 use super::DiscordIdentityProvider;
 use super::GameRepository;
 use super::LoginCommand;
+use super::RepositoryError;
 use super::UserRepository;
 
 // ============================================================================
@@ -43,11 +45,13 @@ where
         Ok(Err(error)) => {
             let status = match &error {
                 AuthHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
-                AuthHandlerError::Service(super::AuthError::DiscordClient(DiscordClientError::Unauthorized)) => {
-                    StatusCode::UNAUTHORIZED
-                }
-                AuthHandlerError::Service(super::AuthError::DiscordClient(DiscordClientError::Unavailable(_))) => {
+                AuthHandlerError::Service(AuthError::DiscordClient(DiscordClientError::Unauthorized)) => StatusCode::UNAUTHORIZED,
+                AuthHandlerError::Service(AuthError::DiscordClient(DiscordClientError::Unavailable(_))) => {
                     StatusCode::BAD_GATEWAY
+                }
+                AuthHandlerError::Service(AuthError::Repository(RepositoryError::Conflict)) => StatusCode::CONFLICT,
+                AuthHandlerError::Service(AuthError::Repository(RepositoryError::Unavailable(_))) => {
+                    StatusCode::SERVICE_UNAVAILABLE
                 }
                 _ => StatusCode::INTERNAL_SERVER_ERROR,
             };

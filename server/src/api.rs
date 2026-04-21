@@ -45,6 +45,7 @@ pub(crate) use super::LoginCommand;
 pub(crate) use super::LoginUser;
 pub(crate) use super::Power;
 pub(crate) use super::Regulation;
+pub(crate) use super::RepositoryError;
 pub(crate) use super::SqliteGameRepository;
 pub(crate) use super::SqliteUserRepository;
 pub(crate) use super::UserRepository;

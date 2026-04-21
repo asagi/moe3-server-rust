@@ -108,10 +108,9 @@ pub async fn serve(addr: SocketAddr, db_path: &str) -> Result<(), Box<dyn Error 
     acquire_instance_lock(db_path)?;
 
     let user_repository = SqliteUserRepository::new(db_path)?;
-    let auth_user_repository = SqliteUserRepository::new(db_path)?;
     let game_repository = SqliteGameRepository::new(db_path)?;
-    let game_service = GameService::new(user_repository, game_repository.clone());
-    let auth_service = AuthService::new(auth_user_repository, DiscordApiClient::new());
+    let game_service = GameService::new(user_repository.clone(), game_repository.clone());
+    let auth_service = AuthService::new(user_repository, DiscordApiClient::new());
     let pre_handler = GlobalPreHandler::new(game_repository);
     let state = AppState::new(game_service, auth_service, pre_handler);
     let router = create_router(state);

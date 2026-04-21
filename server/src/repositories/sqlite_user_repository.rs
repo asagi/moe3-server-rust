@@ -2,6 +2,7 @@
 // imports
 // ============================================================================
 
+use std::sync::Arc;
 use std::sync::Mutex;
 
 use chrono::Utc;
@@ -23,8 +24,9 @@ use super::UserRepository;
 ///
 /// SQLite 用のユーザリポジトリ構造体
 ///
+#[derive(Clone)]
 pub(crate) struct SqliteUserRepository {
-    connection: Mutex<Connection>,
+    connection: Arc<Mutex<Connection>>,
 }
 
 /// SQLite 用のユーザリポジトリ構造体の実装
@@ -34,7 +36,7 @@ impl SqliteUserRepository {
             Connection::open(database_path).map_err(|error| RepositoryError::Unavailable(format!("open sqlite: {}", error)))?;
 
         let repository = Self {
-            connection: Mutex::new(connection),
+            connection: Arc::new(Mutex::new(connection)),
         };
         repository.init_schema()?;
         Ok(repository)
@@ -46,7 +48,7 @@ impl SqliteUserRepository {
             .map_err(|error| RepositoryError::Unavailable(format!("open sqlite in memory: {}", error)))?;
 
         let repository = Self {
-            connection: Mutex::new(connection),
+            connection: Arc::new(Mutex::new(connection)),
         };
         repository.init_schema()?;
         Ok(repository)
