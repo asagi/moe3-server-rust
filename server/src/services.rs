@@ -4,6 +4,7 @@
 
 mod auth_service;
 mod discord_api_client;
+mod error;
 mod game_progression_service;
 mod game_service;
 
@@ -11,16 +12,16 @@ mod game_service;
 // exports
 // ============================================================================
 
-pub(crate) use auth_service::AuthError;
 pub(crate) use auth_service::AuthService;
-pub(crate) use auth_service::DiscordClientError;
 pub(crate) use auth_service::DiscordIdentityProvider;
 pub(crate) use auth_service::LoginCommand;
 pub(crate) use auth_service::LoginUser;
-pub(crate) use game_progression_service::GameProgressionError;
+pub(crate) use error::AuthError;
+pub(crate) use error::CreateGameError;
+pub(crate) use error::DiscordClientError;
+pub(crate) use error::GameProgressionError;
 pub(crate) use game_progression_service::GameProgressionService;
 pub(crate) use game_service::CreateGameCommand;
-pub(crate) use game_service::CreateGameError;
 pub(crate) use game_service::GameService;
 
 // ============================================================================

@@ -4,6 +4,8 @@
 
 use serde::Deserialize;
 
+use super::CreateGameRequestValidationError;
+
 // ============================================================================
 // definitions
 // ============================================================================
@@ -54,20 +56,4 @@ impl CreateGameRequest {
 
         Ok(())
     }
-}
-
-///
-/// 卓作成リクエストのバリデーションエラーの列挙体
-///
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum CreateGameRequestValidationError {
-    MissingAuthorization,
-    InvalidAuthorizationScheme,
-    MissingAccessToken,
-    InvalidFaceType,
-    InvalidProgressMode,
-    InvalidDurationType,
-    InvalidStartDate,
-    InvalidRequestedPower,
-    InvalidFirstPeriodHour,
 }

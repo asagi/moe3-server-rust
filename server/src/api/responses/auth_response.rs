@@ -46,12 +46,3 @@ impl From<LoginUser> for AuthLoginResponseUser {
         }
     }
 }
-
-///
-/// API エラーレスポンスの構造体
-///
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub(crate) struct ApiErrorResponse {
-    pub code: &'static str,
-    pub message: String,
-}

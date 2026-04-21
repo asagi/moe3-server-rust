@@ -2,11 +2,9 @@
 // imports
 // ============================================================================
 
-use std::error::Error;
-use std::fmt;
-
 use uuid::Uuid;
 
+use super::CreateGameError;
 use super::Game;
 use super::GameRepository;
 use super::GameStatus;
@@ -15,7 +13,6 @@ use super::Phase;
 use super::Player;
 use super::Power;
 use super::Regulation;
-use super::RepositoryError;
 use super::UserRepository;
 
 // ============================================================================
@@ -131,30 +128,6 @@ where
     }
 }
 
-/// 新卓作成エラーの列挙体
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum CreateGameError {
-    InvalidRequest(String),
-    Unauthorized,
-    Repository(RepositoryError),
-    Internal(String),
-}
-
-/// 新卓作成エラーの列挙体の実装（Error トレイト）
-impl Error for CreateGameError {}
-
-/// 新卓作成エラーの列挙体の実装（fmt::Display トレイト）
-impl fmt::Display for CreateGameError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidRequest(message) => write!(f, "invalid request: {}", message),
-            Self::Unauthorized => write!(f, "unauthorized"),
-            Self::Repository(error) => write!(f, "repository error: {}", error),
-            Self::Internal(message) => write!(f, "internal error: {}", message),
-        }
-    }
-}
-
 // ============================================================================
 // tests
 // ============================================================================
@@ -170,6 +143,7 @@ mod tests {
     use crate::domain::FaceType;
     use crate::domain::ProgressMode;
     use crate::repositories::NewUser;
+    use crate::repositories::RepositoryError;
     use crate::repositories::UserId;
     use crate::repositories::UserProfileUpdate;
     use crate::repositories::UserRecord;
