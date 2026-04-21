@@ -12,7 +12,7 @@ use super::RepositoryError;
 // ============================================================================
 
 ///
-/// Dicord クライアントエラーの列挙体
+/// Discord クライアントエラーの列挙体
 ///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum DiscordClientError {
