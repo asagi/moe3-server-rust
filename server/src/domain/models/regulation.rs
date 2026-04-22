@@ -174,9 +174,9 @@ impl DurationType {
         }
     }
 
-    #[allow(dead_code)]
+    #[cfg_attr(not(test), allow(dead_code))]
     /// 放置上限時間（分）
-    pub(crate) const fn idle_limit(self) -> u32 {
+    pub(crate) const fn idle_limit_minutes(self) -> u32 {
         match self {
             DurationType::Short => 60,
             DurationType::Normal => 60 * 24,
@@ -287,8 +287,8 @@ mod tests {
 
     #[test]
     fn duration_type_idle_limit_minutes() {
-        assert_eq!(DurationType::Short.idle_limit(), 60);
-        assert_eq!(DurationType::Normal.idle_limit(), 60 * 24);
+        assert_eq!(DurationType::Short.idle_limit_minutes(), 60);
+        assert_eq!(DurationType::Normal.idle_limit_minutes(), 60 * 24);
     }
 
     #[test]
