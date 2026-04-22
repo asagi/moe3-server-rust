@@ -174,6 +174,15 @@ impl DurationType {
         }
     }
 
+    #[allow(dead_code)]
+    /// 放置上限時間（分）
+    pub(crate) const fn idle_limit(self) -> u32 {
+        match self {
+            DurationType::Short => 60,
+            DurationType::Normal => 60 * 24,
+        }
+    }
+
     /// 撤退調整フェイズの時間（分）
     pub(crate) const fn sub_phase_minutes(self) -> u32 {
         match self {
@@ -274,6 +283,12 @@ mod tests {
         assert_eq!(DurationType::Short.sub_phase_minutes(), 10);
         assert_eq!(DurationType::Normal.main_phase_minutes(), 60 * 24);
         assert_eq!(DurationType::Normal.sub_phase_minutes(), 15);
+    }
+
+    #[test]
+    fn duration_type_idle_limit_minutes() {
+        assert_eq!(DurationType::Short.idle_limit(), 60);
+        assert_eq!(DurationType::Normal.idle_limit(), 60 * 24);
     }
 
     #[test]
