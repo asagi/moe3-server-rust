@@ -3,6 +3,8 @@
 // ============================================================================
 
 use chrono::NaiveDate;
+use chrono::NaiveDateTime;
+use chrono::Timelike;
 use std::fmt;
 
 // ============================================================================
@@ -41,6 +43,66 @@ impl Regulation {
             start_date,
             first_period_hour,
         })
+    }
+
+    ///
+    /// 次の更新日時を計算する
+    ///
+    pub(crate) fn calculate_next_update(self, previous_next_update: NaiveDateTime, next_phase: &super::Phase) -> NaiveDateTime {
+        if self.progress_mode == ProgressMode::Scheduled
+            && self.duration_type == DurationType::Normal
+            && Self::is_main_phase(next_phase)
+        {
+            return Self::next_day_at_first_period_hour(previous_next_update, self.first_period_hour);
+        }
+
+        let duration_minutes = if Self::is_sub_phase(next_phase) {
+            self.duration_type.sub_phase_minutes()
+        } else {
+            self.duration_type.main_phase_minutes()
+        };
+
+        let raw_next_update = previous_next_update + chrono::Duration::minutes(i64::from(duration_minutes));
+        Self::ceil_to_5_minutes(raw_next_update)
+    }
+
+    fn next_day_at_first_period_hour(previous_next_update: NaiveDateTime, first_period_hour: u8) -> NaiveDateTime {
+        let next_date = previous_next_update
+            .date()
+            .succ_opt()
+            .expect("next day should exist for NaiveDate");
+        next_date
+            .and_hms_opt(u32::from(first_period_hour), 0, 0)
+            .expect("first_period_hour is validated in Regulation::new")
+    }
+
+    fn is_sub_phase(phase: &super::Phase) -> bool {
+        matches!(
+            phase.kind,
+            super::PhaseKind::SpringRetreat(_) | super::PhaseKind::FallRetreat(_) | super::PhaseKind::Adjustment(_)
+        )
+    }
+
+    fn is_main_phase(phase: &super::Phase) -> bool {
+        matches!(phase.kind, super::PhaseKind::SpringMain(_) | super::PhaseKind::FallMain(_))
+    }
+
+    fn ceil_to_5_minutes(dt: NaiveDateTime) -> NaiveDateTime {
+        let truncated =
+            dt - chrono::Duration::seconds(i64::from(dt.second())) - chrono::Duration::nanoseconds(i64::from(dt.nanosecond()));
+
+        let minute_aligned = if dt.second() == 0 && dt.nanosecond() == 0 {
+            truncated
+        } else {
+            truncated + chrono::Duration::minutes(1)
+        };
+
+        let remainder = minute_aligned.minute() % 5;
+        if remainder == 0 {
+            minute_aligned
+        } else {
+            minute_aligned + chrono::Duration::minutes(i64::from(5 - remainder))
+        }
     }
 }
 
@@ -116,7 +178,7 @@ impl DurationType {
     pub(crate) const fn sub_phase_minutes(self) -> u32 {
         match self {
             DurationType::Short => 10,
-            DurationType::Normal => 60,
+            DurationType::Normal => 15,
         }
     }
 }
@@ -164,6 +226,7 @@ impl fmt::Display for RegulationError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::Phase;
 
     fn valid_date() -> NaiveDate {
         NaiveDate::from_ymd_opt(2026, 4, 19).expect("valid date")
@@ -210,7 +273,7 @@ mod tests {
         assert_eq!(DurationType::Short.main_phase_minutes(), 30);
         assert_eq!(DurationType::Short.sub_phase_minutes(), 10);
         assert_eq!(DurationType::Normal.main_phase_minutes(), 60 * 24);
-        assert_eq!(DurationType::Normal.sub_phase_minutes(), 60);
+        assert_eq!(DurationType::Normal.sub_phase_minutes(), 15);
     }
 
     #[test]
@@ -241,6 +304,58 @@ mod tests {
                 24,
             ),
             Err(RegulationError::FirstPeriodHourOutOfRange(24)),
+        );
+    }
+
+    #[test]
+    fn calculate_next_update_sets_next_day_first_period_hour_for_scheduled_normal_main_phase() {
+        let regulation = Regulation::new(
+            FaceType::Girls,
+            ProgressMode::Scheduled,
+            DurationType::Normal,
+            valid_date(),
+            21,
+        )
+        .expect("valid regulation");
+        let previous_next_update = NaiveDate::from_ymd_opt(2026, 4, 22)
+            .expect("valid date")
+            .and_hms_opt(14, 32, 0)
+            .expect("valid datetime");
+
+        let next_update = regulation.calculate_next_update(previous_next_update, &Phase::new_fall_main(1901, 1));
+
+        assert_eq!(
+            next_update,
+            NaiveDate::from_ymd_opt(2026, 4, 23)
+                .expect("valid date")
+                .and_hms_opt(21, 0, 0)
+                .expect("valid datetime")
+        );
+    }
+
+    #[test]
+    fn calculate_next_update_uses_sub_phase_duration_for_scheduled_normal_sub_phase() {
+        let regulation = Regulation::new(
+            FaceType::Girls,
+            ProgressMode::Scheduled,
+            DurationType::Normal,
+            valid_date(),
+            21,
+        )
+        .expect("valid regulation");
+        let previous_next_update = NaiveDate::from_ymd_opt(2026, 4, 22)
+            .expect("valid date")
+            .and_hms_opt(14, 32, 0)
+            .expect("valid datetime");
+
+        let next_update = regulation.calculate_next_update(previous_next_update, &Phase::new_fall_retreat(1901, 1));
+
+        assert_eq!(
+            next_update,
+            NaiveDate::from_ymd_opt(2026, 4, 22)
+                .expect("valid date")
+                .and_hms_opt(14, 50, 0)
+                .expect("valid datetime")
         );
     }
 }
