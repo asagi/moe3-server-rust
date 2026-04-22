@@ -7,6 +7,7 @@ use std::fmt;
 use super::GameProgressionError;
 use super::GameProgressionService;
 use super::GameRepository;
+use super::UserRepository;
 
 // ============================================================================
 // definitions
@@ -17,21 +18,23 @@ use super::GameRepository;
 ///
 /// リクエストハンドラ呼び出し前に [`GlobalPreHandler::run`] を実行することで、
 /// 卓の更新チェックや進行処理などの定期処理が自動的に実行される。
-pub(crate) struct GlobalPreHandler<G>
+pub(crate) struct GlobalPreHandler<U, G>
 where
+    U: UserRepository,
     G: GameRepository,
 {
-    progression_service: GameProgressionService<G>,
+    progression_service: GameProgressionService<U, G>,
 }
 
 /// グローバルプリハンドラの構造体の実装
-impl<G> GlobalPreHandler<G>
+impl<U, G> GlobalPreHandler<U, G>
 where
+    U: UserRepository,
     G: GameRepository,
 {
-    pub(crate) fn new(game_repository: G) -> Self {
+    pub(crate) fn new(user_repository: U, game_repository: G) -> Self {
         Self {
-            progression_service: GameProgressionService::new(game_repository),
+            progression_service: GameProgressionService::new(user_repository, game_repository),
         }
     }
 

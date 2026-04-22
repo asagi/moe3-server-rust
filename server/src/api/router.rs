@@ -57,7 +57,7 @@ where
     pub user_repository: Arc<U>,
     pub game_service: Arc<GameService<U, G>>,
     pub auth_service: Arc<AuthService<U, D>>,
-    pub pre_handler: Arc<GlobalPreHandler<G>>,
+    pub pre_handler: Arc<GlobalPreHandler<U, G>>,
     pub game_update_lock: Arc<TokioMutex<()>>,
 }
 
@@ -72,7 +72,7 @@ where
         user_repository: U,
         game_service: GameService<U, G>,
         auth_service: AuthService<U, D>,
-        pre_handler: GlobalPreHandler<G>,
+        pre_handler: GlobalPreHandler<U, G>,
     ) -> Self {
         Self {
             user_repository: Arc::new(user_repository),
@@ -117,7 +117,7 @@ pub async fn serve(addr: SocketAddr, db_path: &str) -> Result<(), Box<dyn Error 
     let game_repository = SqliteGameRepository::new(db_path)?;
     let game_service = GameService::new(user_repository.clone(), game_repository.clone());
     let auth_service = AuthService::new(user_repository.clone(), DiscordApiClient::new());
-    let pre_handler = GlobalPreHandler::new(game_repository);
+    let pre_handler = GlobalPreHandler::new(user_repository.clone(), game_repository);
     let state = AppState::new(user_repository.clone(), game_service, auth_service, pre_handler);
     let router = create_router(state);
 
@@ -275,6 +275,15 @@ mod tests {
     }
 
     impl UserRepository for InMemoryUserRepository {
+        fn find_by_uuid(&self, user_uuid: uuid::Uuid) -> Result<Option<UserRecord>, super::super::RepositoryError> {
+            Ok(self
+                .user
+                .lock()
+                .expect("lock should succeed")
+                .clone()
+                .filter(|row| row.uuid == user_uuid))
+        }
+
         fn find_by_discord_user_id(&self, _discord_user_id: &str) -> Result<Option<UserRecord>, super::super::RepositoryError> {
             Ok(self.user.lock().expect("lock should succeed").clone())
         }

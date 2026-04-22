@@ -122,6 +122,21 @@ impl SqliteUserRepository {
 
 /// SQLite 用のユーザリポジトリ構造体の実装（UserRepository トレイト）
 impl UserRepository for SqliteUserRepository {
+    fn find_by_uuid(&self, user_uuid: uuid::Uuid) -> Result<Option<UserRecord>, RepositoryError> {
+        let sql = r#"
+            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at
+            FROM users
+            WHERE uuid = ?1
+        "#;
+
+        self.connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?
+            .query_row(sql, params![user_uuid.to_string()], Self::row_to_user_record)
+            .optional()
+            .map_err(|error| RepositoryError::Unavailable(format!("find user by uuid: {}", error)))
+    }
+
     fn find_by_discord_user_id(&self, discord_user_id: &str) -> Result<Option<UserRecord>, RepositoryError> {
         let sql = r#"
             SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at

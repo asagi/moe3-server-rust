@@ -82,6 +82,8 @@ impl From<&DiscordProfile> for UserProfileUpdate {
 /// ユーザリポジトリのトレイト
 ///
 pub(crate) trait UserRepository {
+    fn find_by_uuid(&self, user_uuid: Uuid) -> Result<Option<UserRecord>, RepositoryError>;
+
     fn find_by_discord_user_id(&self, discord_user_id: &str) -> Result<Option<UserRecord>, RepositoryError>;
 
     fn find_by_access_token(&self, access_token: &str) -> Result<Option<UserRecord>, RepositoryError>;
