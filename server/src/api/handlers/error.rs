@@ -89,7 +89,6 @@ impl CreateGameHandlerError {
             }
             Self::InvalidRequest(CreateGameRequestValidationError::MissingAccessToken) => "access token is required".to_string(),
             Self::InvalidRequest(CreateGameRequestValidationError::InvalidFaceType) => "face_type is invalid".to_string(),
-            Self::InvalidRequest(CreateGameRequestValidationError::InvalidProgressMode) => "progress_mode is invalid".to_string(),
             Self::InvalidRequest(CreateGameRequestValidationError::InvalidDurationType) => "duration_type is invalid".to_string(),
             Self::InvalidRequest(CreateGameRequestValidationError::InvalidFirstPeriodHour) => {
                 "first_period_hour must be between 0 and 23".to_string()

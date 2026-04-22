@@ -39,6 +39,7 @@ pub(crate) use super::GameRepository;
 pub(crate) use super::GameService;
 pub(crate) use super::LoginCommand;
 pub(crate) use super::Power;
+pub(crate) use super::ProgressMode;
 pub(crate) use super::Regulation;
 pub(crate) use super::RepositoryError;
 pub(crate) use super::UserRepository;
