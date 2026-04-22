@@ -65,6 +65,7 @@ impl SqliteUserRepository {
                 avatar_hash TEXT,
                 avatar_url TEXT,
                 access_token TEXT NOT NULL UNIQUE,
+                last_access_at TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
@@ -83,6 +84,10 @@ impl SqliteUserRepository {
         let uuid_str: String = row.get("uuid")?;
         let uuid = uuid::Uuid::parse_str(&uuid_str)
             .map_err(|error| rusqlite::Error::FromSqlConversionFailure(1, rusqlite::types::Type::Text, Box::new(error)))?;
+        let last_access_at_str: String = row.get("last_access_at")?;
+        let last_access_at = chrono::DateTime::parse_from_rfc3339(&last_access_at_str)
+            .map_err(|error| rusqlite::Error::FromSqlConversionFailure(8, rusqlite::types::Type::Text, Box::new(error)))?
+            .with_timezone(&chrono::Utc);
 
         Ok(UserRecord {
             id: row.get("id")?,
@@ -93,12 +98,13 @@ impl SqliteUserRepository {
             avatar_hash: row.get("avatar_hash")?,
             avatar_url: row.get("avatar_url")?,
             access_token: row.get("access_token")?,
+            last_access_at,
         })
     }
 
     fn load_by_id(&self, user_id: UserId) -> Result<UserRecord, RepositoryError> {
         let sql = r#"
-            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token
+            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at
             FROM users
             WHERE id = ?1
         "#;
@@ -118,7 +124,7 @@ impl SqliteUserRepository {
 impl UserRepository for SqliteUserRepository {
     fn find_by_discord_user_id(&self, discord_user_id: &str) -> Result<Option<UserRecord>, RepositoryError> {
         let sql = r#"
-            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token
+            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at
             FROM users
             WHERE discord_user_id = ?1
         "#;
@@ -133,7 +139,7 @@ impl UserRepository for SqliteUserRepository {
 
     fn find_by_access_token(&self, access_token: &str) -> Result<Option<UserRecord>, RepositoryError> {
         let sql = r#"
-            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token
+            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at
             FROM users
             WHERE access_token = ?1
         "#;
@@ -144,6 +150,30 @@ impl UserRepository for SqliteUserRepository {
             .query_row(sql, params![access_token], Self::row_to_user_record)
             .optional()
             .map_err(|error| RepositoryError::Unavailable(format!("find user by access_token: {}", error)))
+    }
+
+    fn update_last_access_at_by_access_token(
+        &self,
+        access_token: &str,
+        last_access_at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<bool, RepositoryError> {
+        let sql = r#"
+            UPDATE users
+            SET last_access_at = ?1,
+                updated_at = ?2
+            WHERE access_token = ?3
+        "#;
+        let now = chrono::Utc::now().to_rfc3339();
+
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
+        let affected = connection
+            .execute(sql, params![last_access_at.to_rfc3339(), now, access_token])
+            .map_err(|error| RepositoryError::Unavailable(format!("update user last_access_at: {}", error)))?;
+
+        Ok(affected > 0)
     }
 
     fn insert(&self, new_user: NewUser) -> Result<UserRecord, RepositoryError> {
@@ -158,9 +188,10 @@ impl UserRepository for SqliteUserRepository {
                 avatar_hash,
                 avatar_url,
                 access_token,
+                last_access_at,
                 created_at,
                 updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
         "#;
 
         let connection = self
@@ -177,6 +208,7 @@ impl UserRepository for SqliteUserRepository {
                 &new_user.avatar_hash,
                 &new_user.avatar_url,
                 &new_user.access_token,
+                now,
                 now,
                 now,
             ],
@@ -291,13 +323,14 @@ mod tests {
         assert_eq!(fetched.username, "nemu");
         assert_eq!(fetched.global_name.as_deref(), Some("nemu_global"));
         assert_eq!(fetched.access_token, "token-1");
+        assert_eq!(created.last_access_at, fetched.last_access_at);
     }
 
     #[test]
     fn update_user_profile() {
         let repository = SqliteUserRepository::new_in_memory().expect("repository should initialize");
 
-        repository
+        let inserted = repository
             .insert(NewUser {
                 uuid: uuid::Uuid::now_v7(),
                 discord_user_id: "1001".to_string(),
@@ -329,5 +362,48 @@ mod tests {
         assert_eq!(updated.username, "new_user");
         assert_eq!(updated.global_name.as_deref(), Some("new"));
         assert_eq!(updated.avatar_url.as_deref(), Some("https://cdn.discordapp.com/new.png"));
+        assert_eq!(updated.last_access_at, inserted.last_access_at);
+    }
+
+    #[test]
+    fn update_last_access_at_by_access_token_updates_timestamp() {
+        let repository = SqliteUserRepository::new_in_memory().expect("repository should initialize");
+
+        let created = repository
+            .insert(NewUser {
+                uuid: uuid::Uuid::now_v7(),
+                discord_user_id: "1001".to_string(),
+                username: "nemu".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: "token-1".to_string(),
+            })
+            .expect("insert should succeed");
+
+        let touched_at = chrono::Utc::now() + chrono::TimeDelta::minutes(5);
+        let updated = repository
+            .update_last_access_at_by_access_token("token-1", touched_at)
+            .expect("update should succeed");
+
+        assert!(updated);
+
+        let fetched = repository
+            .find_by_access_token("token-1")
+            .expect("find should succeed")
+            .expect("user should exist");
+        assert_ne!(created.last_access_at, fetched.last_access_at);
+        assert_eq!(fetched.last_access_at, touched_at);
+    }
+
+    #[test]
+    fn update_last_access_at_by_access_token_returns_false_when_user_is_missing() {
+        let repository = SqliteUserRepository::new_in_memory().expect("repository should initialize");
+
+        let updated = repository
+            .update_last_access_at_by_access_token("missing-token", chrono::Utc::now())
+            .expect("update should succeed");
+
+        assert!(!updated);
     }
 }

@@ -2,6 +2,8 @@
 // imports
 // ============================================================================
 
+use chrono::DateTime;
+use chrono::Utc;
 use uuid::Uuid;
 
 use super::RepositoryError;
@@ -36,6 +38,7 @@ pub(crate) struct UserRecord {
     pub avatar_hash: Option<String>,
     pub avatar_url: Option<String>,
     pub access_token: String,
+    pub last_access_at: DateTime<Utc>,
 }
 
 ///
@@ -82,6 +85,12 @@ pub(crate) trait UserRepository {
     fn find_by_discord_user_id(&self, discord_user_id: &str) -> Result<Option<UserRecord>, RepositoryError>;
 
     fn find_by_access_token(&self, access_token: &str) -> Result<Option<UserRecord>, RepositoryError>;
+
+    fn update_last_access_at_by_access_token(
+        &self,
+        access_token: &str,
+        last_access_at: DateTime<Utc>,
+    ) -> Result<bool, RepositoryError>;
 
     fn insert(&self, new_user: NewUser) -> Result<UserRecord, RepositoryError>;
 
