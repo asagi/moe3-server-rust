@@ -398,7 +398,7 @@ mod tests {
                 past_date
                     .succ_opt()
                     .expect("next day should exist")
-                    .and_hms_opt(21, 0, 0)
+                    .and_hms_opt(12, 0, 0)
                     .expect("valid datetime")
             )
         );

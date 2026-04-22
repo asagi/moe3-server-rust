@@ -401,6 +401,18 @@ impl SqliteGameRepository {
             .unwrap_or_else(|_| text.split(',').map(|value| value.to_string()).collect::<Vec<_>>())
     }
 
+    fn serialize_next_update(next_update: NaiveDateTime) -> String {
+        chrono::DateTime::<Utc>::from_naive_utc_and_offset(next_update, Utc).to_rfc3339()
+    }
+
+    fn parse_next_update(text: &str) -> Result<NaiveDateTime, RepositoryError> {
+        chrono::DateTime::parse_from_rfc3339(text)
+            .map(|dt| dt.with_timezone(&Utc).naive_utc())
+            .or_else(|_| NaiveDateTime::parse_from_str(text, "%Y-%m-%d %H:%M:%S%.f"))
+            .or_else(|_| NaiveDateTime::parse_from_str(text, "%Y-%m-%d %H:%M:%S"))
+            .map_err(|error| RepositoryError::Unavailable(format!("parse next_update: {}", error)))
+    }
+
     fn load_games_by_query<P>(connection: &Connection, sql: &str, params: P) -> Result<Vec<Game>, RepositoryError>
     where
         P: rusqlite::Params,
@@ -583,15 +595,7 @@ impl SqliteGameRepository {
                 phases.push(phase);
             }
 
-            let next_update = row
-                .next_update
-                .as_deref()
-                .map(|s| {
-                    NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f")
-                        .or_else(|_| NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S"))
-                        .map_err(|error| RepositoryError::Unavailable(format!("parse next_update: {}", error)))
-                })
-                .transpose()?;
+            let next_update = row.next_update.as_deref().map(Self::parse_next_update).transpose()?;
 
             games.push(Game {
                 uuid,
@@ -708,7 +712,7 @@ impl GameRepository for SqliteGameRepository {
                     game.is_canceled as i32,
                     game.is_draw as i32,
                     game.is_solo as i32,
-                    game.next_update_at.map(|dt| dt.to_string()),
+                    game.next_update_at.map(Self::serialize_next_update),
                     now,
                     now,
                 ],
@@ -834,14 +838,14 @@ impl GameRepository for SqliteGameRepository {
                 FROM games
                 WHERE status != 'closed'
                   AND next_update IS NOT NULL
-                  AND next_update <= ?1
-                ORDER BY next_update ASC, uuid ASC
+                                    AND julianday(next_update) <= julianday(?1)
+                                ORDER BY julianday(next_update) ASC, uuid ASC
                 "#,
             )
             .map_err(|error| RepositoryError::Unavailable(format!("prepare find_progress_candidates: {}", error)))?;
 
         let uuid_rows = stmt
-            .query_map(params![now.to_string()], |row| row.get::<_, String>(0))
+            .query_map(params![Self::serialize_next_update(now)], |row| row.get::<_, String>(0))
             .map_err(|error| RepositoryError::Unavailable(format!("query find_progress_candidates: {}", error)))?
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| RepositoryError::Unavailable(format!("collect find_progress_candidates: {}", error)))?;
@@ -885,7 +889,7 @@ impl GameRepository for SqliteGameRepository {
                     game.is_canceled as i32,
                     game.is_draw as i32,
                     game.is_solo as i32,
-                    game.next_update_at.map(|dt| dt.to_string()),
+                    game.next_update_at.map(Self::serialize_next_update),
                     now,
                 ],
             )

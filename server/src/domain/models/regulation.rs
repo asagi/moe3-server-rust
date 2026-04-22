@@ -2,8 +2,10 @@
 // imports
 // ============================================================================
 
+use chrono::FixedOffset;
 use chrono::NaiveDate;
 use chrono::NaiveDateTime;
+use chrono::TimeZone;
 use chrono::Timelike;
 use std::fmt;
 
@@ -67,13 +69,24 @@ impl Regulation {
     }
 
     fn next_day_at_first_period_hour(previous_next_update: NaiveDateTime, first_period_hour: u8) -> NaiveDateTime {
-        let next_date = previous_next_update
-            .date()
+        let jst = FixedOffset::east_opt(9 * 60 * 60).expect("JST offset should be valid");
+        let previous_jst =
+            chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(previous_next_update, chrono::Utc).with_timezone(&jst);
+
+        let next_date = previous_jst
+            .date_naive()
             .succ_opt()
             .expect("next day should exist for NaiveDate");
-        next_date
-            .and_hms_opt(u32::from(first_period_hour), 0, 0)
-            .expect("first_period_hour is validated in Regulation::new")
+
+        jst.from_local_datetime(
+            &next_date
+                .and_hms_opt(u32::from(first_period_hour), 0, 0)
+                .expect("first_period_hour is validated in Regulation::new"),
+        )
+        .single()
+        .expect("JST local datetime should map uniquely")
+        .with_timezone(&chrono::Utc)
+        .naive_utc()
     }
 
     fn is_sub_phase(phase: &super::Phase) -> bool {
@@ -343,7 +356,7 @@ mod tests {
             next_update,
             NaiveDate::from_ymd_opt(2026, 4, 23)
                 .expect("valid date")
-                .and_hms_opt(21, 0, 0)
+                .and_hms_opt(12, 0, 0)
                 .expect("valid datetime")
         );
     }
