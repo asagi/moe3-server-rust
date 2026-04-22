@@ -21,6 +21,7 @@ use super::DiscordIdentityProvider;
 use super::GameRepository;
 use super::GameService;
 use super::Power;
+use super::ProgressMode;
 use super::Regulation;
 use super::UserRepository;
 
@@ -50,7 +51,6 @@ where
     let request = CreateGameRequest {
         authorization,
         face_type: body.face_type,
-        progress_mode: body.progress_mode,
         duration_type: body.duration_type,
         start_date: body.start_date,
         first_period_hour: body.first_period_hour,
@@ -111,13 +111,18 @@ where
 /// 卓作成リクエストパラメータのレギュレーションのパース関数
 fn parse_regulation(request: &CreateGameRequest) -> Result<Regulation, CreateGameHandlerError> {
     let face_type = parse_enum(request.face_type, CreateGameRequestValidationError::InvalidFaceType)?;
-    let progress_mode = parse_enum(request.progress_mode, CreateGameRequestValidationError::InvalidProgressMode)?;
     let duration_type = parse_enum(request.duration_type, CreateGameRequestValidationError::InvalidDurationType)?;
     let start_date = NaiveDate::parse_from_str(&request.start_date, "%Y-%m-%d")
         .map_err(|_| invalid_request(CreateGameRequestValidationError::InvalidStartDate))?;
 
-    Regulation::new(face_type, progress_mode, duration_type, start_date, request.first_period_hour)
-        .map_err(|_| invalid_request(CreateGameRequestValidationError::InvalidFirstPeriodHour))
+    Regulation::new(
+        face_type,
+        ProgressMode::Scheduled,
+        duration_type,
+        start_date,
+        request.first_period_hour,
+    )
+    .map_err(|_| invalid_request(CreateGameRequestValidationError::InvalidFirstPeriodHour))
 }
 
 /// 卓作成リクエストパラメータの担当希望国のパース関数
@@ -195,10 +200,25 @@ mod tests {
     }
 
     #[derive(Debug, Clone)]
-    struct InMemoryGameRepository;
+    struct InMemoryGameRepository {
+        inserted: Rc<RefCell<Vec<Game>>>,
+    }
+
+    impl InMemoryGameRepository {
+        fn new() -> Self {
+            Self {
+                inserted: Rc::new(RefCell::new(Vec::new())),
+            }
+        }
+
+        fn last_inserted(&self) -> Option<Game> {
+            self.inserted.borrow().last().cloned()
+        }
+    }
 
     impl GameRepository for InMemoryGameRepository {
         fn insert(&self, new_game: NewGame) -> Result<Game, RepositoryError> {
+            self.inserted.borrow_mut().push(new_game.game.clone());
             Ok(new_game.game)
         }
 
@@ -232,7 +252,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-1".to_string(),
         }]);
-        let game_repository = InMemoryGameRepository;
+        let game_repository = InMemoryGameRepository::new();
         let service = GameService::new(user_repository, game_repository);
 
         let response = handle_create_game(
@@ -240,7 +260,6 @@ mod tests {
             CreateGameRequest {
                 authorization: "Bearer token-1".to_string(),
                 face_type: 1,
-                progress_mode: 1,
                 duration_type: 1,
                 start_date: "2026-04-19".to_string(),
                 first_period_hour: 12,
@@ -254,9 +273,43 @@ mod tests {
     }
 
     #[test]
+    fn handle_create_game_uses_scheduled_progress_mode() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-1".to_string(),
+        }]);
+        let game_repository = InMemoryGameRepository::new();
+        let repo_clone = game_repository.clone();
+        let service = GameService::new(user_repository, game_repository);
+
+        handle_create_game(
+            &service,
+            CreateGameRequest {
+                authorization: "Bearer token-1".to_string(),
+                face_type: 1,
+                duration_type: 1,
+                start_date: "2026-04-19".to_string(),
+                first_period_hour: 12,
+                requested_power: None,
+            },
+        )
+        .expect("create should succeed");
+
+        let game = repo_clone.last_inserted().expect("a game should have been inserted");
+        assert_eq!(game.regulation.progress_mode, ProgressMode::Scheduled);
+    }
+
+    #[test]
     fn handle_create_game_rejects_invalid_authorization() {
         let user_repository = InMemoryUserRepository::new(Vec::new());
-        let game_repository = InMemoryGameRepository;
+        let game_repository = InMemoryGameRepository::new();
         let service = GameService::new(user_repository, game_repository);
 
         let error = handle_create_game(
@@ -264,7 +317,6 @@ mod tests {
             CreateGameRequest {
                 authorization: "token-1".to_string(),
                 face_type: 1,
-                progress_mode: 1,
                 duration_type: 1,
                 start_date: "2026-04-19".to_string(),
                 first_period_hour: 12,
