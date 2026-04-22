@@ -190,67 +190,44 @@ where
 
     drop(_game_update_guard);
 
-    let authorization = request
-        .headers()
-        .get("authorization")
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_string);
-    let user_repository = Arc::clone(&state.user_repository);
-    let touch_result = tokio::task::spawn_blocking(move || {
-        touch_last_access_at_from_authorization(user_repository.as_ref(), authorization.as_deref(), Utc::now())
-    })
-    .await;
+    if let Some(access_token) =
+        extract_bearer_access_token(request.headers().get("authorization").and_then(|value| value.to_str().ok()))
+    {
+        let user_repository = Arc::clone(&state.user_repository);
+        let touch_result = tokio::task::spawn_blocking(move || {
+            touch_last_access_at_by_access_token(user_repository.as_ref(), &access_token, Utc::now())
+        })
+        .await;
 
-    match touch_result {
-        Ok(Ok(())) => {}
-        Ok(Err(error)) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiErrorResponse {
-                    code: "pre_handler_failed",
-                    message: format!("failed to update last_access_at: {}", error),
-                }),
-            )
-                .into_response();
-        }
-        Err(error) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiErrorResponse {
-                    code: "pre_handler_failed",
-                    message: format!("failed to execute last_access_at task: {}", error),
-                }),
-            )
-                .into_response();
+        match touch_result {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => eprintln!("failed to update last_access_at: {}", error),
+            Err(error) => eprintln!("failed to execute last_access_at task: {}", error),
         }
     }
 
     next.run(request).await
 }
 
-fn touch_last_access_at_from_authorization<U>(
+fn touch_last_access_at_by_access_token<U>(
     user_repository: &U,
-    authorization: Option<&str>,
+    access_token: &str,
     last_access_at: DateTime<Utc>,
 ) -> Result<(), super::RepositoryError>
 where
     U: UserRepository,
 {
-    let Some(access_token) = extract_bearer_access_token(authorization) else {
-        return Ok(());
-    };
-
-    let _ = user_repository.update_last_access_at_by_access_token(&access_token, last_access_at)?;
+    let _ = user_repository.update_last_access_at_by_access_token(access_token, last_access_at)?;
     Ok(())
 }
 
 fn extract_bearer_access_token(authorization: Option<&str>) -> Option<String> {
-    let auth = authorization?.trim();
-    if !auth.starts_with("Bearer ") {
+    let (scheme, token) = authorization?.trim().split_once(' ')?;
+    if !scheme.eq_ignore_ascii_case("Bearer") {
         return None;
     }
 
-    let token = auth.trim_start_matches("Bearer ").trim();
+    let token = token.trim();
     if token.is_empty() {
         return None;
     }
@@ -335,7 +312,7 @@ mod tests {
     }
 
     #[test]
-    fn touch_last_access_at_from_authorization_updates_known_user() {
+    fn touch_last_access_at_by_access_token_updates_known_user() {
         let initial = Utc::now() - chrono::TimeDelta::minutes(10);
         let repository = InMemoryUserRepository::new(Some(UserRecord {
             id: 1,
@@ -350,7 +327,7 @@ mod tests {
         }));
         let touched_at = Utc::now();
 
-        touch_last_access_at_from_authorization(&repository, Some("Bearer token-1"), touched_at).expect("touch should succeed");
+        touch_last_access_at_by_access_token(&repository, "token-1", touched_at).expect("touch should succeed");
 
         let updated = repository
             .find_by_access_token("token-1")
@@ -360,7 +337,7 @@ mod tests {
     }
 
     #[test]
-    fn touch_last_access_at_from_authorization_ignores_unknown_token() {
+    fn touch_last_access_at_by_access_token_ignores_unknown_token() {
         let initial = Utc::now() - chrono::TimeDelta::minutes(10);
         let repository = InMemoryUserRepository::new(Some(UserRecord {
             id: 1,
@@ -374,8 +351,7 @@ mod tests {
             last_access_at: initial,
         }));
 
-        touch_last_access_at_from_authorization(&repository, Some("Bearer missing-token"), Utc::now())
-            .expect("touch should succeed");
+        touch_last_access_at_by_access_token(&repository, "missing-token", Utc::now()).expect("touch should succeed");
 
         let unchanged = repository
             .find_by_access_token("token-1")
@@ -389,6 +365,10 @@ mod tests {
         assert_eq!(extract_bearer_access_token(None), None);
         assert_eq!(extract_bearer_access_token(Some("Basic abc")), None);
         assert_eq!(extract_bearer_access_token(Some("Bearer   ")), None);
+        assert_eq!(
+            extract_bearer_access_token(Some("bearer token-1")),
+            Some("token-1".to_string())
+        );
         assert_eq!(
             extract_bearer_access_token(Some("Bearer token-1")),
             Some("token-1".to_string())

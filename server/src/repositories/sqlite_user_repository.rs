@@ -237,9 +237,8 @@ impl UserRepository for SqliteUserRepository {
                 global_name = ?2,
                 avatar_hash = ?3,
                 avatar_url = ?4,
-                last_access_at = ?5,
-                updated_at = ?6
-            WHERE id = ?7
+                updated_at = ?5
+            WHERE id = ?6
         "#;
 
         let connection = self
@@ -254,7 +253,6 @@ impl UserRepository for SqliteUserRepository {
                     &profile.global_name,
                     profile.avatar_hash,
                     profile.avatar_url,
-                    now,
                     now,
                     id
                 ],
@@ -332,7 +330,7 @@ mod tests {
     fn update_user_profile() {
         let repository = SqliteUserRepository::new_in_memory().expect("repository should initialize");
 
-        repository
+        let inserted = repository
             .insert(NewUser {
                 uuid: uuid::Uuid::now_v7(),
                 discord_user_id: "1001".to_string(),
@@ -364,6 +362,7 @@ mod tests {
         assert_eq!(updated.username, "new_user");
         assert_eq!(updated.global_name.as_deref(), Some("new"));
         assert_eq!(updated.avatar_url.as_deref(), Some("https://cdn.discordapp.com/new.png"));
+        assert_eq!(updated.last_access_at, inserted.last_access_at);
     }
 
     #[test]
