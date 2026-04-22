@@ -408,8 +408,6 @@ impl SqliteGameRepository {
     fn parse_next_update(text: &str) -> Result<NaiveDateTime, RepositoryError> {
         chrono::DateTime::parse_from_rfc3339(text)
             .map(|dt| dt.with_timezone(&Utc).naive_utc())
-            .or_else(|_| NaiveDateTime::parse_from_str(text, "%Y-%m-%d %H:%M:%S%.f"))
-            .or_else(|_| NaiveDateTime::parse_from_str(text, "%Y-%m-%d %H:%M:%S"))
             .map_err(|error| RepositoryError::Unavailable(format!("parse next_update: {}", error)))
     }
 

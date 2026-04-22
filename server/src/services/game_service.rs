@@ -96,6 +96,7 @@ where
 
         let jst = FixedOffset::east_opt(9 * 60 * 60)
             .ok_or(CreateGameError::Internal("failed to build JST timezone offset".to_string()))?;
+        // API request start_date/first_period_hour are JST business-time inputs.
         let next_update = jst
             .from_local_datetime(&next_update_jst)
             .single()
