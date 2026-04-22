@@ -29,7 +29,7 @@ pub(crate) struct Game {
     pub(crate) is_canceled: bool,
     pub(crate) is_draw: bool,
     pub(crate) is_solo: bool,
-    pub(crate) next_update: Option<NaiveDateTime>,
+    pub(crate) next_update_at: Option<NaiveDateTime>,
 }
 
 ///

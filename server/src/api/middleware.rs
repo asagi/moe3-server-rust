@@ -36,7 +36,7 @@ where
     }
 
     /// 全ハンドラの直前に呼び出す共通処理。
-    /// - Closed 以外の Game を取得し、next_update が過去なら最新フェイズを close する。
+    /// - Closed 以外の Game を取得し、next_update_at が過去なら最新フェイズを close する。
     pub(crate) fn run(&self) -> Result<(), PreHandlerError> {
         self.progression_service
             .progress_games()
