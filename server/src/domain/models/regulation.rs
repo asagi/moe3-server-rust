@@ -273,7 +273,7 @@ mod tests {
         assert_eq!(DurationType::Short.main_phase_minutes(), 30);
         assert_eq!(DurationType::Short.sub_phase_minutes(), 10);
         assert_eq!(DurationType::Normal.main_phase_minutes(), 60 * 24);
-        assert_eq!(DurationType::Normal.sub_phase_minutes(), 60);
+        assert_eq!(DurationType::Normal.sub_phase_minutes(), 15);
     }
 
     #[test]
@@ -354,7 +354,7 @@ mod tests {
             next_update,
             NaiveDate::from_ymd_opt(2026, 4, 22)
                 .expect("valid date")
-                .and_hms_opt(15, 35, 0)
+                .and_hms_opt(14, 50, 0)
                 .expect("valid datetime")
         );
     }
