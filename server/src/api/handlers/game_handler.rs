@@ -185,6 +185,15 @@ mod tests {
     }
 
     impl UserRepository for InMemoryUserRepository {
+        fn find_by_uuid(&self, user_uuid: uuid::Uuid) -> Result<Option<UserRecord>, RepositoryError> {
+            Ok(self
+                .rows_by_token
+                .borrow()
+                .values()
+                .find(|row| row.uuid == user_uuid)
+                .cloned())
+        }
+
         fn find_by_discord_user_id(&self, _discord_user_id: &str) -> Result<Option<UserRecord>, RepositoryError> {
             Ok(None)
         }

@@ -2,6 +2,8 @@
 // imports
 // ============================================================================
 
+use chrono::FixedOffset;
+use chrono::TimeZone;
 use uuid::Uuid;
 
 use super::CreateGameError;
@@ -84,13 +86,25 @@ where
             requested_power: command.requested_power,
         };
 
-        let next_update = command
+        let next_update_jst = command
             .regulation
             .start_date
             .and_hms_opt(command.regulation.first_period_hour as u32, 0, 0)
             .ok_or(CreateGameError::InvalidRequest(
                 "first_period_hour is out of range".to_string(),
             ))?;
+
+        let jst = FixedOffset::east_opt(9 * 60 * 60)
+            .ok_or(CreateGameError::Internal("failed to build JST timezone offset".to_string()))?;
+        // API request start_date/first_period_hour are JST business-time inputs.
+        let next_update = jst
+            .from_local_datetime(&next_update_jst)
+            .single()
+            .ok_or(CreateGameError::Internal(
+                "failed to convert next_update from JST local time".to_string(),
+            ))?
+            .with_timezone(&chrono::Utc)
+            .naive_utc();
 
         let game = Game {
             uuid: Uuid::now_v7(),
@@ -168,6 +182,10 @@ mod tests {
     }
 
     impl UserRepository for InMemoryUserRepository {
+        fn find_by_uuid(&self, user_uuid: Uuid) -> Result<Option<UserRecord>, RepositoryError> {
+            Ok(self.rows.borrow().values().find(|row| row.uuid == user_uuid).cloned())
+        }
+
         fn find_by_discord_user_id(&self, _discord_user_id: &str) -> Result<Option<UserRecord>, RepositoryError> {
             Ok(None)
         }
@@ -280,5 +298,41 @@ mod tests {
         assert!(owner.is_owner);
         assert_eq!(owner.requested_power, Some(Power::France));
         assert_eq!(result.game.phases.len(), 1);
+    }
+
+    #[test]
+    fn create_game_converts_initial_next_update_from_jst_to_utc() {
+        let user_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: user_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "asagi".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-1".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+
+        let result = service
+            .create_game(CreateGameCommand {
+                access_token: "token-1".to_string(),
+                regulation: sample_regulation(),
+                requested_power: None,
+            })
+            .expect("create game should succeed");
+
+        assert_eq!(
+            result.game.next_update_at,
+            Some(
+                chrono::NaiveDate::from_ymd_opt(2026, 4, 19)
+                    .expect("valid date")
+                    .and_hms_opt(3, 0, 0)
+                    .expect("valid datetime")
+            )
+        );
     }
 }
