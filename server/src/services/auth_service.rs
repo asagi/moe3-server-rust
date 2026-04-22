@@ -144,6 +144,9 @@ mod tests {
     use std::collections::HashMap;
     use std::rc::Rc;
 
+    use chrono::DateTime;
+    use chrono::Utc;
+
     use super::*;
     use crate::repositories::RepositoryError;
 
@@ -196,6 +199,20 @@ mod tests {
                 .cloned())
         }
 
+        fn update_last_access_at_by_access_token(
+            &self,
+            access_token: &str,
+            last_access_at: DateTime<Utc>,
+        ) -> Result<bool, RepositoryError> {
+            let mut state = self.state.borrow_mut();
+            let Some(row) = state.rows.values_mut().find(|row| row.access_token == access_token) else {
+                return Ok(false);
+            };
+
+            row.last_access_at = last_access_at;
+            Ok(true)
+        }
+
         fn insert(&self, new_user: NewUser) -> Result<UserRecord, RepositoryError> {
             let mut state = self.state.borrow_mut();
 
@@ -212,6 +229,7 @@ mod tests {
                 avatar_hash: new_user.avatar_hash,
                 avatar_url: new_user.avatar_url,
                 access_token: new_user.access_token,
+                last_access_at: Utc::now(),
             };
             state.next_id += 1;
             state.rows.insert(row.discord_user_id.clone(), row.clone());
@@ -282,6 +300,7 @@ mod tests {
             avatar_hash: Some("old_hash".to_string()),
             avatar_url: Some("https://cdn.discordapp.com/old.png".to_string()),
             access_token: "persisted-token".to_string(),
+            last_access_at: Utc::now(),
         }]);
 
         let discord = FakeDiscordIdentityProvider {

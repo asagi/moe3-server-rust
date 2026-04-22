@@ -137,6 +137,9 @@ mod tests {
     use std::collections::HashMap;
     use std::rc::Rc;
 
+    use chrono::DateTime;
+    use chrono::Utc;
+
     use super::*;
     use crate::domain::DurationType;
     use crate::domain::FaceType;
@@ -171,6 +174,20 @@ mod tests {
 
         fn find_by_access_token(&self, access_token: &str) -> Result<Option<UserRecord>, RepositoryError> {
             Ok(self.rows.borrow().get(access_token).cloned())
+        }
+
+        fn update_last_access_at_by_access_token(
+            &self,
+            access_token: &str,
+            last_access_at: DateTime<Utc>,
+        ) -> Result<bool, RepositoryError> {
+            let mut rows = self.rows.borrow_mut();
+            let Some(row) = rows.get_mut(access_token) else {
+                return Ok(false);
+            };
+
+            row.last_access_at = last_access_at;
+            Ok(true)
         }
 
         fn insert(&self, _new_user: NewUser) -> Result<UserRecord, RepositoryError> {
@@ -241,6 +258,7 @@ mod tests {
             avatar_hash: None,
             avatar_url: None,
             access_token: "token-1".to_string(),
+            last_access_at: Utc::now(),
         }]);
         let game_repository = InMemoryGameRepository::new();
 
