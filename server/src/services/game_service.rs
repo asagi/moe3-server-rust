@@ -102,7 +102,7 @@ where
             is_canceled: false,
             is_draw: false,
             is_solo: false,
-            next_update: Some(next_update),
+            next_update_at: Some(next_update),
         };
 
         let created = self

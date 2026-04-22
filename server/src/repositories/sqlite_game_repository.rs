@@ -603,7 +603,7 @@ impl SqliteGameRepository {
                 is_canceled: row.is_canceled != 0,
                 is_draw: row.is_draw != 0,
                 is_solo: row.is_solo != 0,
-                next_update,
+                next_update_at: next_update,
             });
         }
 
@@ -708,7 +708,7 @@ impl GameRepository for SqliteGameRepository {
                     game.is_canceled as i32,
                     game.is_draw as i32,
                     game.is_solo as i32,
-                    game.next_update.map(|dt| dt.to_string()),
+                    game.next_update_at.map(|dt| dt.to_string()),
                     now,
                     now,
                 ],
@@ -885,7 +885,7 @@ impl GameRepository for SqliteGameRepository {
                     game.is_canceled as i32,
                     game.is_draw as i32,
                     game.is_solo as i32,
-                    game.next_update.map(|dt| dt.to_string()),
+                    game.next_update_at.map(|dt| dt.to_string()),
                     now,
                 ],
             )
@@ -1084,7 +1084,7 @@ mod tests {
             is_canceled: false,
             is_draw: false,
             is_solo: false,
-            next_update: None,
+            next_update_at: None,
         };
 
         let created = repository
@@ -1140,7 +1140,7 @@ mod tests {
             is_canceled: false,
             is_draw: false,
             is_solo: false,
-            next_update: None,
+            next_update_at: None,
         };
 
         repository.insert(NewGame { game }).expect("insert should succeed");
@@ -1261,7 +1261,7 @@ mod tests {
             is_canceled: true,
             is_draw: true,
             is_solo: false,
-            next_update: Some(next_update),
+            next_update_at: Some(next_update),
         };
 
         repository.insert(NewGame { game }).expect("insert should succeed");
@@ -1273,7 +1273,7 @@ mod tests {
         assert!(restored.is_canceled);
         assert!(restored.is_draw);
         assert!(!restored.is_solo);
-        assert_eq!(restored.next_update, Some(next_update));
+        assert_eq!(restored.next_update_at, Some(next_update));
     }
 
     #[test]
@@ -1308,7 +1308,7 @@ mod tests {
             is_canceled: false,
             is_draw: false,
             is_solo: false,
-            next_update: None,
+            next_update_at: None,
         };
 
         let mut created = repository.insert(NewGame { game }).expect("insert should succeed");
@@ -1399,7 +1399,7 @@ mod transaction_tests {
             is_canceled: false,
             is_draw: false,
             is_solo: false,
-            next_update: None,
+            next_update_at: None,
         };
 
         let error = repository

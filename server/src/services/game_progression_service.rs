@@ -33,7 +33,7 @@ where
     }
 
     /// Closed 以外の全 Game に対してフェイズ進行を試みる。
-    /// next_update が現在時刻より過去の場合のみ進行処理を実行する。
+    /// next_update_at が現在時刻より過去の場合のみ進行処理を実行する。
     pub(crate) fn progress_games(&self) -> Result<(), GameProgressionError> {
         let now = Utc::now().naive_utc();
 
@@ -58,7 +58,7 @@ where
             return Ok(());
         };
 
-        let Some(previous_next_update) = game.next_update else {
+        let Some(previous_next_update) = game.next_update_at else {
             return Ok(());
         };
 
@@ -90,7 +90,7 @@ where
         } else {
             GameStatus::InProgress
         };
-        game.next_update = new_next_update;
+        game.next_update_at = new_next_update;
 
         self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
 
@@ -161,7 +161,7 @@ mod tests {
                 .borrow()
                 .iter()
                 .filter(|game| game.status != GameStatus::Closed)
-                .filter(|game| game.next_update.is_some_and(|next_update| next_update <= now))
+                .filter(|game| game.next_update_at.is_some_and(|next_update| next_update <= now))
                 .map(|game| game.uuid)
                 .collect())
         }
@@ -204,7 +204,7 @@ mod tests {
             is_canceled: false,
             is_draw: false,
             is_solo: false,
-            next_update,
+            next_update_at: next_update,
         }
     }
 
@@ -242,7 +242,7 @@ mod tests {
         let updated = repository.updated_first().expect("updated game should exist");
         assert_eq!(updated.status, GameStatus::InProgress);
         assert_eq!(
-            updated.next_update,
+            updated.next_update_at,
             Some(past_date.and_hms_opt(15, 5, 0).expect("valid datetime"))
         );
     }
@@ -266,7 +266,7 @@ mod tests {
 
         let updated = repository.updated_first().expect("updated game should exist");
         assert_eq!(
-            updated.next_update,
+            updated.next_update_at,
             Some(
                 past_date
                     .succ_opt()
