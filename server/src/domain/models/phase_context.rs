@@ -65,6 +65,7 @@ impl PhaseContext {
         self.is_solo
     }
 
+    #[allow(dead_code)] // FIXME: 一時的な処置
     pub(crate) fn set_draw(&mut self) {
         self.is_draw = true;
     }
