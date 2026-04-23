@@ -235,7 +235,7 @@ trait PhaseCloseLogic {
     fn close(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
         // context.active_powers から全滅した国を除外する
         for p in Power::iter() {
-            if current_phase.count_supply_centers(&p) == 0 {
+            if current_phase.count_supply_centers(&p) == 0 && current_phase.count_units(&p) == 0 {
                 context.remove_power(&p);
             }
         }
