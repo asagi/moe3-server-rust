@@ -7,11 +7,11 @@
 //! [DATC_6I]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.I
 
 use crate::domain::models::order::*;
-use crate::domain::models::phase::methods::*;
+use crate::domain::models::phases::method::*;
 use crate::domain::models::power::*;
 use crate::domain::models::territory::*;
-use crate::domain::tests::a;
-use crate::domain::tests::f;
+use crate::domain::test::a;
+use crate::domain::test::f;
 
 /// 6.I.1. TEST CASE, TOO MANY BUILD ORDERS
 /// Check how program reacts when someone orders too many builds.

@@ -7,10 +7,10 @@
 //! [DATC_6C]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.C
 
 use crate::domain::models::order::*;
-use crate::domain::models::phase::methods::*;
-use crate::domain::tests::a;
-use crate::domain::tests::f;
-use crate::domain::tests::p;
+use crate::domain::models::phases::method::*;
+use crate::domain::test::a;
+use crate::domain::test::f;
+use crate::domain::test::p;
 
 /// 6.C.1. TEST CASE, THREE ARMY CIRCULAR MOVEMENT
 /// Three units can change place, even in spring 1901.

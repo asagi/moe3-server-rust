@@ -7,11 +7,11 @@
 //! [DATC_6J]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.J
 
 use crate::domain::models::order::*;
-use crate::domain::models::phase::methods::*;
+use crate::domain::models::phases::method::*;
 use crate::domain::models::power::*;
 use crate::domain::models::territory::*;
-use crate::domain::tests::a;
-use crate::domain::tests::f;
+use crate::domain::test::a;
+use crate::domain::test::f;
 
 /// 6.J.1. TEST CASE, TOO MANY DISBAND ORDERS
 /// Check how program reacts when someone orders too many disbands.

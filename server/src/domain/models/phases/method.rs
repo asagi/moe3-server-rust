@@ -640,10 +640,10 @@ fn resolve_orders_for_adjustment_phase(current_phase: &mut Phase) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::tests::a;
-    use crate::domain::tests::f;
-    use crate::domain::tests::p;
-    use crate::domain::tests::t;
+    use crate::domain::test::a;
+    use crate::domain::test::f;
+    use crate::domain::test::p;
+    use crate::domain::test::t;
 
     /// Ready → SpringMain: ユニットと領土が引き継がれ、全ユニットにホールド命令が生成される
     #[test]

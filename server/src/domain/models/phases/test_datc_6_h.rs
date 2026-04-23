@@ -7,11 +7,11 @@
 //! [DATC_6H]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.H
 
 use crate::domain::models::order::*;
-use crate::domain::models::phase::methods::*;
-use crate::domain::tests::a;
-use crate::domain::tests::f;
-use crate::domain::tests::p;
-use crate::domain::tests::t;
+use crate::domain::models::phases::method::*;
+use crate::domain::test::a;
+use crate::domain::test::f;
+use crate::domain::test::p;
+use crate::domain::test::t;
 
 /// 6.H.1. TEST CASE, NO SUPPORTS DURING RETREAT
 /// Supports are not allowed in the retreat phase.

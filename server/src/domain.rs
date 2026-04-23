@@ -7,7 +7,7 @@ mod helpers;
 mod models;
 
 #[cfg(test)]
-mod tests;
+mod test;
 
 // ============================================================================
 // exports
