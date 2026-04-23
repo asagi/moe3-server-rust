@@ -75,6 +75,9 @@ where
         let latest_phase = game.phases.pop().expect("game should have at least one phase");
 
         let mut context = PhaseContext::new();
+        if Self::is_owner_accepting_draw(&game) {
+            context.set_draw();
+        }
         self.remove_idle_powers(&game, &mut context, now)?;
         latest_phase.close(&mut context);
 
@@ -102,6 +105,13 @@ where
         self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
 
         Ok(())
+    }
+
+    fn is_owner_accepting_draw(game: &super::Game) -> bool {
+        game.players
+            .iter()
+            .find(|player| player.is_owner)
+            .is_some_and(|player| player.is_accepting_draw)
     }
 
     fn remove_idle_powers(
@@ -474,6 +484,33 @@ mod tests {
         assert!(matches!(
             updated.phases.last().expect("phase should exist").kind,
             crate::domain::PhaseKind::FallMain(_)
+        ));
+    }
+
+    #[test]
+    fn progress_games_finishes_with_draw_when_owner_accepts_draw() {
+        let past = chrono::Utc::now().naive_utc() - chrono::Duration::minutes(1);
+
+        let mut game = sample_game(Some(past));
+        game.phases = vec![Phase::new_spring_main(1900, 0)];
+        game.status = GameStatus::InProgress;
+        game.players[0].is_accepting_draw = true;
+
+        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, chrono::Utc::now())]);
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        service.progress_games().expect("progress should succeed");
+
+        assert_eq!(repository.updated_len(), 1);
+        let updated = repository.updated_first().expect("updated game should exist");
+        assert!(updated.is_draw);
+        assert!(!updated.is_solo);
+        assert_eq!(updated.status, GameStatus::Finished);
+        assert!(updated.next_update_at.is_none());
+        assert!(matches!(
+            updated.phases.last().expect("phase should exist").kind,
+            crate::domain::PhaseKind::Debrief(_)
         ));
     }
 }
