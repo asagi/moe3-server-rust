@@ -217,8 +217,8 @@ impl Unit {
 
 #[cfg(test)]
 mod tests {
-    use crate::domain::tests::a;
-    use crate::domain::tests::f;
+    use crate::domain::test::a;
+    use crate::domain::test::f;
 
     #[test]
     fn test_unit_creation() {

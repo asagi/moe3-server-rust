@@ -7,11 +7,11 @@
 //! [DATC_6A]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.A
 
 use crate::domain::models::order::*;
-use crate::domain::models::phase::methods::*;
+use crate::domain::models::phases::method::*;
 use crate::domain::models::power::*;
-use crate::domain::tests::a;
-use crate::domain::tests::f;
-use crate::domain::tests::p;
+use crate::domain::test::a;
+use crate::domain::test::f;
+use crate::domain::test::p;
 
 /// 6.A.1. TEST CASE, MOVING TO AN AREA THAT IS NOT A NEIGHBOUR
 ///  Check if an illegal move (without convoy) will fail.

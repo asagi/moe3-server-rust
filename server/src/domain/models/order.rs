@@ -442,9 +442,9 @@ pub(crate) struct DisbandOrder {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::tests::a;
-    use crate::domain::tests::f;
-    use crate::domain::tests::p;
+    use crate::domain::test::a;
+    use crate::domain::test::f;
+    use crate::domain::test::p;
 
     #[test]
     fn test_order_creation() {

@@ -7,10 +7,10 @@
 //! [DATC_6D]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.D
 
 use crate::domain::models::order::*;
-use crate::domain::models::phase::methods::*;
-use crate::domain::tests::a;
-use crate::domain::tests::f;
-use crate::domain::tests::p;
+use crate::domain::models::phases::method::*;
+use crate::domain::test::a;
+use crate::domain::test::f;
+use crate::domain::test::p;
 
 /// 6.D.1. TEST CASE, SUPPORTED HOLD CAN PREVENT DISLODGEMENT
 /// The simplest support to hold order.

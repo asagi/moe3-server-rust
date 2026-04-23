@@ -7,9 +7,9 @@
 //! [DATC_6B]: https://webdiplomacy.net/doc/DATC_v3_0.html#6.B
 
 use crate::domain::models::order::*;
-use crate::domain::models::phase::methods::*;
-use crate::domain::tests::f;
-use crate::domain::tests::p;
+use crate::domain::models::phases::method::*;
+use crate::domain::test::f;
+use crate::domain::test::p;
 
 /// 6.B.1. TEST CASE, MOVING WITH UNSPECIFIED COAST WHEN COAST IS NECESSARY
 /// Coast is significant in this case:
