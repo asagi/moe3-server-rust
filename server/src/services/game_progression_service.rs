@@ -73,8 +73,12 @@ where
         }
 
         let latest_phase = game.phases.pop().expect("game should have at least one phase");
+        let owner_accepting_draw_on_main = Self::is_owner_accepting_draw(&game) && Self::is_draw_applicable_phase(&latest_phase);
 
         let mut context = PhaseContext::new();
+        if owner_accepting_draw_on_main {
+            context.set_draw();
+        }
         self.remove_idle_powers(&game, &mut context, now)?;
         latest_phase.close(&mut context);
 
@@ -102,6 +106,20 @@ where
         self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
 
         Ok(())
+    }
+
+    fn is_owner_accepting_draw(game: &super::Game) -> bool {
+        game.players
+            .iter()
+            .find(|player| player.is_owner)
+            .is_some_and(|player| player.is_accepting_draw)
+    }
+
+    fn is_draw_applicable_phase(phase: &super::Phase) -> bool {
+        matches!(
+            phase.kind,
+            crate::domain::PhaseKind::SpringMain(_) | crate::domain::PhaseKind::FallMain(_)
+        )
     }
 
     fn remove_idle_powers(
@@ -474,6 +492,59 @@ mod tests {
         assert!(matches!(
             updated.phases.last().expect("phase should exist").kind,
             crate::domain::PhaseKind::FallMain(_)
+        ));
+    }
+
+    #[test]
+    fn progress_games_finishes_with_draw_when_owner_accepts_draw() {
+        let past = chrono::Utc::now().naive_utc() - chrono::Duration::minutes(1);
+
+        let mut game = sample_game(Some(past));
+        game.phases = vec![Phase::new_spring_main(1900, 0)];
+        game.status = GameStatus::InProgress;
+        game.players[0].is_accepting_draw = true;
+
+        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, chrono::Utc::now())]);
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        service.progress_games().expect("progress should succeed");
+
+        assert_eq!(repository.updated_len(), 1);
+        let updated = repository.updated_first().expect("updated game should exist");
+        assert!(updated.is_draw);
+        assert!(!updated.is_solo);
+        assert_eq!(updated.status, GameStatus::Finished);
+        assert!(updated.next_update_at.is_none());
+        assert!(matches!(
+            updated.phases.last().expect("phase should exist").kind,
+            crate::domain::PhaseKind::Debrief(_)
+        ));
+    }
+
+    #[test]
+    fn progress_games_does_not_finish_with_draw_when_owner_accepts_in_non_main_phase() {
+        let past_date = (chrono::Utc::now().naive_utc() - chrono::Duration::days(1)).date();
+        let past = past_date.and_hms_opt(14, 32, 0).expect("valid datetime");
+
+        let mut game = sample_game(Some(past));
+        game.phases = vec![Phase::new_ready()];
+        game.status = GameStatus::InProgress;
+        game.players[0].is_accepting_draw = true;
+
+        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, chrono::Utc::now())]);
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        service.progress_games().expect("progress should succeed");
+
+        assert_eq!(repository.updated_len(), 1);
+        let updated = repository.updated_first().expect("updated game should exist");
+        assert!(!updated.is_draw);
+        assert_eq!(updated.status, GameStatus::InProgress);
+        assert!(matches!(
+            updated.phases.last().expect("phase should exist").kind,
+            crate::domain::PhaseKind::SpringMain(_)
         ));
     }
 }
