@@ -243,7 +243,6 @@ trait PhaseCloseLogic {
         // 和平判定
         if context.is_draw() && matches!(current_phase.kind, PhaseKind::SpringMain(_) | PhaseKind::FallMain(_)) {
             self.finish_on_draw(current_phase, context);
-            context.set_draw();
             return;
         }
 
