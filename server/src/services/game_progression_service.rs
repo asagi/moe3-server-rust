@@ -83,7 +83,7 @@ where
             None
         } else {
             let next_phase = context.phases().back().expect("in-progress game should have next phase");
-            Some(game.regulation.calculate_next_update(previous_next_update, next_phase))
+            Some(game.calculate_next_update(previous_next_update, next_phase))
         };
 
         // PhaseContext の結果を Game に反映
