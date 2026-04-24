@@ -151,6 +151,66 @@ where
 
         Ok(())
     }
+
+    /// アクティブな全卓について卓主が無政府化していれば is_accepting_draw を true に設定して保存する。
+    pub(crate) fn mark_idle_owners_accepting_draw(&self) -> Result<(), GameProgressionError> {
+        let now = Utc::now().naive_utc();
+
+        let games = self
+            .game_repository
+            .find_all_active()
+            .map_err(GameProgressionError::Repository)?;
+
+        for mut game in games {
+            if self.mark_owner_accepting_draw_if_idle(&mut game, now)? {
+                // TODO: チャットテーブルへのシステムアナウンス投入はここに追加する
+                self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// 卓主が無政府化していれば is_accepting_draw を true に設定し、変更した場合 true を返す。
+    fn mark_owner_accepting_draw_if_idle(
+        &self,
+        game: &mut super::Game,
+        now: chrono::NaiveDateTime,
+    ) -> Result<bool, GameProgressionError> {
+        let Some(owner) = game.players.iter().find(|p| p.is_owner) else {
+            return Ok(false);
+        };
+
+        // すでにフラグが立っている場合はスキップ（冪等）
+        if owner.is_accepting_draw {
+            return Ok(false);
+        }
+
+        let idle_limit = chrono::Duration::minutes(i64::from(game.regulation.duration_type.idle_limit_minutes()));
+        let threshold = now - idle_limit;
+
+        let user = self
+            .user_repository
+            .find_by_uuid(owner.user_uuid)
+            .map_err(GameProgressionError::Repository)?;
+
+        let is_idle_or_missing = match user {
+            Some(user) => user.last_access_at.naive_utc() <= threshold,
+            None => true,
+        };
+
+        if !is_idle_or_missing {
+            return Ok(false);
+        }
+
+        game.players
+            .iter_mut()
+            .find(|p| p.is_owner)
+            .expect("owner exists")
+            .is_accepting_draw = true;
+
+        Ok(true)
+    }
 }
 
 // ============================================================================
@@ -546,5 +606,50 @@ mod tests {
             updated.phases.last().expect("phase should exist").kind,
             crate::domain::PhaseKind::SpringMain(_)
         ));
+    }
+
+    #[test]
+    fn mark_idle_owners_accepting_draw_sets_flag_for_idle_owner() {
+        let mut game = sample_game(None);
+        let idle_last_access =
+            chrono::Utc::now() - chrono::Duration::minutes(i64::from(game.regulation.duration_type.idle_limit_minutes() + 1));
+        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, idle_last_access)]);
+        game.status = GameStatus::InProgress;
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        service.mark_idle_owners_accepting_draw().expect("should succeed");
+
+        let updated = repository.updated_first().expect("game should be updated");
+        assert!(updated.players.iter().find(|p| p.is_owner).unwrap().is_accepting_draw);
+    }
+
+    #[test]
+    fn mark_idle_owners_accepting_draw_does_not_set_flag_for_active_owner() {
+        let mut game = sample_game(None);
+        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, chrono::Utc::now())]);
+        game.status = GameStatus::InProgress;
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        service.mark_idle_owners_accepting_draw().expect("should succeed");
+
+        assert_eq!(repository.updated_len(), 0);
+    }
+
+    #[test]
+    fn mark_idle_owners_accepting_draw_skips_when_flag_already_set() {
+        let mut game = sample_game(None);
+        let idle_last_access =
+            chrono::Utc::now() - chrono::Duration::minutes(i64::from(game.regulation.duration_type.idle_limit_minutes() + 1));
+        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, idle_last_access)]);
+        game.status = GameStatus::InProgress;
+        game.players[0].is_accepting_draw = true;
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        service.mark_idle_owners_accepting_draw().expect("should succeed");
+
+        assert_eq!(repository.updated_len(), 0);
     }
 }
