@@ -853,6 +853,29 @@ impl GameRepository for SqliteGameRepository {
             .collect()
     }
 
+    fn exists_active_game_for_user(&self, user_uuid: Uuid) -> Result<bool, RepositoryError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
+
+        let count: i64 = connection
+            .query_row(
+                r#"
+                SELECT COUNT(*)
+                FROM games
+                INNER JOIN game_players ON game_players.game_uuid = games.uuid
+                WHERE game_players.user_uuid = ?1
+                  AND games.status NOT IN ('finished', 'closed', 'aborted')
+                "#,
+                params![user_uuid.to_string()],
+                |row| row.get(0),
+            )
+            .map_err(|error| RepositoryError::Unavailable(format!("exists_active_game_for_user: {}", error)))?;
+
+        Ok(count > 0)
+    }
+
     fn update(&self, game: &Game) -> Result<(), RepositoryError> {
         let now = Utc::now().to_rfc3339();
 

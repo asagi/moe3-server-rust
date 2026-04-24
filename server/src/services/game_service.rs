@@ -80,8 +80,17 @@ where
             .map_err(CreateGameError::Repository)?
             .ok_or(CreateGameError::Unauthorized)?;
 
-        let active_games = self.game_repository.find_all_active().map_err(CreateGameError::Repository)?;
-        if Self::is_participating_in_non_ended_game(user.uuid, &active_games) {
+        // NOTE: check-then-insert の競合について
+        // 同一ユーザーが並行してリクエストを送った場合、このチェックと insert の間に
+        // 別のゲームが作成されうる（TOCTOU）。現状はシングルサーバー構成かつ
+        // tokio::task::spawn_blocking で直列化されるため実運用上のリスクは低い。
+        // 将来的にスケールアウトが必要になった際は DB 制約またはトランザクション内での
+        // 存在確認に変更すること。
+        if self
+            .game_repository
+            .exists_active_game_for_user(user.uuid)
+            .map_err(CreateGameError::Repository)?
+        {
             return Err(CreateGameError::Forbidden(
                 "user is already participating in another active game".to_string(),
             ));
@@ -160,15 +169,6 @@ where
         }
 
         Ok(())
-    }
-
-    fn is_participating_in_non_ended_game(user_uuid: Uuid, games: &[Game]) -> bool {
-        games.iter().any(|game| {
-            game.players.iter().any(|player| player.user_uuid == user_uuid)
-                && game.status != GameStatus::Finished
-                && game.status != GameStatus::Closed
-                && game.status != GameStatus::Aborted
-        })
     }
 }
 
@@ -285,6 +285,16 @@ mod tests {
 
         fn find_progress_candidates(&self, _now: chrono::NaiveDateTime) -> Result<Vec<Uuid>, RepositoryError> {
             Ok(Vec::new())
+        }
+
+        fn exists_active_game_for_user(&self, user_uuid: Uuid) -> Result<bool, RepositoryError> {
+            let exists = self.active_games.borrow().iter().any(|game| {
+                game.players.iter().any(|player| player.user_uuid == user_uuid)
+                    && game.status != GameStatus::Finished
+                    && game.status != GameStatus::Closed
+                    && game.status != GameStatus::Aborted
+            });
+            Ok(exists)
         }
 
         fn update(&self, _game: &Game) -> Result<(), RepositoryError> {

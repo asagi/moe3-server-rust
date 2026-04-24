@@ -307,6 +307,10 @@ mod tests {
                 .collect())
         }
 
+        fn exists_active_game_for_user(&self, _user_uuid: uuid::Uuid) -> Result<bool, RepositoryError> {
+            Err(RepositoryError::Unavailable("not used".to_string()))
+        }
+
         fn update(&self, game: &Game) -> Result<(), RepositoryError> {
             self.updated_games.borrow_mut().push(game.clone());
             Ok(())

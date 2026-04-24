@@ -65,6 +65,7 @@ where
         Err(error) => {
             let status = match &error {
                 CreateGameHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+                CreateGameHandlerError::Service(CreateGameError::InvalidRequest(_)) => StatusCode::BAD_REQUEST,
                 CreateGameHandlerError::Service(CreateGameError::Unauthorized) => StatusCode::UNAUTHORIZED,
                 CreateGameHandlerError::Service(CreateGameError::Forbidden(_)) => StatusCode::FORBIDDEN,
                 _ => StatusCode::INTERNAL_SERVER_ERROR,
@@ -268,6 +269,10 @@ mod tests {
 
         fn find_progress_candidates(&self, _now: chrono::NaiveDateTime) -> Result<Vec<uuid::Uuid>, RepositoryError> {
             Ok(Vec::new())
+        }
+
+        fn exists_active_game_for_user(&self, _user_uuid: uuid::Uuid) -> Result<bool, RepositoryError> {
+            Ok(false)
         }
 
         fn update(&self, _game: &Game) -> Result<(), RepositoryError> {
