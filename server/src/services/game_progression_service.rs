@@ -128,8 +128,7 @@ where
         context: &mut PhaseContext,
         now: chrono::NaiveDateTime,
     ) -> Result<(), GameProgressionError> {
-        let idle_limit = chrono::Duration::minutes(i64::from(game.regulation.duration_type.idle_limit_minutes()));
-        let threshold = now - idle_limit;
+        let threshold = Self::idle_threshold(game, now);
 
         for player in game.players.iter().filter(|player| player.power.is_some()) {
             let power = player.power.expect("filtered as Some");
@@ -139,12 +138,7 @@ where
                 .find_by_uuid(player.user_uuid)
                 .map_err(GameProgressionError::Repository)?;
 
-            let is_idle_or_missing = match user {
-                Some(user) => user.last_access_at.naive_utc() <= threshold,
-                None => true,
-            };
-
-            if is_idle_or_missing {
+            if Self::is_idle_or_missing(user, threshold) {
                 context.remove_power(&power);
             }
         }
@@ -177,6 +171,11 @@ where
         game: &mut super::Game,
         now: chrono::NaiveDateTime,
     ) -> Result<bool, GameProgressionError> {
+        // 進行中の卓のみを対象とする
+        if game.status != super::GameStatus::InProgress {
+            return Ok(false);
+        }
+
         let Some(owner) = game.players.iter().find(|p| p.is_owner) else {
             return Ok(false);
         };
@@ -186,20 +185,14 @@ where
             return Ok(false);
         }
 
-        let idle_limit = chrono::Duration::minutes(i64::from(game.regulation.duration_type.idle_limit_minutes()));
-        let threshold = now - idle_limit;
+        let threshold = Self::idle_threshold(game, now);
 
         let user = self
             .user_repository
             .find_by_uuid(owner.user_uuid)
             .map_err(GameProgressionError::Repository)?;
 
-        let is_idle_or_missing = match user {
-            Some(user) => user.last_access_at.naive_utc() <= threshold,
-            None => true,
-        };
-
-        if !is_idle_or_missing {
+        if !Self::is_idle_or_missing(user, threshold) {
             return Ok(false);
         }
 
@@ -210,6 +203,20 @@ where
             .is_accepting_draw = true;
 
         Ok(true)
+    }
+
+    /// 無政府判定の閾値を計算する
+    fn idle_threshold(game: &super::Game, now: chrono::NaiveDateTime) -> chrono::NaiveDateTime {
+        let idle_limit = chrono::Duration::minutes(i64::from(game.regulation.duration_type.idle_limit_minutes()));
+        now - idle_limit
+    }
+
+    /// ユーザーが無政府化しているか（ユーザーが存在しない場合も true）
+    fn is_idle_or_missing(user: Option<super::UserRecord>, threshold: chrono::NaiveDateTime) -> bool {
+        match user {
+            Some(user) => user.last_access_at.naive_utc() <= threshold,
+            None => true,
+        }
     }
 }
 
@@ -645,6 +652,22 @@ mod tests {
         let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, idle_last_access)]);
         game.status = GameStatus::InProgress;
         game.players[0].is_accepting_draw = true;
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        service.mark_idle_owners_accepting_draw().expect("should succeed");
+
+        assert_eq!(repository.updated_len(), 0);
+    }
+
+    #[test]
+    fn mark_idle_owners_accepting_draw_skips_non_in_progress_games() {
+        let game = sample_game(None);
+        let idle_last_access =
+            chrono::Utc::now() - chrono::Duration::minutes(i64::from(game.regulation.duration_type.idle_limit_minutes() + 1));
+        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, idle_last_access)]);
+        // Preparing のままにする（InProgress にしない）
+        assert_eq!(game.status, GameStatus::Preparing);
         let repository = InMemoryGameRepository::new(vec![game]);
         let service = GameProgressionService::new(users, repository.clone());
 

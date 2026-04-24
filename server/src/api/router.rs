@@ -158,6 +158,23 @@ where
     G: GameRepository + Send + Sync + 'static,
     D: DiscordIdentityProvider + Send + Sync + 'static,
 {
+    // アイドル判定の誤検知を防ぐため、last_access_at の更新を先行して行う
+    if let Some(access_token) =
+        extract_bearer_access_token(request.headers().get("authorization").and_then(|value| value.to_str().ok()))
+    {
+        let user_repository = Arc::clone(&state.user_repository);
+        let touch_result = tokio::task::spawn_blocking(move || {
+            touch_last_access_at_by_access_token(user_repository.as_ref(), &access_token, Utc::now())
+        })
+        .await;
+
+        match touch_result {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => eprintln!("failed to update last_access_at: {}", error),
+            Err(error) => eprintln!("failed to execute last_access_at task: {}", error),
+        }
+    }
+
     // Serialize progression updates (not entire request) through lock.
     let _game_update_guard = state.game_update_lock.lock().await;
 
@@ -189,22 +206,6 @@ where
     }
 
     drop(_game_update_guard);
-
-    if let Some(access_token) =
-        extract_bearer_access_token(request.headers().get("authorization").and_then(|value| value.to_str().ok()))
-    {
-        let user_repository = Arc::clone(&state.user_repository);
-        let touch_result = tokio::task::spawn_blocking(move || {
-            touch_last_access_at_by_access_token(user_repository.as_ref(), &access_token, Utc::now())
-        })
-        .await;
-
-        match touch_result {
-            Ok(Ok(())) => {}
-            Ok(Err(error)) => eprintln!("failed to update last_access_at: {}", error),
-            Err(error) => eprintln!("failed to execute last_access_at task: {}", error),
-        }
-    }
 
     next.run(request).await
 }

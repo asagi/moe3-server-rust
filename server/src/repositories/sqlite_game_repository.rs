@@ -976,6 +976,23 @@ impl GameRepository for SqliteGameRepository {
             Self::insert_phase_orders(&transaction, phase_id, phase, &now)?;
         }
 
+        for player in &game.players {
+            transaction
+                .execute(
+                    r#"
+                    UPDATE game_players
+                    SET is_accepting_draw = ?3
+                    WHERE game_uuid = ?1 AND user_uuid = ?2
+                    "#,
+                    params![
+                        game.uuid.to_string(),
+                        player.user_uuid.to_string(),
+                        player.is_accepting_draw as i32,
+                    ],
+                )
+                .map_err(|error| RepositoryError::Unavailable(format!("update game player: {}", error)))?;
+        }
+
         transaction
             .commit()
             .map_err(|error| RepositoryError::Unavailable(format!("commit game update transaction: {}", error)))?;
