@@ -117,7 +117,6 @@ where
             players: vec![owner],
             phases: vec![Phase::new_ready()],
             status: GameStatus::Preparing,
-            is_canceled: false,
             is_draw: false,
             is_solo: false,
             next_update_at: Some(next_update),

@@ -84,7 +84,6 @@ impl SqliteGameRepository {
                 regulation_start_date TEXT NOT NULL,
                 regulation_first_period_hour INTEGER NOT NULL,
                 status TEXT NOT NULL DEFAULT 'preparing',
-                is_canceled INTEGER NOT NULL DEFAULT 0,
                 is_draw INTEGER NOT NULL DEFAULT 0,
                 is_solo INTEGER NOT NULL DEFAULT 0,
                 next_update TEXT,
@@ -140,6 +139,7 @@ impl SqliteGameRepository {
             GameStatus::Ready => "ready",
             GameStatus::InProgress => "in_progress",
             GameStatus::Finished => "finished",
+            GameStatus::Aborted => "aborted",
             GameStatus::Closed => "closed",
         }
     }
@@ -150,6 +150,7 @@ impl SqliteGameRepository {
             "ready" => Ok(GameStatus::Ready),
             "in_progress" => Ok(GameStatus::InProgress),
             "finished" => Ok(GameStatus::Finished),
+            "aborted" => Ok(GameStatus::Aborted),
             "closed" => Ok(GameStatus::Closed),
             _ => Err(RepositoryError::Unavailable(format!("unknown game status: {}", text))),
         }
@@ -424,7 +425,6 @@ impl SqliteGameRepository {
             start_date: String,
             first_period_hour: i32,
             status: String,
-            is_canceled: i32,
             is_draw: i32,
             is_solo: i32,
             next_update: Option<String>,
@@ -445,10 +445,9 @@ impl SqliteGameRepository {
                     start_date: row.get(5)?,
                     first_period_hour: row.get(6)?,
                     status: row.get(7)?,
-                    is_canceled: row.get(8)?,
-                    is_draw: row.get(9)?,
-                    is_solo: row.get(10)?,
-                    next_update: row.get(11)?,
+                    is_draw: row.get(8)?,
+                    is_solo: row.get(9)?,
+                    next_update: row.get(10)?,
                 })
             })
             .map_err(|error| RepositoryError::Unavailable(format!("query load games: {}", error)))?
@@ -602,7 +601,6 @@ impl SqliteGameRepository {
                 players,
                 phases,
                 status: Self::status_from_str(&row.status)?,
-                is_canceled: row.is_canceled != 0,
                 is_draw: row.is_draw != 0,
                 is_solo: row.is_solo != 0,
                 next_update_at: next_update,
@@ -690,13 +688,12 @@ impl GameRepository for SqliteGameRepository {
                     regulation_start_date,
                     regulation_first_period_hour,
                     status,
-                    is_canceled,
                     is_draw,
                     is_solo,
                     next_update,
                     created_at,
                     updated_at
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
                 "#,
                 params![
                     game.uuid.to_string(),
@@ -707,7 +704,6 @@ impl GameRepository for SqliteGameRepository {
                     game.regulation.start_date.to_string(),
                     game.regulation.first_period_hour as i32,
                     Self::serialize_status(game.status),
-                    game.is_canceled as i32,
                     game.is_draw as i32,
                     game.is_solo as i32,
                     game.next_update_at.map(Self::serialize_next_update),
@@ -794,9 +790,9 @@ impl GameRepository for SqliteGameRepository {
             r#"
             SELECT uuid, game_number, regulation_face_type, regulation_progress_mode,
                    regulation_duration_type, regulation_start_date, regulation_first_period_hour,
-                   status, is_canceled, is_draw, is_solo, next_update
+                   status, is_draw, is_solo, next_update
             FROM games
-            WHERE status != 'closed'
+            WHERE status NOT IN ('closed', 'aborted')
             "#,
             [],
         )
@@ -813,7 +809,7 @@ impl GameRepository for SqliteGameRepository {
             r#"
             SELECT uuid, game_number, regulation_face_type, regulation_progress_mode,
                    regulation_duration_type, regulation_start_date, regulation_first_period_hour,
-                   status, is_canceled, is_draw, is_solo, next_update
+                   status, is_draw, is_solo, next_update
             FROM games
             WHERE uuid = ?1
             "#,
@@ -834,7 +830,7 @@ impl GameRepository for SqliteGameRepository {
                 r#"
                 SELECT uuid
                 FROM games
-                WHERE status != 'closed'
+                WHERE status NOT IN ('closed', 'aborted')
                   AND next_update IS NOT NULL
                                     AND julianday(next_update) <= julianday(?1)
                                 ORDER BY julianday(next_update) ASC, uuid ASC
@@ -874,17 +870,15 @@ impl GameRepository for SqliteGameRepository {
                 r#"
                 UPDATE games
                 SET status = ?2,
-                    is_canceled = ?3,
-                    is_draw = ?4,
-                    is_solo = ?5,
-                    next_update = ?6,
-                    updated_at = ?7
+                    is_draw = ?3,
+                    is_solo = ?4,
+                    next_update = ?5,
+                    updated_at = ?6
                 WHERE uuid = ?1
                 "#,
                 params![
                     game.uuid.to_string(),
                     Self::serialize_status(game.status),
-                    game.is_canceled as i32,
                     game.is_draw as i32,
                     game.is_solo as i32,
                     game.next_update_at.map(Self::serialize_next_update),
@@ -1100,7 +1094,6 @@ mod tests {
             }],
             phases: vec![Phase::new_ready()],
             status: GameStatus::Preparing,
-            is_canceled: false,
             is_draw: false,
             is_solo: false,
             next_update_at: None,
@@ -1156,7 +1149,6 @@ mod tests {
             }],
             phases: vec![phase.clone()],
             status: GameStatus::Preparing,
-            is_canceled: false,
             is_draw: false,
             is_solo: false,
             next_update_at: None,
@@ -1277,7 +1269,6 @@ mod tests {
             }],
             phases: vec![Phase::new_ready()],
             status: GameStatus::InProgress,
-            is_canceled: true,
             is_draw: true,
             is_solo: false,
             next_update_at: Some(next_update),
@@ -1289,7 +1280,6 @@ mod tests {
         assert_eq!(active_games.len(), 1);
         let restored = &active_games[0];
         assert_eq!(restored.status, GameStatus::InProgress);
-        assert!(restored.is_canceled);
         assert!(restored.is_draw);
         assert!(!restored.is_solo);
         assert_eq!(restored.next_update_at, Some(next_update));
@@ -1324,7 +1314,6 @@ mod tests {
             }],
             phases: vec![initial_phase],
             status: GameStatus::Preparing,
-            is_canceled: false,
             is_draw: false,
             is_solo: false,
             next_update_at: None,
@@ -1389,7 +1378,6 @@ mod tests {
             }],
             phases: vec![Phase::new_ready()],
             status: GameStatus::InProgress,
-            is_canceled: false,
             is_draw: false,
             is_solo: false,
             next_update_at: None,
@@ -1460,7 +1448,6 @@ mod transaction_tests {
             }],
             phases: vec![Phase::new_ready()],
             status: GameStatus::Preparing,
-            is_canceled: false,
             is_draw: false,
             is_solo: false,
             next_update_at: None,

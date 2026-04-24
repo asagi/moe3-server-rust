@@ -32,7 +32,6 @@ pub(crate) struct Game {
     pub(crate) players: Vec<Player>,
     pub(crate) phases: Vec<Phase>,
     pub(crate) status: GameStatus,
-    pub(crate) is_canceled: bool,
     pub(crate) is_draw: bool,
     pub(crate) is_solo: bool,
     pub(crate) next_update_at: Option<NaiveDateTime>,
@@ -124,6 +123,7 @@ pub(crate) enum GameStatus {
     Ready,
     InProgress,
     Finished,
+    Aborted,
     Closed,
 }
 
@@ -151,7 +151,6 @@ mod tests {
             }],
             phases: vec![Phase::new_ready()],
             status: GameStatus::Preparing,
-            is_canceled: false,
             is_draw: false,
             is_solo: false,
             next_update_at: None,
