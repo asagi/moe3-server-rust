@@ -59,6 +59,8 @@ where
     U: UserRepository,
     G: GameRepository,
 {
+    const MIN_START_LEAD_MINUTES: i64 = 30;
+
     pub(crate) fn new(user_repository: U, game_repository: G) -> Self {
         Self {
             user_repository,
@@ -106,6 +108,8 @@ where
             .with_timezone(&chrono::Utc)
             .naive_utc();
 
+        Self::validate_start_datetime(next_update, chrono::Utc::now().naive_utc())?;
+
         let game = Game {
             uuid: Uuid::now_v7(),
             game_number: None,
@@ -139,6 +143,17 @@ where
             requested_power,
         })
     }
+
+    fn validate_start_datetime(start_datetime: chrono::NaiveDateTime, now: chrono::NaiveDateTime) -> Result<(), CreateGameError> {
+        let min_allowed = now + chrono::Duration::minutes(Self::MIN_START_LEAD_MINUTES);
+        if start_datetime <= min_allowed {
+            return Err(CreateGameError::InvalidRequest(
+                "start_datetime must be more than 30 minutes in the future".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 // ============================================================================
@@ -152,6 +167,8 @@ mod tests {
     use std::rc::Rc;
 
     use chrono::DateTime;
+    use chrono::Datelike;
+    use chrono::Timelike;
     use chrono::Utc;
 
     use super::*;
@@ -254,12 +271,16 @@ mod tests {
     }
 
     fn sample_regulation() -> Regulation {
+        let jst = FixedOffset::east_opt(9 * 60 * 60).expect("valid JST offset");
+        let now_jst = Utc::now().with_timezone(&jst);
+        let start_jst = now_jst + chrono::Duration::hours(2);
+
         Regulation::new(
             FaceType::Girls,
             ProgressMode::Scheduled,
             DurationType::Short,
-            chrono::NaiveDate::from_ymd_opt(2026, 4, 19).expect("valid date"),
-            12,
+            start_jst.date_naive(),
+            start_jst.hour() as u8,
         )
         .expect("valid regulation")
     }
@@ -325,14 +346,81 @@ mod tests {
             })
             .expect("create game should succeed");
 
-        assert_eq!(
-            result.game.next_update_at,
-            Some(
-                chrono::NaiveDate::from_ymd_opt(2026, 4, 19)
-                    .expect("valid date")
-                    .and_hms_opt(3, 0, 0)
-                    .expect("valid datetime")
+        let jst = FixedOffset::east_opt(9 * 60 * 60).expect("valid JST offset");
+        let expected = jst
+            .with_ymd_and_hms(
+                result.game.regulation.start_date.year(),
+                result.game.regulation.start_date.month(),
+                result.game.regulation.start_date.day(),
+                result.game.regulation.first_period_hour as u32,
+                0,
+                0,
             )
-        );
+            .single()
+            .expect("valid JST datetime")
+            .with_timezone(&Utc)
+            .naive_utc();
+        assert_eq!(result.game.next_update_at, Some(expected));
+    }
+
+    #[test]
+    fn create_game_rejects_past_start_datetime() {
+        let user_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: user_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "asagi".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-1".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+
+        let past_regulation = Regulation::new(
+            FaceType::Girls,
+            ProgressMode::Scheduled,
+            DurationType::Short,
+            chrono::NaiveDate::from_ymd_opt(2000, 1, 1).expect("valid date"),
+            0,
+        )
+        .expect("valid regulation");
+
+        let error = service
+            .create_game(CreateGameCommand {
+                access_token: "token-1".to_string(),
+                regulation: past_regulation,
+                requested_power: None,
+            })
+            .expect_err("create game should fail");
+
+        assert!(matches!(error, CreateGameError::InvalidRequest(_)));
+    }
+
+    #[test]
+    fn validate_start_datetime_rejects_when_within_30_minutes() {
+        let now = chrono::NaiveDate::from_ymd_opt(2026, 4, 24)
+            .expect("valid date")
+            .and_hms_opt(0, 0, 0)
+            .expect("valid datetime");
+        let start = now + chrono::Duration::minutes(30);
+
+        let result = GameService::<InMemoryUserRepository, InMemoryGameRepository>::validate_start_datetime(start, now);
+        assert!(matches!(result, Err(CreateGameError::InvalidRequest(_))));
+    }
+
+    #[test]
+    fn validate_start_datetime_accepts_when_more_than_30_minutes() {
+        let now = chrono::NaiveDate::from_ymd_opt(2026, 4, 24)
+            .expect("valid date")
+            .and_hms_opt(0, 0, 0)
+            .expect("valid datetime");
+        let start = now + chrono::Duration::minutes(31);
+
+        let result = GameService::<InMemoryUserRepository, InMemoryGameRepository>::validate_start_datetime(start, now);
+        assert!(result.is_ok());
     }
 }
