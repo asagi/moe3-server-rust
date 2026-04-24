@@ -24,3 +24,15 @@ pub(crate) enum CreateGameRequestValidationError {
     InvalidRequestedPower,
     InvalidFirstPeriodHour,
 }
+
+///
+/// 卓参加リクエストのバリデーションエラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum JoinGameRequestValidationError {
+    MissingAuthorization,
+    InvalidAuthorizationScheme,
+    MissingAccessToken,
+    InvalidGameUuid,
+    InvalidRequestedPower,
+}

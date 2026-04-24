@@ -8,6 +8,8 @@ use super::AuthRequestValidationError;
 use super::CreateGameError;
 use super::CreateGameRequestValidationError;
 use super::DiscordClientError;
+use super::JoinGameError;
+use super::JoinGameRequestValidationError;
 
 // ============================================================================
 // definitions
@@ -101,6 +103,54 @@ impl CreateGameHandlerError {
                 "requested_power is invalid".to_string()
             }
             Self::Service(CreateGameError::Forbidden(message)) => message.clone(),
+            Self::Service(error) => error.to_string(),
+        }
+    }
+}
+
+///
+/// 卓参加リクエストハンドラのエラーの列挙体
+///
+#[derive(Debug)]
+pub(crate) enum JoinGameHandlerError {
+    InvalidRequest(JoinGameRequestValidationError),
+    Service(JoinGameError),
+}
+
+/// 卓参加リクエストハンドラのエラーの列挙体の実装
+impl JoinGameHandlerError {
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidRequest(_) => "invalid_request",
+            Self::Service(JoinGameError::InvalidRequest(_)) => "invalid_request",
+            Self::Service(JoinGameError::Unauthorized) => "unauthorized",
+            Self::Service(JoinGameError::NotFound) => "not_found",
+            Self::Service(JoinGameError::Forbidden(_)) => "forbidden",
+            Self::Service(JoinGameError::Repository(_)) => "repository_error",
+        }
+    }
+
+    pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
+        ApiErrorResponse {
+            code: self.code(),
+            message: self.message(),
+        }
+    }
+
+    fn message(&self) -> String {
+        match self {
+            Self::InvalidRequest(JoinGameRequestValidationError::MissingAuthorization) => {
+                "authorization header is required".to_string()
+            }
+            Self::InvalidRequest(JoinGameRequestValidationError::InvalidAuthorizationScheme) => {
+                "authorization must start with 'Bearer <token>'".to_string()
+            }
+            Self::InvalidRequest(JoinGameRequestValidationError::MissingAccessToken) => "access token is required".to_string(),
+            Self::InvalidRequest(JoinGameRequestValidationError::InvalidGameUuid) => "game_uuid is invalid".to_string(),
+            Self::InvalidRequest(JoinGameRequestValidationError::InvalidRequestedPower) => {
+                "requested_power is invalid".to_string()
+            }
+            Self::Service(JoinGameError::Forbidden(message)) => message.clone(),
             Self::Service(error) => error.to_string(),
         }
     }

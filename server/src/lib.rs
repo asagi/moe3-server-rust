@@ -50,5 +50,7 @@ pub(crate) use services::DiscordIdentityProvider;
 pub(crate) use services::GameProgressionError;
 pub(crate) use services::GameProgressionService;
 pub(crate) use services::GameService;
+pub(crate) use services::JoinGameCommand;
+pub(crate) use services::JoinGameError;
 pub(crate) use services::LoginCommand;
 pub(crate) use services::LoginUser;

@@ -6,6 +6,7 @@ use chrono::NaiveDateTime;
 use uuid::Uuid;
 
 use super::Game;
+use super::Power;
 use super::RepositoryError;
 
 // ============================================================================
@@ -37,4 +38,7 @@ pub(crate) trait GameRepository {
     fn exists_active_game_for_user(&self, user_uuid: Uuid) -> Result<bool, RepositoryError>;
 
     fn update(&self, game: &Game) -> Result<(), RepositoryError>;
+
+    /// 新規プレイヤーを卓に追加する（DB永続化）
+    fn add_player(&self, game_uuid: Uuid, user_uuid: Uuid, requested_power: Option<Power>) -> Result<(), RepositoryError>;
 }

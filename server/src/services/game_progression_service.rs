@@ -315,6 +315,15 @@ mod tests {
             self.updated_games.borrow_mut().push(game.clone());
             Ok(())
         }
+
+        fn add_player(
+            &self,
+            _game_uuid: uuid::Uuid,
+            _user_uuid: uuid::Uuid,
+            _requested_power: Option<Power>,
+        ) -> Result<(), RepositoryError> {
+            Err(RepositoryError::Unavailable("not used".to_string()))
+        }
     }
 
     #[derive(Debug, Clone)]

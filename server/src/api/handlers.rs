@@ -13,7 +13,9 @@ mod game_handler;
 pub(crate) use auth_handler::post_auth_login;
 pub(crate) use error::AuthHandlerError;
 pub(crate) use error::CreateGameHandlerError;
+pub(crate) use error::JoinGameHandlerError;
 pub(crate) use game_handler::post_games;
+pub(crate) use game_handler::post_games_players;
 
 // ============================================================================
 // re-exports
@@ -37,6 +39,12 @@ pub(crate) use super::DiscordClientError;
 pub(crate) use super::DiscordIdentityProvider;
 pub(crate) use super::GameRepository;
 pub(crate) use super::GameService;
+pub(crate) use super::JoinGameCommand;
+pub(crate) use super::JoinGameError;
+pub(crate) use super::JoinGameRequest;
+pub(crate) use super::JoinGameRequestBody;
+pub(crate) use super::JoinGameRequestValidationError;
+pub(crate) use super::JoinGameResponse;
 pub(crate) use super::LoginCommand;
 pub(crate) use super::Power;
 pub(crate) use super::ProgressMode;
