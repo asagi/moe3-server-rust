@@ -101,7 +101,9 @@ where
     request.validate().map_err(CreateGameHandlerError::InvalidRequest)?;
 
     let regulation = parse_regulation(&request)?;
-    let requested_power = parse_requested_power(request.requested_power.as_deref())?;
+    let requested_power = parse_requested_power(request.requested_power.as_deref(), || {
+        invalid_request(CreateGameRequestValidationError::InvalidRequestedPower)
+    })?;
     let access_token = request.authorization.trim().trim_start_matches("Bearer ").trim().to_string();
 
     let result = service
@@ -137,10 +139,12 @@ fn parse_regulation(request: &CreateGameRequest) -> Result<Regulation, CreateGam
 }
 
 /// 卓作成リクエストパラメータの担当希望国のパース関数
-fn parse_requested_power(value: Option<&str>) -> Result<Option<Power>, CreateGameHandlerError> {
-    value
-        .map(|code| Power::try_from(code).map_err(|_| invalid_request(CreateGameRequestValidationError::InvalidRequestedPower)))
-        .transpose()
+/// 担当希望国のパース関数（エラー型をクロージャで汎用化）
+fn parse_requested_power<E, F>(value: Option<&str>, err: F) -> Result<Option<Power>, E>
+where
+    F: Fn() -> E,
+{
+    value.map(|code| Power::try_from(code).map_err(|_| err())).transpose()
 }
 
 /// 卓作成リクエストパラメータの列挙体パース関数
@@ -178,8 +182,11 @@ where
         Ok(uuid) => uuid,
         Err(_) => {
             return (
-                StatusCode::NOT_FOUND,
-                Json(JoinGameHandlerError::Service(JoinGameError::NotFound).to_api_error_response()),
+                StatusCode::BAD_REQUEST,
+                Json(
+                    JoinGameHandlerError::InvalidRequest(JoinGameRequestValidationError::InvalidRequestedPower)
+                        .to_api_error_response(),
+                ),
             )
                 .into_response();
         }
@@ -228,14 +235,9 @@ where
 {
     request.validate().map_err(JoinGameHandlerError::InvalidRequest)?;
 
-    let requested_power = request
-        .requested_power
-        .as_deref()
-        .map(|code| {
-            Power::try_from(code)
-                .map_err(|_| JoinGameHandlerError::InvalidRequest(JoinGameRequestValidationError::InvalidRequestedPower))
-        })
-        .transpose()?;
+    let requested_power = parse_requested_power(request.requested_power.as_deref(), || {
+        JoinGameHandlerError::InvalidRequest(JoinGameRequestValidationError::InvalidRequestedPower)
+    })?;
 
     let access_token = request.authorization.trim().trim_start_matches("Bearer ").trim().to_string();
 
@@ -380,6 +382,28 @@ mod tests {
     }
 
     impl GameRepository for InMemoryGameRepository {
+        fn add_player(
+            &self,
+            game_uuid: uuid::Uuid,
+            user_uuid: uuid::Uuid,
+            requested_power: Option<Power>,
+        ) -> Result<(), RepositoryError> {
+            let mut games = self.games.borrow_mut();
+            if let Some(game) = games.iter_mut().find(|g| g.uuid == game_uuid) {
+                if !game.players.iter().any(|p| p.user_uuid == user_uuid) {
+                    game.players.push(Player {
+                        user_uuid,
+                        power: None,
+                        is_accepting_draw: false,
+                        is_owner: false,
+                        requested_power,
+                    });
+                }
+                Ok(())
+            } else {
+                Err(RepositoryError::NotFound)
+            }
+        }
         fn insert(&self, new_game: NewGame) -> Result<Game, RepositoryError> {
             self.inserted.borrow_mut().push(new_game.game.clone());
             Ok(new_game.game)

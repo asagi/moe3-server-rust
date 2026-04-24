@@ -17,6 +17,7 @@ use super::Player;
 use super::Power;
 use super::Regulation;
 use super::UserRepository;
+use strum::IntoEnumIterator;
 
 // ============================================================================
 // definitions
@@ -204,6 +205,28 @@ where
             .map_err(JoinGameError::Repository)?
             .ok_or(JoinGameError::Unauthorized)?;
 
+        let game = self
+            .game_repository
+            .find_by_uuid(command.game_uuid)
+            .map_err(JoinGameError::Repository)?
+            .ok_or(JoinGameError::NotFound)?;
+
+        // 既にこの卓に参加済みなら冪等な成功を返す（requested_powerも一致していればOK）
+        if let Some(existing) = game.players.iter().find(|p| p.user_uuid == user.uuid) {
+            // requested_powerが異なる場合はエラー
+            if existing.requested_power != command.requested_power {
+                return Err(JoinGameError::InvalidRequest(
+                    "user already joined with different requested_power".to_string(),
+                ));
+            }
+            return Ok(JoinGameResult {
+                game,
+                user_uuid: user.uuid,
+                requested_power: command.requested_power,
+            });
+        }
+
+        // 他の卓に参加中かチェック（同卓参加済みは上で除外済み）
         if self
             .game_repository
             .exists_active_game_for_user(user.uuid)
@@ -214,29 +237,29 @@ where
             ));
         }
 
-        let mut game = self
+        if game.status != GameStatus::Preparing {
+            return Err(JoinGameError::Forbidden("game is not accepting new players".to_string()));
+        }
+
+        // 定員超過チェック
+        if game.players.len() >= Power::iter().count() {
+            return Err(JoinGameError::Forbidden("game is full (max players reached)".to_string()));
+        }
+
+        // DBに新規プレイヤーを追加
+        self.game_repository
+            .add_player(game.uuid, user.uuid, command.requested_power)
+            .map_err(JoinGameError::Repository)?;
+
+        // 最新状態を再取得して返す
+        let updated_game = self
             .game_repository
             .find_by_uuid(command.game_uuid)
             .map_err(JoinGameError::Repository)?
             .ok_or(JoinGameError::NotFound)?;
 
-        if game.status != GameStatus::Preparing {
-            return Err(JoinGameError::Forbidden("game is not accepting new players".to_string()));
-        }
-
-        let player = Player {
-            user_uuid: user.uuid,
-            power: None,
-            is_accepting_draw: false,
-            is_owner: false,
-            requested_power: command.requested_power,
-        };
-        game.players.push(player);
-
-        self.game_repository.update(&game).map_err(JoinGameError::Repository)?;
-
         Ok(JoinGameResult {
-            game,
+            game: updated_game,
             user_uuid: user.uuid,
             requested_power: command.requested_power,
         })
@@ -347,6 +370,23 @@ mod tests {
     }
 
     impl GameRepository for InMemoryGameRepository {
+        fn add_player(&self, game_uuid: Uuid, user_uuid: Uuid, requested_power: Option<Power>) -> Result<(), RepositoryError> {
+            let mut games = self.active_games.borrow_mut();
+            if let Some(game) = games.iter_mut().find(|g| g.uuid == game_uuid) {
+                if !game.players.iter().any(|p| p.user_uuid == user_uuid) {
+                    game.players.push(Player {
+                        user_uuid,
+                        power: None,
+                        is_accepting_draw: false,
+                        is_owner: false,
+                        requested_power,
+                    });
+                }
+                Ok(())
+            } else {
+                Err(RepositoryError::NotFound)
+            }
+        }
         fn insert(&self, new_game: NewGame) -> Result<Game, RepositoryError> {
             self.created.borrow_mut().push(new_game.game.clone());
             Ok(new_game.game)
