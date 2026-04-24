@@ -1549,7 +1549,12 @@ mod transaction_tests {
 
         repository.insert(NewGame { game }).expect("insert should succeed");
 
-        let candidates = repository.find_progress_candidates(now).expect("find_progress_candidates should succeed");
-        assert!(candidates.is_empty(), "aborted game should not appear in find_progress_candidates");
+        let candidates = repository
+            .find_progress_candidates(now)
+            .expect("find_progress_candidates should succeed");
+        assert!(
+            candidates.is_empty(),
+            "aborted game should not appear in find_progress_candidates"
+        );
     }
 }
