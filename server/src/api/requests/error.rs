@@ -33,5 +33,6 @@ pub(crate) enum JoinGameRequestValidationError {
     MissingAuthorization,
     InvalidAuthorizationScheme,
     MissingAccessToken,
+    InvalidGameUuid,
     InvalidRequestedPower,
 }

@@ -184,8 +184,7 @@ where
             return (
                 StatusCode::BAD_REQUEST,
                 Json(
-                    JoinGameHandlerError::InvalidRequest(JoinGameRequestValidationError::InvalidRequestedPower)
-                        .to_api_error_response(),
+                    JoinGameHandlerError::InvalidRequest(JoinGameRequestValidationError::InvalidGameUuid).to_api_error_response(),
                 ),
             )
                 .into_response();
@@ -207,7 +206,7 @@ where
     let state_clone = state.clone();
     let request_clone = request.clone();
     match tokio::task::spawn_blocking(move || match handle_join_game(&state_clone.game_service, request_clone) {
-        Ok(response) => (StatusCode::CREATED, Json(response)).into_response(),
+        Ok(response) => (StatusCode::OK, Json(response)).into_response(),
         Err(error) => {
             let status = match &error {
                 JoinGameHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,

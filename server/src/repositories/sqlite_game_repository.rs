@@ -664,24 +664,26 @@ impl SqliteGameRepository {
 /// SQLite 用の卓リポジトリ構造体の実装（GameRepository トレイト）
 impl GameRepository for SqliteGameRepository {
     fn add_player(&self, game_uuid: Uuid, user_uuid: Uuid, requested_power: Option<Power>) -> Result<(), RepositoryError> {
-        let now = Utc::now().to_rfc3339();
         let connection = self
             .connection
             .lock()
             .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
-        connection.execute(
+        connection
+            .execute(
                 r#"
-                INSERT INTO game_players (game_uuid, user_uuid, power, is_accepting_draw, is_owner, requested_power, created_at, updated_at)
-                VALUES (?1, ?2, NULL, 0, 0, ?3, ?4, ?4)
-                ON CONFLICT(game_uuid, user_uuid) DO NOTHING
+                INSERT INTO game_players (game_uuid, user_uuid, power, is_accepting_draw, is_owner, requested_power)
+                SELECT ?1, ?2, NULL, 0, 0, ?3
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM game_players WHERE game_uuid = ?1 AND user_uuid = ?2
+                )
                 "#,
                 params![
                     game_uuid.to_string(),
                     user_uuid.to_string(),
-                    requested_power.map(|p| p.to_string()),
-                    now,
+                    requested_power.map(|p| p as i32),
                 ],
-            ).map_err(|error| RepositoryError::Unavailable(format!("insert game player: {}", error)))?;
+            )
+            .map_err(|error| RepositoryError::Unavailable(format!("insert game player: {}", error)))?;
         Ok(())
     }
     fn insert(&self, new_game: NewGame) -> Result<Game, RepositoryError> {

@@ -146,6 +146,7 @@ impl JoinGameHandlerError {
                 "authorization must start with 'Bearer <token>'".to_string()
             }
             Self::InvalidRequest(JoinGameRequestValidationError::MissingAccessToken) => "access token is required".to_string(),
+            Self::InvalidRequest(JoinGameRequestValidationError::InvalidGameUuid) => "game_uuid is invalid".to_string(),
             Self::InvalidRequest(JoinGameRequestValidationError::InvalidRequestedPower) => {
                 "requested_power is invalid".to_string()
             }
