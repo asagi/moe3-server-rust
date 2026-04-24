@@ -8,6 +8,7 @@ use super::GameStatus;
 use super::PhaseContext;
 use super::UserRepository;
 use chrono::Utc;
+use strum::IntoEnumIterator;
 
 // ============================================================================
 // definitions
@@ -38,7 +39,7 @@ where
         }
     }
 
-    /// Closed 以外の全 Game に対してフェイズ進行を試みる。
+    /// Closed・Aborted 以外の全 Game に対してフェイズ進行を試みる。
     /// next_update_at が現在時刻より過去の場合のみ進行処理を実行する。
     pub(crate) fn progress_games(&self) -> Result<(), GameProgressionError> {
         let now = Utc::now().naive_utc();
@@ -68,11 +69,24 @@ where
             return Ok(());
         };
 
-        if game.status == GameStatus::Closed || previous_next_update > now {
+        if game.status == GameStatus::Closed || game.status == GameStatus::Aborted || previous_next_update > now {
             return Ok(());
         }
 
         let latest_phase = game.phases.pop().expect("game should have at least one phase");
+
+        // 募集不成立チェック: Ready フェイズ到達時点でプレイヤーが 7 人未満なら中止
+        if matches!(latest_phase.kind, crate::domain::PhaseKind::Ready(_))
+            && game.status != GameStatus::InProgress
+            && game.players.iter().filter(|p| p.power.is_some()).count() < crate::domain::Power::iter().count()
+        {
+            game.phases.push(latest_phase);
+            game.status = GameStatus::Aborted;
+            game.next_update_at = None;
+            self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
+            return Ok(());
+        }
+
         let owner_accepting_draw_on_main = Self::is_owner_accepting_draw(&game) && Self::is_draw_applicable_phase(&latest_phase);
 
         let mut context = PhaseContext::new();
@@ -287,7 +301,7 @@ mod tests {
                 .active_games
                 .borrow()
                 .iter()
-                .filter(|game| game.status != GameStatus::Closed)
+                .filter(|game| game.status != GameStatus::Closed && game.status != GameStatus::Aborted)
                 .filter(|game| game.next_update_at.is_some_and(|next_update| next_update <= now))
                 .map(|game| game.uuid)
                 .collect())
@@ -384,11 +398,60 @@ mod tests {
             }],
             phases: vec![Phase::new_ready()],
             status: GameStatus::Preparing,
-            is_canceled: false,
             is_draw: false,
             is_solo: false,
             next_update_at: next_update,
         }
+    }
+
+    /// 全 7 プレイヤーが揃った状態のゲームを生成するヘルパー
+    fn sample_full_game(next_update: Option<chrono::NaiveDateTime>) -> Game {
+        use strum::IntoEnumIterator;
+        let mut game = sample_game(next_update);
+        for power in Power::iter().filter(|p| *p != Power::France) {
+            game.players.push(Player {
+                user_uuid: uuid::Uuid::now_v7(),
+                power: Some(power),
+                is_accepting_draw: false,
+                is_owner: false,
+                requested_power: Some(power),
+            });
+        }
+        game
+    }
+
+    /// 指定した regulation で全 7 プレイヤーが揃った状態のゲームを生成するヘルパー
+    fn sample_full_game_with_regulation(next_update: Option<chrono::NaiveDateTime>, regulation: Regulation) -> Game {
+        use strum::IntoEnumIterator;
+        let mut game = sample_game_with_regulation(next_update, regulation);
+        for power in Power::iter().filter(|p| *p != Power::France) {
+            game.players.push(Player {
+                user_uuid: uuid::Uuid::now_v7(),
+                power: Some(power),
+                is_accepting_draw: false,
+                is_owner: false,
+                requested_power: Some(power),
+            });
+        }
+        game
+    }
+
+    /// `sample_full_game` の全プレイヤーに対応する UserRecord 一覧を生成するヘルパー
+    fn users_for_full_game(game: &Game, last_access_at: chrono::DateTime<chrono::Utc>) -> Vec<UserRecord> {
+        game.players
+            .iter()
+            .map(|p| UserRecord {
+                id: 1,
+                uuid: p.user_uuid,
+                discord_user_id: format!("discord-{}", p.user_uuid),
+                username: format!("user-{}", p.user_uuid),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: format!("token-{}", p.user_uuid),
+                last_access_at,
+            })
+            .collect()
     }
 
     fn user_for(game: &Game, power: Power, last_access_at: chrono::DateTime<chrono::Utc>) -> UserRecord {
@@ -441,8 +504,8 @@ mod tests {
     fn progress_games_updates_when_next_update_is_in_past() {
         let past_date = (chrono::Utc::now().naive_utc() - chrono::Duration::days(1)).date();
         let past = past_date.and_hms_opt(14, 32, 0).expect("valid datetime");
-        let game = sample_game(Some(past));
-        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, chrono::Utc::now())]);
+        let game = sample_full_game(Some(past));
+        let users = InMemoryUserRepository::new(users_for_full_game(&game, chrono::Utc::now()));
         let repository = InMemoryGameRepository::new(vec![game]);
         let service = GameProgressionService::new(users, repository.clone());
 
@@ -469,8 +532,8 @@ mod tests {
         .expect("valid regulation");
         let past_date = (chrono::Utc::now().naive_utc() - chrono::Duration::days(1)).date();
         let past = past_date.and_hms_opt(14, 32, 0).expect("valid datetime");
-        let game = sample_game_with_regulation(Some(past), regulation);
-        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, chrono::Utc::now())]);
+        let game = sample_full_game_with_regulation(Some(past), regulation);
+        let users = InMemoryUserRepository::new(users_for_full_game(&game, chrono::Utc::now()));
         let repository = InMemoryGameRepository::new(vec![game]);
         let service = GameProgressionService::new(users, repository.clone());
 
@@ -674,5 +737,47 @@ mod tests {
         service.mark_idle_owners_accepting_draw().expect("should succeed");
 
         assert_eq!(repository.updated_len(), 0);
+    }
+
+    #[test]
+    fn progress_games_aborts_when_ready_phase_has_fewer_than_7_players() {
+        let past_date = (chrono::Utc::now().naive_utc() - chrono::Duration::days(1)).date();
+        let past = past_date.and_hms_opt(14, 32, 0).expect("valid datetime");
+
+        // Ready フェイズ・プレイヤー 1 人（7 人未満）
+        let mut game = sample_game(Some(past));
+        assert_eq!(game.players.iter().filter(|p| p.power.is_some()).count(), 1);
+
+        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, chrono::Utc::now())]);
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        service.progress_games().expect("progress should succeed");
+
+        assert_eq!(repository.updated_len(), 1);
+        let updated = repository.updated_first().expect("updated game should exist");
+        assert_eq!(updated.status, GameStatus::Aborted);
+        assert!(updated.next_update_at.is_none());
+        // Ready フェイズが履歴に残っている
+        assert!(matches!(
+            updated.phases.last().expect("phase should exist").kind,
+            crate::domain::PhaseKind::Ready(_)
+        ));
+    }
+
+    #[test]
+    fn progress_games_does_not_abort_when_ready_phase_has_7_players() {
+        let past_date = (chrono::Utc::now().naive_utc() - chrono::Duration::days(1)).date();
+        let past = past_date.and_hms_opt(14, 32, 0).expect("valid datetime");
+
+        let game = sample_full_game(Some(past));
+        let users = InMemoryUserRepository::new(users_for_full_game(&game, chrono::Utc::now()));
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        service.progress_games().expect("progress should succeed");
+
+        let updated = repository.updated_first().expect("updated game should exist");
+        assert_eq!(updated.status, GameStatus::InProgress);
     }
 }
