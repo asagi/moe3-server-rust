@@ -147,9 +147,10 @@ where
     fn validate_start_datetime(start_datetime: chrono::NaiveDateTime, now: chrono::NaiveDateTime) -> Result<(), CreateGameError> {
         let min_allowed = now + chrono::Duration::minutes(Self::MIN_START_LEAD_MINUTES);
         if start_datetime <= min_allowed {
-            return Err(CreateGameError::InvalidRequest(
-                "start_datetime must be more than 30 minutes in the future".to_string(),
-            ));
+            return Err(CreateGameError::InvalidRequest(format!(
+                "initial next_update_at must be more than {} minutes in the future",
+                Self::MIN_START_LEAD_MINUTES,
+            )));
         }
 
         Ok(())
