@@ -18,3 +18,13 @@ pub(crate) struct CreateGameResponse {
     pub owner_user_uuid: Uuid,
     pub requested_power: Option<String>,
 }
+
+///
+/// 卓参加レスポンスの構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(crate) struct JoinGameResponse {
+    pub game_uuid: Uuid,
+    pub user_uuid: Uuid,
+    pub requested_power: Option<String>,
+}

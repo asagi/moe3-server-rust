@@ -10,6 +10,7 @@ use super::CreateGameError;
 use super::Game;
 use super::GameRepository;
 use super::GameStatus;
+use super::JoinGameError;
 use super::NewGame;
 use super::Phase;
 use super::Player;
@@ -38,6 +39,26 @@ pub(crate) struct CreateGameCommand {
 pub(crate) struct CreateGameResult {
     pub game: Game,
     pub owner_user_uuid: Uuid,
+    pub requested_power: Option<Power>,
+}
+
+///
+/// 卓参加コマンドの構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct JoinGameCommand {
+    pub access_token: String,
+    pub game_uuid: Uuid,
+    pub requested_power: Option<Power>,
+}
+
+///
+/// 卓参加処理結果の構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct JoinGameResult {
+    pub game: Game,
+    pub user_uuid: Uuid,
     pub requested_power: Option<Power>,
 }
 
@@ -170,6 +191,56 @@ where
 
         Ok(())
     }
+
+    pub(crate) fn join_game(&self, command: JoinGameCommand) -> Result<JoinGameResult, JoinGameError> {
+        let access_token = command.access_token.trim().to_string();
+        if access_token.is_empty() {
+            return Err(JoinGameError::InvalidRequest("access_token is empty".to_string()));
+        }
+
+        let user = self
+            .user_repository
+            .find_by_access_token(&access_token)
+            .map_err(JoinGameError::Repository)?
+            .ok_or(JoinGameError::Unauthorized)?;
+
+        if self
+            .game_repository
+            .exists_active_game_for_user(user.uuid)
+            .map_err(JoinGameError::Repository)?
+        {
+            return Err(JoinGameError::Forbidden(
+                "user is already participating in another active game".to_string(),
+            ));
+        }
+
+        let mut game = self
+            .game_repository
+            .find_by_uuid(command.game_uuid)
+            .map_err(JoinGameError::Repository)?
+            .ok_or(JoinGameError::NotFound)?;
+
+        if game.status != GameStatus::Preparing {
+            return Err(JoinGameError::Forbidden("game is not accepting new players".to_string()));
+        }
+
+        let player = Player {
+            user_uuid: user.uuid,
+            power: None,
+            is_accepting_draw: false,
+            is_owner: false,
+            requested_power: command.requested_power,
+        };
+        game.players.push(player);
+
+        self.game_repository.update(&game).map_err(JoinGameError::Repository)?;
+
+        Ok(JoinGameResult {
+            game,
+            user_uuid: user.uuid,
+            requested_power: command.requested_power,
+        })
+    }
 }
 
 // ============================================================================
@@ -254,6 +325,7 @@ mod tests {
     struct InMemoryGameRepository {
         created: Rc<RefCell<Vec<Game>>>,
         active_games: Rc<RefCell<Vec<Game>>>,
+        updated: Rc<RefCell<Vec<Game>>>,
     }
 
     impl InMemoryGameRepository {
@@ -261,11 +333,16 @@ mod tests {
             Self {
                 created: Rc::new(RefCell::new(Vec::new())),
                 active_games: Rc::new(RefCell::new(active_games)),
+                updated: Rc::new(RefCell::new(Vec::new())),
             }
         }
 
         fn created_len(&self) -> usize {
             self.created.borrow().len()
+        }
+
+        fn updated_first(&self) -> Option<Game> {
+            self.updated.borrow().first().cloned()
         }
     }
 
@@ -279,8 +356,8 @@ mod tests {
             Ok(self.active_games.borrow().clone())
         }
 
-        fn find_by_uuid(&self, _game_uuid: Uuid) -> Result<Option<Game>, RepositoryError> {
-            Ok(None)
+        fn find_by_uuid(&self, game_uuid: Uuid) -> Result<Option<Game>, RepositoryError> {
+            Ok(self.active_games.borrow().iter().find(|g| g.uuid == game_uuid).cloned())
         }
 
         fn find_progress_candidates(&self, _now: chrono::NaiveDateTime) -> Result<Vec<Uuid>, RepositoryError> {
@@ -297,7 +374,8 @@ mod tests {
             Ok(exists)
         }
 
-        fn update(&self, _game: &Game) -> Result<(), RepositoryError> {
+        fn update(&self, game: &Game) -> Result<(), RepositoryError> {
+            self.updated.borrow_mut().push(game.clone());
             Ok(())
         }
     }
@@ -594,5 +672,215 @@ mod tests {
 
         let result = GameService::<InMemoryUserRepository, InMemoryGameRepository>::validate_start_datetime(start, now);
         assert!(result.is_ok());
+    }
+
+    fn sample_preparing_game(player_user_uuid: Uuid) -> Game {
+        Game {
+            uuid: Uuid::now_v7(),
+            game_number: None,
+            regulation: sample_regulation(),
+            players: vec![Player {
+                user_uuid: player_user_uuid,
+                power: None,
+                is_accepting_draw: false,
+                is_owner: true,
+                requested_power: None,
+            }],
+            phases: vec![Phase::new_ready()],
+            status: GameStatus::Preparing,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        }
+    }
+
+    #[test]
+    fn join_game_registers_player() {
+        let owner_uuid = Uuid::now_v7();
+        let joiner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 2,
+            uuid: joiner_uuid,
+            discord_user_id: "1002".to_string(),
+            username: "joiner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-2".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+
+        let game = sample_preparing_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service
+            .join_game(JoinGameCommand {
+                access_token: "token-2".to_string(),
+                game_uuid,
+                requested_power: Some(Power::France),
+            })
+            .expect("join game should succeed");
+
+        assert_eq!(result.user_uuid, joiner_uuid);
+        assert_eq!(result.requested_power, Some(Power::France));
+        assert_eq!(result.game.players.len(), 2);
+
+        let joined_player = result
+            .game
+            .players
+            .iter()
+            .find(|p| p.user_uuid == joiner_uuid)
+            .expect("joiner should be in players");
+        assert!(!joined_player.is_owner);
+        assert_eq!(joined_player.requested_power, Some(Power::France));
+        assert!(joined_player.power.is_none());
+
+        let updated = game_repository.updated_first().expect("game should have been updated");
+        assert_eq!(updated.players.len(), 2);
+    }
+
+    #[test]
+    fn join_game_rejects_unauthorized() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new(vec![]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .join_game(JoinGameCommand {
+                access_token: "invalid-token".to_string(),
+                game_uuid: Uuid::now_v7(),
+                requested_power: None,
+            })
+            .expect_err("join game should fail");
+
+        assert!(matches!(error, JoinGameError::Unauthorized));
+    }
+
+    #[test]
+    fn join_game_rejects_when_user_already_participates_in_active_game() {
+        let user_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: user_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "asagi".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-1".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+
+        let active_game = Game {
+            uuid: Uuid::now_v7(),
+            game_number: Some(1),
+            regulation: sample_regulation(),
+            players: vec![Player {
+                user_uuid,
+                power: Some(Power::France),
+                is_accepting_draw: false,
+                is_owner: false,
+                requested_power: Some(Power::France),
+            }],
+            phases: vec![Phase::new_ready()],
+            status: GameStatus::InProgress,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        };
+        let target_game = sample_preparing_game(Uuid::now_v7());
+        let target_uuid = target_game.uuid;
+
+        let game_repository = InMemoryGameRepository::new(vec![active_game, target_game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .join_game(JoinGameCommand {
+                access_token: "token-1".to_string(),
+                game_uuid: target_uuid,
+                requested_power: None,
+            })
+            .expect_err("join game should fail");
+
+        assert!(matches!(error, JoinGameError::Forbidden(_)));
+    }
+
+    #[test]
+    fn join_game_rejects_when_game_not_found() {
+        let user_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: user_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "asagi".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-1".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+
+        let game_repository = InMemoryGameRepository::new(vec![]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .join_game(JoinGameCommand {
+                access_token: "token-1".to_string(),
+                game_uuid: Uuid::now_v7(),
+                requested_power: None,
+            })
+            .expect_err("join game should fail");
+
+        assert!(matches!(error, JoinGameError::NotFound));
+    }
+
+    #[test]
+    fn join_game_rejects_when_game_is_not_preparing() {
+        let user_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: user_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "asagi".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-1".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+
+        let in_progress_game = Game {
+            uuid: Uuid::now_v7(),
+            game_number: Some(2),
+            regulation: sample_regulation(),
+            players: vec![Player {
+                user_uuid: Uuid::now_v7(),
+                power: Some(Power::France),
+                is_accepting_draw: false,
+                is_owner: true,
+                requested_power: Some(Power::France),
+            }],
+            phases: vec![Phase::new_ready()],
+            status: GameStatus::InProgress,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        };
+        let game_uuid = in_progress_game.uuid;
+
+        let game_repository = InMemoryGameRepository::new(vec![in_progress_game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .join_game(JoinGameCommand {
+                access_token: "token-1".to_string(),
+                game_uuid,
+                requested_power: None,
+            })
+            .expect_err("join game should fail");
+
+        assert!(matches!(error, JoinGameError::Forbidden(_)));
     }
 }

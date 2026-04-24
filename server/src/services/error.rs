@@ -86,6 +86,34 @@ impl fmt::Display for CreateGameError {
 }
 
 ///
+/// 卓参加エラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum JoinGameError {
+    InvalidRequest(String),
+    Unauthorized,
+    NotFound,
+    Forbidden(String),
+    Repository(RepositoryError),
+}
+
+/// 卓参加エラーの列挙体の実装（Error トレイト）
+impl Error for JoinGameError {}
+
+/// 卓参加エラーの列挙体の実装（fmt::Display トレイト）
+impl fmt::Display for JoinGameError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidRequest(message) => write!(f, "invalid request: {}", message),
+            Self::Unauthorized => write!(f, "unauthorized"),
+            Self::NotFound => write!(f, "game not found"),
+            Self::Forbidden(message) => write!(f, "forbidden: {}", message),
+            Self::Repository(error) => write!(f, "repository error: {}", error),
+        }
+    }
+}
+
+///
 /// 卓進行エラーの列挙体
 ///
 #[derive(Debug)]

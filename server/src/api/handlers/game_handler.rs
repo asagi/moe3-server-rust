@@ -3,11 +3,13 @@
 // ============================================================================
 
 use axum::extract::Json;
+use axum::extract::Path;
 use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use chrono::NaiveDate;
+use uuid::Uuid;
 
 use super::AppState;
 use super::CreateGameCommand;
@@ -20,6 +22,13 @@ use super::CreateGameResponse;
 use super::DiscordIdentityProvider;
 use super::GameRepository;
 use super::GameService;
+use super::JoinGameCommand;
+use super::JoinGameError;
+use super::JoinGameHandlerError;
+use super::JoinGameRequest;
+use super::JoinGameRequestBody;
+use super::JoinGameRequestValidationError;
+use super::JoinGameResponse;
 use super::Power;
 use super::ProgressMode;
 use super::Regulation;
@@ -148,6 +157,104 @@ fn invalid_request(validation_error: CreateGameRequestValidationError) -> Create
 }
 
 // ============================================================================
+// 卓参加ハンドラ
+// ============================================================================
+
+///
+/// 卓参加リクエストハンドラ関数
+///
+pub(crate) async fn post_games_players<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    Path(game_uuid_str): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<JoinGameRequestBody>,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    let game_uuid = match game_uuid_str.parse::<Uuid>() {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(JoinGameHandlerError::Service(JoinGameError::NotFound).to_api_error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let authorization = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
+    let request = JoinGameRequest {
+        authorization,
+        game_uuid,
+        requested_power: body.requested_power,
+    };
+
+    let state_clone = state.clone();
+    let request_clone = request.clone();
+    match tokio::task::spawn_blocking(move || match handle_join_game(&state_clone.game_service, request_clone) {
+        Ok(response) => (StatusCode::CREATED, Json(response)).into_response(),
+        Err(error) => {
+            let status = match &error {
+                JoinGameHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+                JoinGameHandlerError::Service(JoinGameError::InvalidRequest(_)) => StatusCode::BAD_REQUEST,
+                JoinGameHandlerError::Service(JoinGameError::Unauthorized) => StatusCode::UNAUTHORIZED,
+                JoinGameHandlerError::Service(JoinGameError::NotFound) => StatusCode::NOT_FOUND,
+                JoinGameHandlerError::Service(JoinGameError::Forbidden(_)) => StatusCode::FORBIDDEN,
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            };
+            (status, Json(error.to_api_error_response())).into_response()
+        }
+    })
+    .await
+    {
+        Ok(response) => response,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+/// 卓参加リクエストハンドラ関数
+fn handle_join_game<U, G>(service: &GameService<U, G>, request: JoinGameRequest) -> Result<JoinGameResponse, JoinGameHandlerError>
+where
+    U: UserRepository,
+    G: GameRepository,
+{
+    request.validate().map_err(JoinGameHandlerError::InvalidRequest)?;
+
+    let requested_power = request
+        .requested_power
+        .as_deref()
+        .map(|code| {
+            Power::try_from(code)
+                .map_err(|_| JoinGameHandlerError::InvalidRequest(JoinGameRequestValidationError::InvalidRequestedPower))
+        })
+        .transpose()?;
+
+    let access_token = request.authorization.trim().trim_start_matches("Bearer ").trim().to_string();
+
+    let result = service
+        .join_game(JoinGameCommand {
+            access_token,
+            game_uuid: request.game_uuid,
+            requested_power,
+        })
+        .map_err(JoinGameHandlerError::Service)?;
+
+    Ok(JoinGameResponse {
+        game_uuid: result.game.uuid,
+        user_uuid: result.user_uuid,
+        requested_power: result.requested_power.map(|power| power.to_string()),
+    })
+}
+
+// ============================================================================
 // tests
 // ============================================================================
 
@@ -164,6 +271,9 @@ mod tests {
 
     use super::*;
     use crate::domain::Game;
+    use crate::domain::GameStatus;
+    use crate::domain::Phase;
+    use crate::domain::Player;
     use crate::repositories::NewGame;
     use crate::repositories::NewUser;
     use crate::repositories::RepositoryError;
@@ -232,17 +342,33 @@ mod tests {
     #[derive(Debug, Clone)]
     struct InMemoryGameRepository {
         inserted: Rc<RefCell<Vec<Game>>>,
+        games: Rc<RefCell<Vec<Game>>>,
+        updated: Rc<RefCell<Vec<Game>>>,
     }
 
     impl InMemoryGameRepository {
         fn new() -> Self {
             Self {
                 inserted: Rc::new(RefCell::new(Vec::new())),
+                games: Rc::new(RefCell::new(Vec::new())),
+                updated: Rc::new(RefCell::new(Vec::new())),
+            }
+        }
+
+        fn new_with_games(games: Vec<Game>) -> Self {
+            Self {
+                inserted: Rc::new(RefCell::new(Vec::new())),
+                games: Rc::new(RefCell::new(games)),
+                updated: Rc::new(RefCell::new(Vec::new())),
             }
         }
 
         fn last_inserted(&self) -> Option<Game> {
             self.inserted.borrow().last().cloned()
+        }
+
+        fn last_updated(&self) -> Option<Game> {
+            self.updated.borrow().last().cloned()
         }
     }
 
@@ -263,8 +389,8 @@ mod tests {
             Ok(Vec::new())
         }
 
-        fn find_by_uuid(&self, _game_uuid: uuid::Uuid) -> Result<Option<Game>, RepositoryError> {
-            Ok(None)
+        fn find_by_uuid(&self, game_uuid: uuid::Uuid) -> Result<Option<Game>, RepositoryError> {
+            Ok(self.games.borrow().iter().find(|g| g.uuid == game_uuid).cloned())
         }
 
         fn find_progress_candidates(&self, _now: chrono::NaiveDateTime) -> Result<Vec<uuid::Uuid>, RepositoryError> {
@@ -275,7 +401,8 @@ mod tests {
             Ok(false)
         }
 
-        fn update(&self, _game: &Game) -> Result<(), RepositoryError> {
+        fn update(&self, game: &Game) -> Result<(), RepositoryError> {
+            self.updated.borrow_mut().push(game.clone());
             Ok(())
         }
     }
@@ -371,6 +498,97 @@ mod tests {
             },
         )
         .expect_err("create should fail");
+
+        assert_eq!(error.code(), "invalid_request");
+    }
+
+    #[test]
+    fn handle_join_game_registers_player() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let joiner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 2,
+            uuid: joiner_uuid,
+            discord_user_id: "1002".to_string(),
+            username: "joiner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-2".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+
+        let game = Game {
+            uuid: uuid::Uuid::now_v7(),
+            game_number: None,
+            regulation: {
+                use crate::domain::DurationType;
+                use crate::domain::FaceType;
+                use crate::domain::Regulation;
+                let jst = chrono::FixedOffset::east_opt(9 * 3600).unwrap();
+                let now_jst = Utc::now().with_timezone(&jst);
+                let start = now_jst + chrono::Duration::hours(2);
+                Regulation::new(
+                    FaceType::Girls,
+                    ProgressMode::Scheduled,
+                    DurationType::Short,
+                    start.date_naive(),
+                    start.hour() as u8,
+                )
+                .unwrap()
+            },
+            players: vec![Player {
+                user_uuid: owner_uuid,
+                power: None,
+                is_accepting_draw: false,
+                is_owner: true,
+                requested_power: None,
+            }],
+            phases: vec![Phase::new_ready()],
+            status: GameStatus::Preparing,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        };
+        let game_uuid = game.uuid;
+
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let repo_clone = game_repository.clone();
+        let service = GameService::new(user_repository, game_repository);
+
+        let response = handle_join_game(
+            &service,
+            JoinGameRequest {
+                authorization: "Bearer token-2".to_string(),
+                game_uuid,
+                requested_power: Some("f".to_string()),
+            },
+        )
+        .expect("join should succeed");
+
+        assert_eq!(response.game_uuid, game_uuid);
+        assert_eq!(response.user_uuid, joiner_uuid);
+        assert_eq!(response.requested_power.as_deref(), Some("France"));
+
+        let updated = repo_clone.last_updated().expect("game should have been updated");
+        assert_eq!(updated.players.len(), 2);
+    }
+
+    #[test]
+    fn handle_join_game_rejects_invalid_authorization() {
+        let user_repository = InMemoryUserRepository::new(Vec::new());
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = handle_join_game(
+            &service,
+            JoinGameRequest {
+                authorization: "token-1".to_string(),
+                game_uuid: uuid::Uuid::now_v7(),
+                requested_power: None,
+            },
+        )
+        .expect_err("join should fail");
 
         assert_eq!(error.code(), "invalid_request");
     }

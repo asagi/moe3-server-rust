@@ -21,9 +21,11 @@ pub(crate) use error::AuthError;
 pub(crate) use error::CreateGameError;
 pub(crate) use error::DiscordClientError;
 pub(crate) use error::GameProgressionError;
+pub(crate) use error::JoinGameError;
 pub(crate) use game_progression_service::GameProgressionService;
 pub(crate) use game_service::CreateGameCommand;
 pub(crate) use game_service::GameService;
+pub(crate) use game_service::JoinGameCommand;
 
 // ============================================================================
 // re-exports

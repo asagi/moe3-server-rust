@@ -37,6 +37,7 @@ use super::SqliteUserRepository;
 use super::UserRepository;
 use super::handlers::post_auth_login;
 use super::handlers::post_games;
+use super::handlers::post_games_players;
 
 // ============================================================================
 // definitions
@@ -247,6 +248,7 @@ where
 {
     Router::new()
         .route("/games", post(post_games::<U, G, D>))
+        .route("/games/:game_uuid/players", post(post_games_players::<U, G, D>))
         .route("/auth/login", post(post_auth_login::<U, G, D>))
         .with_state(state.clone())
         .layer(from_fn_with_state(state, run_global_pre_handler::<U, G, D>))

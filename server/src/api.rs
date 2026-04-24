@@ -20,10 +20,14 @@ pub(crate) use requests::AuthRequestValidationError;
 pub(crate) use requests::CreateGameRequest;
 pub(crate) use requests::CreateGameRequestBody;
 pub(crate) use requests::CreateGameRequestValidationError;
+pub(crate) use requests::JoinGameRequest;
+pub(crate) use requests::JoinGameRequestBody;
+pub(crate) use requests::JoinGameRequestValidationError;
 pub(crate) use responses::ApiErrorResponse;
 pub(crate) use responses::AuthLoginResponse;
 pub(crate) use responses::AuthLoginResponseUser;
 pub(crate) use responses::CreateGameResponse;
+pub(crate) use responses::JoinGameResponse;
 pub(crate) use router::AppState;
 
 // ============================================================================
@@ -41,6 +45,8 @@ pub(crate) use super::GameProgressionError;
 pub(crate) use super::GameProgressionService;
 pub(crate) use super::GameRepository;
 pub(crate) use super::GameService;
+pub(crate) use super::JoinGameCommand;
+pub(crate) use super::JoinGameError;
 pub(crate) use super::LoginCommand;
 pub(crate) use super::LoginUser;
 pub(crate) use super::Power;
