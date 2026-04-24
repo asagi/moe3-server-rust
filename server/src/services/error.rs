@@ -64,6 +64,7 @@ impl fmt::Display for AuthError {
 pub(crate) enum CreateGameError {
     InvalidRequest(String),
     Unauthorized,
+    Forbidden(String),
     Repository(RepositoryError),
     Internal(String),
 }
@@ -77,6 +78,7 @@ impl fmt::Display for CreateGameError {
         match self {
             Self::InvalidRequest(message) => write!(f, "invalid request: {}", message),
             Self::Unauthorized => write!(f, "unauthorized"),
+            Self::Forbidden(message) => write!(f, "forbidden: {}", message),
             Self::Repository(error) => write!(f, "repository error: {}", error),
             Self::Internal(message) => write!(f, "internal error: {}", message),
         }

@@ -33,5 +33,8 @@ pub(crate) trait GameRepository {
 
     fn find_progress_candidates(&self, now: NaiveDateTime) -> Result<Vec<Uuid>, RepositoryError>;
 
+    /// ユーザーが Finished / Closed / Aborted 以外のステータスの卓に参加中かどうかを返す。
+    fn exists_active_game_for_user(&self, user_uuid: Uuid) -> Result<bool, RepositoryError>;
+
     fn update(&self, game: &Game) -> Result<(), RepositoryError>;
 }
