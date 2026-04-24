@@ -976,6 +976,23 @@ impl GameRepository for SqliteGameRepository {
             Self::insert_phase_orders(&transaction, phase_id, phase, &now)?;
         }
 
+        for player in &game.players {
+            transaction
+                .execute(
+                    r#"
+                    UPDATE game_players
+                    SET is_accepting_draw = ?3
+                    WHERE game_uuid = ?1 AND user_uuid = ?2
+                    "#,
+                    params![
+                        game.uuid.to_string(),
+                        player.user_uuid.to_string(),
+                        player.is_accepting_draw as i32,
+                    ],
+                )
+                .map_err(|error| RepositoryError::Unavailable(format!("update game player: {}", error)))?;
+        }
+
         transaction
             .commit()
             .map_err(|error| RepositoryError::Unavailable(format!("commit game update transaction: {}", error)))?;
@@ -1344,6 +1361,51 @@ mod tests {
         assert_eq!(restored_phase.orders.len(), 1);
         assert!(matches!(restored_phase.orders[0].kind, OrderKind::Move(_)));
         assert!(restored_phase.orders[0].is_success());
+    }
+
+    #[test]
+    fn update_persists_player_is_accepting_draw() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+
+        let regulation = Regulation::new(
+            FaceType::Girls,
+            ProgressMode::Scheduled,
+            DurationType::Short,
+            chrono::NaiveDate::from_ymd_opt(2026, 4, 19).expect("valid date"),
+            12,
+        )
+        .expect("valid regulation");
+
+        let game = Game {
+            uuid: uuid::Uuid::now_v7(),
+            game_number: None,
+            regulation,
+            players: vec![Player {
+                user_uuid: uuid::Uuid::now_v7(),
+                power: Some(Power::France),
+                is_accepting_draw: false,
+                is_owner: true,
+                requested_power: Some(Power::France),
+            }],
+            phases: vec![Phase::new_ready()],
+            status: GameStatus::InProgress,
+            is_canceled: false,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        };
+
+        let mut created = repository.insert(NewGame { game }).expect("insert should succeed");
+        assert!(!created.players[0].is_accepting_draw);
+
+        created.players[0].is_accepting_draw = true;
+        repository.update(&created).expect("update should succeed");
+
+        let restored = repository
+            .find_by_uuid(created.uuid)
+            .expect("find should succeed")
+            .expect("game should exist");
+        assert!(restored.players[0].is_accepting_draw);
     }
 }
 
