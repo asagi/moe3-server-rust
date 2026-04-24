@@ -1469,4 +1469,87 @@ mod transaction_tests {
 
         assert_eq!(game_count, 0, "game row should be rolled back on failure");
     }
+
+    #[test]
+    fn find_all_active_excludes_aborted_games() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+
+        let regulation = Regulation::new(
+            FaceType::Girls,
+            ProgressMode::Scheduled,
+            DurationType::Short,
+            chrono::NaiveDate::from_ymd_opt(2026, 4, 19).expect("valid date"),
+            12,
+        )
+        .expect("valid regulation");
+
+        let game = Game {
+            uuid: uuid::Uuid::now_v7(),
+            game_number: None,
+            regulation,
+            players: vec![Player {
+                user_uuid: uuid::Uuid::now_v7(),
+                power: Some(Power::France),
+                is_accepting_draw: false,
+                is_owner: true,
+                requested_power: Some(Power::France),
+            }],
+            phases: vec![Phase::new_ready()],
+            status: GameStatus::Aborted,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        };
+
+        repository.insert(NewGame { game }).expect("insert should succeed");
+
+        let active_games = repository.find_all_active().expect("find_all_active should succeed");
+        assert!(active_games.is_empty(), "aborted game should not appear in find_all_active");
+    }
+
+    #[test]
+    fn find_progress_candidates_excludes_aborted_games() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+
+        let regulation = Regulation::new(
+            FaceType::Girls,
+            ProgressMode::Scheduled,
+            DurationType::Short,
+            chrono::NaiveDate::from_ymd_opt(2026, 4, 19).expect("valid date"),
+            12,
+        )
+        .expect("valid regulation");
+
+        let past = chrono::NaiveDate::from_ymd_opt(2026, 4, 18)
+            .expect("valid date")
+            .and_hms_opt(9, 0, 0)
+            .expect("valid datetime");
+        let now = chrono::NaiveDate::from_ymd_opt(2026, 4, 19)
+            .expect("valid date")
+            .and_hms_opt(9, 0, 0)
+            .expect("valid datetime");
+
+        let game = Game {
+            uuid: uuid::Uuid::now_v7(),
+            game_number: None,
+            regulation,
+            players: vec![Player {
+                user_uuid: uuid::Uuid::now_v7(),
+                power: Some(Power::France),
+                is_accepting_draw: false,
+                is_owner: true,
+                requested_power: Some(Power::France),
+            }],
+            phases: vec![Phase::new_ready()],
+            status: GameStatus::Aborted,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: Some(past),
+        };
+
+        repository.insert(NewGame { game }).expect("insert should succeed");
+
+        let candidates = repository.find_progress_candidates(now).expect("find_progress_candidates should succeed");
+        assert!(candidates.is_empty(), "aborted game should not appear in find_progress_candidates");
+    }
 }

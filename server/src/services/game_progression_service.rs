@@ -8,6 +8,7 @@ use super::GameStatus;
 use super::PhaseContext;
 use super::UserRepository;
 use chrono::Utc;
+use strum::IntoEnumIterator;
 
 // ============================================================================
 // definitions
@@ -38,7 +39,7 @@ where
         }
     }
 
-    /// Closed 以外の全 Game に対してフェイズ進行を試みる。
+    /// Closed・Aborted 以外の全 Game に対してフェイズ進行を試みる。
     /// next_update_at が現在時刻より過去の場合のみ進行処理を実行する。
     pub(crate) fn progress_games(&self) -> Result<(), GameProgressionError> {
         let now = Utc::now().naive_utc();
@@ -77,7 +78,7 @@ where
         // 募集不成立チェック: Ready フェイズ到達時点でプレイヤーが 7 人未満なら中止
         if matches!(latest_phase.kind, crate::domain::PhaseKind::Ready(_))
             && game.status != GameStatus::InProgress
-            && game.players.iter().filter(|p| p.power.is_some()).count() < 7
+            && game.players.iter().filter(|p| p.power.is_some()).count() < crate::domain::Power::iter().count()
         {
             game.phases.push(latest_phase);
             game.status = GameStatus::Aborted;
@@ -300,7 +301,7 @@ mod tests {
                 .active_games
                 .borrow()
                 .iter()
-                .filter(|game| game.status != GameStatus::Closed)
+                .filter(|game| game.status != GameStatus::Closed && game.status != GameStatus::Aborted)
                 .filter(|game| game.next_update_at.is_some_and(|next_update| next_update <= now))
                 .map(|game| game.uuid)
                 .collect())
