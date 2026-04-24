@@ -156,6 +156,8 @@ mod tests {
     use std::rc::Rc;
 
     use chrono::DateTime;
+    use chrono::FixedOffset;
+    use chrono::Timelike;
     use chrono::Utc;
 
     use super::*;
@@ -242,6 +244,13 @@ mod tests {
         }
     }
 
+    fn future_start_params() -> (String, u8) {
+        let jst = FixedOffset::east_opt(9 * 60 * 60).expect("valid JST offset");
+        let now_jst = Utc::now().with_timezone(&jst);
+        let start_jst = now_jst + chrono::Duration::hours(2);
+        (start_jst.format("%Y-%m-%d").to_string(), start_jst.hour() as u8)
+    }
+
     impl GameRepository for InMemoryGameRepository {
         fn insert(&self, new_game: NewGame) -> Result<Game, RepositoryError> {
             self.inserted.borrow_mut().push(new_game.game.clone());
@@ -267,6 +276,8 @@ mod tests {
 
     #[test]
     fn handle_create_game_creates_owner_and_ready_phase() {
+        let (start_date, first_period_hour) = future_start_params();
+
         let owner_uuid = uuid::Uuid::now_v7();
         let user_repository = InMemoryUserRepository::new(vec![UserRecord {
             id: 1,
@@ -288,8 +299,8 @@ mod tests {
                 authorization: "Bearer token-1".to_string(),
                 face_type: 1,
                 duration_type: 1,
-                start_date: "2026-04-19".to_string(),
-                first_period_hour: 12,
+                start_date,
+                first_period_hour,
                 requested_power: Some("f".to_string()),
             },
         )
@@ -301,6 +312,8 @@ mod tests {
 
     #[test]
     fn handle_create_game_uses_scheduled_progress_mode() {
+        let (start_date, first_period_hour) = future_start_params();
+
         let owner_uuid = uuid::Uuid::now_v7();
         let user_repository = InMemoryUserRepository::new(vec![UserRecord {
             id: 1,
@@ -323,8 +336,8 @@ mod tests {
                 authorization: "Bearer token-1".to_string(),
                 face_type: 1,
                 duration_type: 1,
-                start_date: "2026-04-19".to_string(),
-                first_period_hour: 12,
+                start_date,
+                first_period_hour,
                 requested_power: None,
             },
         )
