@@ -80,6 +80,13 @@ where
             .map_err(CreateGameError::Repository)?
             .ok_or(CreateGameError::Unauthorized)?;
 
+        let active_games = self.game_repository.find_all_active().map_err(CreateGameError::Repository)?;
+        if Self::is_participating_in_non_ended_game(user.uuid, &active_games) {
+            return Err(CreateGameError::Forbidden(
+                "user is already participating in another active game".to_string(),
+            ));
+        }
+
         let owner = Player {
             user_uuid: user.uuid,
             power: None,
@@ -153,6 +160,15 @@ where
         }
 
         Ok(())
+    }
+
+    fn is_participating_in_non_ended_game(user_uuid: Uuid, games: &[Game]) -> bool {
+        games.iter().any(|game| {
+            game.players.iter().any(|player| player.user_uuid == user_uuid)
+                && game.status != GameStatus::Finished
+                && game.status != GameStatus::Closed
+                && game.status != GameStatus::Aborted
+        })
     }
 }
 
@@ -237,13 +253,19 @@ mod tests {
     #[derive(Debug, Clone)]
     struct InMemoryGameRepository {
         created: Rc<RefCell<Vec<Game>>>,
+        active_games: Rc<RefCell<Vec<Game>>>,
     }
 
     impl InMemoryGameRepository {
-        fn new() -> Self {
+        fn new(active_games: Vec<Game>) -> Self {
             Self {
                 created: Rc::new(RefCell::new(Vec::new())),
+                active_games: Rc::new(RefCell::new(active_games)),
             }
+        }
+
+        fn created_len(&self) -> usize {
+            self.created.borrow().len()
         }
     }
 
@@ -254,7 +276,7 @@ mod tests {
         }
 
         fn find_all_active(&self) -> Result<Vec<Game>, RepositoryError> {
-            Ok(Vec::new())
+            Ok(self.active_games.borrow().clone())
         }
 
         fn find_by_uuid(&self, _game_uuid: Uuid) -> Result<Option<Game>, RepositoryError> {
@@ -299,7 +321,7 @@ mod tests {
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
         }]);
-        let game_repository = InMemoryGameRepository::new();
+        let game_repository = InMemoryGameRepository::new(vec![]);
 
         let service = GameService::new(user_repository, game_repository);
 
@@ -335,7 +357,7 @@ mod tests {
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
         }]);
-        let game_repository = InMemoryGameRepository::new();
+        let game_repository = InMemoryGameRepository::new(vec![]);
         let service = GameService::new(user_repository, game_repository);
 
         let result = service
@@ -377,7 +399,7 @@ mod tests {
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
         }]);
-        let game_repository = InMemoryGameRepository::new();
+        let game_repository = InMemoryGameRepository::new(vec![]);
         let service = GameService::new(user_repository, game_repository);
 
         let past_regulation = Regulation::new(
@@ -398,6 +420,146 @@ mod tests {
             .expect_err("create game should fail");
 
         assert!(matches!(error, CreateGameError::InvalidRequest(_)));
+    }
+
+    #[test]
+    fn create_game_rejects_when_user_already_participates_in_active_game() {
+        let user_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: user_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "asagi".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-1".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+
+        let participating_game = Game {
+            uuid: Uuid::now_v7(),
+            game_number: Some(1),
+            regulation: sample_regulation(),
+            players: vec![Player {
+                user_uuid,
+                power: Some(Power::France),
+                is_accepting_draw: false,
+                is_owner: false,
+                requested_power: Some(Power::France),
+            }],
+            phases: vec![Phase::new_ready()],
+            status: GameStatus::InProgress,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        };
+
+        let game_repository = InMemoryGameRepository::new(vec![participating_game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let error = service
+            .create_game(CreateGameCommand {
+                access_token: "token-1".to_string(),
+                regulation: sample_regulation(),
+                requested_power: None,
+            })
+            .expect_err("create game should fail");
+
+        assert!(matches!(error, CreateGameError::Forbidden(_)));
+        assert_eq!(game_repository.created_len(), 0);
+    }
+
+    #[test]
+    fn create_game_allows_when_participating_game_is_finished() {
+        let user_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: user_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "asagi".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-1".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+
+        let finished_game = Game {
+            uuid: Uuid::now_v7(),
+            game_number: Some(1),
+            regulation: sample_regulation(),
+            players: vec![Player {
+                user_uuid,
+                power: Some(Power::France),
+                is_accepting_draw: false,
+                is_owner: false,
+                requested_power: Some(Power::France),
+            }],
+            phases: vec![Phase::new_ready()],
+            status: GameStatus::Finished,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        };
+
+        let game_repository = InMemoryGameRepository::new(vec![finished_game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service.create_game(CreateGameCommand {
+            access_token: "token-1".to_string(),
+            regulation: sample_regulation(),
+            requested_power: None,
+        });
+
+        assert!(result.is_ok());
+        assert_eq!(game_repository.created_len(), 1);
+    }
+
+    #[test]
+    fn create_game_allows_when_participating_game_is_aborted() {
+        let user_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: user_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "asagi".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-1".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+
+        let canceled_game = Game {
+            uuid: Uuid::now_v7(),
+            game_number: Some(1),
+            regulation: sample_regulation(),
+            players: vec![Player {
+                user_uuid,
+                power: Some(Power::France),
+                is_accepting_draw: false,
+                is_owner: false,
+                requested_power: Some(Power::France),
+            }],
+            phases: vec![Phase::new_ready()],
+            status: GameStatus::Aborted,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        };
+
+        let game_repository = InMemoryGameRepository::new(vec![canceled_game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service.create_game(CreateGameCommand {
+            access_token: "token-1".to_string(),
+            regulation: sample_regulation(),
+            requested_power: None,
+        });
+
+        assert!(result.is_ok());
+        assert_eq!(game_repository.created_len(), 1);
     }
 
     #[test]

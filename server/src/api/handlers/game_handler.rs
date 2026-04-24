@@ -66,6 +66,7 @@ where
             let status = match &error {
                 CreateGameHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
                 CreateGameHandlerError::Service(CreateGameError::Unauthorized) => StatusCode::UNAUTHORIZED,
+                CreateGameHandlerError::Service(CreateGameError::Forbidden(_)) => StatusCode::FORBIDDEN,
                 _ => StatusCode::INTERNAL_SERVER_ERROR,
             };
             (status, Json(error.to_api_error_response())).into_response()

@@ -745,7 +745,7 @@ mod tests {
         let past = past_date.and_hms_opt(14, 32, 0).expect("valid datetime");
 
         // Ready フェイズ・プレイヤー 1 人（7 人未満）
-        let mut game = sample_game(Some(past));
+        let game = sample_game(Some(past));
         assert_eq!(game.players.iter().filter(|p| p.power.is_some()).count(), 1);
 
         let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, chrono::Utc::now())]);

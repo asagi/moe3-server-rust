@@ -67,6 +67,7 @@ impl CreateGameHandlerError {
             Self::InvalidRequest(_) => "invalid_request",
             Self::Service(CreateGameError::InvalidRequest(_)) => "invalid_request",
             Self::Service(CreateGameError::Unauthorized) => "unauthorized",
+            Self::Service(CreateGameError::Forbidden(_)) => "forbidden",
             Self::Service(CreateGameError::Repository(_)) => "repository_error",
             Self::Service(CreateGameError::Internal(_)) => "internal_error",
         }
@@ -99,6 +100,7 @@ impl CreateGameHandlerError {
             Self::InvalidRequest(CreateGameRequestValidationError::InvalidRequestedPower) => {
                 "requested_power is invalid".to_string()
             }
+            Self::Service(CreateGameError::Forbidden(message)) => message.clone(),
             Self::Service(error) => error.to_string(),
         }
     }
