@@ -258,6 +258,11 @@ where
             .map_err(JoinGameError::Repository)?
             .ok_or(JoinGameError::NotFound)?;
 
+        // Notify repository of the updated game state (used by in-memory test repositories)
+        self.game_repository
+            .update(&updated_game)
+            .map_err(JoinGameError::Repository)?;
+
         Ok(JoinGameResult {
             game: updated_game,
             user_uuid: user.uuid,
