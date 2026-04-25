@@ -243,8 +243,7 @@ where
     /// - 希望者が一人しかいない国はその一人に割り当てられる。
     /// - 希望者が複数いる国は抽選で希望者の一人に割り当てられる。
     /// - 残った国は残った参加者にランダムで割り当てられる。
-    #[allow(dead_code)]
-    fn assign_powers(players: &mut [super::Player]) {
+    pub(crate) fn assign_powers(players: &mut [super::Player]) {
         use std::collections::HashMap;
         use std::collections::HashSet;
         use strum::IntoEnumIterator;
@@ -421,6 +420,10 @@ mod tests {
             _user_uuid: uuid::Uuid,
             _requested_power: Option<Power>,
         ) -> Result<(), RepositoryError> {
+            Err(RepositoryError::Unavailable("not used".to_string()))
+        }
+
+        fn next_game_number(&self) -> Result<i32, RepositoryError> {
             Err(RepositoryError::Unavailable("not used".to_string()))
         }
     }

@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use super::CreateGameError;
 use super::Game;
+use super::GameProgressionService;
 use super::GameRepository;
 use super::GameStatus;
 use super::JoinGameError;
@@ -251,14 +252,20 @@ where
             .add_player(game.uuid, user.uuid, command.requested_power)
             .map_err(JoinGameError::Repository)?;
 
-        // 最新状態を再取得して返す
-        let updated_game = self
+        // 最新状態を再取得する
+        let mut updated_game = self
             .game_repository
             .find_by_uuid(command.game_uuid)
             .map_err(JoinGameError::Repository)?
             .ok_or(JoinGameError::NotFound)?;
 
-        // Notify repository of the updated game state (used by in-memory test repositories)
+        // 7 人揃ったら担当国割り当て・ステータス変更・卓番号採番を行う
+        if updated_game.players.len() == Power::iter().count() {
+            GameProgressionService::<U, G>::assign_powers(&mut updated_game.players);
+            updated_game.status = GameStatus::Ready;
+            updated_game.game_number = Some(self.game_repository.next_game_number().map_err(JoinGameError::Repository)?);
+        }
+
         self.game_repository
             .update(&updated_game)
             .map_err(JoinGameError::Repository)?;
@@ -421,7 +428,23 @@ mod tests {
 
         fn update(&self, game: &Game) -> Result<(), RepositoryError> {
             self.updated.borrow_mut().push(game.clone());
+            // active_games も更新して find_by_uuid が最新状態を返せるようにする
+            let mut games = self.active_games.borrow_mut();
+            if let Some(existing) = games.iter_mut().find(|g| g.uuid == game.uuid) {
+                *existing = game.clone();
+            }
             Ok(())
+        }
+
+        fn next_game_number(&self) -> Result<i32, RepositoryError> {
+            let max = self
+                .active_games
+                .borrow()
+                .iter()
+                .filter_map(|g| g.game_number)
+                .max()
+                .unwrap_or(0);
+            Ok(max + 1)
         }
     }
 
@@ -927,5 +950,163 @@ mod tests {
             .expect_err("join game should fail");
 
         assert!(matches!(error, JoinGameError::Forbidden(_)));
+    }
+
+    /// 6 人分のプレイヤー（卓主 + 5 人）が参加済みのゲームを生成するヘルパー
+    fn sample_six_player_game(owner_uuid: Uuid, user_records: &mut Vec<UserRecord>) -> Game {
+        use strum::IntoEnumIterator;
+        let powers: Vec<Power> = Power::iter().collect();
+        let mut game = Game {
+            uuid: Uuid::now_v7(),
+            game_number: None,
+            regulation: sample_regulation(),
+            players: vec![Player {
+                user_uuid: owner_uuid,
+                power: None,
+                is_accepting_draw: false,
+                is_owner: true,
+                requested_power: Some(powers[0]),
+            }],
+            phases: vec![Phase::new_ready()],
+            status: GameStatus::Preparing,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        };
+
+        for power in powers.iter().skip(1).take(5) {
+            let uuid = Uuid::now_v7();
+            user_records.push(UserRecord {
+                id: user_records.len() as i64 + 2,
+                uuid,
+                discord_user_id: format!("discord-{}", uuid),
+                username: format!("user-{}", uuid),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: format!("token-{}", uuid),
+                last_access_at: Utc::now(),
+            });
+            game.players.push(Player {
+                user_uuid: uuid,
+                power: None,
+                is_accepting_draw: false,
+                is_owner: false,
+                requested_power: Some(*power),
+            });
+        }
+
+        game
+    }
+
+    #[test]
+    fn join_game_sets_status_to_ready_when_seventh_player_joins() {
+        let owner_uuid = Uuid::now_v7();
+        let seventh_uuid = Uuid::now_v7();
+
+        let mut extra_users: Vec<UserRecord> = vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }];
+
+        let game = sample_six_player_game(owner_uuid, &mut extra_users);
+        let game_uuid = game.uuid;
+
+        // 7 人目のユーザー
+        extra_users.push(UserRecord {
+            id: 8,
+            uuid: seventh_uuid,
+            discord_user_id: "discord-7".to_string(),
+            username: "seventh".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-7".to_string(),
+            last_access_at: Utc::now(),
+        });
+
+        let user_repository = InMemoryUserRepository::new(extra_users);
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service
+            .join_game(JoinGameCommand {
+                access_token: "token-7".to_string(),
+                game_uuid,
+                requested_power: Some(Power::Turkey),
+            })
+            .expect("join game should succeed");
+
+        assert_eq!(result.game.status, GameStatus::Ready, "ステータスが Ready になるべき");
+        assert_eq!(result.game.players.len(), 7, "プレイヤーが 7 人になるべき");
+        assert!(result.game.game_number.is_some(), "卓番号が割り当てられるべき");
+
+        // 全員に担当国が割り当てられている
+        assert!(
+            result.game.players.iter().all(|p| p.power.is_some()),
+            "全プレイヤーに担当国が割り当てられるべき"
+        );
+
+        // 担当国に重複なし
+        use std::collections::HashSet;
+        let assigned: HashSet<Power> = result.game.players.iter().filter_map(|p| p.power).collect();
+        assert_eq!(assigned.len(), 7, "担当国は重複しないべき");
+    }
+
+    #[test]
+    fn join_game_does_not_change_status_when_fewer_than_seven_players() {
+        let owner_uuid = Uuid::now_v7();
+        let joiner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            UserRecord {
+                id: 1,
+                uuid: owner_uuid,
+                discord_user_id: "discord-owner".to_string(),
+                username: "owner".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: "token-owner".to_string(),
+                last_access_at: Utc::now(),
+            },
+            UserRecord {
+                id: 2,
+                uuid: joiner_uuid,
+                discord_user_id: "discord-2".to_string(),
+                username: "joiner".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: "token-2".to_string(),
+                last_access_at: Utc::now(),
+            },
+        ]);
+
+        let game = sample_preparing_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let result = service
+            .join_game(JoinGameCommand {
+                access_token: "token-2".to_string(),
+                game_uuid,
+                requested_power: None,
+            })
+            .expect("join game should succeed");
+
+        assert_eq!(
+            result.game.status,
+            GameStatus::Preparing,
+            "7 人未満なら Preparing のままであるべき"
+        );
+        assert!(result.game.game_number.is_none(), "7 人未満では卓番号が割り当てられないべき");
     }
 }

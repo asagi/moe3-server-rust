@@ -426,7 +426,17 @@ mod tests {
 
         fn update(&self, game: &Game) -> Result<(), RepositoryError> {
             self.updated.borrow_mut().push(game.clone());
+            // active_games も更新して find_by_uuid が最新状態を返せるようにする
+            let mut games = self.games.borrow_mut();
+            if let Some(existing) = games.iter_mut().find(|g| g.uuid == game.uuid) {
+                *existing = game.clone();
+            }
             Ok(())
+        }
+
+        fn next_game_number(&self) -> Result<i32, RepositoryError> {
+            let max = self.games.borrow().iter().filter_map(|g| g.game_number).max().unwrap_or(0);
+            Ok(max + 1)
         }
     }
 
