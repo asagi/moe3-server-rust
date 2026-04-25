@@ -2,13 +2,15 @@
 // imports
 // ============================================================================
 
+use chrono::Utc;
+use rand::seq::SliceRandom;
+use strum::IntoEnumIterator;
+
 use super::GameProgressionError;
 use super::GameRepository;
 use super::GameStatus;
 use super::PhaseContext;
 use super::UserRepository;
-use chrono::Utc;
-use strum::IntoEnumIterator;
 
 // ============================================================================
 // definitions
@@ -230,6 +232,103 @@ where
         match user {
             Some(user) => user.last_access_at.naive_utc() <= threshold,
             None => true,
+        }
+    }
+
+    /// 参加者が揃った際に担当国を割り当てる。
+    ///
+    /// 割り当てルール:
+    /// - 卓主には無条件で希望国が割り当てられる。
+    /// - 卓主と希望が被った参加者は抽選に外れた扱いで最後に回される。
+    /// - 希望者が一人しかいない国はその一人に割り当てられる。
+    /// - 希望者が複数いる国は抽選で希望者の一人に割り当てられる。
+    /// - 残った国は残った参加者にランダムで割り当てられる。
+    #[allow(dead_code)]
+    fn assign_powers(players: &mut [super::Player]) {
+        use std::collections::HashMap;
+        use std::collections::HashSet;
+        use strum::IntoEnumIterator;
+
+        let mut rng = rand::thread_rng();
+
+        // Step 1: 卓主の希望国を無条件で割り当て
+        let owner_requested_power = players.iter().find(|p| p.is_owner).and_then(|p| p.requested_power);
+
+        if let Some(owner_power) = owner_requested_power {
+            players
+                .iter_mut()
+                .filter(|p| p.is_owner)
+                .for_each(|p| p.power = Some(owner_power));
+        }
+
+        // 割り当て済みパワーを除いた残りパワーリスト
+        let assigned_set: HashSet<super::Power> = players.iter().filter_map(|p| p.power).collect();
+        let mut remaining_powers: Vec<super::Power> = super::Power::iter().filter(|p| !assigned_set.contains(p)).collect();
+
+        // Step 2: 卓主と希望が被った参加者を抽選落ちとして識別
+        let mut lottery_losers: Vec<uuid::Uuid> = Vec::new();
+        let mut lottery_loser_set: HashSet<uuid::Uuid> = HashSet::new();
+
+        if let Some(owner_power) = owner_requested_power {
+            for player in players.iter().filter(|p| !p.is_owner && p.power.is_none()) {
+                if player.requested_power == Some(owner_power) {
+                    lottery_losers.push(player.user_uuid);
+                    lottery_loser_set.insert(player.user_uuid);
+                }
+            }
+        }
+
+        // Step 3: 希望国ごとに参加者をグループ化（割り当て済み・抽選落ちを除く）
+        let mut requests: HashMap<super::Power, Vec<uuid::Uuid>> = HashMap::new();
+        let mut no_preference: Vec<uuid::Uuid> = Vec::new();
+
+        for player in players.iter() {
+            if player.power.is_some() {
+                continue;
+            }
+            if lottery_loser_set.contains(&player.user_uuid) {
+                continue;
+            }
+            match player.requested_power {
+                Some(req) => requests.entry(req).or_default().push(player.user_uuid),
+                None => no_preference.push(player.user_uuid),
+            }
+        }
+
+        // Step 4: 希望国の割り当て
+        for (power, mut applicants) in requests {
+            if applicants.len() == 1 {
+                // 希望者 1 人 → 割り当て
+                let uuid = applicants[0];
+                players
+                    .iter_mut()
+                    .filter(|p| p.user_uuid == uuid)
+                    .for_each(|p| p.power = Some(power));
+                remaining_powers.retain(|&rp| rp != power);
+            } else {
+                // 複数希望者 → 抽選
+                applicants.shuffle(&mut rng);
+                let winner_uuid = applicants[0];
+                players
+                    .iter_mut()
+                    .filter(|p| p.user_uuid == winner_uuid)
+                    .for_each(|p| p.power = Some(power));
+                remaining_powers.retain(|&rp| rp != power);
+                for loser_uuid in applicants.into_iter().skip(1) {
+                    lottery_losers.push(loser_uuid);
+                }
+            }
+        }
+
+        // Step 5: 残りのパワーをシャッフルし、抽選落ち→無希望の順に割り当て
+        remaining_powers.shuffle(&mut rng);
+        let all_remaining: Vec<uuid::Uuid> = lottery_losers.into_iter().chain(no_preference).collect();
+
+        for (user_uuid, power) in all_remaining.into_iter().zip(remaining_powers) {
+            players
+                .iter_mut()
+                .filter(|p| p.user_uuid == user_uuid)
+                .for_each(|p| p.power = Some(power));
         }
     }
 }
@@ -792,5 +891,224 @@ mod tests {
 
         let updated = repository.updated_first().expect("updated game should exist");
         assert_eq!(updated.status, GameStatus::InProgress);
+    }
+
+    // ============================================================
+    // assign_powers のテスト
+    // ============================================================
+
+    /// 全 7 人（power: None）のプレイヤー一覧を生成するヘルパー
+    /// 希望国はそれぞれ一意に設定する
+    fn sample_players_unassigned() -> Vec<Player> {
+        use strum::IntoEnumIterator;
+        let powers: Vec<Power> = Power::iter().collect();
+        powers
+            .iter()
+            .enumerate()
+            .map(|(i, &p)| Player {
+                user_uuid: uuid::Uuid::now_v7(),
+                power: None,
+                is_accepting_draw: false,
+                is_owner: i == 0, // 最初のプレイヤーが卓主
+                requested_power: Some(p),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn assign_powers_owner_gets_requested_power() {
+        let mut players = sample_players_unassigned();
+        let owner_requested = players.iter().find(|p| p.is_owner).unwrap().requested_power;
+
+        GameProgressionService::<InMemoryUserRepository, InMemoryGameRepository>::assign_powers(&mut players);
+
+        let owner = players.iter().find(|p| p.is_owner).unwrap();
+        assert_eq!(owner.power, owner_requested, "卓主は希望国を取得するべき");
+    }
+
+    #[test]
+    fn assign_powers_all_players_receive_a_power() {
+        let mut players = sample_players_unassigned();
+
+        GameProgressionService::<InMemoryUserRepository, InMemoryGameRepository>::assign_powers(&mut players);
+
+        assert!(
+            players.iter().all(|p| p.power.is_some()),
+            "全プレイヤーに担当国が割り当てられるべき"
+        );
+    }
+
+    #[test]
+    fn assign_powers_no_duplicate_powers() {
+        use std::collections::HashSet;
+        let mut players = sample_players_unassigned();
+
+        GameProgressionService::<InMemoryUserRepository, InMemoryGameRepository>::assign_powers(&mut players);
+
+        let assigned: Vec<Power> = players.iter().filter_map(|p| p.power).collect();
+        let unique: HashSet<Power> = assigned.iter().cloned().collect();
+        assert_eq!(assigned.len(), unique.len(), "担当国は重複しないべき");
+    }
+
+    #[test]
+    fn assign_powers_single_applicant_gets_requested_power() {
+        use strum::IntoEnumIterator;
+        // 卓主は Austria を希望、残りは順番に異なる国を希望（全員希望が一意）
+        let powers: Vec<Power> = Power::iter().collect();
+        let mut players: Vec<Player> = powers
+            .iter()
+            .enumerate()
+            .map(|(i, &p)| Player {
+                user_uuid: uuid::Uuid::now_v7(),
+                power: None,
+                is_accepting_draw: false,
+                is_owner: i == 0,
+                requested_power: Some(p),
+            })
+            .collect();
+
+        GameProgressionService::<InMemoryUserRepository, InMemoryGameRepository>::assign_powers(&mut players);
+
+        // 全員希望が一意なので全員自分の希望国を得るはず
+        for player in &players {
+            assert_eq!(
+                player.power, player.requested_power,
+                "希望者が 1 人の国はその人に割り当てられるべき"
+            );
+        }
+    }
+
+    #[test]
+    fn assign_powers_conflict_with_owner_player_gets_some_power() {
+        use strum::IntoEnumIterator;
+        // 卓主は Austria を希望、参加者 1 人も Austria を希望（衝突）
+        let powers: Vec<Power> = Power::iter().collect();
+        let owner_uuid = uuid::Uuid::now_v7();
+        let conflicting_uuid = uuid::Uuid::now_v7();
+        let mut players: Vec<Player> = vec![
+            Player {
+                user_uuid: owner_uuid,
+                power: None,
+                is_accepting_draw: false,
+                is_owner: true,
+                requested_power: Some(powers[0]), // Austria
+            },
+            Player {
+                user_uuid: conflicting_uuid,
+                power: None,
+                is_accepting_draw: false,
+                is_owner: false,
+                requested_power: Some(powers[0]), // Austria（衝突）
+            },
+        ];
+        // 残り 5 人はそれぞれ別の国を希望
+        for &p in powers.iter().skip(1).take(5) {
+            players.push(Player {
+                user_uuid: uuid::Uuid::now_v7(),
+                power: None,
+                is_accepting_draw: false,
+                is_owner: false,
+                requested_power: Some(p),
+            });
+        }
+
+        GameProgressionService::<InMemoryUserRepository, InMemoryGameRepository>::assign_powers(&mut players);
+
+        // 卓主は Austria を取得
+        let owner = players.iter().find(|p| p.user_uuid == owner_uuid).unwrap();
+        assert_eq!(owner.power, Some(powers[0]), "卓主は Austria を取得するべき");
+
+        // 衝突した参加者は Austria 以外の何らかの国を取得
+        let conflicting = players.iter().find(|p| p.user_uuid == conflicting_uuid).unwrap();
+        assert!(conflicting.power.is_some(), "衝突した参加者も担当国を取得するべき");
+        assert_ne!(
+            conflicting.power,
+            Some(powers[0]),
+            "衝突した参加者は Austria を取得しないべき"
+        );
+
+        // 全員に重複なく割り当て
+        use std::collections::HashSet;
+        let assigned: HashSet<Power> = players.iter().filter_map(|p| p.power).collect();
+        assert_eq!(assigned.len(), 7);
+    }
+
+    #[test]
+    fn assign_powers_multiple_applicants_one_wins() {
+        use strum::IntoEnumIterator;
+        // 卓主は Austria を希望、他に England を希望する参加者が 3 人
+        let powers: Vec<Power> = Power::iter().collect();
+        let mut players: Vec<Player> = vec![Player {
+            user_uuid: uuid::Uuid::now_v7(),
+            power: None,
+            is_accepting_draw: false,
+            is_owner: true,
+            requested_power: Some(powers[0]), // Austria
+        }];
+        // England を 3 人で希望
+        let england = powers[1];
+        for _ in 0..3 {
+            players.push(Player {
+                user_uuid: uuid::Uuid::now_v7(),
+                power: None,
+                is_accepting_draw: false,
+                is_owner: false,
+                requested_power: Some(england),
+            });
+        }
+        // 残り 3 人はそれぞれ別の国を希望
+        for &p in powers.iter().skip(2).take(3) {
+            players.push(Player {
+                user_uuid: uuid::Uuid::now_v7(),
+                power: None,
+                is_accepting_draw: false,
+                is_owner: false,
+                requested_power: Some(p),
+            });
+        }
+
+        GameProgressionService::<InMemoryUserRepository, InMemoryGameRepository>::assign_powers(&mut players);
+
+        // England を取得したプレイヤーはちょうど 1 人
+        let england_count = players.iter().filter(|p| p.power == Some(england)).count();
+        assert_eq!(england_count, 1, "複数希望の国を取得するのはちょうど 1 人であるべき");
+
+        // 全員に担当国が割り当てられていて重複なし
+        use std::collections::HashSet;
+        let assigned: HashSet<Power> = players.iter().filter_map(|p| p.power).collect();
+        assert_eq!(assigned.len(), 7);
+    }
+
+    #[test]
+    fn assign_powers_owner_without_requested_power_gets_some_power() {
+        use strum::IntoEnumIterator;
+        let powers: Vec<Power> = Power::iter().collect();
+        let mut players: Vec<Player> = vec![Player {
+            user_uuid: uuid::Uuid::now_v7(),
+            power: None,
+            is_accepting_draw: false,
+            is_owner: true,
+            requested_power: None, // 希望なし
+        }];
+        for &p in powers.iter() {
+            players.push(Player {
+                user_uuid: uuid::Uuid::now_v7(),
+                power: None,
+                is_accepting_draw: false,
+                is_owner: false,
+                requested_power: Some(p),
+            });
+        }
+        // 8 人になってしまうので 1 人除く
+        players.pop();
+
+        GameProgressionService::<InMemoryUserRepository, InMemoryGameRepository>::assign_powers(&mut players);
+
+        let owner = players.iter().find(|p| p.is_owner).unwrap();
+        assert!(owner.power.is_some(), "希望なしの卓主も担当国を取得するべき");
+
+        use std::collections::HashSet;
+        let assigned: HashSet<Power> = players.iter().filter_map(|p| p.power).collect();
+        assert_eq!(assigned.len(), 7);
     }
 }
