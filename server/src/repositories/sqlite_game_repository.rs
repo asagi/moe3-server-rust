@@ -915,15 +915,17 @@ impl GameRepository for SqliteGameRepository {
             .execute(
                 r#"
                 UPDATE games
-                SET status = ?2,
-                    is_draw = ?3,
-                    is_solo = ?4,
-                    next_update = ?5,
-                    updated_at = ?6
+                SET game_number = ?2,
+                    status = ?3,
+                    is_draw = ?4,
+                    is_solo = ?5,
+                    next_update = ?6,
+                    updated_at = ?7
                 WHERE uuid = ?1
                 "#,
                 params![
                     game.uuid.to_string(),
+                    game.game_number,
                     Self::serialize_status(game.status),
                     game.is_draw as i32,
                     game.is_solo as i32,
@@ -1021,13 +1023,15 @@ impl GameRepository for SqliteGameRepository {
                 .execute(
                     r#"
                     UPDATE game_players
-                    SET is_accepting_draw = ?3
+                    SET is_accepting_draw = ?3,
+                        power = ?4
                     WHERE game_uuid = ?1 AND user_uuid = ?2
                     "#,
                     params![
                         game.uuid.to_string(),
                         player.user_uuid.to_string(),
                         player.is_accepting_draw as i32,
+                        player.power.map(|p| p as i32),
                     ],
                 )
                 .map_err(|error| RepositoryError::Unavailable(format!("update game player: {}", error)))?;
@@ -1038,6 +1042,28 @@ impl GameRepository for SqliteGameRepository {
             .map_err(|error| RepositoryError::Unavailable(format!("commit game update transaction: {}", error)))?;
 
         Ok(())
+    }
+
+    fn next_game_number(&self) -> Result<i32, RepositoryError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
+
+        // EXCLUSIVE トランザクションで採番の競合を防ぐ
+        connection
+            .execute_batch("BEGIN EXCLUSIVE")
+            .map_err(|error| RepositoryError::Unavailable(format!("begin exclusive transaction: {}", error)))?;
+
+        let next: i32 = connection
+            .query_row("SELECT COALESCE(MAX(game_number), 0) + 1 FROM games", [], |row| row.get(0))
+            .map_err(|error| RepositoryError::Unavailable(format!("query next game number: {}", error)))?;
+
+        connection
+            .execute_batch("COMMIT")
+            .map_err(|error| RepositoryError::Unavailable(format!("commit next game number transaction: {}", error)))?;
+
+        Ok(next)
     }
 }
 
