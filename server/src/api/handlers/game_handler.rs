@@ -426,7 +426,35 @@ mod tests {
 
         fn update(&self, game: &Game) -> Result<(), RepositoryError> {
             self.updated.borrow_mut().push(game.clone());
+            // active_games も更新して find_by_uuid が最新状態を返せるようにする
+            let mut games = self.games.borrow_mut();
+            if let Some(existing) = games.iter_mut().find(|g| g.uuid == game.uuid) {
+                *existing = game.clone();
+            }
             Ok(())
+        }
+
+        fn assign_game_number(&self, game_uuid: uuid::Uuid) -> Result<i32, RepositoryError> {
+            // 既に採番済みか確認
+            if let Some(n) = self
+                .games
+                .borrow()
+                .iter()
+                .find(|g| g.uuid == game_uuid)
+                .and_then(|g| g.game_number)
+            {
+                return Ok(n);
+            }
+            // 現在の最大値を取得
+            let max = self.games.borrow().iter().filter_map(|g| g.game_number).max().unwrap_or(0);
+            let next = max + 1;
+            let mut games = self.games.borrow_mut();
+            let game = games
+                .iter_mut()
+                .find(|g| g.uuid == game_uuid)
+                .ok_or(RepositoryError::NotFound)?;
+            game.game_number = Some(next);
+            Ok(next)
         }
     }
 

@@ -668,7 +668,7 @@ impl GameRepository for SqliteGameRepository {
             .connection
             .lock()
             .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
-        connection
+        let affected = connection
             .execute(
                 r#"
                 INSERT INTO game_players (game_uuid, user_uuid, power, is_accepting_draw, is_owner, requested_power)
@@ -676,6 +676,7 @@ impl GameRepository for SqliteGameRepository {
                 WHERE NOT EXISTS (
                     SELECT 1 FROM game_players WHERE game_uuid = ?1 AND user_uuid = ?2
                 )
+                AND (SELECT COUNT(*) FROM game_players WHERE game_uuid = ?1) < 7
                 "#,
                 params![
                     game_uuid.to_string(),
@@ -684,6 +685,9 @@ impl GameRepository for SqliteGameRepository {
                 ],
             )
             .map_err(|error| RepositoryError::Unavailable(format!("insert game player: {}", error)))?;
+        if affected == 0 {
+            return Err(RepositoryError::Conflict);
+        }
         Ok(())
     }
     fn insert(&self, new_game: NewGame) -> Result<Game, RepositoryError> {
@@ -915,15 +919,17 @@ impl GameRepository for SqliteGameRepository {
             .execute(
                 r#"
                 UPDATE games
-                SET status = ?2,
-                    is_draw = ?3,
-                    is_solo = ?4,
-                    next_update = ?5,
-                    updated_at = ?6
+                SET game_number = ?2,
+                    status = ?3,
+                    is_draw = ?4,
+                    is_solo = ?5,
+                    next_update = ?6,
+                    updated_at = ?7
                 WHERE uuid = ?1
                 "#,
                 params![
                     game.uuid.to_string(),
+                    game.game_number,
                     Self::serialize_status(game.status),
                     game.is_draw as i32,
                     game.is_solo as i32,
@@ -1021,13 +1027,15 @@ impl GameRepository for SqliteGameRepository {
                 .execute(
                     r#"
                     UPDATE game_players
-                    SET is_accepting_draw = ?3
+                    SET is_accepting_draw = ?3,
+                        power = ?4
                     WHERE game_uuid = ?1 AND user_uuid = ?2
                     "#,
                     params![
                         game.uuid.to_string(),
                         player.user_uuid.to_string(),
                         player.is_accepting_draw as i32,
+                        player.power.map(|p| p as i32),
                     ],
                 )
                 .map_err(|error| RepositoryError::Unavailable(format!("update game player: {}", error)))?;
@@ -1038,6 +1046,53 @@ impl GameRepository for SqliteGameRepository {
             .map_err(|error| RepositoryError::Unavailable(format!("commit game update transaction: {}", error)))?;
 
         Ok(())
+    }
+
+    fn assign_game_number(&self, game_uuid: Uuid) -> Result<i32, RepositoryError> {
+        let mut connection = self
+            .connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
+
+        // TransactionBehavior::Exclusive でトランザクションを開始することで
+        // 採番と書き込みをアトミックに行い、重複採番を防ぐ。
+        // Transaction は Drop 時に自動ロールバックされるためエラー時も安全。
+        let transaction = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Exclusive)
+            .map_err(|error| RepositoryError::Unavailable(format!("begin exclusive transaction: {}", error)))?;
+
+        // 既に採番済みならそのまま返す
+        let existing: Option<i32> = transaction
+            .query_row(
+                "SELECT game_number FROM games WHERE uuid = ?1",
+                params![game_uuid.to_string()],
+                |row| row.get(0),
+            )
+            .map_err(|error| RepositoryError::Unavailable(format!("query existing game number: {}", error)))?;
+
+        if let Some(n) = existing {
+            return Ok(n);
+        }
+
+        // 採番と同時に games テーブルを更新する
+        let assigned: i32 = transaction
+            .query_row(
+                r#"
+                UPDATE games
+                SET game_number = (SELECT COALESCE(MAX(game_number), 0) + 1 FROM games)
+                WHERE uuid = ?1 AND game_number IS NULL
+                RETURNING game_number
+                "#,
+                params![game_uuid.to_string()],
+                |row| row.get(0),
+            )
+            .map_err(|error| RepositoryError::Unavailable(format!("assign game number: {}", error)))?;
+
+        transaction
+            .commit()
+            .map_err(|error| RepositoryError::Unavailable(format!("commit assign game number: {}", error)))?;
+
+        Ok(assigned)
     }
 }
 

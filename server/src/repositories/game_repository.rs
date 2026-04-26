@@ -41,4 +41,8 @@ pub(crate) trait GameRepository {
 
     /// 新規プレイヤーを卓に追加する（DB永続化）
     fn add_player(&self, game_uuid: Uuid, user_uuid: Uuid, requested_power: Option<Power>) -> Result<(), RepositoryError>;
+
+    /// 指定した卓に卓番号をアトミックに採番・割り当てる（排他制御付き）。
+    /// すでに卓番号が割り当てられている場合はそのまま返す。
+    fn assign_game_number(&self, game_uuid: Uuid) -> Result<i32, RepositoryError>;
 }
