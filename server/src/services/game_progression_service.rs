@@ -423,7 +423,7 @@ mod tests {
             Err(RepositoryError::Unavailable("not used".to_string()))
         }
 
-        fn next_game_number(&self) -> Result<i32, RepositoryError> {
+        fn assign_game_number(&self, _game_uuid: uuid::Uuid) -> Result<i32, RepositoryError> {
             Err(RepositoryError::Unavailable("not used".to_string()))
         }
     }

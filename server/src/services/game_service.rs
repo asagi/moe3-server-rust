@@ -263,7 +263,12 @@ where
         if updated_game.players.len() == Power::iter().count() {
             GameProgressionService::<U, G>::assign_powers(&mut updated_game.players);
             updated_game.status = GameStatus::Ready;
-            updated_game.game_number = Some(self.game_repository.next_game_number().map_err(JoinGameError::Repository)?);
+            // assign_game_number は採番と DB 更新をアトミックに行う
+            let game_number = self
+                .game_repository
+                .assign_game_number(updated_game.uuid)
+                .map_err(JoinGameError::Repository)?;
+            updated_game.game_number = Some(game_number);
         }
 
         self.game_repository
@@ -436,7 +441,18 @@ mod tests {
             Ok(())
         }
 
-        fn next_game_number(&self) -> Result<i32, RepositoryError> {
+        fn assign_game_number(&self, game_uuid: Uuid) -> Result<i32, RepositoryError> {
+            // 既に採番済みか確認
+            if let Some(n) = self
+                .active_games
+                .borrow()
+                .iter()
+                .find(|g| g.uuid == game_uuid)
+                .and_then(|g| g.game_number)
+            {
+                return Ok(n);
+            }
+            // 現在の最大値を取得
             let max = self
                 .active_games
                 .borrow()
@@ -444,7 +460,14 @@ mod tests {
                 .filter_map(|g| g.game_number)
                 .max()
                 .unwrap_or(0);
-            Ok(max + 1)
+            let next = max + 1;
+            let mut games = self.active_games.borrow_mut();
+            let game = games
+                .iter_mut()
+                .find(|g| g.uuid == game_uuid)
+                .ok_or(RepositoryError::NotFound)?;
+            game.game_number = Some(next);
+            Ok(next)
         }
     }
 

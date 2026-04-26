@@ -1044,26 +1044,51 @@ impl GameRepository for SqliteGameRepository {
         Ok(())
     }
 
-    fn next_game_number(&self) -> Result<i32, RepositoryError> {
-        let connection = self
+    fn assign_game_number(&self, game_uuid: Uuid) -> Result<i32, RepositoryError> {
+        let mut connection = self
             .connection
             .lock()
             .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
 
-        // EXCLUSIVE トランザクションで採番の競合を防ぐ
-        connection
-            .execute_batch("BEGIN EXCLUSIVE")
+        // TransactionBehavior::Exclusive でトランザクションを開始することで
+        // 採番と書き込みをアトミックに行い、重複採番を防ぐ。
+        // Transaction は Drop 時に自動ロールバックされるためエラー時も安全。
+        let transaction = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Exclusive)
             .map_err(|error| RepositoryError::Unavailable(format!("begin exclusive transaction: {}", error)))?;
 
-        let next: i32 = connection
-            .query_row("SELECT COALESCE(MAX(game_number), 0) + 1 FROM games", [], |row| row.get(0))
-            .map_err(|error| RepositoryError::Unavailable(format!("query next game number: {}", error)))?;
+        // 既に採番済みならそのまま返す
+        let existing: Option<i32> = transaction
+            .query_row(
+                "SELECT game_number FROM games WHERE uuid = ?1",
+                params![game_uuid.to_string()],
+                |row| row.get(0),
+            )
+            .map_err(|error| RepositoryError::Unavailable(format!("query existing game number: {}", error)))?;
 
-        connection
-            .execute_batch("COMMIT")
-            .map_err(|error| RepositoryError::Unavailable(format!("commit next game number transaction: {}", error)))?;
+        if let Some(n) = existing {
+            return Ok(n);
+        }
 
-        Ok(next)
+        // 採番と同時に games テーブルを更新する
+        let assigned: i32 = transaction
+            .query_row(
+                r#"
+                UPDATE games
+                SET game_number = (SELECT COALESCE(MAX(game_number), 0) + 1 FROM games)
+                WHERE uuid = ?1 AND game_number IS NULL
+                RETURNING game_number
+                "#,
+                params![game_uuid.to_string()],
+                |row| row.get(0),
+            )
+            .map_err(|error| RepositoryError::Unavailable(format!("assign game number: {}", error)))?;
+
+        transaction
+            .commit()
+            .map_err(|error| RepositoryError::Unavailable(format!("commit assign game number: {}", error)))?;
+
+        Ok(assigned)
     }
 }
 
