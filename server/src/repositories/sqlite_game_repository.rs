@@ -50,6 +50,9 @@ pub(crate) struct SqliteGameRepository {
 
 /// SQLite 用の卓リポジトリ構造体の実装
 impl SqliteGameRepository {
+    ///
+    /// new 関数
+    ///
     pub(crate) fn new(database_path: &str) -> Result<Self, RepositoryError> {
         let connection =
             Connection::open(database_path).map_err(|error| RepositoryError::Unavailable(format!("open sqlite: {}", error)))?;
@@ -61,6 +64,9 @@ impl SqliteGameRepository {
         Ok(repository)
     }
 
+    ///
+    /// テスト用のインメモリリポジトリを生成する
+    ///
     #[cfg(test)]
     pub(crate) fn new_in_memory() -> Result<Self, RepositoryError> {
         let connection = Connection::open_in_memory()
@@ -73,6 +79,7 @@ impl SqliteGameRepository {
         Ok(repository)
     }
 
+    /// スキーマを初期化する
     fn init_schema(&self) -> Result<(), RepositoryError> {
         let sql = r#"
             CREATE TABLE IF NOT EXISTS games (
@@ -133,6 +140,7 @@ impl SqliteGameRepository {
         Ok(())
     }
 
+    /// ゲームステータスを文字列に変換する
     fn status_to_str(status: GameStatus) -> &'static str {
         match status {
             GameStatus::Preparing => "preparing",
@@ -144,6 +152,7 @@ impl SqliteGameRepository {
         }
     }
 
+    /// 文字列をゲームステータスに変換する
     fn status_from_str(text: &str) -> Result<GameStatus, RepositoryError> {
         match text {
             "preparing" => Ok(GameStatus::Preparing),
@@ -156,6 +165,7 @@ impl SqliteGameRepository {
         }
     }
 
+    /// Power を整数から変換する
     fn power_from_i32(value: i32) -> Result<Power, RepositoryError> {
         use strum::IntoEnumIterator;
         Power::iter()
@@ -163,23 +173,28 @@ impl SqliteGameRepository {
             .ok_or_else(|| RepositoryError::Unavailable(format!("invalid power value: {}", value)))
     }
 
+    /// ゲームステータスを文字列に変換する
     fn serialize_status(status: GameStatus) -> String {
         Self::status_to_str(status).to_string()
     }
 
+    /// フェイズの種類を文字列に変換する
     fn serialize_phase_kind(kind: &PhaseKind) -> Result<String, RepositoryError> {
         serde_json::to_string(kind).map_err(|error| RepositoryError::Unavailable(format!("serialize phase kind json: {}", error)))
     }
 
+    /// 文字列をフェイズの種類に変換する
     fn deserialize_phase_kind(text: &str) -> Result<PhaseKind, RepositoryError> {
         serde_json::from_str(text)
             .map_err(|error| RepositoryError::Unavailable(format!("deserialize phase kind json: {}", error)))
     }
 
+    /// ユニットの種類を文字列に変換する
     fn unit_kind_name(unit: &Unit) -> &'static str {
         if unit.is_fleet() { "fleet" } else { "army" }
     }
 
+    /// ユニットを構築する
     fn build_unit(
         power: Power,
         location: Province,
@@ -204,6 +219,7 @@ impl SqliteGameRepository {
         Ok(unit)
     }
 
+    /// ユニットをペイロードに変換する
     fn unit_to_payload(unit: &Unit) -> UnitPayload {
         UnitPayload {
             power: unit.power,
@@ -214,6 +230,7 @@ impl SqliteGameRepository {
         }
     }
 
+    /// ペイロードをユニットに変換する
     fn unit_from_payload(payload: &UnitPayload) -> Result<Unit, RepositoryError> {
         Self::build_unit(
             payload.power,
@@ -231,11 +248,13 @@ impl SqliteGameRepository {
         )
     }
 
+    /// ユニットのリストを JSON 文字列に変換する
     fn serialize_units(units: &[Unit]) -> Result<String, RepositoryError> {
         let payloads = units.iter().map(Self::unit_to_payload).collect::<Vec<_>>();
         serde_json::to_string(&payloads).map_err(|error| RepositoryError::Unavailable(format!("serialize units json: {}", error)))
     }
 
+    /// JSON 文字列をユニットのリストに変換する
     fn deserialize_units(text: &str) -> Result<Vec<Unit>, RepositoryError> {
         if text.is_empty() {
             return Ok(Vec::new());
@@ -247,6 +266,7 @@ impl SqliteGameRepository {
         payloads.iter().map(Self::unit_from_payload).collect::<Result<Vec<_>, _>>()
     }
 
+    /// 命令を JSON 文字列に変換する
     fn serialize_order(order: &Order) -> Result<String, RepositoryError> {
         let kind = match order.kind {
             OrderKind::Hold(_) => OrderKindPayload::Hold,
@@ -282,6 +302,7 @@ impl SqliteGameRepository {
         serde_json::to_string(&payload).map_err(|error| RepositoryError::Unavailable(format!("serialize order json: {}", error)))
     }
 
+    /// JSON 文字列を命令に変換する
     fn deserialize_order(text: &str) -> Result<Order, RepositoryError> {
         let payload: OrderPayload = serde_json::from_str(text)
             .map_err(|error| RepositoryError::Unavailable(format!("deserialize order json: {}", error)))?;
@@ -357,6 +378,7 @@ impl SqliteGameRepository {
         Ok(order)
     }
 
+    /// 占領情報のリストを JSON 文字列に変換する
     fn serialize_territories(territories: &[Territory]) -> String {
         let payloads = territories
             .iter()
@@ -371,6 +393,7 @@ impl SqliteGameRepository {
             .unwrap_or_default()
     }
 
+    /// JSON 文字列を占領情報のリストに変換する
     fn deserialize_territories(text: &str) -> Result<Vec<Territory>, RepositoryError> {
         if text.is_empty() {
             return Ok(Vec::new());
@@ -388,30 +411,34 @@ impl SqliteGameRepository {
             .collect::<Result<Vec<_>, RepositoryError>>()
     }
 
+    /// スタンドオフ発生地域のリストを JSON 文字列に変換する
     fn serialize_codes(codes: &[String]) -> String {
         serde_json::to_string(codes).unwrap_or_else(|_| codes.join(","))
     }
 
+    /// JSON 文字列をスタンドオフ発生地域のリストに変換する
     fn deserialize_codes(text: &str) -> Vec<String> {
         if text.is_empty() {
             return Vec::new();
         }
 
-        // Try JSON first, fallback to comma-separated for backward compatibility
         serde_json::from_str::<Vec<String>>(text)
             .unwrap_or_else(|_| text.split(',').map(|value| value.to_string()).collect::<Vec<_>>())
     }
 
+    /// 次の更新予定日時を RFC3339 形式の文字列に変換する
     fn serialize_next_update(next_update: NaiveDateTime) -> String {
         chrono::DateTime::<Utc>::from_naive_utc_and_offset(next_update, Utc).to_rfc3339()
     }
 
+    /// RFC3339 形式の文字列を次の更新予定日時に変換する
     fn parse_next_update(text: &str) -> Result<NaiveDateTime, RepositoryError> {
         chrono::DateTime::parse_from_rfc3339(text)
             .map(|dt| dt.with_timezone(&Utc).naive_utc())
             .map_err(|error| RepositoryError::Unavailable(format!("parse next_update: {}", error)))
     }
 
+    /// クエリを実行してゲームのリストをロードする
     fn load_games_by_query<P>(connection: &Connection, sql: &str, params: P) -> Result<Vec<Game>, RepositoryError>
     where
         P: rusqlite::Params,
@@ -610,6 +637,7 @@ impl SqliteGameRepository {
         Ok(games)
     }
 
+    /// ゲームを挿入するトランザクション内でフェイズの命令を挿入する
     fn insert_phase_orders(
         transaction: &Transaction<'_>,
         phase_id: i64,
@@ -637,6 +665,7 @@ impl SqliteGameRepository {
         Ok(())
     }
 
+    /// フェイズの命令をロードする（テスト用）
     #[cfg(test)]
     fn load_phase_orders_for_test(connection: &Connection, phase_id: i64) -> Result<Vec<Order>, RepositoryError> {
         let mut statement = connection
@@ -663,6 +692,7 @@ impl SqliteGameRepository {
 
 /// SQLite 用の卓リポジトリ構造体の実装（GameRepository トレイト）
 impl GameRepository for SqliteGameRepository {
+    /// ゲームにプレイヤーを追加する
     fn add_player(&self, game_uuid: Uuid, user_uuid: Uuid, requested_power: Option<Power>) -> Result<(), RepositoryError> {
         let connection = self
             .connection
@@ -690,6 +720,8 @@ impl GameRepository for SqliteGameRepository {
         }
         Ok(())
     }
+
+    /// ゲームを挿入する
     fn insert(&self, new_game: NewGame) -> Result<Game, RepositoryError> {
         let now = Utc::now().to_rfc3339();
         let game = new_game.game;
@@ -806,6 +838,7 @@ impl GameRepository for SqliteGameRepository {
         Ok(game)
     }
 
+    /// アクティブなゲームを全て取得する
     fn find_all_active(&self) -> Result<Vec<Game>, RepositoryError> {
         let connection = self
             .connection
@@ -825,6 +858,7 @@ impl GameRepository for SqliteGameRepository {
         )
     }
 
+    /// 指定した UUID のゲームを取得する
     fn find_by_uuid(&self, game_uuid: Uuid) -> Result<Option<Game>, RepositoryError> {
         let connection = self
             .connection
@@ -846,6 +880,7 @@ impl GameRepository for SqliteGameRepository {
         Ok(games.pop())
     }
 
+    /// 更新予定日時が過ぎているゲームの UUID を取得する
     fn find_progress_candidates(&self, now: NaiveDateTime) -> Result<Vec<Uuid>, RepositoryError> {
         let connection = self
             .connection
@@ -880,6 +915,7 @@ impl GameRepository for SqliteGameRepository {
             .collect()
     }
 
+    /// そのユーザーが既に参加しているアクティブなゲームが存在するかを返却する
     fn exists_active_game_for_user(&self, user_uuid: Uuid) -> Result<bool, RepositoryError> {
         let connection = self
             .connection
@@ -903,6 +939,7 @@ impl GameRepository for SqliteGameRepository {
         Ok(count > 0)
     }
 
+    /// ゲームを更新する
     fn update(&self, game: &Game) -> Result<(), RepositoryError> {
         let now = Utc::now().to_rfc3339();
 
@@ -1048,6 +1085,7 @@ impl GameRepository for SqliteGameRepository {
         Ok(())
     }
 
+    /// 卓番号を採番する
     fn assign_game_number(&self, game_uuid: Uuid) -> Result<i32, RepositoryError> {
         let mut connection = self
             .connection

@@ -21,69 +21,112 @@ pub(crate) struct Province(&'static str);
 
 /// 地域の構造体の実装
 impl Province {
+    ///
+    /// コードから地域を生成する
+    ///
     pub(crate) fn from_code(code: &str) -> Option<Self> {
         PROVINCE_DATA.iter().find(|d| d.code == code).map(|d| Self(d.code))
     }
 
+    ///
+    /// 全ての地域のイテレータを返却する
+    ///
     #[allow(dead_code)]
     pub(crate) fn all() -> impl Iterator<Item = Self> {
         (0..PROVINCE_DATA.len()).map(|idx| Self(PROVINCE_DATA[idx].code))
     }
 
+    ///
+    /// 地域コードから地域を生成する（海域コードを含む）
+    ///
     pub(crate) fn data(self) -> &'static ProvinceData {
         PROVINCE_DATA.iter().find(|d| d.code == self.0).expect("valid province code")
     }
 
+    ///
+    /// フルネームを返却する
+    ///
     pub(crate) fn full_name(self) -> &'static str {
         self.data().full
     }
 
+    ///
+    /// ショートネームを返却する
+    ///
     pub(crate) fn short_name(self) -> &'static str {
         self.data().short
     }
 
+    ///
+    /// 日本語名を返却する
+    ///
     #[allow(dead_code)]
     pub(crate) fn jname(self) -> &'static str {
         self.data().jname
     }
 
+    ///
+    /// 種類を返却する
+    ///
     pub(crate) fn kind(self) -> &'static str {
         self.data().kind
     }
 
+    ///
+    /// 補給センターの有無を返却する
+    ///
     pub(crate) fn is_supply_center(self) -> bool {
         self.data().supply
     }
 
+    ///
+    /// 初期補給都市の保有国を返却する
+    ///
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn home(self) -> Option<&'static str> {
         self.data().home
     }
 
+    ///
+    /// 海域であるかを返却する
+    ///
     pub(crate) fn is_water(self) -> bool {
         self.kind() == "Water"
     }
 
+    ///
+    /// 沿岸であるかを返却する
+    ///
     pub(crate) fn is_coast(self) -> bool {
         self.kind() == "Coast"
     }
 
+    ///
+    /// 内陸であるかを返却する
+    ///
     pub(crate) fn code_with_coast(self) -> &'static str {
         self.data().code
     }
 
+    ///
+    /// 地域コードを返却する
+    ///
     pub(crate) fn code(self) -> &'static str {
         &self.data().code[..3]
     }
 
+    ///
     /// 指定コードが指定国の初期補給都市であるかを返却する
+    ///
     pub(crate) fn is_home_sc(code: &str, power: &Power) -> bool {
         PROVINCE_DATA
             .iter()
             .any(|d| d.code == code && d.supply && d.home == Some(power.symbol()))
     }
 
+    ///
     /// 指定された二点の最短距離を返却する
+    ///
     pub(crate) fn distance(from: &str, to: &str) -> usize {
         let from_base = from.get(..3).expect("valid province code");
         let to_base = to.get(..3).expect("valid province code");

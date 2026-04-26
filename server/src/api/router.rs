@@ -211,6 +211,7 @@ where
     next.run(request).await
 }
 
+/// 最終アクセス時刻更新関数
 fn touch_last_access_at_by_access_token<U>(
     user_repository: &U,
     access_token: &str,
@@ -223,6 +224,7 @@ where
     Ok(())
 }
 
+/// アクセストークン取得関数
 fn extract_bearer_access_token(authorization: Option<&str>) -> Option<String> {
     let (scheme, token) = authorization?.trim().split_once(' ')?;
     if !scheme.eq_ignore_ascii_case("Bearer") {

@@ -19,7 +19,9 @@ use super::SupportOrder;
 // definitions
 // ============================================================================
 
-/// ユニットの定義
+///
+/// ユニットの構造体
+///
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Unit {
     pub(crate) power: Power,
@@ -29,22 +31,32 @@ pub(crate) struct Unit {
     pub(crate) dislodged: bool,
 }
 
+///
+/// ユニットの種別の列挙体
+///
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum UnitKind {
     Army(Army),
     Fleet(Fleet),
 }
 
-/// 陸軍の定義
+///
+/// 陸軍の構造体
+///
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Army {}
 
-/// 海軍の定義
+///
+/// 海軍の構造体
+///
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Fleet {}
 
 /// ユニットのロジック
 impl Unit {
+    ///
+    /// 陸軍ユニットを生成する
+    ///
     pub(crate) fn new_army(power: Power, province: Province) -> Self {
         Self {
             power,
@@ -55,6 +67,9 @@ impl Unit {
         }
     }
 
+    ///
+    /// 海軍ユニットを生成する
+    ///
     pub(crate) fn new_fleet(power: Power, province: Province) -> Self {
         Self {
             power,
@@ -65,7 +80,9 @@ impl Unit {
         }
     }
 
+    ///
     /// ユニットのシンボルを返す
+    ///
     pub(crate) fn symbol(&self) -> &str {
         match self.kind {
             UnitKind::Army(_) => "A",
@@ -73,27 +90,37 @@ impl Unit {
         }
     }
 
+    ///
     /// ユニットのラベルを返す
+    ///
     pub(crate) fn label(&self) -> String {
         format!("{} {}", self.symbol(), self.location.short_name())
     }
 
+    ///
     /// ユニットの種別を返す
+    ///
     pub(crate) fn kind(&self) -> UnitKind {
         self.kind
     }
 
+    ///
     /// ユニットがどこから撃退されたかを返す
+    ///
     pub(crate) fn dislodged_from(&self) -> Option<Province> {
         self.dislodged_from
     }
 
-    /// 海軍かどうか判定
+    ///
+    /// 海軍かどうか判定する
+    ///
     pub(crate) fn is_fleet(&self) -> bool {
         matches!(self.kind, UnitKind::Fleet(_))
     }
 
-    /// 維持命令を生成
+    ///
+    /// 維持命令を生成する
+    ///
     pub(crate) fn hold(&self) -> Order {
         Order {
             power: self.power,
@@ -104,7 +131,9 @@ impl Unit {
         }
     }
 
-    /// 移動命令を生成
+    ///
+    /// 移動命令を生成する
+    ///
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn move_to(&self, dest: Province) -> Order {
         Order {
@@ -116,19 +145,25 @@ impl Unit {
         }
     }
 
-    /// 維持サポート命令を生成
+    ///
+    /// 維持サポート命令を生成する
+    ///
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn support_hold(&self, target_unit: Unit) -> Order {
         self.support(target_unit, None)
     }
 
-    /// 移動サポート命令を生成
+    ///
+    /// 移動サポート命令を生成する
+    ///
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn support_move(&self, target_unit: Unit, target_dest: Province) -> Order {
         self.support(target_unit, Some(target_dest))
     }
 
-    /// サポート命令を生成
+    ///
+    /// サポート命令を生成する
+    ///
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn support(&self, target_unit: Unit, target_dest: Option<Province>) -> Order {
         Order {
@@ -143,7 +178,9 @@ impl Unit {
         }
     }
 
-    /// 輸送命令を生成
+    ///
+    /// 輸送命令を生成する
+    ///
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn convoy(&self, target_unit: Unit, target_dest: Province) -> Order {
         if !self.is_fleet() {
@@ -162,7 +199,9 @@ impl Unit {
         }
     }
 
-    /// 撤退命令を生成
+    ///
+    /// 撤退命令を生成する
+    ///
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn retreat_to(&self, dest: Province) -> Order {
         Order {
@@ -174,7 +213,9 @@ impl Unit {
         }
     }
 
-    /// 建造命令を生成
+    ///
+    /// 建造命令を生成する
+    ///
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn build(&self) -> Order {
         Order {
@@ -186,7 +227,9 @@ impl Unit {
         }
     }
 
-    /// 解体命令を生成
+    ///
+    /// 解体命令を生成する
+    ///
     pub(crate) fn disband(&self) -> Order {
         Order {
             power: self.power,
@@ -197,13 +240,18 @@ impl Unit {
         }
     }
 
-    /// ユニットがどこから撃退されたかを設定
+    ///
+    /// ユニットの撃退元地域を記録する
+    ///
     pub(crate) fn set_dislodged_from(&mut self, province: Option<Province>) -> Self {
         self.dislodged_from = province;
         self.dislodged = true;
         *self
     }
 
+    ///
+    /// ユニットの撃退元地域を記録する（輸送による撃退）
+    ///
     pub(crate) fn set_dislodged_via_convoy(&mut self) -> Self {
         self.dislodged_from = None;
         self.dislodged = true;

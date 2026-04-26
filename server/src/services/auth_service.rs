@@ -72,6 +72,9 @@ where
     U: UserRepository,
     D: DiscordIdentityProvider,
 {
+    ///
+    /// new 関数
+    ///
     pub(crate) fn new(user_repository: U, discord_identity_provider: D) -> Self {
         Self {
             user_repository,
@@ -79,6 +82,9 @@ where
         }
     }
 
+    ///
+    /// ログイン処理を実行する
+    ///
     pub(crate) fn login(&self, command: LoginCommand) -> Result<LoginResult, AuthError> {
         let discord_access_token = command.discord_access_token.trim().to_string();
 
@@ -119,6 +125,7 @@ where
         Ok(Self::from_record(created))
     }
 
+    /// ユーザーレコードからログイン結果に変換する
     fn from_record(record: UserRecord) -> LoginResult {
         LoginResult {
             access_token: record.access_token,

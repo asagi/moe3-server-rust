@@ -61,6 +61,9 @@ pub(crate) struct Order {
 /// 命令の構造体の実装
 ///
 impl Order {
+    ///
+    /// 維持命令を作成する
+    ///
     pub(crate) fn new_hold(power: Power, unit: Unit) -> Self {
         Order {
             power,
@@ -71,6 +74,9 @@ impl Order {
         }
     }
 
+    ///
+    /// 移動命令を作成する
+    ///
     pub(crate) fn new_move(power: Power, unit: Unit, dest: Province) -> Self {
         Order {
             power,
@@ -81,6 +87,9 @@ impl Order {
         }
     }
 
+    ///
+    /// 支援命令を作成する
+    ///
     pub(crate) fn new_support(power: Power, unit: Unit, target_unit: Unit, target_dest: Option<Province>) -> Self {
         Order {
             power,
@@ -94,6 +103,9 @@ impl Order {
         }
     }
 
+    ///
+    /// 輸送命令を作成する
+    ///
     pub(crate) fn new_convoy(power: Power, unit: Unit, target_unit: Unit, target_dest: Province) -> Self {
         Order {
             power,
@@ -107,6 +119,9 @@ impl Order {
         }
     }
 
+    ///
+    /// 撤退命令を作成する
+    ///
     pub(crate) fn new_retreat(power: Power, unit: Unit, dest: Province) -> Self {
         Order {
             power,
@@ -117,6 +132,9 @@ impl Order {
         }
     }
 
+    ///
+    /// 建造命令を作成する
+    ///
     pub(crate) fn new_build(power: Power, unit: Unit) -> Self {
         Order {
             power,
@@ -127,6 +145,9 @@ impl Order {
         }
     }
 
+    ///
+    /// 解体命令を作成する
+    ///
     pub(crate) fn new_disband(power: Power, unit: Unit) -> Self {
         Order {
             power,
@@ -137,12 +158,16 @@ impl Order {
         }
     }
 
+    ///
     /// ユニットの現在地を返す
+    ///
     pub(crate) fn location(&self) -> Province {
         self.unit.location
     }
 
+    ///
     /// ユニットの目的地を返す
+    ///
     pub(crate) fn dest(&self) -> Province {
         match &self.kind {
             OrderKind::Move(m) => m.dest,
@@ -151,7 +176,9 @@ impl Order {
         }
     }
 
+    ///
     /// ターゲットユニットを返す
+    ///
     pub(crate) fn target_unit(&self) -> Unit {
         match &self.kind {
             OrderKind::Support(s) => s.target_unit,
@@ -160,7 +187,9 @@ impl Order {
         }
     }
 
+    ///
     /// ターゲットの目的地を返す
+    ///
     pub(crate) fn target_dest(&self) -> Option<Province> {
         match &self.kind {
             OrderKind::Support(s) => s.target_dest,
@@ -169,7 +198,9 @@ impl Order {
         }
     }
 
+    ///
     /// 移動命令で海路指定フラグが立っているかどうかを返す
+    ///
     pub(crate) fn via_convoy(&self) -> bool {
         match &self.kind {
             OrderKind::Move(m) => m.via_convoy,
@@ -177,7 +208,9 @@ impl Order {
         }
     }
 
-    /// ターゲット命令と一致するかどうかを判定
+    ///
+    /// ターゲット命令と一致するかどうかを判定する
+    ///
     pub(crate) fn is_matching_target(&self, other_order: &Order) -> bool {
         match &self.kind {
             OrderKind::Support(s) => {
@@ -202,102 +235,139 @@ impl Order {
         }
     }
 
-    /// ステータスを Unresolved に変更
+    ///
+    /// ステータスを Unresolved に変更する
+    ///
     #[allow(dead_code)]
     pub(crate) fn set_unresolved(&mut self) -> Self {
         self.status = OrderStatus::Unresolved;
         *self
     }
 
-    /// ステータスを Failure に変更
+    ///
+    /// ステータスを Failure に変更する
+    ///
     pub(crate) fn set_failure(&mut self) -> Self {
         self.status = OrderStatus::Failure;
         *self
     }
 
-    /// ステータスを Success に変更
+    ///
+    /// ステータスを Success に変更する
+    ///
     pub(crate) fn set_success(&mut self) -> Self {
         self.status = OrderStatus::Success;
         *self
     }
 
-    /// ステータスを Dislodged に変更
+    ///
+    /// ステータスを Dislodged に変更する
+    ///
     #[allow(dead_code)]
     pub(crate) fn set_dislodged(&mut self) -> Self {
         self.status = OrderStatus::Dislodged;
         *self
     }
 
-    /// ステータスを Cut に変更
+    ///
+    /// ステータスを Cut に変更する
+    ///
     pub(crate) fn set_cut(&mut self) -> Self {
         self.status = OrderStatus::Cut;
         *self
     }
 
-    /// ステータスを Valid に変更
+    ///
+    /// ステータスを Valid に変更する
+    ///
     pub(crate) fn set_valid(&mut self) -> Self {
         self.status = OrderStatus::Valid;
         *self
     }
 
-    /// ステータスを Invalid に変更
+    ///
+    /// ステータスを Invalid に変更する
+    ///
     pub(crate) fn set_invalid(&mut self) -> Self {
         self.status = OrderStatus::Invalid;
         *self
     }
 
-    /// ステータスを Unreachable に変更
+    ///
+    /// ステータスを Unreachable に変更する
+    ///
     pub(crate) fn set_unreachable(&mut self) -> Self {
         self.status = OrderStatus::Unreachable;
         *self
     }
 
-    /// ステータスが `Unresolved` かどうか
+    ///
+    /// ステータスが `Unresolved` かどうかを返却する
+    ///
     pub(crate) fn is_unresolved(&self) -> bool {
         self.status == OrderStatus::Unresolved
     }
 
-    /// ステータスが `Success` かどうか
+    ///
+    /// ステータスが `Success` かどうかを返却する
+    ///
     pub(crate) fn is_success(&self) -> bool {
         self.status == OrderStatus::Success
     }
 
-    /// ステータスが `Dislodged` かどうか
+    ///
+    /// ステータスが `Dislodged` かどうかを返却する
+    ///
     pub(crate) fn is_dislodged(&self) -> bool {
         self.status == OrderStatus::Dislodged
     }
 
-    /// ステータスが `Cut` かどうか
+    ///
+    /// ステータスが `Cut` かどうかを返却する
+    ///
     #[allow(dead_code)]
     pub(crate) fn is_cut(&self) -> bool {
         self.status == OrderStatus::Cut
     }
 
-    /// ステータスが `Valid` かどうか
+    ///
+    /// ステータスが `Valid` かどうかを返却する
+    ///
     pub(crate) fn is_valid(&self) -> bool {
         self.status == OrderStatus::Valid
     }
 
-    /// ステータスが `Invalid` かどうか
+    ///
+    /// ステータスが `Invalid` かどうかを返却する
+    ///
     pub(crate) fn is_invalid(&self) -> bool {
         self.status == OrderStatus::Invalid
     }
 
-    /// ステータスが `Failure` かどうか
+    ///
+    /// ステータスが `Failure` かどうかを返却する
+    ///
     pub(crate) fn is_failure(&self) -> bool {
         self.status == OrderStatus::Failure
     }
 
-    /// ステータスが `Unreachable` かどうか
+    ///
+    /// ステータスが `Unreachable` かどうかを返却する
+    ///
     pub(crate) fn is_unreachable(&self) -> bool {
         self.status == OrderStatus::Unreachable
     }
 
-    /// 命令が他の勢力のユニットに対するもの（仮定命令）であるかどうか
+    ///
+    /// 仮定命令であるかどうかを返却する
+    ///
     pub(crate) fn is_assumed(&self) -> bool {
         self.power != self.unit.power
     }
 
+    ///
+    /// 命令を攻撃元からの撤退命令に変換する
+    ///
     pub(crate) fn set_dislodged_by(&mut self, attacker: &Order) {
         self.status = OrderStatus::Dislodged;
         self.dislodged_from = if attacker.via_convoy() {
@@ -308,14 +378,18 @@ impl Order {
         self.unit.set_dislodged_from(self.dislodged_from);
     }
 
-    /// 命令を仮定命令に変換
+    ///
+    /// 命令を仮定命令に変換する
+    ///
     #[allow(dead_code)]
     pub fn assumed_by(&mut self, power: Power) -> Self {
         self.power = power;
         *self
     }
 
+    ///
     /// 移動命令に海路指定フラグを設定する
+    ///
     pub fn set_via_convoy(&mut self) -> Self {
         if self.unit.is_fleet() {
             unreachable!("expected Army")

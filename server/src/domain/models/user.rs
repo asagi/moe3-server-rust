@@ -8,7 +8,9 @@ use uuid::Uuid;
 // definitions
 // ============================================================================
 
+///
 /// ユーザの定義
+///
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct User {

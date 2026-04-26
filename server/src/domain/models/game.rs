@@ -38,6 +38,9 @@ pub(crate) struct Game {
 }
 
 impl Game {
+    ///
+    /// 次のフェイズの更新予定日時を計算する
+    ///
     pub(crate) fn calculate_next_update(&self, previous_next_update: NaiveDateTime, next_phase: &Phase) -> NaiveDateTime {
         if self.regulation.progress_mode == ProgressMode::Scheduled
             && self.regulation.duration_type == DurationType::Normal
@@ -58,6 +61,7 @@ impl Game {
         Self::ceil_to_5_minutes(raw_next_update)
     }
 
+    /// 次のフェイズの更新予定日時を、前回の更新予定日時の翌日の first_period_hour 時に切り上げる
     fn next_day_at_first_period_hour(previous_next_update: NaiveDateTime, first_period_hour: u8) -> NaiveDateTime {
         let jst = FixedOffset::east_opt(9 * 60 * 60).expect("JST offset should be valid");
         let previous_jst =
@@ -79,6 +83,8 @@ impl Game {
         .naive_utc()
     }
 
+    /// フェイズがサブフェイズ（メインフェイズ以外）かどうかを返す
+    /// TODO: 削除可能
     fn is_sub_phase(phase: &Phase) -> bool {
         matches!(
             phase.kind,
@@ -86,14 +92,17 @@ impl Game {
         )
     }
 
+    /// フェイズがメインフェイズかどうかを返す
     fn is_main_phase(phase: &Phase) -> bool {
         matches!(phase.kind, PhaseKind::SpringMain(_) | PhaseKind::FallMain(_))
     }
 
+    /// フェイズが感想戦フェイズかどうかを返す
     fn is_debrief_phase(phase: &Phase) -> bool {
         matches!(phase.kind, PhaseKind::Debrief(_))
     }
 
+    /// 分を 5 分単位に切り上げる
     fn ceil_to_5_minutes(dt: NaiveDateTime) -> NaiveDateTime {
         let truncated =
             dt - chrono::Duration::seconds(i64::from(dt.second())) - chrono::Duration::nanoseconds(i64::from(dt.nanosecond()));

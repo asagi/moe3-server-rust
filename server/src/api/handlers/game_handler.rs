@@ -39,7 +39,7 @@ use super::UserRepository;
 // ============================================================================
 
 ///
-/// 卓作成リクエストハンドラ関数
+/// 卓作成リクエスト Axum ハンドラ関数
 ///
 pub(crate) async fn post_games<U, G, D>(
     State(state): State<AppState<U, G, D>>,
@@ -121,7 +121,7 @@ where
     })
 }
 
-/// 卓作成リクエストパラメータのレギュレーションのパース関数
+/// 卓作成リクエストパラメータのレギュレーションをパースする
 fn parse_regulation(request: &CreateGameRequest) -> Result<Regulation, CreateGameHandlerError> {
     let face_type = parse_enum(request.face_type, CreateGameRequestValidationError::InvalidFaceType)?;
     let duration_type = parse_enum(request.duration_type, CreateGameRequestValidationError::InvalidDurationType)?;
@@ -138,8 +138,7 @@ fn parse_regulation(request: &CreateGameRequest) -> Result<Regulation, CreateGam
     .map_err(|_| invalid_request(CreateGameRequestValidationError::InvalidFirstPeriodHour))
 }
 
-/// 卓作成リクエストパラメータの担当希望国のパース関数
-/// 担当希望国のパース関数（エラー型をクロージャで汎用化）
+/// 卓作成リクエストパラメータの担当希望国をパースする
 fn parse_requested_power<E, F>(value: Option<&str>, err: F) -> Result<Option<Power>, E>
 where
     F: Fn() -> E,
@@ -147,7 +146,7 @@ where
     value.map(|code| Power::try_from(code).map_err(|_| err())).transpose()
 }
 
-/// 卓作成リクエストパラメータの列挙体パース関数
+/// 卓作成リクエストパラメータの列挙体をパースする
 fn parse_enum<T>(value: i32, validation_error: CreateGameRequestValidationError) -> Result<T, CreateGameHandlerError>
 where
     T: TryFrom<i32>,
@@ -155,17 +154,13 @@ where
     T::try_from(value).map_err(|_| invalid_request(validation_error))
 }
 
-/// 卓作成リクエストパラメータのパースエラーマッピング関数
+/// 卓作成リクエスト無効エラーを生成する
 fn invalid_request(validation_error: CreateGameRequestValidationError) -> CreateGameHandlerError {
     CreateGameHandlerError::InvalidRequest(validation_error)
 }
 
-// ============================================================================
-// 卓参加ハンドラ
-// ============================================================================
-
 ///
-/// 卓参加リクエストハンドラ関数
+/// 卓参加リクエスト Axum ハンドラ関数
 ///
 pub(crate) async fn post_games_players<U, G, D>(
     State(state): State<AppState<U, G, D>>,

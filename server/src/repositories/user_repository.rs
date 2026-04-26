@@ -82,19 +82,25 @@ impl From<&DiscordProfile> for UserProfileUpdate {
 /// ユーザリポジトリのトレイト
 ///
 pub(crate) trait UserRepository {
+    /// ID でユーザをロードする
     fn find_by_uuid(&self, user_uuid: Uuid) -> Result<Option<UserRecord>, RepositoryError>;
 
+    /// Discord ユーザ ID でユーザをロードする
     fn find_by_discord_user_id(&self, discord_user_id: &str) -> Result<Option<UserRecord>, RepositoryError>;
 
+    /// アクセストークンでユーザをロードする
     fn find_by_access_token(&self, access_token: &str) -> Result<Option<UserRecord>, RepositoryError>;
 
+    /// アクセストークンでユーザの最終アクセス日時を更新する
     fn update_last_access_at_by_access_token(
         &self,
         access_token: &str,
         last_access_at: DateTime<Utc>,
     ) -> Result<bool, RepositoryError>;
 
+    /// 新規ユーザを挿入する
     fn insert(&self, new_user: NewUser) -> Result<UserRecord, RepositoryError>;
 
+    /// ユーザのプロフィールを更新する
     fn update_profile(&self, id: UserId, profile: UserProfileUpdate) -> Result<UserRecord, RepositoryError>;
 }

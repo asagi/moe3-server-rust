@@ -36,7 +36,9 @@ use super::UnitHelper;
 /// フェイズ構造体の実装
 ///
 impl Phase {
-    /// フェイズを締め切り命令を解決する。
+    ///
+    /// フェイズを締め切り命令を解決する
+    ///
     pub(crate) fn close(mut self, context: &mut PhaseContext) {
         match self.kind {
             PhaseKind::Ready(r) => r.close(&mut self, context),
@@ -49,7 +51,7 @@ impl Phase {
         }
     }
 
-    /// フェイズ初期化処理
+    /// フェイズを初期化する
     fn initialize(&mut self, prev_phase: &Phase) {
         self.territories = prev_phase.territories.clone();
         self.units = prev_phase.units.clone();
@@ -107,7 +109,7 @@ impl Phase {
         }
     }
 
-    /// フェイズの生成処理
+    /// フェイズを生成する（共通処理）
     fn new(year: i32, index: i32, kind: PhaseKind) -> Self {
         Self {
             game_number: None,
@@ -121,7 +123,9 @@ impl Phase {
         }
     }
 
-    /// 準備フェイズを生成する。
+    ///
+    /// 準備フェイズを生成する
+    ///
     pub(crate) fn new_ready() -> Self {
         let mut phase = Self::new(1900, 0, PhaseKind::Ready(ReadyPhase {}));
 
@@ -180,39 +184,52 @@ impl Phase {
         phase
     }
 
-    /// 春メインフェイズを生成する。
+    /// 春メインフェイズを生成する
+    ///
     /// - 春命令は「次年の開始フェイズ」なので、必ず `year = prev_year + 1`。
     /// - このルールは Ready -> SpringOrder / Adjustment -> SpringOrder の両方で共通。
     pub(crate) fn new_spring_main(current_year: i32, current_index: i32) -> Self {
         Self::new(current_year + 1, current_index + 1, PhaseKind::SpringMain(SpringMainPhase {}))
     }
 
-    /// 春撤退フェイズを生成する。
+    ///
+    /// 春撤退フェイズを生成する
+    ///
     pub(crate) fn new_spring_retreat(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseKind::SpringRetreat(SpringRetreatPhase {}))
     }
 
-    /// 秋メインフェイズを生成する。
+    ///
+    /// 秋メインフェイズを生成する
+    ///
     pub(crate) fn new_fall_main(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseKind::FallMain(FallMainPhase {}))
     }
 
-    /// 秋撤退フェイズを生成する。
+    ///
+    /// 秋撤退フェイズを生成する
+    ///
     pub(crate) fn new_fall_retreat(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseKind::FallRetreat(FallRetreatPhase {}))
     }
 
-    /// 調整フェイズを生成する。
+    ///
+    /// 調整フェイズを生成する
+    ///
     pub(crate) fn new_adjustment(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseKind::Adjustment(AdjustmentPhase {}))
     }
 
-    /// 感想戦フェイズを生成する。
+    ///
+    /// 感想戦フェイズを生成する
+    ///
     pub(crate) fn new_debrief(current_year: i32, prev_index: i32) -> Self {
         Self::new(current_year, prev_index + 1, PhaseKind::Debrief(DebriefPhase {}))
     }
 
+    ///
     /// 指定した国が現在保有する補給都市数を取得する
+    ///
     pub(crate) fn count_supply_centers(&self, power: &Power) -> usize {
         self.territories
             .iter()
@@ -221,7 +238,9 @@ impl Phase {
             .count()
     }
 
+    ///
     /// 指定した国が現在保有するユニット数を取得する
+    ///
     pub(crate) fn count_units(&self, power: &Power) -> usize {
         self.units.iter().filter(|u| &u.power == power).count()
     }
@@ -231,7 +250,7 @@ impl Phase {
 /// フェイズ終了ロジックを提供するトレイト
 ///
 trait PhaseCloseLogic {
-    /// フェイズ終了処理
+    /// フェイズを終了する
     fn close(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
         // context.active_powers から全滅した国を除外する
         for p in Power::iter() {
@@ -272,7 +291,7 @@ trait PhaseCloseLogic {
         }
     }
 
-    /// 和平合意による終了処理
+    /// 和平合意による終了処理を実行する
     fn finish_on_draw(&self, current_phase: &Phase, context: &mut PhaseContext) {
         // メインフェイズ格納
         context.push_phase(current_phase.clone());
@@ -300,23 +319,23 @@ trait PhaseCloseLogic {
         context.push_phase(debrief_phase);
     }
 
-    /// 命令解決処理
+    /// 命令解決処理を実行する
     fn resolve_orders(&self, _current_phase: &mut Phase) {
         // 準備フェイズと感想戦フェイズでは何もしない
     }
 
-    /// 占領処理
+    /// 占領処理を実行する
     fn occupy(&self, _current_phase: &mut Phase) {
         // 秋の撤退フェイズ以外では何もしない
     }
 
-    /// 制覇判定処理
+    /// 制覇判定処理を実行する
     fn check_solo_condition(&self, _current_phase: &Phase) -> bool {
         // 秋の撤退フェイズ以外では常に false
         false
     }
 
-    /// 制覇勝利による終了処理
+    /// 制覇勝利による終了処理を実行する
     fn finish_on_solo(&self, current_phase: &mut Phase, context: &mut PhaseContext) {
         // 撤退フェイズ格納
         context.push_phase(current_phase.clone());
@@ -333,10 +352,10 @@ trait PhaseCloseLogic {
         context.push_phase(debrief_phase);
     }
 
+    /// 次フェイズを生成する
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase>;
 
     /// 次フェイズがスキップ可能な場合に true を返す
-    /// true を返す可能性のある場合にのみオーバーライドする
     fn should_skip_next_phase(&self, _next_phase: &Phase, _context: &PhaseContext) -> bool {
         false
     }
@@ -344,7 +363,7 @@ trait PhaseCloseLogic {
 
 /// 準備フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for ReadyPhase {
-    /// 次フェイズ生成
+    /// 次フェイズを生成する
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
         let mut phase = Phase::new_spring_main(current_phase.year, current_phase.index);
         phase.initialize(current_phase);
@@ -354,12 +373,12 @@ impl PhaseCloseLogic for ReadyPhase {
 
 /// 春メインフェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for SpringMainPhase {
-    /// 命令解決処理
+    /// 命令解決処理を実行する
     fn resolve_orders(&self, current_phase: &mut Phase) {
         resolve_orders_for_main_phase(current_phase);
     }
 
-    /// 次フェイズ生成
+    /// 次フェイズを生成する
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
         let mut phase = Phase::new_spring_retreat(current_phase.year, current_phase.index);
         phase.initialize(current_phase);
@@ -377,12 +396,12 @@ impl PhaseCloseLogic for SpringMainPhase {
 
 /// 春撤退フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for SpringRetreatPhase {
-    /// 命令解決処理
+    /// 命令解決処理を実行する
     fn resolve_orders(&self, current_phase: &mut Phase) {
         resolve_orders_for_retreat_phase(current_phase);
     }
 
-    /// 次フェイズ生成
+    /// 次フェイズを生成する
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
         let mut phase = Phase::new_fall_main(current_phase.year, current_phase.index);
         phase.initialize(current_phase);
@@ -392,12 +411,12 @@ impl PhaseCloseLogic for SpringRetreatPhase {
 
 /// 秋メインフェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for FallMainPhase {
-    /// 命令解決処理
+    /// 命令解決処理を実行する
     fn resolve_orders(&self, current_phase: &mut Phase) {
         resolve_orders_for_main_phase(current_phase);
     }
 
-    /// 次フェイズ生成
+    /// 次フェイズを生成する
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
         let mut phase = Phase::new_fall_retreat(current_phase.year, current_phase.index);
         phase.initialize(current_phase);
@@ -415,12 +434,12 @@ impl PhaseCloseLogic for FallMainPhase {
 
 /// 秋撤退フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for FallRetreatPhase {
-    /// 命令解決処理
+    /// 命令解決処理を実行する
     fn resolve_orders(&self, current_phase: &mut Phase) {
         resolve_orders_for_retreat_phase(current_phase);
     }
 
-    /// 占領処理
+    /// 占領処理を実行する
     fn occupy(&self, current_phase: &mut Phase) {
         for idx in current_phase.units.collect_all_idxs() {
             let code = current_phase.units[idx].location.code().to_string();
@@ -438,7 +457,7 @@ impl PhaseCloseLogic for FallRetreatPhase {
         }
     }
 
-    /// 制覇判定処理
+    /// 制覇判定処理を実行する
     fn check_solo_condition(&self, current_phase: &Phase) -> bool {
         for p in Power::iter() {
             if current_phase.count_supply_centers(&p) >= SUPPLY_CENTERS_FOR_SOLO {
@@ -448,7 +467,7 @@ impl PhaseCloseLogic for FallRetreatPhase {
         false
     }
 
-    /// 次フェイズ生成
+    /// 次フェイズを生成する
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
         let mut phase = Phase::new_adjustment(current_phase.year, current_phase.index);
         phase.initialize(current_phase);
@@ -476,11 +495,12 @@ impl PhaseCloseLogic for FallRetreatPhase {
 
 /// 調整フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for AdjustmentPhase {
+    /// 命令解決処理を実行する
     fn resolve_orders(&self, current_phase: &mut Phase) {
         resolve_orders_for_adjustment_phase(current_phase);
     }
 
-    /// 次フェイズ生成
+    /// 次フェイズを生成する
     fn create_next_phase(&self, current_phase: &Phase) -> Option<Phase> {
         let mut phase = Phase::new_spring_main(current_phase.year, current_phase.index);
         phase.initialize(current_phase);
@@ -490,12 +510,13 @@ impl PhaseCloseLogic for AdjustmentPhase {
 
 /// 感想戦フェイズの終了ロジックの差分実装
 impl PhaseCloseLogic for DebriefPhase {
+    /// 次フェイズを生成する
     fn create_next_phase(&self, _current_phase: &Phase) -> Option<Phase> {
         None
     }
 }
 
-/// メインフェイズの命令解決処理
+/// メインフェイズの命令解決処理を実行する
 fn resolve_orders_for_main_phase(current_phase: &mut Phase) {
     let orders = &mut current_phase.orders;
     let standoff_province_codes = &mut current_phase.standoff_codes;
@@ -566,7 +587,7 @@ fn resolve_orders_for_main_phase(current_phase: &mut Phase) {
     }
 }
 
-/// 撤退フェイズの命令解決処理
+/// 撤退フェイズの命令解決処理を実行する
 fn resolve_orders_for_retreat_phase(current_phase: &mut Phase) {
     let orders = &mut current_phase.orders;
     let units = &current_phase.units;
@@ -604,7 +625,7 @@ fn resolve_orders_for_retreat_phase(current_phase: &mut Phase) {
     }
 }
 
-/// 調整フェイズの命令解決処理
+/// 調整フェイズの命令解決処理を実行する
 fn resolve_orders_for_adjustment_phase(current_phase: &mut Phase) {
     // # 01. 増設命令検証
     AdjustmentAdjudicator::validate_build_orders(current_phase);

@@ -90,6 +90,7 @@ pub(crate) enum DurationType {
     Normal = 2,
 }
 
+/// 卓レギュレーションの進行モードの列挙体の実装（TryFrom トレイト）
 impl TryFrom<i32> for ProgressMode {
     type Error = RegulationError;
 
@@ -104,7 +105,9 @@ impl TryFrom<i32> for ProgressMode {
 
 /// 卓レギュレーションの期間タイプの列挙体の実装
 impl DurationType {
-    /// メインフェイズの時間（分）
+    ///
+    /// メインフェイズの時間（分）を返却する
+    ///
     pub(crate) const fn main_phase_minutes(self) -> u32 {
         match self {
             DurationType::Short => 30,
@@ -112,8 +115,10 @@ impl DurationType {
         }
     }
 
+    ///
+    /// 放置上限時間（分）を返却する
+    ///
     #[cfg_attr(not(test), allow(dead_code))]
-    /// 放置上限時間（分）
     pub(crate) const fn idle_limit_minutes(self) -> u32 {
         match self {
             DurationType::Short => 60,
@@ -121,7 +126,9 @@ impl DurationType {
         }
     }
 
-    /// 撤退調整フェイズの時間（分）
+    ///
+    /// 撤退調整フェイズの時間（分）を返却する
+    ///
     pub(crate) const fn sub_phase_minutes(self) -> u32 {
         match self {
             DurationType::Short => 10,
@@ -129,7 +136,9 @@ impl DurationType {
         }
     }
 
-    /// 感想戦フェイズの時間（分）
+    ///
+    /// 感想戦フェイズの時間（分）を返却する
+    ///
     pub(crate) const fn debrief_phase_minutes(self) -> u32 {
         match self {
             DurationType::Short | DurationType::Normal => 60 * 24,
