@@ -64,6 +64,9 @@ pub(crate) enum CreateGameHandlerError {
 
 /// 卓作成リクエストハンドラのエラーの列挙体の実装
 impl CreateGameHandlerError {
+    ///
+    /// エラーコードを取得する
+    ///
     pub(crate) fn code(&self) -> &'static str {
         match self {
             Self::InvalidRequest(_) => "invalid_request",
@@ -75,6 +78,9 @@ impl CreateGameHandlerError {
         }
     }
 
+    ///
+    /// 卓作成リクエストハンドラのエラーを API エラーレスポンスに変換する
+    ///
     pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
         ApiErrorResponse {
             code: self.code(),
@@ -82,6 +88,7 @@ impl CreateGameHandlerError {
         }
     }
 
+    /// 卓作成リクエストハンドラのエラーに対応するエラーメッセージを生成する
     fn message(&self) -> String {
         match self {
             Self::InvalidRequest(CreateGameRequestValidationError::MissingAuthorization) => {
@@ -119,6 +126,9 @@ pub(crate) enum JoinGameHandlerError {
 
 /// 卓参加リクエストハンドラのエラーの列挙体の実装
 impl JoinGameHandlerError {
+    ///
+    /// 卓参加リクエストハンドラのエラーに対応するエラーコードを生成する
+    ///
     pub(crate) fn code(&self) -> &'static str {
         match self {
             Self::InvalidRequest(_) => "invalid_request",
@@ -130,6 +140,9 @@ impl JoinGameHandlerError {
         }
     }
 
+    ///
+    /// 卓参加リクエストハンドラのエラーを API エラーレスポンスに変換する
+    ///
     pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
         ApiErrorResponse {
             code: self.code(),
@@ -137,6 +150,7 @@ impl JoinGameHandlerError {
         }
     }
 
+    /// 卓参加リクエストハンドラのエラーに対応するエラーメッセージを生成する
     fn message(&self) -> String {
         match self {
             Self::InvalidRequest(JoinGameRequestValidationError::MissingAuthorization) => {

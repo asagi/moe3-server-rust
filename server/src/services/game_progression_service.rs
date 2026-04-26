@@ -34,6 +34,9 @@ where
     U: UserRepository,
     G: GameRepository,
 {
+    ///
+    /// new 関数
+    ///
     pub(crate) fn new(user_repository: U, game_repository: G) -> Self {
         Self {
             user_repository,
@@ -41,6 +44,9 @@ where
         }
     }
 
+    ///
+    /// 卓進行処理を実行する
+    ///
     /// Closed・Aborted 以外の全 Game に対してフェイズ進行を試みる。
     /// next_update_at が現在時刻より過去の場合のみ進行処理を実行する。
     pub(crate) fn progress_games(&self) -> Result<(), GameProgressionError> {
@@ -58,6 +64,9 @@ where
         Ok(())
     }
 
+    /// 卓別の進行処理を実行する
+    ///
+    /// next_update_at が None または未来の場合は何もしない。
     fn progress_game(&self, game_uuid: uuid::Uuid, now: chrono::NaiveDateTime) -> Result<(), GameProgressionError> {
         let Some(mut game) = self
             .game_repository
@@ -89,15 +98,16 @@ where
             return Ok(());
         }
 
-        let owner_accepting_draw_on_main = Self::is_owner_accepting_draw(&game) && Self::is_draw_applicable_phase(&latest_phase);
-
+        // フェイズ進行処理
         let mut context = PhaseContext::new();
+        let owner_accepting_draw_on_main = Self::is_owner_accepting_draw(&game) && Self::is_draw_applicable_phase(&latest_phase);
         if owner_accepting_draw_on_main {
             context.set_draw();
         }
         self.remove_idle_powers(&game, &mut context, now)?;
         latest_phase.close(&mut context);
 
+        // 卓終了判定
         let is_finished = context.is_finished();
         let new_next_update = if is_finished {
             None
@@ -119,11 +129,13 @@ where
         };
         game.next_update_at = new_next_update;
 
+        // 卓永続化処理
         self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
 
         Ok(())
     }
 
+    /// 卓主が和平終了を承認しているかどうかを返却する
     fn is_owner_accepting_draw(game: &super::Game) -> bool {
         game.players
             .iter()
@@ -131,6 +143,7 @@ where
             .is_some_and(|player| player.is_accepting_draw)
     }
 
+    /// 和平終了が適用されるフェイズかどうかを返却する
     fn is_draw_applicable_phase(phase: &super::Phase) -> bool {
         matches!(
             phase.kind,
@@ -138,6 +151,7 @@ where
         )
     }
 
+    /// 無政府国を活性国リストから除外する
     fn remove_idle_powers(
         &self,
         game: &super::Game,
@@ -162,7 +176,7 @@ where
         Ok(())
     }
 
-    /// アクティブな全卓について卓主が無政府化していれば is_accepting_draw を true に設定して保存する。
+    /// 卓主無政府化卓の和平終了処理を実行する
     pub(crate) fn mark_idle_owners_accepting_draw(&self) -> Result<(), GameProgressionError> {
         let now = Utc::now().naive_utc();
 
@@ -181,7 +195,7 @@ where
         Ok(())
     }
 
-    /// 卓主が無政府化していれば is_accepting_draw を true に設定し、変更した場合 true を返す。
+    /// 卓別卓主無政府化卓に和平終了フラグを立てる
     fn mark_owner_accepting_draw_if_idle(
         &self,
         game: &mut super::Game,
@@ -221,13 +235,13 @@ where
         Ok(true)
     }
 
-    /// 無政府判定の閾値を計算する
+    /// 無政府判定閾値を算出する
     fn idle_threshold(game: &super::Game, now: chrono::NaiveDateTime) -> chrono::NaiveDateTime {
         let idle_limit = chrono::Duration::minutes(i64::from(game.regulation.duration_type.idle_limit_minutes()));
         now - idle_limit
     }
 
-    /// ユーザーが無政府化しているか（ユーザーが存在しない場合も true）
+    /// 無政府ユーザーを判定する
     fn is_idle_or_missing(user: Option<super::UserRecord>, threshold: chrono::NaiveDateTime) -> bool {
         match user {
             Some(user) => user.last_access_at.naive_utc() <= threshold,
@@ -235,7 +249,7 @@ where
         }
     }
 
-    /// 参加者が揃った際に担当国を割り当てる。
+    /// プレイヤーに担当国を割り当てる
     ///
     /// 割り当てルール:
     /// - 卓主には無条件で希望国が割り当てられる。

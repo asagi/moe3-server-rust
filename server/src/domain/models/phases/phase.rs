@@ -46,30 +46,44 @@ pub(crate) struct Phase {
     pub(crate) kind: PhaseKind,
 }
 
+///
 /// 準備フェイズの構造体
+///
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub(crate) struct ReadyPhase {}
 
+///
 /// 春メインフェイズの構造体
+///
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub(crate) struct SpringMainPhase {}
 
+///
 /// 春撤退フェイズの構造体
+///
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub(crate) struct SpringRetreatPhase {}
 
+///
 /// 秋メインフェイズの構造体
+///
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub(crate) struct FallMainPhase {}
 
+///
 /// 秋撤退フェイズの構造体
+///
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub(crate) struct FallRetreatPhase {}
 
+///
 /// 調整フェイズの構造体
+///
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub(crate) struct AdjustmentPhase {}
 
+///
 /// 感想戦フェイズの構造体
+///
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub(crate) struct DebriefPhase {}

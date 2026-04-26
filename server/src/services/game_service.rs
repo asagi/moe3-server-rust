@@ -83,8 +83,12 @@ where
     U: UserRepository,
     G: GameRepository,
 {
+    /// 新卓作成から開始までの最低猶予時間（分）
     const MIN_START_LEAD_MINUTES: i64 = 30;
 
+    ///
+    /// new 関数
+    ///
     pub(crate) fn new(user_repository: U, game_repository: G) -> Self {
         Self {
             user_repository,
@@ -92,6 +96,9 @@ where
         }
     }
 
+    ///
+    /// 新卓を作成する
+    ///
     pub(crate) fn create_game(&self, command: CreateGameCommand) -> Result<CreateGameResult, CreateGameError> {
         let access_token = command.access_token.trim().to_string();
         if access_token.is_empty() {
@@ -183,6 +190,7 @@ where
         })
     }
 
+    /// 開始日時の妥当性を検証する
     fn validate_start_datetime(start_datetime: chrono::NaiveDateTime, now: chrono::NaiveDateTime) -> Result<(), CreateGameError> {
         let min_allowed = now + chrono::Duration::minutes(Self::MIN_START_LEAD_MINUTES);
         if start_datetime <= min_allowed {
@@ -195,6 +203,9 @@ where
         Ok(())
     }
 
+    ///
+    /// ユーザーをプレイヤーとして卓に追加する
+    ///
     pub(crate) fn join_game(&self, command: JoinGameCommand) -> Result<JoinGameResult, JoinGameError> {
         let access_token = command.access_token.trim().to_string();
         if access_token.is_empty() {

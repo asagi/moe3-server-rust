@@ -28,7 +28,7 @@ use super::UserRepository;
 // ============================================================================
 
 ///
-/// ログインリクエスト Axum ハンドラ関数
+/// ログインリクエスト Axum ハンドラ
 ///
 pub(crate) async fn post_auth_login<U, G, D>(
     State(state): State<AppState<U, G, D>>,
@@ -62,7 +62,7 @@ where
 }
 
 ///
-/// ログインリクエストハンドラ関数
+/// ログインリクエストハンドラ
 ///
 pub(crate) fn handle_auth_login<U, D>(
     service: &AuthService<U, D>,

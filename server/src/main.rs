@@ -7,9 +7,12 @@ use std::net::SocketAddr;
 use std::process::exit;
 
 // ============================================================================
-// definitions
+// functions
 // ============================================================================
 
+///
+/// Tokio メイン関数
+///
 #[tokio::main]
 async fn main() {
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));

@@ -32,6 +32,9 @@ pub(crate) struct DiscordApiClient {
 
 /// Discord API クライアントの構造体の実装
 impl DiscordApiClient {
+    ///
+    /// new 関数
+    ///
     pub(crate) fn new() -> Self {
         let http_client = Client::builder()
             .connect_timeout(Duration::from_secs(DISCORD_CONNECT_TIMEOUT_SECS))
@@ -45,6 +48,7 @@ impl DiscordApiClient {
         }
     }
 
+    /// アバター URL を生成する
     fn build_avatar_url(user_id: &str, avatar_hash: Option<&str>) -> Option<String> {
         avatar_hash.map(|hash| format!("https://cdn.discordapp.com/avatars/{}/{}.png", user_id, hash))
     }
@@ -52,6 +56,7 @@ impl DiscordApiClient {
 
 /// Discord API クライアントの構造体の実装（DiscordIdentityProvider トレイトの実装）
 impl DiscordIdentityProvider for DiscordApiClient {
+    /// Discord プロフィールを取得する
     fn fetch_profile(&self, discord_access_token: &str) -> Result<DiscordProfile, DiscordClientError> {
         let endpoint = format!("{}/users/@me", self.base_url);
         let response = self

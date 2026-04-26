@@ -31,6 +31,9 @@ pub(crate) struct SqliteUserRepository {
 
 /// SQLite 用のユーザリポジトリ構造体の実装
 impl SqliteUserRepository {
+    ///
+    /// new 関数
+    ///
     pub(crate) fn new(database_path: &str) -> Result<Self, RepositoryError> {
         let connection =
             Connection::open(database_path).map_err(|error| RepositoryError::Unavailable(format!("open sqlite: {}", error)))?;
@@ -42,6 +45,9 @@ impl SqliteUserRepository {
         Ok(repository)
     }
 
+    ///
+    /// new 関数（テスト用）
+    ///
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn new_in_memory() -> Result<Self, RepositoryError> {
         let connection = Connection::open_in_memory()
@@ -54,6 +60,7 @@ impl SqliteUserRepository {
         Ok(repository)
     }
 
+    /// スキーマを初期化する
     fn init_schema(&self) -> Result<(), RepositoryError> {
         let sql = r#"
             CREATE TABLE IF NOT EXISTS users (
@@ -80,6 +87,7 @@ impl SqliteUserRepository {
         Ok(())
     }
 
+    /// SQLite の Row から UserRecord を生成する
     fn row_to_user_record(row: &rusqlite::Row<'_>) -> rusqlite::Result<UserRecord> {
         let uuid_str: String = row.get("uuid")?;
         let uuid = uuid::Uuid::parse_str(&uuid_str)
@@ -102,6 +110,7 @@ impl SqliteUserRepository {
         })
     }
 
+    /// ID でユーザをロードする
     fn load_by_id(&self, user_id: UserId) -> Result<UserRecord, RepositoryError> {
         let sql = r#"
             SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at
@@ -122,6 +131,7 @@ impl SqliteUserRepository {
 
 /// SQLite 用のユーザリポジトリ構造体の実装（UserRepository トレイト）
 impl UserRepository for SqliteUserRepository {
+    /// ID でユーザをロードする
     fn find_by_uuid(&self, user_uuid: uuid::Uuid) -> Result<Option<UserRecord>, RepositoryError> {
         let sql = r#"
             SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at
@@ -137,6 +147,7 @@ impl UserRepository for SqliteUserRepository {
             .map_err(|error| RepositoryError::Unavailable(format!("find user by uuid: {}", error)))
     }
 
+    /// Discord ユーザ ID でユーザをロードする
     fn find_by_discord_user_id(&self, discord_user_id: &str) -> Result<Option<UserRecord>, RepositoryError> {
         let sql = r#"
             SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at
@@ -152,6 +163,7 @@ impl UserRepository for SqliteUserRepository {
             .map_err(|error| RepositoryError::Unavailable(format!("find user by discord_user_id: {}", error)))
     }
 
+    /// アクセストークンでユーザをロードする
     fn find_by_access_token(&self, access_token: &str) -> Result<Option<UserRecord>, RepositoryError> {
         let sql = r#"
             SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at
@@ -167,6 +179,7 @@ impl UserRepository for SqliteUserRepository {
             .map_err(|error| RepositoryError::Unavailable(format!("find user by access_token: {}", error)))
     }
 
+    /// アクセストークンでユーザの最終アクセス日時を更新する
     fn update_last_access_at_by_access_token(
         &self,
         access_token: &str,
@@ -191,6 +204,7 @@ impl UserRepository for SqliteUserRepository {
         Ok(affected > 0)
     }
 
+    /// 新規ユーザを挿入する
     fn insert(&self, new_user: NewUser) -> Result<UserRecord, RepositoryError> {
         let now = Utc::now().to_rfc3339();
 
@@ -243,6 +257,7 @@ impl UserRepository for SqliteUserRepository {
         self.load_by_id(inserted_id)
     }
 
+    /// ユーザのプロフィールを更新する
     fn update_profile(&self, id: UserId, profile: UserProfileUpdate) -> Result<UserRecord, RepositoryError> {
         let now = Utc::now().to_rfc3339();
 
