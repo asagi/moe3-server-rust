@@ -17,6 +17,7 @@ use super::Phase;
 use super::Player;
 use super::Power;
 use super::Regulation;
+use super::RepositoryError;
 use super::UserRepository;
 use strum::IntoEnumIterator;
 
@@ -250,7 +251,10 @@ where
         // DBに新規プレイヤーを追加
         self.game_repository
             .add_player(game.uuid, user.uuid, command.requested_power)
-            .map_err(JoinGameError::Repository)?;
+            .map_err(|e| match e {
+                RepositoryError::Conflict => JoinGameError::Forbidden("game is full (max players reached)".to_string()),
+                other => JoinGameError::Repository(other),
+            })?;
 
         // 最新状態を再取得する
         let mut updated_game = self

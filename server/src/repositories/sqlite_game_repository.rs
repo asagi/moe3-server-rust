@@ -668,7 +668,7 @@ impl GameRepository for SqliteGameRepository {
             .connection
             .lock()
             .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
-        connection
+        let affected = connection
             .execute(
                 r#"
                 INSERT INTO game_players (game_uuid, user_uuid, power, is_accepting_draw, is_owner, requested_power)
@@ -676,6 +676,7 @@ impl GameRepository for SqliteGameRepository {
                 WHERE NOT EXISTS (
                     SELECT 1 FROM game_players WHERE game_uuid = ?1 AND user_uuid = ?2
                 )
+                AND (SELECT COUNT(*) FROM game_players WHERE game_uuid = ?1) < 7
                 "#,
                 params![
                     game_uuid.to_string(),
@@ -684,6 +685,9 @@ impl GameRepository for SqliteGameRepository {
                 ],
             )
             .map_err(|error| RepositoryError::Unavailable(format!("insert game player: {}", error)))?;
+        if affected == 0 {
+            return Err(RepositoryError::Conflict);
+        }
         Ok(())
     }
     fn insert(&self, new_game: NewGame) -> Result<Game, RepositoryError> {
