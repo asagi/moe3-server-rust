@@ -248,7 +248,7 @@ where
         use std::collections::HashSet;
         use strum::IntoEnumIterator;
 
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
 
         // Step 1: 卓主の希望国を無条件で割り当て
         let owner_requested_power = players.iter().find(|p| p.is_owner).and_then(|p| p.requested_power);
@@ -319,9 +319,9 @@ where
             }
         }
 
-        // Step 5: 残りのパワーをシャッフルし、抽選落ち→無希望の順に割り当て
+        // Step 5: 残りのパワーをシャッフルし、無希望→抽選落ち（卓主と被った参加者を最後に）の順に割り当て
         remaining_powers.shuffle(&mut rng);
-        let all_remaining: Vec<uuid::Uuid> = lottery_losers.into_iter().chain(no_preference).collect();
+        let all_remaining: Vec<uuid::Uuid> = no_preference.into_iter().chain(lottery_losers).collect();
 
         for (user_uuid, power) in all_remaining.into_iter().zip(remaining_powers) {
             players
