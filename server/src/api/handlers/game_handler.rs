@@ -673,4 +673,84 @@ mod tests {
 
         assert_eq!(error.code(), "invalid_request");
     }
+
+    #[test]
+    fn parse_keyword_accepts_alphanumeric() {
+        let result = parse_keyword(Some("Abc123"), || "err");
+        assert_eq!(result, Ok(Some("Abc123".to_string())));
+    }
+
+    #[test]
+    fn parse_keyword_trims_whitespace() {
+        let result = parse_keyword(Some("  abc  "), || "err");
+        assert_eq!(result, Ok(Some("abc".to_string())));
+    }
+
+    #[test]
+    fn parse_keyword_returns_none_for_whitespace_only() {
+        let result = parse_keyword(Some("   "), || "err");
+        assert_eq!(result, Ok(None));
+    }
+
+    #[test]
+    fn parse_keyword_returns_none_when_absent() {
+        let result = parse_keyword::<&str, _>(None, || "err");
+        assert_eq!(result, Ok(None));
+    }
+
+    #[test]
+    fn parse_keyword_rejects_symbols() {
+        let result = parse_keyword(Some("abc!"), || "err");
+        assert_eq!(result, Err("err"));
+    }
+
+    #[test]
+    fn parse_keyword_rejects_non_ascii() {
+        let result = parse_keyword(Some("abcキー"), || "err");
+        assert_eq!(result, Err("err"));
+    }
+
+    #[test]
+    fn handle_create_game_rejects_invalid_keyword() {
+        let (start_date, first_period_hour) = future_start_params();
+        let user_repository = InMemoryUserRepository::new(Vec::new());
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = handle_create_game(
+            &service,
+            CreateGameRequest {
+                authorization: "Bearer token-1".to_string(),
+                face_type: 1,
+                duration_type: 1,
+                start_date,
+                first_period_hour,
+                requested_power: None,
+                keyword: Some("invalid!".to_string()),
+            },
+        )
+        .expect_err("create should fail");
+
+        assert_eq!(error.code(), "invalid_request");
+    }
+
+    #[test]
+    fn handle_join_game_rejects_invalid_keyword() {
+        let user_repository = InMemoryUserRepository::new(Vec::new());
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = handle_join_game(
+            &service,
+            JoinGameRequest {
+                authorization: "Bearer token-1".to_string(),
+                game_uuid: uuid::Uuid::now_v7(),
+                requested_power: None,
+                keyword: Some("無効キー".to_string()),
+            },
+        )
+        .expect_err("join should fail");
+
+        assert_eq!(error.code(), "invalid_request");
+    }
 }
