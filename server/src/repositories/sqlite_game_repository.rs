@@ -85,6 +85,7 @@ impl SqliteGameRepository {
             CREATE TABLE IF NOT EXISTS games (
                 uuid TEXT PRIMARY KEY,
                 game_number INTEGER,
+                keyword TEXT,
                 regulation_face_type INTEGER NOT NULL,
                 regulation_progress_mode INTEGER NOT NULL,
                 regulation_duration_type INTEGER NOT NULL,
@@ -446,6 +447,7 @@ impl SqliteGameRepository {
         struct GameRow {
             uuid: String,
             game_number: Option<i32>,
+            keyword: Option<String>,
             face_type: i32,
             progress_mode: i32,
             duration_type: i32,
@@ -466,15 +468,16 @@ impl SqliteGameRepository {
                 Ok(GameRow {
                     uuid: row.get(0)?,
                     game_number: row.get(1)?,
-                    face_type: row.get(2)?,
-                    progress_mode: row.get(3)?,
-                    duration_type: row.get(4)?,
-                    start_date: row.get(5)?,
-                    first_period_hour: row.get(6)?,
-                    status: row.get(7)?,
-                    is_draw: row.get(8)?,
-                    is_solo: row.get(9)?,
-                    next_update: row.get(10)?,
+                    keyword: row.get(2)?,
+                    face_type: row.get(3)?,
+                    progress_mode: row.get(4)?,
+                    duration_type: row.get(5)?,
+                    start_date: row.get(6)?,
+                    first_period_hour: row.get(7)?,
+                    status: row.get(8)?,
+                    is_draw: row.get(9)?,
+                    is_solo: row.get(10)?,
+                    next_update: row.get(11)?,
                 })
             })
             .map_err(|error| RepositoryError::Unavailable(format!("query load games: {}", error)))?
@@ -624,6 +627,7 @@ impl SqliteGameRepository {
             games.push(Game {
                 uuid,
                 game_number: row.game_number,
+                keyword: row.keyword,
                 regulation,
                 players,
                 phases,
@@ -741,6 +745,7 @@ impl GameRepository for SqliteGameRepository {
                 INSERT INTO games (
                     uuid,
                     game_number,
+                    keyword,
                     regulation_face_type,
                     regulation_progress_mode,
                     regulation_duration_type,
@@ -752,11 +757,12 @@ impl GameRepository for SqliteGameRepository {
                     next_update,
                     created_at,
                     updated_at
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
                 "#,
                 params![
                     game.uuid.to_string(),
                     game.game_number,
+                    game.keyword,
                     game.regulation.face_type as i32,
                     game.regulation.progress_mode as i32,
                     game.regulation.duration_type as i32,
@@ -848,7 +854,7 @@ impl GameRepository for SqliteGameRepository {
         Self::load_games_by_query(
             &connection,
             r#"
-            SELECT uuid, game_number, regulation_face_type, regulation_progress_mode,
+            SELECT uuid, game_number, keyword, regulation_face_type, regulation_progress_mode,
                    regulation_duration_type, regulation_start_date, regulation_first_period_hour,
                    status, is_draw, is_solo, next_update
             FROM games
@@ -868,7 +874,7 @@ impl GameRepository for SqliteGameRepository {
         let mut games = Self::load_games_by_query(
             &connection,
             r#"
-            SELECT uuid, game_number, regulation_face_type, regulation_progress_mode,
+            SELECT uuid, game_number, keyword, regulation_face_type, regulation_progress_mode,
                    regulation_duration_type, regulation_start_date, regulation_first_period_hour,
                    status, is_draw, is_solo, next_update
             FROM games
@@ -1223,6 +1229,7 @@ mod tests {
         let game = Game {
             uuid: uuid::Uuid::now_v7(),
             game_number: None,
+            keyword: None,
             regulation,
             players: vec![Player {
                 user_uuid: owner_uuid,
@@ -1278,6 +1285,7 @@ mod tests {
         let game = Game {
             uuid: uuid::Uuid::now_v7(),
             game_number: None,
+            keyword: None,
             regulation,
             players: vec![Player {
                 user_uuid: uuid::Uuid::now_v7(),
@@ -1398,6 +1406,7 @@ mod tests {
         let game = Game {
             uuid: uuid::Uuid::now_v7(),
             game_number: None,
+            keyword: None,
             regulation,
             players: vec![Player {
                 user_uuid: uuid::Uuid::now_v7(),
@@ -1443,6 +1452,7 @@ mod tests {
         let game = Game {
             uuid: uuid::Uuid::now_v7(),
             game_number: None,
+            keyword: None,
             regulation,
             players: vec![Player {
                 user_uuid: uuid::Uuid::now_v7(),
@@ -1507,6 +1517,7 @@ mod tests {
         let game = Game {
             uuid: uuid::Uuid::now_v7(),
             game_number: None,
+            keyword: None,
             regulation,
             players: vec![Player {
                 user_uuid: uuid::Uuid::now_v7(),
@@ -1577,6 +1588,7 @@ mod transaction_tests {
         let game = Game {
             uuid: game_uuid,
             game_number: None,
+            keyword: None,
             regulation,
             players: vec![Player {
                 user_uuid: uuid::Uuid::now_v7(),
@@ -1625,6 +1637,7 @@ mod transaction_tests {
         let game = Game {
             uuid: uuid::Uuid::now_v7(),
             game_number: None,
+            keyword: None,
             regulation,
             players: vec![Player {
                 user_uuid: uuid::Uuid::now_v7(),
@@ -1671,6 +1684,7 @@ mod transaction_tests {
         let game = Game {
             uuid: uuid::Uuid::now_v7(),
             game_number: None,
+            keyword: None,
             regulation,
             players: vec![Player {
                 user_uuid: uuid::Uuid::now_v7(),

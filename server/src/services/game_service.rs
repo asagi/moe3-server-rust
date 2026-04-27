@@ -33,6 +33,7 @@ pub(crate) struct CreateGameCommand {
     pub access_token: String,
     pub regulation: Regulation,
     pub requested_power: Option<Power>,
+    pub keyword: Option<String>,
 }
 
 ///
@@ -53,6 +54,7 @@ pub(crate) struct JoinGameCommand {
     pub access_token: String,
     pub game_uuid: Uuid,
     pub requested_power: Option<Power>,
+    pub keyword: Option<String>,
 }
 
 ///
@@ -160,6 +162,7 @@ where
         let game = Game {
             uuid: Uuid::now_v7(),
             game_number: None,
+            keyword: command.keyword,
             regulation: command.regulation,
             players: vec![owner],
             phases: vec![Phase::new_ready()],
@@ -248,6 +251,14 @@ where
             return Err(JoinGameError::Forbidden(
                 "user is already participating in another active game".to_string(),
             ));
+        }
+
+        // keyword 不一致の場合はエラー
+        if let Some(game_keyword) = &game.keyword {
+            let request_keyword = command.keyword.as_deref().unwrap_or("");
+            if game_keyword != request_keyword {
+                return Err(JoinGameError::Forbidden("keyword does not match".to_string()));
+            }
         }
 
         if game.status != GameStatus::Preparing {
@@ -524,6 +535,7 @@ mod tests {
                 access_token: "token-1".to_string(),
                 regulation: sample_regulation(),
                 requested_power: Some(Power::France),
+                keyword: None,
             })
             .expect("create game should succeed");
 
@@ -559,6 +571,7 @@ mod tests {
                 access_token: "token-1".to_string(),
                 regulation: sample_regulation(),
                 requested_power: None,
+                keyword: None,
             })
             .expect("create game should succeed");
 
@@ -610,6 +623,7 @@ mod tests {
                 access_token: "token-1".to_string(),
                 regulation: past_regulation,
                 requested_power: None,
+                keyword: None,
             })
             .expect_err("create game should fail");
 
@@ -634,6 +648,7 @@ mod tests {
         let participating_game = Game {
             uuid: Uuid::now_v7(),
             game_number: Some(1),
+            keyword: None,
             regulation: sample_regulation(),
             players: vec![Player {
                 user_uuid,
@@ -657,6 +672,7 @@ mod tests {
                 access_token: "token-1".to_string(),
                 regulation: sample_regulation(),
                 requested_power: None,
+                keyword: None,
             })
             .expect_err("create game should fail");
 
@@ -682,6 +698,7 @@ mod tests {
         let finished_game = Game {
             uuid: Uuid::now_v7(),
             game_number: Some(1),
+            keyword: None,
             regulation: sample_regulation(),
             players: vec![Player {
                 user_uuid,
@@ -704,6 +721,7 @@ mod tests {
             access_token: "token-1".to_string(),
             regulation: sample_regulation(),
             requested_power: None,
+            keyword: None,
         });
 
         assert!(result.is_ok());
@@ -728,6 +746,7 @@ mod tests {
         let canceled_game = Game {
             uuid: Uuid::now_v7(),
             game_number: Some(1),
+            keyword: None,
             regulation: sample_regulation(),
             players: vec![Player {
                 user_uuid,
@@ -750,6 +769,7 @@ mod tests {
             access_token: "token-1".to_string(),
             regulation: sample_regulation(),
             requested_power: None,
+            keyword: None,
         });
 
         assert!(result.is_ok());
@@ -784,6 +804,7 @@ mod tests {
         Game {
             uuid: Uuid::now_v7(),
             game_number: None,
+            keyword: None,
             regulation: sample_regulation(),
             players: vec![Player {
                 user_uuid: player_user_uuid,
@@ -826,6 +847,7 @@ mod tests {
                 access_token: "token-2".to_string(),
                 game_uuid,
                 requested_power: Some(Power::France),
+                keyword: None,
             })
             .expect("join game should succeed");
 
@@ -858,6 +880,7 @@ mod tests {
                 access_token: "invalid-token".to_string(),
                 game_uuid: Uuid::now_v7(),
                 requested_power: None,
+                keyword: None,
             })
             .expect_err("join game should fail");
 
@@ -882,6 +905,7 @@ mod tests {
         let active_game = Game {
             uuid: Uuid::now_v7(),
             game_number: Some(1),
+            keyword: None,
             regulation: sample_regulation(),
             players: vec![Player {
                 user_uuid,
@@ -907,6 +931,7 @@ mod tests {
                 access_token: "token-1".to_string(),
                 game_uuid: target_uuid,
                 requested_power: None,
+                keyword: None,
             })
             .expect_err("join game should fail");
 
@@ -936,6 +961,7 @@ mod tests {
                 access_token: "token-1".to_string(),
                 game_uuid: Uuid::now_v7(),
                 requested_power: None,
+                keyword: None,
             })
             .expect_err("join game should fail");
 
@@ -960,6 +986,7 @@ mod tests {
         let in_progress_game = Game {
             uuid: Uuid::now_v7(),
             game_number: Some(2),
+            keyword: None,
             regulation: sample_regulation(),
             players: vec![Player {
                 user_uuid: Uuid::now_v7(),
@@ -984,6 +1011,7 @@ mod tests {
                 access_token: "token-1".to_string(),
                 game_uuid,
                 requested_power: None,
+                keyword: None,
             })
             .expect_err("join game should fail");
 
@@ -997,6 +1025,7 @@ mod tests {
         let mut game = Game {
             uuid: Uuid::now_v7(),
             game_number: None,
+            keyword: None,
             regulation: sample_regulation(),
             players: vec![Player {
                 user_uuid: owner_uuid,
@@ -1079,6 +1108,7 @@ mod tests {
                 access_token: "token-7".to_string(),
                 game_uuid,
                 requested_power: Some(Power::Turkey),
+                keyword: None,
             })
             .expect("join game should succeed");
 
@@ -1137,6 +1167,7 @@ mod tests {
                 access_token: "token-2".to_string(),
                 game_uuid,
                 requested_power: None,
+                keyword: None,
             })
             .expect("join game should succeed");
 

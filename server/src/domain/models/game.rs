@@ -28,6 +28,7 @@ use super::Regulation;
 pub(crate) struct Game {
     pub uuid: Uuid,
     pub(crate) game_number: Option<i32>,
+    pub(crate) keyword: Option<String>,
     pub(crate) regulation: Regulation,
     pub(crate) players: Vec<Player>,
     pub(crate) phases: Vec<Phase>,
@@ -154,6 +155,7 @@ mod tests {
         Game {
             uuid: Uuid::now_v7(),
             game_number: None,
+            keyword: None,
             regulation,
             players: vec![Player {
                 user_uuid: Uuid::now_v7(),

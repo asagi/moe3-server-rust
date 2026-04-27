@@ -22,6 +22,7 @@ pub(crate) struct CreateGameRequestBody {
     pub start_date: String,
     pub first_period_hour: u8,
     pub requested_power: Option<String>,
+    pub keyword: Option<String>,
 }
 
 ///
@@ -35,6 +36,7 @@ pub(crate) struct CreateGameRequest {
     pub start_date: String,
     pub first_period_hour: u8,
     pub requested_power: Option<String>,
+    pub keyword: Option<String>,
 }
 
 /// 卓作成リクエストの構造体の実装
@@ -64,6 +66,7 @@ impl CreateGameRequest {
 #[derive(Debug, Deserialize)]
 pub(crate) struct JoinGameRequestBody {
     pub requested_power: Option<String>,
+    pub keyword: Option<String>,
 }
 
 ///
@@ -74,6 +77,7 @@ pub(crate) struct JoinGameRequest {
     pub authorization: String,
     pub game_uuid: Uuid,
     pub requested_power: Option<String>,
+    pub keyword: Option<String>,
 }
 
 /// 卓参加リクエストの構造体の実装

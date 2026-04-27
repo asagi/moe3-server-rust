@@ -64,6 +64,7 @@ where
         start_date: body.start_date,
         first_period_hour: body.first_period_hour,
         requested_power: body.requested_power,
+        keyword: body.keyword,
     };
 
     let state_clone = state.clone();
@@ -104,6 +105,9 @@ where
     let requested_power = parse_requested_power(request.requested_power.as_deref(), || {
         invalid_request(CreateGameRequestValidationError::InvalidRequestedPower)
     })?;
+    let keyword = parse_keyword(request.keyword.as_deref(), || {
+        invalid_request(CreateGameRequestValidationError::InvalidKeyword)
+    })?;
     let access_token = request.authorization.trim().trim_start_matches("Bearer ").trim().to_string();
 
     let result = service
@@ -111,6 +115,7 @@ where
             access_token,
             regulation,
             requested_power,
+            keyword,
         })
         .map_err(CreateGameHandlerError::Service)?;
 
@@ -144,6 +149,24 @@ where
     F: Fn() -> E,
 {
     value.map(|code| Power::try_from(code).map_err(|_| err())).transpose()
+}
+
+/// keyword をバリデートしトリムする。大小英字と数字のみ許可。
+fn parse_keyword<E, F>(value: Option<&str>, err: F) -> Result<Option<String>, E>
+where
+    F: Fn() -> E,
+{
+    let Some(raw) = value else {
+        return Ok(None);
+    };
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    if !trimmed.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return Err(err());
+    }
+    Ok(Some(trimmed.to_string()))
 }
 
 /// 卓作成リクエストパラメータの列挙体をパースする
@@ -196,6 +219,7 @@ where
         authorization,
         game_uuid,
         requested_power: body.requested_power,
+        keyword: body.keyword,
     };
 
     let state_clone = state.clone();
@@ -233,6 +257,10 @@ where
         JoinGameHandlerError::InvalidRequest(JoinGameRequestValidationError::InvalidRequestedPower)
     })?;
 
+    let keyword = parse_keyword(request.keyword.as_deref(), || {
+        JoinGameHandlerError::InvalidRequest(JoinGameRequestValidationError::InvalidKeyword)
+    })?;
+
     let access_token = request.authorization.trim().trim_start_matches("Bearer ").trim().to_string();
 
     let result = service
@@ -240,6 +268,7 @@ where
             access_token,
             game_uuid: request.game_uuid,
             requested_power,
+            keyword,
         })
         .map_err(JoinGameHandlerError::Service)?;
 
@@ -481,6 +510,7 @@ mod tests {
                 start_date,
                 first_period_hour,
                 requested_power: Some("f".to_string()),
+                keyword: None,
             },
         )
         .expect("create should succeed");
@@ -518,6 +548,7 @@ mod tests {
                 start_date,
                 first_period_hour,
                 requested_power: None,
+                keyword: None,
             },
         )
         .expect("create should succeed");
@@ -541,6 +572,7 @@ mod tests {
                 start_date: "2026-04-19".to_string(),
                 first_period_hour: 12,
                 requested_power: None,
+                keyword: None,
             },
         )
         .expect_err("create should fail");
@@ -567,6 +599,7 @@ mod tests {
         let game = Game {
             uuid: uuid::Uuid::now_v7(),
             game_number: None,
+            keyword: None,
             regulation: {
                 use crate::domain::DurationType;
                 use crate::domain::FaceType;
@@ -608,6 +641,7 @@ mod tests {
                 authorization: "Bearer token-2".to_string(),
                 game_uuid,
                 requested_power: Some("f".to_string()),
+                keyword: None,
             },
         )
         .expect("join should succeed");
@@ -632,6 +666,7 @@ mod tests {
                 authorization: "token-1".to_string(),
                 game_uuid: uuid::Uuid::now_v7(),
                 requested_power: None,
+                keyword: None,
             },
         )
         .expect_err("join should fail");
