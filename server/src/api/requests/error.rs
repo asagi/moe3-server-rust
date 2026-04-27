@@ -23,6 +23,7 @@ pub(crate) enum CreateGameRequestValidationError {
     InvalidStartDate,
     InvalidRequestedPower,
     InvalidFirstPeriodHour,
+    InvalidKeyword,
 }
 
 ///
@@ -35,4 +36,5 @@ pub(crate) enum JoinGameRequestValidationError {
     MissingAccessToken,
     InvalidGameUuid,
     InvalidRequestedPower,
+    InvalidKeyword,
 }

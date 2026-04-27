@@ -517,6 +517,7 @@ mod tests {
         Game {
             uuid: uuid::Uuid::now_v7(),
             game_number: None,
+            keyword: None,
             regulation,
             players: vec![Player {
                 user_uuid: owner_uuid,

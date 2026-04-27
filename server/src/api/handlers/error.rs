@@ -109,6 +109,9 @@ impl CreateGameHandlerError {
             Self::InvalidRequest(CreateGameRequestValidationError::InvalidRequestedPower) => {
                 "requested_power is invalid".to_string()
             }
+            Self::InvalidRequest(CreateGameRequestValidationError::InvalidKeyword) => {
+                "keyword must contain only alphanumeric characters".to_string()
+            }
             Self::Service(CreateGameError::Forbidden(message)) => message.clone(),
             Self::Service(error) => error.to_string(),
         }
@@ -163,6 +166,9 @@ impl JoinGameHandlerError {
             Self::InvalidRequest(JoinGameRequestValidationError::InvalidGameUuid) => "game_uuid is invalid".to_string(),
             Self::InvalidRequest(JoinGameRequestValidationError::InvalidRequestedPower) => {
                 "requested_power is invalid".to_string()
+            }
+            Self::InvalidRequest(JoinGameRequestValidationError::InvalidKeyword) => {
+                "keyword must contain only alphanumeric characters".to_string()
             }
             Self::Service(JoinGameError::Forbidden(message)) => message.clone(),
             Self::Service(error) => error.to_string(),

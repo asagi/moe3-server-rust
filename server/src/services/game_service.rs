@@ -33,6 +33,7 @@ pub(crate) struct CreateGameCommand {
     pub access_token: String,
     pub regulation: Regulation,
     pub requested_power: Option<Power>,
+    pub keyword: Option<String>,
 }
 
 ///
@@ -53,6 +54,7 @@ pub(crate) struct JoinGameCommand {
     pub access_token: String,
     pub game_uuid: Uuid,
     pub requested_power: Option<Power>,
+    pub keyword: Option<String>,
 }
 
 ///
@@ -160,6 +162,7 @@ where
         let game = Game {
             uuid: Uuid::now_v7(),
             game_number: None,
+            keyword: command.keyword,
             regulation: command.regulation,
             players: vec![owner],
             phases: vec![Phase::new_ready()],
@@ -248,6 +251,11 @@ where
             return Err(JoinGameError::Forbidden(
                 "user is already participating in another active game".to_string(),
             ));
+        }
+
+        // keyword 不一致の場合はエラー（卓にkeywordがない場合にリクエストにkeywordがあっても弾く）
+        if command.keyword.as_deref().unwrap_or("") != game.keyword.as_deref().unwrap_or("") {
+            return Err(JoinGameError::Forbidden("keyword does not match".to_string()));
         }
 
         if game.status != GameStatus::Preparing {
@@ -524,6 +532,7 @@ mod tests {
                 access_token: "token-1".to_string(),
                 regulation: sample_regulation(),
                 requested_power: Some(Power::France),
+                keyword: None,
             })
             .expect("create game should succeed");
 
@@ -559,6 +568,7 @@ mod tests {
                 access_token: "token-1".to_string(),
                 regulation: sample_regulation(),
                 requested_power: None,
+                keyword: None,
             })
             .expect("create game should succeed");
 
@@ -610,6 +620,7 @@ mod tests {
                 access_token: "token-1".to_string(),
                 regulation: past_regulation,
                 requested_power: None,
+                keyword: None,
             })
             .expect_err("create game should fail");
 
@@ -634,6 +645,7 @@ mod tests {
         let participating_game = Game {
             uuid: Uuid::now_v7(),
             game_number: Some(1),
+            keyword: None,
             regulation: sample_regulation(),
             players: vec![Player {
                 user_uuid,
@@ -657,6 +669,7 @@ mod tests {
                 access_token: "token-1".to_string(),
                 regulation: sample_regulation(),
                 requested_power: None,
+                keyword: None,
             })
             .expect_err("create game should fail");
 
@@ -682,6 +695,7 @@ mod tests {
         let finished_game = Game {
             uuid: Uuid::now_v7(),
             game_number: Some(1),
+            keyword: None,
             regulation: sample_regulation(),
             players: vec![Player {
                 user_uuid,
@@ -704,6 +718,7 @@ mod tests {
             access_token: "token-1".to_string(),
             regulation: sample_regulation(),
             requested_power: None,
+            keyword: None,
         });
 
         assert!(result.is_ok());
@@ -728,6 +743,7 @@ mod tests {
         let canceled_game = Game {
             uuid: Uuid::now_v7(),
             game_number: Some(1),
+            keyword: None,
             regulation: sample_regulation(),
             players: vec![Player {
                 user_uuid,
@@ -750,6 +766,7 @@ mod tests {
             access_token: "token-1".to_string(),
             regulation: sample_regulation(),
             requested_power: None,
+            keyword: None,
         });
 
         assert!(result.is_ok());
@@ -784,6 +801,7 @@ mod tests {
         Game {
             uuid: Uuid::now_v7(),
             game_number: None,
+            keyword: None,
             regulation: sample_regulation(),
             players: vec![Player {
                 user_uuid: player_user_uuid,
@@ -826,6 +844,7 @@ mod tests {
                 access_token: "token-2".to_string(),
                 game_uuid,
                 requested_power: Some(Power::France),
+                keyword: None,
             })
             .expect("join game should succeed");
 
@@ -858,6 +877,7 @@ mod tests {
                 access_token: "invalid-token".to_string(),
                 game_uuid: Uuid::now_v7(),
                 requested_power: None,
+                keyword: None,
             })
             .expect_err("join game should fail");
 
@@ -882,6 +902,7 @@ mod tests {
         let active_game = Game {
             uuid: Uuid::now_v7(),
             game_number: Some(1),
+            keyword: None,
             regulation: sample_regulation(),
             players: vec![Player {
                 user_uuid,
@@ -907,6 +928,7 @@ mod tests {
                 access_token: "token-1".to_string(),
                 game_uuid: target_uuid,
                 requested_power: None,
+                keyword: None,
             })
             .expect_err("join game should fail");
 
@@ -936,6 +958,7 @@ mod tests {
                 access_token: "token-1".to_string(),
                 game_uuid: Uuid::now_v7(),
                 requested_power: None,
+                keyword: None,
             })
             .expect_err("join game should fail");
 
@@ -960,6 +983,7 @@ mod tests {
         let in_progress_game = Game {
             uuid: Uuid::now_v7(),
             game_number: Some(2),
+            keyword: None,
             regulation: sample_regulation(),
             players: vec![Player {
                 user_uuid: Uuid::now_v7(),
@@ -984,6 +1008,7 @@ mod tests {
                 access_token: "token-1".to_string(),
                 game_uuid,
                 requested_power: None,
+                keyword: None,
             })
             .expect_err("join game should fail");
 
@@ -997,6 +1022,7 @@ mod tests {
         let mut game = Game {
             uuid: Uuid::now_v7(),
             game_number: None,
+            keyword: None,
             regulation: sample_regulation(),
             players: vec![Player {
                 user_uuid: owner_uuid,
@@ -1079,6 +1105,7 @@ mod tests {
                 access_token: "token-7".to_string(),
                 game_uuid,
                 requested_power: Some(Power::Turkey),
+                keyword: None,
             })
             .expect("join game should succeed");
 
@@ -1137,6 +1164,7 @@ mod tests {
                 access_token: "token-2".to_string(),
                 game_uuid,
                 requested_power: None,
+                keyword: None,
             })
             .expect("join game should succeed");
 
@@ -1146,5 +1174,145 @@ mod tests {
             "7 人未満なら Preparing のままであるべき"
         );
         assert!(result.game.game_number.is_none(), "7 人未満では卓番号が割り当てられないべき");
+    }
+
+    #[test]
+    fn join_game_rejects_when_keyword_does_not_match() {
+        let user_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: user_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "joiner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-1".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+
+        let owner_uuid = Uuid::now_v7();
+        let mut game = sample_preparing_game(owner_uuid);
+        game.keyword = Some("secret".to_string());
+        let game_uuid = game.uuid;
+
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .join_game(JoinGameCommand {
+                access_token: "token-1".to_string(),
+                game_uuid,
+                requested_power: None,
+                keyword: Some("wrong".to_string()),
+            })
+            .expect_err("join game should fail");
+
+        assert!(matches!(error, JoinGameError::Forbidden(_)));
+    }
+
+    #[test]
+    fn join_game_rejects_when_keyword_is_missing() {
+        let user_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: user_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "joiner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-1".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+
+        let owner_uuid = Uuid::now_v7();
+        let mut game = sample_preparing_game(owner_uuid);
+        game.keyword = Some("secret".to_string());
+        let game_uuid = game.uuid;
+
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .join_game(JoinGameCommand {
+                access_token: "token-1".to_string(),
+                game_uuid,
+                requested_power: None,
+                keyword: None,
+            })
+            .expect_err("join game should fail");
+
+        assert!(matches!(error, JoinGameError::Forbidden(_)));
+    }
+
+    #[test]
+    fn join_game_succeeds_when_keyword_matches() {
+        let user_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: user_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "joiner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-1".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+
+        let owner_uuid = Uuid::now_v7();
+        let mut game = sample_preparing_game(owner_uuid);
+        game.keyword = Some("secret".to_string());
+        let game_uuid = game.uuid;
+
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service
+            .join_game(JoinGameCommand {
+                access_token: "token-1".to_string(),
+                game_uuid,
+                requested_power: None,
+                keyword: Some("secret".to_string()),
+            })
+            .expect("join game should succeed");
+
+        assert_eq!(result.user_uuid, user_uuid);
+        assert_eq!(result.game.players.len(), 2);
+    }
+
+    #[test]
+    fn join_game_rejects_when_game_has_no_keyword_but_request_has_keyword() {
+        let user_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: user_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "joiner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-1".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+
+        let owner_uuid = Uuid::now_v7();
+        let game = sample_preparing_game(owner_uuid); // keyword: None
+        let game_uuid = game.uuid;
+
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .join_game(JoinGameCommand {
+                access_token: "token-1".to_string(),
+                game_uuid,
+                requested_power: None,
+                keyword: Some("unexpected".to_string()),
+            })
+            .expect_err("join game should fail");
+
+        assert!(matches!(error, JoinGameError::Forbidden(_)));
     }
 }
