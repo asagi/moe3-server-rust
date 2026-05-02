@@ -25,7 +25,7 @@ use super::User;
 ///
 #[derive(Debug, Clone)]
 pub(crate) struct SqliteMessageRepository {
-    base_database_path: String,
+    message_database_path: String,
 }
 
 /// SQLite 用のメッセージリポジトリ構造体の実装
@@ -33,19 +33,17 @@ impl SqliteMessageRepository {
     ///
     /// new 関数
     ///
-    pub(crate) fn new(database_path: &str) -> Self {
+    pub(crate) fn new(messages_database_path: &str) -> Self {
         Self {
-            base_database_path: database_path.to_string(),
+            message_database_path: messages_database_path.to_string(),
         }
     }
 
     ///
-    /// 卓ごとのメッセージ DB を生成し、初期の GameCreated メッセージを保存する
+    /// メッセージ DB を生成し、初期の GameCreated メッセージを保存する
     ///
     pub(crate) fn create_game_db_with_game_created_message(&self, game_uuid: Uuid, user: &User) -> Result<(), RepositoryError> {
-        let db_path = self.message_database_path(game_uuid);
-        let connection = Connection::open(&db_path)
-            .map_err(|error| RepositoryError::Unavailable(format!("open message sqlite: {}", error)))?;
+        let connection = self.open_connection()?;
 
         self.init_schema(&connection)?;
 
@@ -61,9 +59,30 @@ impl SqliteMessageRepository {
         Ok(())
     }
 
-    /// メッセージ DB ファイルパスを生成する
-    fn message_database_path(&self, game_uuid: Uuid) -> String {
-        format!("{}.messages.{}.sqlite3", self.base_database_path, game_uuid)
+    ///
+    /// 参加表明のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_player_joined_message(&self, game_uuid: Uuid, user: &User) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+
+        self.init_schema(&connection)?;
+
+        let catalog = SystemNoticeCatalog::PlayerJoined { user: user.clone() };
+        let message = Message {
+            sender: None,
+            turn: "ready".to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+
+        self.insert_initial_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
+    /// メッセージ DB 接続を開く
+    fn open_connection(&self) -> Result<Connection, RepositoryError> {
+        Connection::open(&self.message_database_path)
+            .map_err(|error| RepositoryError::Unavailable(format!("open message sqlite: {}", error)))
     }
 
     /// スキーマを初期化する
@@ -201,5 +220,61 @@ impl SqliteMessageRepository {
             | SystemNoticeCatalog::Draw
             | SystemNoticeCatalog::Closed => json!({}),
         }
+    }
+}
+
+// ============================================================================
+// tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn new_test_repository() -> (SqliteMessageRepository, String) {
+        let path = std::env::temp_dir().join(format!("moe3-message-test-{}", Uuid::now_v7()));
+        let base = path.to_string_lossy().to_string();
+        let messages_path = format!("{}.messages.db", base);
+        (SqliteMessageRepository::new(&messages_path), messages_path)
+    }
+
+    fn sample_user() -> User {
+        User {
+            uuid: Uuid::now_v7(),
+            discord_user_id: "1002".to_string(),
+            username: "joiner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+        }
+    }
+
+    #[test]
+    fn append_player_joined_message_persists_system_message() {
+        let (repository, db_path) = new_test_repository();
+        let game_uuid = Uuid::now_v7();
+        let user = sample_user();
+
+        repository
+            .append_player_joined_message(game_uuid, &user)
+            .expect("append player joined message should succeed");
+
+        let connection = Connection::open(&db_path).expect("open message db");
+        let (sender_power, turn, context, kind, catalog): (Option<String>, String, String, String, String) = connection
+            .query_row(
+                "SELECT sender_power, turn, context, kind, system_notice_catalog FROM messages LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .expect("read inserted message");
+
+        assert_eq!(sender_power, None);
+        assert_eq!(turn, "ready");
+        assert_eq!(kind, "system");
+        assert_eq!(catalog, "player_joined");
+        assert_eq!(
+            context,
+            format!("{} ({}) が参加を表明しました。", user.username, user.discord_user_id)
+        );
     }
 }

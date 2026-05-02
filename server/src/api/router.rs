@@ -115,13 +115,13 @@ where
 ///
 /// API サーバーを起動する非同期関数
 ///
-pub async fn serve(addr: SocketAddr, db_path: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+pub async fn serve(addr: SocketAddr, main_db_path: &str, messages_db_path: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
     // 複数起動防止インスタンスロック獲得
-    acquire_instance_lock(db_path)?;
+    acquire_instance_lock(main_db_path)?;
 
-    let user_repository = SqliteUserRepository::new(db_path)?;
-    let message_repository = SqliteMessageRepository::new(db_path);
-    let game_repository = SqliteGameRepository::new(db_path)?;
+    let user_repository = SqliteUserRepository::new(main_db_path)?;
+    let message_repository = SqliteMessageRepository::new(messages_db_path);
+    let game_repository = SqliteGameRepository::new(main_db_path)?;
     let game_service = GameService::new(user_repository.clone(), game_repository.clone());
     let auth_service = AuthService::new(user_repository.clone(), DiscordApiClient::new());
     let pre_handler = GlobalPreHandler::new(user_repository.clone(), game_repository);
@@ -142,8 +142,8 @@ pub async fn serve(addr: SocketAddr, db_path: &str) -> Result<(), Box<dyn Error 
 ///
 /// グローバルロック獲得関数
 ///
-fn acquire_instance_lock(db_path: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let lock_path = format!("{}.lock", db_path);
+fn acquire_instance_lock(main_db_path: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let lock_path = format!("{}.lock", main_db_path);
     let file = File::create(&lock_path)?;
 
     match file.try_lock_exclusive() {

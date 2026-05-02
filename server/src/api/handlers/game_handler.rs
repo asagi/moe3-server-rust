@@ -130,27 +130,37 @@ where
         })
         .map_err(CreateGameHandlerError::Service)?;
 
-    let owner_record = user_repository
-        .find_by_uuid(result.owner_user_uuid)
-        .map_err(|error| CreateGameHandlerError::Service(CreateGameError::Repository(error)))?
-        .ok_or_else(|| {
-            CreateGameHandlerError::Service(CreateGameError::Internal(
-                "owner user not found after create_game".to_string(),
-            ))
-        })?;
+    match user_repository.find_by_uuid(result.owner_user_uuid) {
+        Ok(Some(owner_record)) => {
+            let owner = User {
+                uuid: owner_record.uuid,
+                discord_user_id: owner_record.discord_user_id,
+                username: owner_record.username,
+                global_name: owner_record.global_name,
+                avatar_hash: owner_record.avatar_hash,
+                avatar_url: owner_record.avatar_url,
+            };
 
-    let owner = User {
-        uuid: owner_record.uuid,
-        discord_user_id: owner_record.discord_user_id,
-        username: owner_record.username,
-        global_name: owner_record.global_name,
-        avatar_hash: owner_record.avatar_hash,
-        avatar_url: owner_record.avatar_url,
-    };
-
-    message_repository
-        .create_game_db_with_game_created_message(result.game.uuid, &owner)
-        .map_err(|error| CreateGameHandlerError::Service(CreateGameError::Repository(error)))?;
+            if let Err(error) = message_repository.create_game_db_with_game_created_message(result.game.uuid, &owner) {
+                eprintln!(
+                    "failed to persist GameCreated message (game_uuid={}): {}",
+                    result.game.uuid, error
+                );
+            }
+        }
+        Ok(None) => {
+            eprintln!(
+                "skip GameCreated message: owner user not found (owner_user_uuid={}, game_uuid={})",
+                result.owner_user_uuid, result.game.uuid
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "skip GameCreated message due to user lookup failure (owner_user_uuid={}, game_uuid={}): {}",
+                result.owner_user_uuid, result.game.uuid, error
+            );
+        }
+    }
 
     Ok(CreateGameResponse {
         game_uuid: result.game.uuid,
@@ -257,18 +267,25 @@ where
 
     let state_clone = state.clone();
     let request_clone = request.clone();
-    match tokio::task::spawn_blocking(move || match handle_join_game(&state_clone.game_service, request_clone) {
-        Ok(response) => (StatusCode::OK, Json(response)).into_response(),
-        Err(error) => {
-            let status = match &error {
-                JoinGameHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
-                JoinGameHandlerError::Service(JoinGameError::InvalidRequest(_)) => StatusCode::BAD_REQUEST,
-                JoinGameHandlerError::Service(JoinGameError::Unauthorized) => StatusCode::UNAUTHORIZED,
-                JoinGameHandlerError::Service(JoinGameError::NotFound) => StatusCode::NOT_FOUND,
-                JoinGameHandlerError::Service(JoinGameError::Forbidden(_)) => StatusCode::FORBIDDEN,
-                _ => StatusCode::INTERNAL_SERVER_ERROR,
-            };
-            (status, Json(error.to_api_error_response())).into_response()
+    match tokio::task::spawn_blocking(move || {
+        match handle_join_game(
+            &state_clone.game_service,
+            state_clone.user_repository.as_ref(),
+            state_clone.message_repository.as_ref(),
+            request_clone,
+        ) {
+            Ok(response) => (StatusCode::OK, Json(response)).into_response(),
+            Err(error) => {
+                let status = match &error {
+                    JoinGameHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+                    JoinGameHandlerError::Service(JoinGameError::InvalidRequest(_)) => StatusCode::BAD_REQUEST,
+                    JoinGameHandlerError::Service(JoinGameError::Unauthorized) => StatusCode::UNAUTHORIZED,
+                    JoinGameHandlerError::Service(JoinGameError::NotFound) => StatusCode::NOT_FOUND,
+                    JoinGameHandlerError::Service(JoinGameError::Forbidden(_)) => StatusCode::FORBIDDEN,
+                    _ => StatusCode::INTERNAL_SERVER_ERROR,
+                };
+                (status, Json(error.to_api_error_response())).into_response()
+            }
         }
     })
     .await
@@ -279,7 +296,12 @@ where
 }
 
 /// 卓参加リクエストハンドラ関数
-fn handle_join_game<U, G>(service: &GameService<U, G>, request: JoinGameRequest) -> Result<JoinGameResponse, JoinGameHandlerError>
+fn handle_join_game<U, G>(
+    service: &GameService<U, G>,
+    user_repository: &U,
+    message_repository: &SqliteMessageRepository,
+    request: JoinGameRequest,
+) -> Result<JoinGameResponse, JoinGameHandlerError>
 where
     U: UserRepository,
     G: GameRepository,
@@ -304,6 +326,38 @@ where
             keyword,
         })
         .map_err(JoinGameHandlerError::Service)?;
+
+    match user_repository.find_by_uuid(result.user_uuid) {
+        Ok(Some(joined_user_record)) => {
+            let joined_user = User {
+                uuid: joined_user_record.uuid,
+                discord_user_id: joined_user_record.discord_user_id,
+                username: joined_user_record.username,
+                global_name: joined_user_record.global_name,
+                avatar_hash: joined_user_record.avatar_hash,
+                avatar_url: joined_user_record.avatar_url,
+            };
+
+            if let Err(error) = message_repository.append_player_joined_message(result.game.uuid, &joined_user) {
+                eprintln!(
+                    "failed to persist PlayerJoined message (game_uuid={}, user_uuid={}): {}",
+                    result.game.uuid, result.user_uuid, error
+                );
+            }
+        }
+        Ok(None) => {
+            eprintln!(
+                "skip PlayerJoined message: joined user not found (user_uuid={}, game_uuid={})",
+                result.user_uuid, result.game.uuid
+            );
+        }
+        Err(error) => {
+            eprintln!(
+                "skip PlayerJoined message due to user lookup failure (user_uuid={}, game_uuid={}): {}",
+                result.user_uuid, result.game.uuid, error
+            );
+        }
+    }
 
     Ok(JoinGameResponse {
         game_uuid: result.game.uuid,
@@ -441,7 +495,7 @@ mod tests {
     fn new_test_message_repository() -> SqliteMessageRepository {
         let path = std::env::temp_dir().join(format!("moe3-test-{}", uuid::Uuid::now_v7()));
         let base = path.to_string_lossy().to_string();
-        SqliteMessageRepository::new(&base)
+        SqliteMessageRepository::new(&format!("{}.messages.db", base))
     }
 
     impl GameRepository for InMemoryGameRepository {
@@ -682,10 +736,13 @@ mod tests {
 
         let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
         let repo_clone = game_repository.clone();
-        let service = GameService::new(user_repository, game_repository);
+        let service = GameService::new(user_repository.clone(), game_repository);
+        let message_repository = new_test_message_repository();
 
         let response = handle_join_game(
             &service,
+            &user_repository,
+            &message_repository,
             JoinGameRequest {
                 authorization: "Bearer token-2".to_string(),
                 game_uuid,
@@ -707,10 +764,13 @@ mod tests {
     fn handle_join_game_rejects_invalid_authorization() {
         let user_repository = InMemoryUserRepository::new(Vec::new());
         let game_repository = InMemoryGameRepository::new();
-        let service = GameService::new(user_repository, game_repository);
+        let service = GameService::new(user_repository.clone(), game_repository);
+        let message_repository = new_test_message_repository();
 
         let error = handle_join_game(
             &service,
+            &user_repository,
+            &message_repository,
             JoinGameRequest {
                 authorization: "token-1".to_string(),
                 game_uuid: uuid::Uuid::now_v7(),
@@ -790,10 +850,13 @@ mod tests {
     fn handle_join_game_rejects_invalid_keyword() {
         let user_repository = InMemoryUserRepository::new(Vec::new());
         let game_repository = InMemoryGameRepository::new();
-        let service = GameService::new(user_repository, game_repository);
+        let service = GameService::new(user_repository.clone(), game_repository);
+        let message_repository = new_test_message_repository();
 
         let error = handle_join_game(
             &service,
+            &user_repository,
+            &message_repository,
             JoinGameRequest {
                 authorization: "Bearer token-1".to_string(),
                 game_uuid: uuid::Uuid::now_v7(),
