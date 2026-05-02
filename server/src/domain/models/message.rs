@@ -85,7 +85,6 @@ pub(crate) enum SystemNoticeCatalog {
     Ready,
     Aborted,
     StartSeason { season: String },
-    PowerEliminated { power: Power },
     SettlementProposed,
     OwnerAbsent,
     SettlementRescinded,
@@ -112,9 +111,6 @@ impl fmt::Display for SystemNoticeCatalog {
             }
             Self::StartSeason { season } => {
                 write!(f, "{} のメインフェイズが開始されました。", season)
-            }
-            Self::PowerEliminated { power } => {
-                write!(f, "{} は滅亡しました。", power.name())
             }
             Self::SettlementProposed => {
                 write!(f, "卓主によって講和が宣言されました。")
