@@ -52,9 +52,19 @@ where
     /// - アクティブな全卓について卓主の無政府化を確認し、無政府化していれば is_accepting_draw を true に設定する。
     /// - Closed 以外の Game を取得し、next_update_at が過去なら最新フェイズを close する。
     pub(crate) fn run(&self) -> Result<(), PreHandlerError> {
-        self.progression_service
+        let newly_idle_owner_games = self
+            .progression_service
             .mark_idle_owners_accepting_draw()
             .map_err(PreHandlerError::GameProgression)?;
+
+        for (game_uuid, turn) in newly_idle_owner_games {
+            if let Err(error) = self.message_repository.append_owner_absent_message(game_uuid, &turn) {
+                eprintln!(
+                    "failed to persist OwnerAbsent message for idle owner (game_uuid={}, turn={}): {}",
+                    game_uuid, turn, error
+                );
+            }
+        }
 
         let (aborted_game_uuids, started_seasons, solo_games, draw_games, closed_games) = self
             .progression_service

@@ -193,7 +193,7 @@ where
             None
         };
 
-        let solo_power = if game.is_solo {
+        let solo_power = if game.is_solo && !is_debrief_closed {
             game.phases.last().and_then(|phase| {
                 super::Power::iter().find(|power| phase.count_supply_centers(power) >= SOLO_SUPPLY_CENTER_THRESHOLD)
             })
@@ -201,7 +201,7 @@ where
             None
         };
 
-        let is_draw = game.is_draw;
+        let is_draw = game.is_draw && !is_debrief_closed;
 
         Ok((false, started_season, solo_power, is_draw, is_debrief_closed))
     }
@@ -248,8 +248,12 @@ where
     }
 
     /// 卓主無政府化卓の和平終了処理を実行する
-    pub(crate) fn mark_idle_owners_accepting_draw(&self) -> Result<(), GameProgressionError> {
+    ///
+    /// 新たに is_accepting_draw フラグを立てた卓のうち、現在フェイズがメインフェイズのものについて
+    /// (game_uuid, turn) を返す。
+    pub(crate) fn mark_idle_owners_accepting_draw(&self) -> Result<Vec<(uuid::Uuid, String)>, GameProgressionError> {
         let now = Utc::now().naive_utc();
+        let mut newly_marked = Vec::new();
 
         let games = self
             .game_repository
@@ -259,10 +263,15 @@ where
         for mut game in games {
             if self.mark_owner_accepting_draw_if_idle(&mut game, now)? {
                 self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
+
+                // メインフェイズ進行中に初めて idle 検出された場合のみ通知対象とする
+                if Self::is_draw_applicable_phase(game.phases.last().expect("game should have at least one phase")) {
+                    newly_marked.push((game.uuid, game.current_turn()));
+                }
             }
         }
 
-        Ok(())
+        Ok(newly_marked)
     }
 
     /// 指定卓の卓主が現時刻基準で無政府状態かどうかを返す
