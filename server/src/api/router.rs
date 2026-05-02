@@ -124,7 +124,7 @@ pub async fn serve(addr: SocketAddr, main_db_path: &str, messages_db_path: &str)
     let game_repository = SqliteGameRepository::new(main_db_path)?;
     let game_service = GameService::new(user_repository.clone(), game_repository.clone());
     let auth_service = AuthService::new(user_repository.clone(), DiscordApiClient::new());
-    let pre_handler = GlobalPreHandler::new(user_repository.clone(), game_repository);
+    let pre_handler = GlobalPreHandler::new(user_repository.clone(), game_repository, message_repository.clone());
     let state = AppState::new(
         user_repository.clone(),
         message_repository,

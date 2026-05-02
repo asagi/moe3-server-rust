@@ -7,6 +7,7 @@ use std::fmt;
 use super::GameProgressionError;
 use super::GameProgressionService;
 use super::GameRepository;
+use super::SqliteMessageRepository;
 use super::UserRepository;
 
 // ============================================================================
@@ -24,6 +25,7 @@ where
     G: GameRepository,
 {
     progression_service: GameProgressionService<U, G>,
+    message_repository: SqliteMessageRepository,
 }
 
 /// グローバルプリハンドラの構造体の実装
@@ -35,9 +37,10 @@ where
     ///
     /// new 関数
     ///
-    pub(crate) fn new(user_repository: U, game_repository: G) -> Self {
+    pub(crate) fn new(user_repository: U, game_repository: G, message_repository: SqliteMessageRepository) -> Self {
         Self {
             progression_service: GameProgressionService::new(user_repository, game_repository),
+            message_repository,
         }
     }
 
@@ -50,9 +53,18 @@ where
         self.progression_service
             .mark_idle_owners_accepting_draw()
             .map_err(PreHandlerError::GameProgression)?;
-        self.progression_service
+        let aborted_game_uuids = self
+            .progression_service
             .progress_games()
-            .map_err(PreHandlerError::GameProgression)
+            .map_err(PreHandlerError::GameProgression)?;
+
+        for game_uuid in aborted_game_uuids {
+            if let Err(error) = self.message_repository.append_aborted_message(game_uuid) {
+                eprintln!("failed to persist Aborted message (game_uuid={}): {}", game_uuid, error);
+            }
+        }
+
+        Ok(())
     }
 }
 

@@ -49,8 +49,9 @@ where
     ///
     /// Closed・Aborted 以外の全 Game に対してフェイズ進行を試みる。
     /// next_update_at が現在時刻より過去の場合のみ進行処理を実行する。
-    pub(crate) fn progress_games(&self) -> Result<(), GameProgressionError> {
+    pub(crate) fn progress_games(&self) -> Result<Vec<uuid::Uuid>, GameProgressionError> {
         let now = Utc::now().naive_utc();
+        let mut aborted_game_uuids = Vec::new();
 
         let candidate_game_uuids = self
             .game_repository
@@ -58,30 +59,32 @@ where
             .map_err(GameProgressionError::Repository)?;
 
         for game_uuid in candidate_game_uuids {
-            self.progress_game(game_uuid, now)?;
+            if self.progress_game(game_uuid, now)? {
+                aborted_game_uuids.push(game_uuid);
+            }
         }
 
-        Ok(())
+        Ok(aborted_game_uuids)
     }
 
     /// 卓別の進行処理を実行する
     ///
     /// next_update_at が None または未来の場合は何もしない。
-    fn progress_game(&self, game_uuid: uuid::Uuid, now: chrono::NaiveDateTime) -> Result<(), GameProgressionError> {
+    fn progress_game(&self, game_uuid: uuid::Uuid, now: chrono::NaiveDateTime) -> Result<bool, GameProgressionError> {
         let Some(mut game) = self
             .game_repository
             .find_by_uuid(game_uuid)
             .map_err(GameProgressionError::Repository)?
         else {
-            return Ok(());
+            return Ok(false);
         };
 
         let Some(previous_next_update) = game.next_update_at else {
-            return Ok(());
+            return Ok(false);
         };
 
         if game.status == GameStatus::Closed || game.status == GameStatus::Aborted || previous_next_update > now {
-            return Ok(());
+            return Ok(false);
         }
 
         let latest_phase = game.phases.pop().expect("game should have at least one phase");
@@ -95,7 +98,7 @@ where
             game.status = GameStatus::Aborted;
             game.next_update_at = None;
             self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
-            return Ok(());
+            return Ok(true);
         }
 
         // フェイズ進行処理
@@ -132,7 +135,7 @@ where
         // 卓永続化処理
         self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
 
-        Ok(())
+        Ok(false)
     }
 
     /// 卓主が和平終了を承認しているかどうかを返却する
