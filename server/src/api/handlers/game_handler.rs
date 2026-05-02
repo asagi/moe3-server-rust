@@ -360,10 +360,10 @@ where
         }
     }
 
-    if result.game.status == GameStatus::Ready {
-        if let Err(error) = message_repository.append_ready_message(result.game.uuid) {
-            eprintln!("failed to persist Ready message (game_uuid={}): {}", result.game.uuid, error);
-        }
+    if result.game.status == GameStatus::Ready
+        && let Err(error) = message_repository.append_ready_message(result.game.uuid)
+    {
+        eprintln!("failed to persist Ready message (game_uuid={}): {}", result.game.uuid, error);
     }
 
     Ok(JoinGameResponse {

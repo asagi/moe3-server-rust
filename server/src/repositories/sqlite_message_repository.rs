@@ -119,6 +119,28 @@ impl SqliteMessageRepository {
         Ok(())
     }
 
+    ///
+    /// 季節ごとのメインフェイズ開始のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_start_season_message(&self, game_uuid: Uuid, turn: &str, season: &str) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+
+        self.init_schema(&connection)?;
+
+        let catalog = SystemNoticeCatalog::StartSeason {
+            season: season.to_string(),
+        };
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
     /// メッセージ DB 接続を開く
     fn open_connection(&self) -> Result<Connection, RepositoryError> {
         Connection::open(&self.message_database_path)

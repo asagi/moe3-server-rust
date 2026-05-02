@@ -53,7 +53,7 @@ where
         self.progression_service
             .mark_idle_owners_accepting_draw()
             .map_err(PreHandlerError::GameProgression)?;
-        let aborted_game_uuids = self
+        let (aborted_game_uuids, started_seasons) = self
             .progression_service
             .progress_games()
             .map_err(PreHandlerError::GameProgression)?;
@@ -61,6 +61,15 @@ where
         for game_uuid in aborted_game_uuids {
             if let Err(error) = self.message_repository.append_aborted_message(game_uuid) {
                 eprintln!("failed to persist Aborted message (game_uuid={}): {}", game_uuid, error);
+            }
+        }
+
+        for (game_uuid, turn, season) in started_seasons {
+            if let Err(error) = self.message_repository.append_start_season_message(game_uuid, &turn, &season) {
+                eprintln!(
+                    "failed to persist StartSeason message (game_uuid={}, turn={}): {}",
+                    game_uuid, turn, error
+                );
             }
         }
 
