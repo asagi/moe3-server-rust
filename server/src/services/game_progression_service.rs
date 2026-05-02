@@ -213,12 +213,42 @@ where
 
         for mut game in games {
             if self.mark_owner_accepting_draw_if_idle(&mut game, now)? {
-                // TODO: チャットテーブルへのシステムアナウンス投入はここに追加する
                 self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
             }
         }
 
         Ok(())
+    }
+
+    /// 指定卓の卓主が現時刻基準で無政府状態かどうかを返す
+    pub(crate) fn is_owner_idle_for_game(
+        &self,
+        game_uuid: uuid::Uuid,
+        now: chrono::NaiveDateTime,
+    ) -> Result<bool, GameProgressionError> {
+        let Some(game) = self
+            .game_repository
+            .find_by_uuid(game_uuid)
+            .map_err(GameProgressionError::Repository)?
+        else {
+            return Ok(false);
+        };
+
+        if game.status != super::GameStatus::InProgress {
+            return Ok(false);
+        }
+
+        let Some(owner) = game.players.iter().find(|p| p.is_owner) else {
+            return Ok(false);
+        };
+
+        let threshold = Self::idle_threshold(&game, now);
+        let user = self
+            .user_repository
+            .find_by_uuid(owner.user_uuid)
+            .map_err(GameProgressionError::Repository)?;
+
+        Ok(Self::is_idle_or_missing(user, threshold))
     }
 
     /// 卓別卓主無政府化卓に和平終了フラグを立てる

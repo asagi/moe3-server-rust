@@ -141,6 +141,26 @@ impl SqliteMessageRepository {
         Ok(())
     }
 
+    ///
+    /// 卓主無政府化のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_owner_absent_message(&self, game_uuid: Uuid, turn: &str) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+
+        self.init_schema(&connection)?;
+
+        let catalog = SystemNoticeCatalog::OwnerAbsent;
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
     /// メッセージ DB 接続を開く
     fn open_connection(&self) -> Result<Connection, RepositoryError> {
         Connection::open(&self.message_database_path)
@@ -248,7 +268,6 @@ impl SqliteMessageRepository {
             SystemNoticeCatalog::Ready => "ready",
             SystemNoticeCatalog::Aborted => "aborted",
             SystemNoticeCatalog::StartSeason { .. } => "start_season",
-            SystemNoticeCatalog::PowerEliminated { .. } => "power_eliminated",
             SystemNoticeCatalog::SettlementProposed => "settlement_proposed",
             SystemNoticeCatalog::OwnerAbsent => "owner_absent",
             SystemNoticeCatalog::SettlementRescinded => "settlement_rescinded",
@@ -271,7 +290,7 @@ impl SqliteMessageRepository {
                 }
             }),
             SystemNoticeCatalog::StartSeason { season } => json!({ "season": season }),
-            SystemNoticeCatalog::PowerEliminated { power } | SystemNoticeCatalog::Solo { power } => {
+            SystemNoticeCatalog::Solo { power } => {
                 json!({ "power": power.symbol() })
             }
             SystemNoticeCatalog::Ready

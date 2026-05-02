@@ -4,6 +4,8 @@
 
 use std::fmt;
 
+use chrono::Utc;
+
 use super::GameProgressionError;
 use super::GameProgressionService;
 use super::GameRepository;
@@ -53,6 +55,7 @@ where
         self.progression_service
             .mark_idle_owners_accepting_draw()
             .map_err(PreHandlerError::GameProgression)?;
+
         let (aborted_game_uuids, started_seasons) = self
             .progression_service
             .progress_games()
@@ -68,6 +71,19 @@ where
             if let Err(error) = self.message_repository.append_start_season_message(game_uuid, &turn, &season) {
                 eprintln!(
                     "failed to persist StartSeason message (game_uuid={}, turn={}): {}",
+                    game_uuid, turn, error
+                );
+                continue;
+            }
+
+            let owner_idle = self
+                .progression_service
+                .is_owner_idle_for_game(game_uuid, Utc::now().naive_utc())
+                .map_err(PreHandlerError::GameProgression)?;
+
+            if owner_idle && let Err(error) = self.message_repository.append_owner_absent_message(game_uuid, &turn) {
+                eprintln!(
+                    "failed to persist OwnerAbsent message after StartSeason (game_uuid={}, turn={}): {}",
                     game_uuid, turn, error
                 );
             }
