@@ -15,11 +15,14 @@ use super::User;
 /// メッセージ種別の列挙体
 ///
 #[derive(Debug, Clone, PartialEq)]
-#[allow(dead_code)]
 pub(crate) enum MessageKind {
+    #[allow(dead_code)]
     Public(PublicPress),
+    #[allow(dead_code)]
     Confidential(ConfidentialLetter),
+    #[allow(dead_code)]
     Personal(PersonalNote),
+    #[allow(dead_code)]
     Ghost(GhostTalk),
     System(SystemNotice),
 }
@@ -28,7 +31,6 @@ pub(crate) enum MessageKind {
 /// メッセージの構造体
 ///
 #[derive(Debug, Clone, PartialEq)]
-#[allow(dead_code)]
 pub(crate) struct Message {
     // 送信者が存在しない場合は、システムメッセージであることを意味する
     pub(crate) sender: Option<Power>,
@@ -51,7 +53,7 @@ pub(crate) struct PublicPress {}
 ///
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ConfidentialLetter {
-    pub(crate) recipient: Vec<Power>,
+    pub(crate) recipients: Vec<Power>,
 }
 
 ///

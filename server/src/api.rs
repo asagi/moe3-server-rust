@@ -54,5 +54,7 @@ pub(crate) use super::ProgressMode;
 pub(crate) use super::Regulation;
 pub(crate) use super::RepositoryError;
 pub(crate) use super::SqliteGameRepository;
+pub(crate) use super::SqliteMessageRepository;
 pub(crate) use super::SqliteUserRepository;
+pub(crate) use super::User;
 pub(crate) use super::UserRepository;

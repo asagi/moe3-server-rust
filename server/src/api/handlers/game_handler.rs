@@ -32,6 +32,8 @@ use super::JoinGameResponse;
 use super::Power;
 use super::ProgressMode;
 use super::Regulation;
+use super::SqliteMessageRepository;
+use super::User;
 use super::UserRepository;
 
 // ============================================================================
@@ -70,17 +72,24 @@ where
     let state_clone = state.clone();
     let request_clone = request.clone();
 
-    match tokio::task::spawn_blocking(move || match handle_create_game(&state_clone.game_service, request_clone) {
-        Ok(response) => (StatusCode::CREATED, Json(response)).into_response(),
-        Err(error) => {
-            let status = match &error {
-                CreateGameHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
-                CreateGameHandlerError::Service(CreateGameError::InvalidRequest(_)) => StatusCode::BAD_REQUEST,
-                CreateGameHandlerError::Service(CreateGameError::Unauthorized) => StatusCode::UNAUTHORIZED,
-                CreateGameHandlerError::Service(CreateGameError::Forbidden(_)) => StatusCode::FORBIDDEN,
-                _ => StatusCode::INTERNAL_SERVER_ERROR,
-            };
-            (status, Json(error.to_api_error_response())).into_response()
+    match tokio::task::spawn_blocking(move || {
+        match handle_create_game(
+            &state_clone.game_service,
+            state_clone.user_repository.as_ref(),
+            state_clone.message_repository.as_ref(),
+            request_clone,
+        ) {
+            Ok(response) => (StatusCode::CREATED, Json(response)).into_response(),
+            Err(error) => {
+                let status = match &error {
+                    CreateGameHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+                    CreateGameHandlerError::Service(CreateGameError::InvalidRequest(_)) => StatusCode::BAD_REQUEST,
+                    CreateGameHandlerError::Service(CreateGameError::Unauthorized) => StatusCode::UNAUTHORIZED,
+                    CreateGameHandlerError::Service(CreateGameError::Forbidden(_)) => StatusCode::FORBIDDEN,
+                    _ => StatusCode::INTERNAL_SERVER_ERROR,
+                };
+                (status, Json(error.to_api_error_response())).into_response()
+            }
         }
     })
     .await
@@ -93,6 +102,8 @@ where
 /// 卓作成リクエストハンドラ関数
 fn handle_create_game<U, G>(
     service: &GameService<U, G>,
+    user_repository: &U,
+    message_repository: &SqliteMessageRepository,
     request: CreateGameRequest,
 ) -> Result<CreateGameResponse, CreateGameHandlerError>
 where
@@ -118,6 +129,28 @@ where
             keyword,
         })
         .map_err(CreateGameHandlerError::Service)?;
+
+    let owner_record = user_repository
+        .find_by_uuid(result.owner_user_uuid)
+        .map_err(|error| CreateGameHandlerError::Service(CreateGameError::Repository(error)))?
+        .ok_or_else(|| {
+            CreateGameHandlerError::Service(CreateGameError::Internal(
+                "owner user not found after create_game".to_string(),
+            ))
+        })?;
+
+    let owner = User {
+        uuid: owner_record.uuid,
+        discord_user_id: owner_record.discord_user_id,
+        username: owner_record.username,
+        global_name: owner_record.global_name,
+        avatar_hash: owner_record.avatar_hash,
+        avatar_url: owner_record.avatar_url,
+    };
+
+    message_repository
+        .create_game_db_with_game_created_message(result.game.uuid, &owner)
+        .map_err(|error| CreateGameHandlerError::Service(CreateGameError::Repository(error)))?;
 
     Ok(CreateGameResponse {
         game_uuid: result.game.uuid,
@@ -302,6 +335,7 @@ mod tests {
     use crate::repositories::NewGame;
     use crate::repositories::NewUser;
     use crate::repositories::RepositoryError;
+    use crate::repositories::SqliteMessageRepository;
     use crate::repositories::UserId;
     use crate::repositories::UserProfileUpdate;
     use crate::repositories::UserRecord;
@@ -404,6 +438,12 @@ mod tests {
         (start_jst.format("%Y-%m-%d").to_string(), start_jst.hour() as u8)
     }
 
+    fn new_test_message_repository() -> SqliteMessageRepository {
+        let path = std::env::temp_dir().join(format!("moe3-test-{}", uuid::Uuid::now_v7()));
+        let base = path.to_string_lossy().to_string();
+        SqliteMessageRepository::new(&base)
+    }
+
     impl GameRepository for InMemoryGameRepository {
         fn add_player(
             &self,
@@ -499,10 +539,13 @@ mod tests {
             last_access_at: Utc::now(),
         }]);
         let game_repository = InMemoryGameRepository::new();
-        let service = GameService::new(user_repository, game_repository);
+        let service = GameService::new(user_repository.clone(), game_repository);
+        let message_repository = new_test_message_repository();
 
         let response = handle_create_game(
             &service,
+            &user_repository,
+            &message_repository,
             CreateGameRequest {
                 authorization: "Bearer token-1".to_string(),
                 face_type: 1,
@@ -537,10 +580,13 @@ mod tests {
         }]);
         let game_repository = InMemoryGameRepository::new();
         let repo_clone = game_repository.clone();
-        let service = GameService::new(user_repository, game_repository);
+        let service = GameService::new(user_repository.clone(), game_repository);
+        let message_repository = new_test_message_repository();
 
         handle_create_game(
             &service,
+            &user_repository,
+            &message_repository,
             CreateGameRequest {
                 authorization: "Bearer token-1".to_string(),
                 face_type: 1,
@@ -561,10 +607,13 @@ mod tests {
     fn handle_create_game_rejects_invalid_authorization() {
         let user_repository = InMemoryUserRepository::new(Vec::new());
         let game_repository = InMemoryGameRepository::new();
-        let service = GameService::new(user_repository, game_repository);
+        let service = GameService::new(user_repository.clone(), game_repository);
+        let message_repository = new_test_message_repository();
 
         let error = handle_create_game(
             &service,
+            &user_repository,
+            &message_repository,
             CreateGameRequest {
                 authorization: "token-1".to_string(),
                 face_type: 1,
@@ -715,10 +764,13 @@ mod tests {
         let (start_date, first_period_hour) = future_start_params();
         let user_repository = InMemoryUserRepository::new(Vec::new());
         let game_repository = InMemoryGameRepository::new();
-        let service = GameService::new(user_repository, game_repository);
+        let service = GameService::new(user_repository.clone(), game_repository);
+        let message_repository = new_test_message_repository();
 
         let error = handle_create_game(
             &service,
+            &user_repository,
+            &message_repository,
             CreateGameRequest {
                 authorization: "Bearer token-1".to_string(),
                 face_type: 1,
