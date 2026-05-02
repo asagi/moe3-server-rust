@@ -3,6 +3,7 @@
 // ============================================================================
 
 mod game;
+mod message;
 mod order;
 mod path;
 mod phase_context;
@@ -45,6 +46,7 @@ pub(crate) use regulation::Regulation;
 pub(crate) use territory::Territory;
 pub(crate) use unit::Unit;
 pub(crate) use unit::UnitKind;
+pub(crate) use user::User;
 
 // ============================================================================
 // re-exports
