@@ -39,6 +39,7 @@ pub(crate) use super::DiscordClientError;
 pub(crate) use super::DiscordIdentityProvider;
 pub(crate) use super::GameRepository;
 pub(crate) use super::GameService;
+pub(crate) use super::GameStatus;
 pub(crate) use super::JoinGameCommand;
 pub(crate) use super::JoinGameError;
 pub(crate) use super::JoinGameRequest;

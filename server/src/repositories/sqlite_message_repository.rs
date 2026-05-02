@@ -55,7 +55,7 @@ impl SqliteMessageRepository {
             kind: MessageKind::System(SystemNotice {}),
         };
 
-        self.insert_initial_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
         Ok(())
     }
 
@@ -75,7 +75,27 @@ impl SqliteMessageRepository {
             kind: MessageKind::System(SystemNotice {}),
         };
 
-        self.insert_initial_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
+    ///
+    /// 7 人が揃い担当国割り当てが完了したシステムメッセージを保存する
+    ///
+    pub(crate) fn append_ready_message(&self, game_uuid: Uuid) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+
+        self.init_schema(&connection)?;
+
+        let catalog = SystemNoticeCatalog::Ready;
+        let message = Message {
+            sender: None,
+            turn: "ready".to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
         Ok(())
     }
 
@@ -116,8 +136,8 @@ impl SqliteMessageRepository {
         Ok(())
     }
 
-    /// 初期メッセージを挿入する
-    fn insert_initial_message(
+    /// システムメッセージを挿入する
+    fn insert_system_message(
         &self,
         connection: &Connection,
         game_uuid: Uuid,
@@ -160,7 +180,7 @@ impl SqliteMessageRepository {
                     now,
                 ],
             )
-            .map_err(|error| RepositoryError::Unavailable(format!("insert initial message: {}", error)))?;
+            .map_err(|error| RepositoryError::Unavailable(format!("insert system message: {}", error)))?;
 
         Ok(())
     }

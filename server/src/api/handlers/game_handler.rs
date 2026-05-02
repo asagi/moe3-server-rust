@@ -22,6 +22,7 @@ use super::CreateGameResponse;
 use super::DiscordIdentityProvider;
 use super::GameRepository;
 use super::GameService;
+use super::GameStatus;
 use super::JoinGameCommand;
 use super::JoinGameError;
 use super::JoinGameHandlerError;
@@ -356,6 +357,12 @@ where
                 "skip PlayerJoined message due to user lookup failure (user_uuid={}, game_uuid={}): {}",
                 result.user_uuid, result.game.uuid, error
             );
+        }
+    }
+
+    if result.game.status == GameStatus::Ready {
+        if let Err(error) = message_repository.append_ready_message(result.game.uuid) {
+            eprintln!("failed to persist Ready message (game_uuid={}): {}", result.game.uuid, error);
         }
     }
 
