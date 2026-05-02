@@ -28,6 +28,9 @@ pub(crate) struct SqliteMessageRepository {
     message_database_path: String,
 }
 
+const READY_TURN: &str = "ready";
+const DEBRIEF_TURN: &str = "debrief";
+
 /// SQLite 用のメッセージリポジトリ構造体の実装
 impl SqliteMessageRepository {
     ///
@@ -50,7 +53,7 @@ impl SqliteMessageRepository {
         let catalog = SystemNoticeCatalog::GameCreated { user: user.clone() };
         let message = Message {
             sender: None,
-            turn: "ready".to_string(),
+            turn: READY_TURN.to_string(),
             context: catalog.to_string(),
             kind: MessageKind::System(SystemNotice {}),
         };
@@ -70,7 +73,7 @@ impl SqliteMessageRepository {
         let catalog = SystemNoticeCatalog::PlayerJoined { user: user.clone() };
         let message = Message {
             sender: None,
-            turn: "ready".to_string(),
+            turn: READY_TURN.to_string(),
             context: catalog.to_string(),
             kind: MessageKind::System(SystemNotice {}),
         };
@@ -90,7 +93,7 @@ impl SqliteMessageRepository {
         let catalog = SystemNoticeCatalog::Ready;
         let message = Message {
             sender: None,
-            turn: "ready".to_string(),
+            turn: READY_TURN.to_string(),
             context: catalog.to_string(),
             kind: MessageKind::System(SystemNotice {}),
         };
@@ -110,7 +113,7 @@ impl SqliteMessageRepository {
         let catalog = SystemNoticeCatalog::Aborted;
         let message = Message {
             sender: None,
-            turn: "ready".to_string(),
+            turn: READY_TURN.to_string(),
             context: catalog.to_string(),
             kind: MessageKind::System(SystemNotice {}),
         };
@@ -153,6 +156,66 @@ impl SqliteMessageRepository {
         let message = Message {
             sender: None,
             turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
+    ///
+    /// 制覇終了のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_solo_message(&self, game_uuid: Uuid, power: Power) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+
+        self.init_schema(&connection)?;
+
+        let catalog = SystemNoticeCatalog::Solo { power };
+        let message = Message {
+            sender: None,
+            turn: DEBRIEF_TURN.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
+    ///
+    /// 卓閉鎖のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_closed_message(&self, game_uuid: Uuid) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+
+        self.init_schema(&connection)?;
+
+        let catalog = SystemNoticeCatalog::Closed;
+        let message = Message {
+            sender: None,
+            turn: DEBRIEF_TURN.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
+    ///
+    /// 講和成立のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_draw_message(&self, game_uuid: Uuid) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+
+        self.init_schema(&connection)?;
+
+        let catalog = SystemNoticeCatalog::Draw;
+        let message = Message {
+            sender: None,
+            turn: DEBRIEF_TURN.to_string(),
             context: catalog.to_string(),
             kind: MessageKind::System(SystemNotice {}),
         };

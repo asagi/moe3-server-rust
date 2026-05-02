@@ -56,7 +56,7 @@ where
             .mark_idle_owners_accepting_draw()
             .map_err(PreHandlerError::GameProgression)?;
 
-        let (aborted_game_uuids, started_seasons) = self
+        let (aborted_game_uuids, started_seasons, solo_games, draw_games, closed_games) = self
             .progression_service
             .progress_games()
             .map_err(PreHandlerError::GameProgression)?;
@@ -86,6 +86,24 @@ where
                     "failed to persist OwnerAbsent message after StartSeason (game_uuid={}, turn={}): {}",
                     game_uuid, turn, error
                 );
+            }
+        }
+
+        for (game_uuid, power) in solo_games {
+            if let Err(error) = self.message_repository.append_solo_message(game_uuid, power) {
+                eprintln!("failed to persist Solo message (game_uuid={}): {}", game_uuid, error);
+            }
+        }
+
+        for game_uuid in draw_games {
+            if let Err(error) = self.message_repository.append_draw_message(game_uuid) {
+                eprintln!("failed to persist Draw message (game_uuid={}): {}", game_uuid, error);
+            }
+        }
+
+        for game_uuid in closed_games {
+            if let Err(error) = self.message_repository.append_closed_message(game_uuid) {
+                eprintln!("failed to persist Closed message (game_uuid={}): {}", game_uuid, error);
             }
         }
 
