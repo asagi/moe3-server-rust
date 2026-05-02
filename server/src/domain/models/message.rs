@@ -1,0 +1,135 @@
+// ============================================================================
+// imports
+// ============================================================================
+
+use std::fmt;
+
+use super::Power;
+use super::User;
+
+// ============================================================================
+// definitions
+// ============================================================================
+
+///
+/// メッセージ種別の列挙体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum MessageKind {
+    #[allow(dead_code)]
+    Public(PublicPress),
+    #[allow(dead_code)]
+    Confidential(ConfidentialLetter),
+    #[allow(dead_code)]
+    Personal(PersonalNote),
+    #[allow(dead_code)]
+    Ghost(GhostTalk),
+    System(SystemNotice),
+}
+
+///
+/// メッセージの構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Message {
+    // 送信者が存在しない場合は、システムメッセージであることを意味する
+    pub(crate) sender: Option<Power>,
+    // 帰属ターン（例： "ready", "1901s", "1901f", ..., "debrief"）
+    pub(crate) turn: String,
+    // 本文
+    pub(crate) context: String,
+    // メッセージ種別
+    pub(crate) kind: MessageKind,
+}
+
+///
+/// 公式声明の構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct PublicPress {}
+
+///
+/// 機密書簡の構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct ConfidentialLetter {
+    pub(crate) recipients: Vec<Power>,
+}
+
+///
+/// 独り言の構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct PersonalNote {}
+
+///
+/// 亡国会話の構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct GhostTalk {}
+
+///
+/// システム通知の構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SystemNotice {}
+
+///
+/// システムメッセージ定義の列挙体
+///
+#[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
+pub(crate) enum SystemNoticeCatalog {
+    GameCreated { user: User },
+    PlayerJoined { user: User },
+    Ready,
+    Aborted,
+    StartSeason { season: String },
+    SettlementProposed,
+    OwnerAbsent,
+    SettlementRescinded,
+    Solo { power: Power },
+    Draw,
+    Closed,
+}
+
+/// システムメッセージ定義の列挙体の fmt::Display トレイト実装
+impl fmt::Display for SystemNoticeCatalog {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::GameCreated { user } => {
+                write!(f, "{} ({}) が募集を開始しました。", user.username, user.discord_user_id)
+            }
+            Self::PlayerJoined { user } => {
+                write!(f, "{} ({}) が参加を表明しました。", user.username, user.discord_user_id)
+            }
+            Self::Ready => {
+                write!(f, "プレイヤーが揃い、担当国が割り当てられました。")
+            }
+            Self::Aborted => {
+                write!(f, "プレイヤーが揃わなかったため、募集を終了します。")
+            }
+            Self::StartSeason { season } => {
+                write!(f, "{} のメインフェイズが開始されました。", season)
+            }
+            Self::SettlementProposed => {
+                write!(f, "卓主によって講和が宣言されました。")
+            }
+            Self::OwnerAbsent => {
+                write!(f, "卓主が消息不明のため、自動的に講和の手続きが進められます。")
+            }
+            Self::SettlementRescinded => {
+                write!(f, "卓主によって講和が撤回されました。")
+            }
+            Self::Solo { power } => {
+                write!(f, "{} による制覇が達成されました。お疲れさまでした。", power.name())
+            }
+            Self::Draw => {
+                write!(f, "講和が成立しました。お疲れさまでした。")
+            }
+            Self::Closed => {
+                write!(f, "卓が閉鎖されました。")
+            }
+        }
+    }
+}

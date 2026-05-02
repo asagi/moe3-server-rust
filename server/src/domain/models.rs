@@ -3,6 +3,7 @@
 // ============================================================================
 
 mod game;
+mod message;
 mod order;
 mod path;
 mod phase_context;
@@ -21,6 +22,10 @@ mod user;
 
 pub(crate) use game::Game;
 pub(crate) use game::GameStatus;
+pub(crate) use message::Message;
+pub(crate) use message::MessageKind;
+pub(crate) use message::SystemNotice;
+pub(crate) use message::SystemNoticeCatalog;
 pub(crate) use order::BuildOrder;
 pub(crate) use order::ConvoyOrder;
 pub(crate) use order::DisbandOrder;
@@ -45,6 +50,7 @@ pub(crate) use regulation::Regulation;
 pub(crate) use territory::Territory;
 pub(crate) use unit::Unit;
 pub(crate) use unit::UnitKind;
+pub(crate) use user::User;
 
 // ============================================================================
 // re-exports

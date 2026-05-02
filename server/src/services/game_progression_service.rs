@@ -28,6 +28,20 @@ where
     game_repository: G,
 }
 
+type StartedSeasonMessage = (uuid::Uuid, String, String);
+type SoloMessage = (uuid::Uuid, super::Power);
+type DrawMessage = uuid::Uuid;
+type ClosedMessage = uuid::Uuid;
+type ProgressGamesResult = (
+    Vec<uuid::Uuid>,
+    Vec<StartedSeasonMessage>,
+    Vec<SoloMessage>,
+    Vec<DrawMessage>,
+    Vec<ClosedMessage>,
+);
+type ProgressGameResult = (bool, Option<(String, String)>, Option<super::Power>, bool, bool);
+const SOLO_SUPPLY_CENTER_THRESHOLD: usize = 18;
+
 /// 卓進行サービスの構造体の実装
 impl<U, G> GameProgressionService<U, G>
 where
@@ -49,8 +63,13 @@ where
     ///
     /// Closed・Aborted 以外の全 Game に対してフェイズ進行を試みる。
     /// next_update_at が現在時刻より過去の場合のみ進行処理を実行する。
-    pub(crate) fn progress_games(&self) -> Result<(), GameProgressionError> {
+    pub(crate) fn progress_games(&self) -> Result<ProgressGamesResult, GameProgressionError> {
         let now = Utc::now().naive_utc();
+        let mut aborted_game_uuids = Vec::new();
+        let mut started_seasons = Vec::new();
+        let mut solo_games = Vec::new();
+        let mut draw_games = Vec::new();
+        let mut closed_games = Vec::new();
 
         let candidate_game_uuids = self
             .game_repository
@@ -58,30 +77,54 @@ where
             .map_err(GameProgressionError::Repository)?;
 
         for game_uuid in candidate_game_uuids {
-            self.progress_game(game_uuid, now)?;
+            let (is_aborted, started_season, solo_power, is_draw, is_closed) = self.progress_game(game_uuid, now)?;
+
+            if is_aborted {
+                aborted_game_uuids.push(game_uuid);
+            }
+
+            if let Some((turn, season)) = started_season {
+                started_seasons.push((game_uuid, turn, season));
+            }
+
+            if let Some(power) = solo_power {
+                solo_games.push((game_uuid, power));
+            }
+
+            if is_draw {
+                draw_games.push(game_uuid);
+            }
+
+            if is_closed {
+                closed_games.push(game_uuid);
+            }
         }
 
-        Ok(())
+        Ok((aborted_game_uuids, started_seasons, solo_games, draw_games, closed_games))
     }
 
     /// 卓別の進行処理を実行する
     ///
     /// next_update_at が None または未来の場合は何もしない。
-    fn progress_game(&self, game_uuid: uuid::Uuid, now: chrono::NaiveDateTime) -> Result<(), GameProgressionError> {
+    fn progress_game(
+        &self,
+        game_uuid: uuid::Uuid,
+        now: chrono::NaiveDateTime,
+    ) -> Result<ProgressGameResult, GameProgressionError> {
         let Some(mut game) = self
             .game_repository
             .find_by_uuid(game_uuid)
             .map_err(GameProgressionError::Repository)?
         else {
-            return Ok(());
+            return Ok((false, None, None, false, false));
         };
 
         let Some(previous_next_update) = game.next_update_at else {
-            return Ok(());
+            return Ok((false, None, None, false, false));
         };
 
         if game.status == GameStatus::Closed || game.status == GameStatus::Aborted || previous_next_update > now {
-            return Ok(());
+            return Ok((false, None, None, false, false));
         }
 
         let latest_phase = game.phases.pop().expect("game should have at least one phase");
@@ -95,12 +138,13 @@ where
             game.status = GameStatus::Aborted;
             game.next_update_at = None;
             self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
-            return Ok(());
+            return Ok((true, None, None, false, false));
         }
 
         // フェイズ進行処理
         let mut context = PhaseContext::new();
         let owner_accepting_draw_on_main = Self::is_owner_accepting_draw(&game) && Self::is_draw_applicable_phase(&latest_phase);
+        let latest_phase_is_debrief = matches!(latest_phase.kind, crate::domain::PhaseKind::Debrief(_));
         if owner_accepting_draw_on_main {
             context.set_draw();
         }
@@ -109,8 +153,14 @@ where
 
         // 卓終了判定
         let is_finished = context.is_finished();
-        let new_next_update = if is_finished {
+        let is_debrief_closed = latest_phase_is_debrief && !is_finished;
+        let new_next_update = if is_debrief_closed {
+            // Debrief フェイズが終了 → 卓閉鎖
             None
+        } else if is_finished {
+            // Solo/Draw → Debrief フェイズの next_update を計算
+            let debrief_phase = context.phases().back().expect("finished game should have debrief phase");
+            Some(game.calculate_next_update(previous_next_update, debrief_phase))
         } else {
             let next_phase = context.phases().back().expect("in-progress game should have next phase");
             Some(game.calculate_next_update(previous_next_update, next_phase))
@@ -122,7 +172,9 @@ where
         }
         game.is_draw = context.is_draw();
         game.is_solo = context.is_solo();
-        game.status = if is_finished {
+        game.status = if is_debrief_closed {
+            GameStatus::Closed
+        } else if is_finished {
             GameStatus::Finished
         } else {
             GameStatus::InProgress
@@ -132,7 +184,26 @@ where
         // 卓永続化処理
         self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
 
-        Ok(())
+        let started_season = if matches!(
+            game.phases.last().map(|phase| phase.kind),
+            Some(crate::domain::PhaseKind::SpringMain(_)) | Some(crate::domain::PhaseKind::FallMain(_))
+        ) {
+            game.current_season_label().map(|season| (game.current_turn(), season))
+        } else {
+            None
+        };
+
+        let solo_power = if game.is_solo && !is_debrief_closed {
+            game.phases.last().and_then(|phase| {
+                super::Power::iter().find(|power| phase.count_supply_centers(power) >= SOLO_SUPPLY_CENTER_THRESHOLD)
+            })
+        } else {
+            None
+        };
+
+        let is_draw = game.is_draw && !is_debrief_closed;
+
+        Ok((false, started_season, solo_power, is_draw, is_debrief_closed))
     }
 
     /// 卓主が和平終了を承認しているかどうかを返却する
@@ -177,8 +248,12 @@ where
     }
 
     /// 卓主無政府化卓の和平終了処理を実行する
-    pub(crate) fn mark_idle_owners_accepting_draw(&self) -> Result<(), GameProgressionError> {
+    ///
+    /// 新たに is_accepting_draw フラグを立てた卓のうち、現在フェイズがメインフェイズのものについて
+    /// (game_uuid, turn) を返す。
+    pub(crate) fn mark_idle_owners_accepting_draw(&self) -> Result<Vec<(uuid::Uuid, String)>, GameProgressionError> {
         let now = Utc::now().naive_utc();
+        let mut newly_marked = Vec::new();
 
         let games = self
             .game_repository
@@ -187,12 +262,47 @@ where
 
         for mut game in games {
             if self.mark_owner_accepting_draw_if_idle(&mut game, now)? {
-                // TODO: チャットテーブルへのシステムアナウンス投入はここに追加する
                 self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
+
+                // メインフェイズ進行中に初めて idle 検出された場合のみ通知対象とする
+                if Self::is_draw_applicable_phase(game.phases.last().expect("game should have at least one phase")) {
+                    newly_marked.push((game.uuid, game.current_turn()));
+                }
             }
         }
 
-        Ok(())
+        Ok(newly_marked)
+    }
+
+    /// 指定卓の卓主が現時刻基準で無政府状態かどうかを返す
+    pub(crate) fn is_owner_idle_for_game(
+        &self,
+        game_uuid: uuid::Uuid,
+        now: chrono::NaiveDateTime,
+    ) -> Result<bool, GameProgressionError> {
+        let Some(game) = self
+            .game_repository
+            .find_by_uuid(game_uuid)
+            .map_err(GameProgressionError::Repository)?
+        else {
+            return Ok(false);
+        };
+
+        if game.status != super::GameStatus::InProgress {
+            return Ok(false);
+        }
+
+        let Some(owner) = game.players.iter().find(|p| p.is_owner) else {
+            return Ok(false);
+        };
+
+        let threshold = Self::idle_threshold(&game, now);
+        let user = self
+            .user_repository
+            .find_by_uuid(owner.user_uuid)
+            .map_err(GameProgressionError::Repository)?;
+
+        Ok(Self::is_idle_or_missing(user, threshold))
     }
 
     /// 卓別卓主無政府化卓に和平終了フラグを立てる
@@ -775,7 +885,7 @@ mod tests {
         assert!(updated.is_draw);
         assert!(!updated.is_solo);
         assert_eq!(updated.status, GameStatus::Finished);
-        assert!(updated.next_update_at.is_none());
+        assert!(updated.next_update_at.is_some());
         assert!(matches!(
             updated.phases.last().expect("phase should exist").kind,
             crate::domain::PhaseKind::Debrief(_)

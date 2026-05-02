@@ -47,7 +47,6 @@ impl Power {
         self.get_str("Adj").unwrap_or_default()
     }
 
-    #[allow(dead_code)]
     pub(crate) fn name(&self) -> String {
         self.to_string()
     }

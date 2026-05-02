@@ -39,6 +39,43 @@ pub(crate) struct Game {
 }
 
 impl Game {
+    /// 現在フェイズからターン文字列を返す（例: ready, 1901s, 1901f, debrief）
+    pub(crate) fn current_turn(&self) -> String {
+        let Some(current_phase) = self.phases.last() else {
+            return "ready".to_string();
+        };
+
+        match current_phase.kind {
+            PhaseKind::Ready(_) => "ready".to_string(),
+            PhaseKind::SpringMain(_) | PhaseKind::SpringRetreat(_) => format!("{}s", current_phase.year),
+            PhaseKind::FallMain(_) | PhaseKind::FallRetreat(_) | PhaseKind::Adjustment(_) => {
+                format!("{}f", current_phase.year)
+            }
+            PhaseKind::Debrief(_) => "debrief".to_string(),
+        }
+    }
+
+    /// ターン文字列から日本語シーズン表記を返す（例: 1901s -> 1901 年春）
+    pub(crate) fn season_label_from_turn(turn: &str) -> Option<String> {
+        if turn.len() < 2 {
+            return None;
+        }
+
+        let (year_text, suffix) = turn.split_at(turn.len() - 1);
+        let year = year_text.parse::<i32>().ok()?;
+
+        match suffix {
+            "s" => Some(format!("{} 年春", year)),
+            "f" => Some(format!("{} 年秋", year)),
+            _ => None,
+        }
+    }
+
+    /// 現在フェイズが季節フェイズなら日本語シーズン表記を返す
+    pub(crate) fn current_season_label(&self) -> Option<String> {
+        Self::season_label_from_turn(&self.current_turn())
+    }
+
     ///
     /// 次のフェイズの更新予定日時を計算する
     ///
@@ -170,6 +207,48 @@ mod tests {
             is_solo: false,
             next_update_at: None,
         }
+    }
+
+    #[test]
+    fn current_turn_returns_ready_and_debrief_literals() {
+        let mut game = sample_game(
+            Regulation::new(
+                FaceType::Girls,
+                ProgressMode::Scheduled,
+                DurationType::Normal,
+                valid_date(),
+                21,
+            )
+            .expect("valid regulation"),
+        );
+
+        game.phases = vec![Phase::new_ready()];
+        assert_eq!(game.current_turn(), "ready");
+
+        game.phases = vec![Phase::new_debrief(1902, 10)];
+        assert_eq!(game.current_turn(), "debrief");
+    }
+
+    #[test]
+    fn current_season_label_maps_turn_suffix_to_japanese_season() {
+        let mut game = sample_game(
+            Regulation::new(
+                FaceType::Girls,
+                ProgressMode::Scheduled,
+                DurationType::Normal,
+                valid_date(),
+                21,
+            )
+            .expect("valid regulation"),
+        );
+
+        game.phases = vec![Phase::new_spring_main(1900, 0)];
+        assert_eq!(game.current_turn(), "1901s");
+        assert_eq!(game.current_season_label(), Some("1901 年春".to_string()));
+
+        game.phases = vec![Phase::new_fall_main(1902, 0)];
+        assert_eq!(game.current_turn(), "1902f");
+        assert_eq!(game.current_season_label(), Some("1902 年秋".to_string()));
     }
 
     #[test]
