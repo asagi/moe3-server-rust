@@ -33,6 +33,13 @@ use super::JoinGameResponse;
 use super::Power;
 use super::ProgressMode;
 use super::Regulation;
+use super::SetDrawProposalCommand;
+use super::SetDrawProposalError;
+use super::SetDrawProposalHandlerError;
+use super::SetDrawProposalRequest;
+use super::SetDrawProposalRequestBody;
+use super::SetDrawProposalRequestValidationError;
+use super::SetDrawProposalResponse;
 use super::SqliteMessageRepository;
 use super::User;
 use super::UserRepository;
@@ -370,6 +377,122 @@ where
         game_uuid: result.game.uuid,
         user_uuid: result.user_uuid,
         requested_power: result.requested_power.map(|power| power.to_string()),
+    })
+}
+
+///
+/// 和平終了フラグ設定リクエスト Axum ハンドラ関数
+///
+pub(crate) async fn put_admin_games_draw_proposal<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    Path(game_uuid_str): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<SetDrawProposalRequestBody>,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    let game_uuid = match game_uuid_str.parse::<Uuid>() {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(
+                    SetDrawProposalHandlerError::InvalidRequest(SetDrawProposalRequestValidationError::InvalidGameUuid)
+                        .to_api_error_response(),
+                ),
+            )
+                .into_response();
+        }
+    };
+
+    let authorization = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
+    let request = SetDrawProposalRequest {
+        authorization,
+        game_uuid,
+        draw_proposal: body.draw_proposal,
+    };
+
+    let state_clone = state.clone();
+    let request_clone = request.clone();
+
+    let _game_update_guard = state.game_update_lock.lock().await;
+    let result = tokio::task::spawn_blocking(move || {
+        match handle_set_draw_proposal(
+            &state_clone.game_service,
+            state_clone.message_repository.as_ref(),
+            request_clone,
+        ) {
+            Ok(response) => (StatusCode::OK, Json(response)).into_response(),
+            Err(error) => {
+                let status = match &error {
+                    SetDrawProposalHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+                    SetDrawProposalHandlerError::Service(SetDrawProposalError::Unauthorized) => StatusCode::UNAUTHORIZED,
+                    SetDrawProposalHandlerError::Service(SetDrawProposalError::NotFound) => StatusCode::NOT_FOUND,
+                    SetDrawProposalHandlerError::Service(SetDrawProposalError::Forbidden(_)) => StatusCode::FORBIDDEN,
+                    _ => StatusCode::INTERNAL_SERVER_ERROR,
+                };
+                (status, Json(error.to_api_error_response())).into_response()
+            }
+        }
+    })
+    .await;
+    drop(_game_update_guard);
+    match result {
+        Ok(response) => response,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+/// 和平終了フラグ設定リクエストハンドラ関数
+fn handle_set_draw_proposal<U, G>(
+    service: &GameService<U, G>,
+    message_repository: &SqliteMessageRepository,
+    request: SetDrawProposalRequest,
+) -> Result<SetDrawProposalResponse, SetDrawProposalHandlerError>
+where
+    U: UserRepository,
+    G: GameRepository,
+{
+    request.validate().map_err(SetDrawProposalHandlerError::InvalidRequest)?;
+
+    let access_token = request.authorization.trim().trim_start_matches("Bearer ").trim().to_string();
+
+    let result = service
+        .set_draw_proposal(SetDrawProposalCommand {
+            access_token,
+            game_uuid: request.game_uuid,
+            draw_proposal: request.draw_proposal,
+        })
+        .map_err(SetDrawProposalHandlerError::Service)?;
+
+    if result.changed {
+        let turn = result.game.current_turn();
+        if request.draw_proposal {
+            if let Err(error) = message_repository.append_draw_proposed_message(result.game.uuid, &turn) {
+                eprintln!(
+                    "failed to persist DrawProposed message (game_uuid={}): {}",
+                    result.game.uuid, error
+                );
+            }
+        } else if let Err(error) = message_repository.append_draw_rescinded_message(result.game.uuid, &turn) {
+            eprintln!(
+                "failed to persist DrawRescinded message (game_uuid={}): {}",
+                result.game.uuid, error
+            );
+        }
+    }
+
+    Ok(SetDrawProposalResponse {
+        game_uuid: result.game.uuid,
+        draw_proposal: request.draw_proposal,
     })
 }
 
@@ -874,5 +997,183 @@ mod tests {
         .expect_err("join should fail");
 
         assert_eq!(error.code(), "invalid_request");
+    }
+
+    // ============================================================================
+    // handle_set_draw_proposal tests
+    // ============================================================================
+
+    fn sample_in_progress_game_for_handler(owner_uuid: uuid::Uuid) -> Game {
+        let jst = chrono::FixedOffset::east_opt(9 * 3600).unwrap();
+        let now_jst = Utc::now().with_timezone(&jst);
+        let start = now_jst + chrono::Duration::hours(2);
+        let regulation = crate::domain::Regulation::new(
+            crate::domain::FaceType::Girls,
+            crate::domain::ProgressMode::Scheduled,
+            crate::domain::DurationType::Short,
+            start.date_naive(),
+            start.hour() as u8,
+        )
+        .unwrap();
+        let ready = Phase::new_ready();
+        let spring_main = Phase::new_spring_main(ready.year, ready.index);
+        Game {
+            uuid: uuid::Uuid::now_v7(),
+            game_number: None,
+            keyword: None,
+            regulation,
+            players: vec![Player {
+                user_uuid: owner_uuid,
+                power: None,
+                is_accepting_draw: false,
+                is_owner: true,
+                requested_power: None,
+            }],
+            phases: vec![ready, spring_main],
+            status: GameStatus::InProgress,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        }
+    }
+
+    #[test]
+    fn handle_set_draw_proposal_rejects_missing_authorization() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_draw_proposal(
+            &service,
+            &message_repository,
+            SetDrawProposalRequest {
+                authorization: "".to_string(),
+                game_uuid: uuid::Uuid::now_v7(),
+                draw_proposal: true,
+            },
+        )
+        .expect_err("should fail without authorization");
+
+        assert_eq!(error.code(), "invalid_request");
+    }
+
+    #[test]
+    fn handle_set_draw_proposal_rejects_non_owner() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let other_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            UserRecord {
+                id: 1,
+                uuid: owner_uuid,
+                discord_user_id: "discord-owner".to_string(),
+                username: "owner".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: "token-owner".to_string(),
+                last_access_at: Utc::now(),
+            },
+            UserRecord {
+                id: 2,
+                uuid: other_uuid,
+                discord_user_id: "discord-other".to_string(),
+                username: "other".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: "token-other".to_string(),
+                last_access_at: Utc::now(),
+            },
+        ]);
+        let game = sample_in_progress_game_for_handler(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_draw_proposal(
+            &service,
+            &message_repository,
+            SetDrawProposalRequest {
+                authorization: "Bearer token-other".to_string(),
+                game_uuid,
+                draw_proposal: true,
+            },
+        )
+        .expect_err("should fail for non-owner");
+
+        assert_eq!(error.code(), "forbidden");
+    }
+
+    #[test]
+    fn handle_set_draw_proposal_returns_no_op_when_unchanged() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let mut game = sample_in_progress_game_for_handler(owner_uuid);
+        game.players.iter_mut().find(|p| p.is_owner).unwrap().is_accepting_draw = false;
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let response = handle_set_draw_proposal(
+            &service,
+            &message_repository,
+            SetDrawProposalRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                draw_proposal: false,
+            },
+        )
+        .expect("should succeed");
+
+        assert_eq!(response.game_uuid, game_uuid);
+        assert!(!response.draw_proposal);
+    }
+
+    #[test]
+    fn handle_set_draw_proposal_sets_draw_proposal_flag() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game = sample_in_progress_game_for_handler(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let response = handle_set_draw_proposal(
+            &service,
+            &message_repository,
+            SetDrawProposalRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                draw_proposal: true,
+            },
+        )
+        .expect("should succeed");
+
+        assert_eq!(response.game_uuid, game_uuid);
+        assert!(response.draw_proposal);
     }
 }

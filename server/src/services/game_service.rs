@@ -18,6 +18,7 @@ use super::Player;
 use super::Power;
 use super::Regulation;
 use super::RepositoryError;
+use super::SetDrawProposalError;
 use super::UserRepository;
 use strum::IntoEnumIterator;
 
@@ -65,6 +66,25 @@ pub(crate) struct JoinGameResult {
     pub game: Game,
     pub user_uuid: Uuid,
     pub requested_power: Option<Power>,
+}
+
+///
+/// 和平終了フラグ設定コマンドの構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SetDrawProposalCommand {
+    pub access_token: String,
+    pub game_uuid: Uuid,
+    pub draw_proposal: bool,
+}
+
+///
+/// 和平終了フラグ設定処理結果の構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SetDrawProposalResult {
+    pub game: Game,
+    pub changed: bool,
 }
 
 ///
@@ -302,6 +322,73 @@ where
             game: updated_game,
             user_uuid: user.uuid,
             requested_power: command.requested_power,
+        })
+    }
+
+    ///
+    /// 卓主権限で和平終了フラグを設定する
+    ///
+    pub(crate) fn set_draw_proposal(
+        &self,
+        command: SetDrawProposalCommand,
+    ) -> Result<SetDrawProposalResult, SetDrawProposalError> {
+        let access_token = command.access_token.trim().to_string();
+        if access_token.is_empty() {
+            return Err(SetDrawProposalError::Unauthorized);
+        }
+
+        let user = self
+            .user_repository
+            .find_by_access_token(&access_token)
+            .map_err(SetDrawProposalError::Repository)?
+            .ok_or(SetDrawProposalError::Unauthorized)?;
+
+        let game = self
+            .game_repository
+            .find_by_uuid(command.game_uuid)
+            .map_err(SetDrawProposalError::Repository)?
+            .ok_or(SetDrawProposalError::NotFound)?;
+
+        let owner =
+            game.players
+                .iter()
+                .find(|p| p.is_owner && p.user_uuid == user.uuid)
+                .ok_or(SetDrawProposalError::Forbidden(
+                    "user is not the owner of this game".to_string(),
+                ))?;
+
+        // 最新フェイズがメインフェイズ以外の場合はエラー
+        let latest_phase = game
+            .phases
+            .last()
+            .ok_or(SetDrawProposalError::Forbidden("game has no phases".to_string()))?;
+        let is_main_phase = matches!(
+            latest_phase.kind,
+            crate::domain::PhaseKind::SpringMain(_) | crate::domain::PhaseKind::FallMain(_)
+        );
+        if !is_main_phase {
+            return Err(SetDrawProposalError::Forbidden(
+                "draw proposal can only be set during a main phase".to_string(),
+            ));
+        }
+
+        // 状態が既に同じなら変更なしで OK を返す
+        if owner.is_accepting_draw == command.draw_proposal {
+            return Ok(SetDrawProposalResult { game, changed: false });
+        }
+
+        let mut updated_game = game;
+        if let Some(owner_player) = updated_game.players.iter_mut().find(|p| p.is_owner) {
+            owner_player.is_accepting_draw = command.draw_proposal;
+        }
+
+        self.game_repository
+            .update(&updated_game)
+            .map_err(SetDrawProposalError::Repository)?;
+
+        Ok(SetDrawProposalResult {
+            game: updated_game,
+            changed: true,
         })
     }
 }
@@ -1314,5 +1401,200 @@ mod tests {
             .expect_err("join game should fail");
 
         assert!(matches!(error, JoinGameError::Forbidden(_)));
+    }
+
+    // ============================================================================
+    // set_draw_proposal tests
+    // ============================================================================
+
+    /// SpringMain フェイズを持つゲームを返すヘルパー
+    fn sample_in_progress_game(owner_uuid: Uuid) -> Game {
+        let mut game = sample_preparing_game(owner_uuid);
+        game.status = GameStatus::InProgress;
+        // Ready フェイズの後に SpringMain フェイズを追加
+        let ready = game.phases.last().unwrap().clone();
+        let spring_main = Phase::new_spring_main(ready.year, ready.index);
+        game.phases.push(spring_main);
+        game
+    }
+
+    fn owner_user_record(user_uuid: Uuid) -> UserRecord {
+        UserRecord {
+            id: 1,
+            uuid: user_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }
+    }
+
+    #[test]
+    fn set_draw_proposal_rejects_empty_access_token() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_draw_proposal(SetDrawProposalCommand {
+                access_token: "".to_string(),
+                game_uuid,
+                draw_proposal: true,
+            })
+            .expect_err("should reject empty token");
+
+        assert!(matches!(error, SetDrawProposalError::Unauthorized));
+    }
+
+    #[test]
+    fn set_draw_proposal_rejects_unknown_access_token() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_draw_proposal(SetDrawProposalCommand {
+                access_token: "unknown-token".to_string(),
+                game_uuid,
+                draw_proposal: true,
+            })
+            .expect_err("should reject unknown token");
+
+        assert!(matches!(error, SetDrawProposalError::Unauthorized));
+    }
+
+    #[test]
+    fn set_draw_proposal_rejects_when_game_not_found() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game_repository = InMemoryGameRepository::new(vec![]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_draw_proposal(SetDrawProposalCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid: Uuid::now_v7(),
+                draw_proposal: true,
+            })
+            .expect_err("should reject when game not found");
+
+        assert!(matches!(error, SetDrawProposalError::NotFound));
+    }
+
+    #[test]
+    fn set_draw_proposal_rejects_non_owner() {
+        let owner_uuid = Uuid::now_v7();
+        let other_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            owner_user_record(owner_uuid),
+            UserRecord {
+                id: 2,
+                uuid: other_uuid,
+                discord_user_id: "discord-other".to_string(),
+                username: "other".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: "token-other".to_string(),
+                last_access_at: Utc::now(),
+            },
+        ]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_draw_proposal(SetDrawProposalCommand {
+                access_token: "token-other".to_string(),
+                game_uuid,
+                draw_proposal: true,
+            })
+            .expect_err("should reject non-owner");
+
+        assert!(matches!(error, SetDrawProposalError::Forbidden(_)));
+    }
+
+    #[test]
+    fn set_draw_proposal_rejects_when_not_main_phase() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        // Ready フェイズのみ（メインフェイズでない）
+        let game = sample_preparing_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_draw_proposal(SetDrawProposalCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                draw_proposal: true,
+            })
+            .expect_err("should reject when not main phase");
+
+        assert!(matches!(error, SetDrawProposalError::Forbidden(_)));
+    }
+
+    #[test]
+    fn set_draw_proposal_returns_unchanged_when_already_same_value() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let mut game = sample_in_progress_game(owner_uuid);
+        // オーナーの is_accepting_draw を true に設定済み
+        game.players.iter_mut().find(|p| p.is_owner).unwrap().is_accepting_draw = true;
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service
+            .set_draw_proposal(SetDrawProposalCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                draw_proposal: true,
+            })
+            .expect("should succeed");
+
+        assert!(!result.changed, "changed should be false when value is unchanged");
+        // update() は呼ばれないはず
+        assert!(game_repository.updated_first().is_none(), "update should not be called");
+    }
+
+    #[test]
+    fn set_draw_proposal_sets_flag_and_returns_changed_true() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service
+            .set_draw_proposal(SetDrawProposalCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                draw_proposal: true,
+            })
+            .expect("should succeed");
+
+        assert!(result.changed, "changed should be true when flag is updated");
+        assert!(
+            result.game.players.iter().find(|p| p.is_owner).unwrap().is_accepting_draw,
+            "owner is_accepting_draw should be true"
+        );
+        let updated = game_repository.updated_first().expect("game should be updated");
+        assert!(
+            updated.players.iter().find(|p| p.is_owner).unwrap().is_accepting_draw,
+            "persisted game should have is_accepting_draw=true"
+        );
     }
 }

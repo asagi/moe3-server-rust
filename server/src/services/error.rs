@@ -114,6 +114,32 @@ impl fmt::Display for JoinGameError {
 }
 
 ///
+/// 和平終了フラグ設定エラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SetDrawProposalError {
+    Unauthorized,
+    NotFound,
+    Forbidden(String),
+    Repository(RepositoryError),
+}
+
+/// 和平終了フラグ設定エラーの列挙体の実装（Error トレイト）
+impl Error for SetDrawProposalError {}
+
+/// 和平終了フラグ設定エラーの列挙体の実装（fmt::Display トレイト）
+impl fmt::Display for SetDrawProposalError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unauthorized => write!(f, "unauthorized"),
+            Self::NotFound => write!(f, "game not found"),
+            Self::Forbidden(message) => write!(f, "forbidden: {}", message),
+            Self::Repository(error) => write!(f, "repository error: {}", error),
+        }
+    }
+}
+
+///
 /// 卓進行エラーの列挙体
 ///
 #[derive(Debug)]

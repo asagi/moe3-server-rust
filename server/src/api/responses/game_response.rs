@@ -28,3 +28,12 @@ pub(crate) struct JoinGameResponse {
     pub user_uuid: Uuid,
     pub requested_power: Option<String>,
 }
+
+///
+/// 和平終了フラグ設定レスポンスの構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(crate) struct SetDrawProposalResponse {
+    pub game_uuid: Uuid,
+    pub draw_proposal: bool,
+}
