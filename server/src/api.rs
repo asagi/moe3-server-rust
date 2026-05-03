@@ -23,11 +23,15 @@ pub(crate) use requests::CreateGameRequestValidationError;
 pub(crate) use requests::JoinGameRequest;
 pub(crate) use requests::JoinGameRequestBody;
 pub(crate) use requests::JoinGameRequestValidationError;
+pub(crate) use requests::SetDrawProposalRequest;
+pub(crate) use requests::SetDrawProposalRequestBody;
+pub(crate) use requests::SetDrawProposalRequestValidationError;
 pub(crate) use responses::ApiErrorResponse;
 pub(crate) use responses::AuthLoginResponse;
 pub(crate) use responses::AuthLoginResponseUser;
 pub(crate) use responses::CreateGameResponse;
 pub(crate) use responses::JoinGameResponse;
+pub(crate) use responses::SetDrawProposalResponse;
 pub(crate) use router::AppState;
 
 // ============================================================================
@@ -54,6 +58,8 @@ pub(crate) use super::Power;
 pub(crate) use super::ProgressMode;
 pub(crate) use super::Regulation;
 pub(crate) use super::RepositoryError;
+pub(crate) use super::SetDrawProposalCommand;
+pub(crate) use super::SetDrawProposalError;
 pub(crate) use super::SqliteGameRepository;
 pub(crate) use super::SqliteMessageRepository;
 pub(crate) use super::SqliteUserRepository;

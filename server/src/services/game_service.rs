@@ -18,6 +18,7 @@ use super::Player;
 use super::Power;
 use super::Regulation;
 use super::RepositoryError;
+use super::SetDrawProposalError;
 use super::UserRepository;
 use strum::IntoEnumIterator;
 
@@ -65,6 +66,25 @@ pub(crate) struct JoinGameResult {
     pub game: Game,
     pub user_uuid: Uuid,
     pub requested_power: Option<Power>,
+}
+
+///
+/// 和平終了フラグ設定コマンドの構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SetDrawProposalCommand {
+    pub access_token: String,
+    pub game_uuid: Uuid,
+    pub draw_proposal: bool,
+}
+
+///
+/// 和平終了フラグ設定処理結果の構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SetDrawProposalResult {
+    pub game: Game,
+    pub changed: bool,
 }
 
 ///
@@ -302,6 +322,73 @@ where
             game: updated_game,
             user_uuid: user.uuid,
             requested_power: command.requested_power,
+        })
+    }
+
+    ///
+    /// 卓主権限で和平終了フラグを設定する
+    ///
+    pub(crate) fn set_draw_proposal(
+        &self,
+        command: SetDrawProposalCommand,
+    ) -> Result<SetDrawProposalResult, SetDrawProposalError> {
+        let access_token = command.access_token.trim().to_string();
+        if access_token.is_empty() {
+            return Err(SetDrawProposalError::Unauthorized);
+        }
+
+        let user = self
+            .user_repository
+            .find_by_access_token(&access_token)
+            .map_err(SetDrawProposalError::Repository)?
+            .ok_or(SetDrawProposalError::Unauthorized)?;
+
+        let game = self
+            .game_repository
+            .find_by_uuid(command.game_uuid)
+            .map_err(SetDrawProposalError::Repository)?
+            .ok_or(SetDrawProposalError::NotFound)?;
+
+        let owner =
+            game.players
+                .iter()
+                .find(|p| p.is_owner && p.user_uuid == user.uuid)
+                .ok_or(SetDrawProposalError::Forbidden(
+                    "user is not the owner of this game".to_string(),
+                ))?;
+
+        // 最新フェイズがメインフェイズ以外の場合はエラー
+        let latest_phase = game
+            .phases
+            .last()
+            .ok_or(SetDrawProposalError::Forbidden("game has no phases".to_string()))?;
+        let is_main_phase = matches!(
+            latest_phase.kind,
+            crate::domain::PhaseKind::SpringMain(_) | crate::domain::PhaseKind::FallMain(_)
+        );
+        if !is_main_phase {
+            return Err(SetDrawProposalError::Forbidden(
+                "draw proposal can only be set during a main phase".to_string(),
+            ));
+        }
+
+        // 状態が既に同じなら変更なしで OK を返す
+        if owner.is_accepting_draw == command.draw_proposal {
+            return Ok(SetDrawProposalResult { game, changed: false });
+        }
+
+        let mut updated_game = game;
+        if let Some(owner_player) = updated_game.players.iter_mut().find(|p| p.is_owner) {
+            owner_player.is_accepting_draw = command.draw_proposal;
+        }
+
+        self.game_repository
+            .update(&updated_game)
+            .map_err(SetDrawProposalError::Repository)?;
+
+        Ok(SetDrawProposalResult {
+            game: updated_game,
+            changed: true,
         })
     }
 }

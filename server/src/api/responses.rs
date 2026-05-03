@@ -15,6 +15,7 @@ pub(crate) use auth_response::AuthLoginResponseUser;
 pub(crate) use error::ApiErrorResponse;
 pub(crate) use game_response::CreateGameResponse;
 pub(crate) use game_response::JoinGameResponse;
+pub(crate) use game_response::SetDrawProposalResponse;
 
 // ============================================================================
 // re-exports

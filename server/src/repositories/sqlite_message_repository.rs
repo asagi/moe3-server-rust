@@ -224,6 +224,46 @@ impl SqliteMessageRepository {
         Ok(())
     }
 
+    ///
+    /// 卓主による講和宣言のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_settlement_proposed_message(&self, game_uuid: Uuid, turn: &str) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+
+        self.init_schema(&connection)?;
+
+        let catalog = SystemNoticeCatalog::DrawProposed;
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
+    ///
+    /// 卓主による講和撤回のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_settlement_rescinded_message(&self, game_uuid: Uuid, turn: &str) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+
+        self.init_schema(&connection)?;
+
+        let catalog = SystemNoticeCatalog::DrawRescinded;
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
     /// メッセージ DB 接続を開く
     fn open_connection(&self) -> Result<Connection, RepositoryError> {
         Connection::open(&self.message_database_path)
@@ -331,9 +371,9 @@ impl SqliteMessageRepository {
             SystemNoticeCatalog::Ready => "ready",
             SystemNoticeCatalog::Aborted => "aborted",
             SystemNoticeCatalog::StartSeason { .. } => "start_season",
-            SystemNoticeCatalog::SettlementProposed => "settlement_proposed",
+            SystemNoticeCatalog::DrawProposed => "settlement_proposed",
             SystemNoticeCatalog::OwnerAbsent => "owner_absent",
-            SystemNoticeCatalog::SettlementRescinded => "settlement_rescinded",
+            SystemNoticeCatalog::DrawRescinded => "settlement_rescinded",
             SystemNoticeCatalog::Solo { .. } => "solo",
             SystemNoticeCatalog::Draw => "draw",
             SystemNoticeCatalog::Closed => "closed",
@@ -358,9 +398,9 @@ impl SqliteMessageRepository {
             }
             SystemNoticeCatalog::Ready
             | SystemNoticeCatalog::Aborted
-            | SystemNoticeCatalog::SettlementProposed
+            | SystemNoticeCatalog::DrawProposed
             | SystemNoticeCatalog::OwnerAbsent
-            | SystemNoticeCatalog::SettlementRescinded
+            | SystemNoticeCatalog::DrawRescinded
             | SystemNoticeCatalog::Draw
             | SystemNoticeCatalog::Closed => json!({}),
         }

@@ -60,3 +60,5 @@ pub(crate) use services::JoinGameCommand;
 pub(crate) use services::JoinGameError;
 pub(crate) use services::LoginCommand;
 pub(crate) use services::LoginUser;
+pub(crate) use services::SetDrawProposalCommand;
+pub(crate) use services::SetDrawProposalError;

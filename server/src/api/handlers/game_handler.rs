@@ -33,6 +33,13 @@ use super::JoinGameResponse;
 use super::Power;
 use super::ProgressMode;
 use super::Regulation;
+use super::SetDrawProposalCommand;
+use super::SetDrawProposalError;
+use super::SetDrawProposalHandlerError;
+use super::SetDrawProposalRequest;
+use super::SetDrawProposalRequestBody;
+use super::SetDrawProposalRequestValidationError;
+use super::SetDrawProposalResponse;
 use super::SqliteMessageRepository;
 use super::User;
 use super::UserRepository;
@@ -370,6 +377,121 @@ where
         game_uuid: result.game.uuid,
         user_uuid: result.user_uuid,
         requested_power: result.requested_power.map(|power| power.to_string()),
+    })
+}
+
+///
+/// 和平終了フラグ設定リクエスト Axum ハンドラ関数
+///
+pub(crate) async fn put_admin_games_draw_proposal<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    Path(game_uuid_str): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<SetDrawProposalRequestBody>,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    let game_uuid = match game_uuid_str.parse::<Uuid>() {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(
+                    SetDrawProposalHandlerError::InvalidRequest(SetDrawProposalRequestValidationError::InvalidGameUuid)
+                        .to_api_error_response(),
+                ),
+            )
+                .into_response();
+        }
+    };
+
+    let authorization = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
+    let request = SetDrawProposalRequest {
+        authorization,
+        game_uuid,
+        draw_proposal: body.draw_proposal,
+    };
+
+    let state_clone = state.clone();
+    let request_clone = request.clone();
+    match tokio::task::spawn_blocking(move || {
+        match handle_set_draw_proposal(
+            &state_clone.game_service,
+            state_clone.message_repository.as_ref(),
+            request_clone,
+        ) {
+            Ok(response) => (StatusCode::OK, Json(response)).into_response(),
+            Err(error) => {
+                let status = match &error {
+                    SetDrawProposalHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+                    SetDrawProposalHandlerError::Service(SetDrawProposalError::Unauthorized) => StatusCode::UNAUTHORIZED,
+                    SetDrawProposalHandlerError::Service(SetDrawProposalError::NotFound) => StatusCode::NOT_FOUND,
+                    SetDrawProposalHandlerError::Service(SetDrawProposalError::Forbidden(_)) => StatusCode::FORBIDDEN,
+                    _ => StatusCode::INTERNAL_SERVER_ERROR,
+                };
+                (status, Json(error.to_api_error_response())).into_response()
+            }
+        }
+    })
+    .await
+    {
+        Ok(response) => response,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+/// 和平終了フラグ設定リクエストハンドラ関数
+fn handle_set_draw_proposal<U, G>(
+    service: &GameService<U, G>,
+    message_repository: &SqliteMessageRepository,
+    request: SetDrawProposalRequest,
+) -> Result<SetDrawProposalResponse, SetDrawProposalHandlerError>
+where
+    U: UserRepository,
+    G: GameRepository,
+{
+    request.validate().map_err(SetDrawProposalHandlerError::InvalidRequest)?;
+
+    let access_token = request.authorization.trim().trim_start_matches("Bearer ").trim().to_string();
+
+    let result = service
+        .set_draw_proposal(SetDrawProposalCommand {
+            access_token,
+            game_uuid: request.game_uuid,
+            draw_proposal: request.draw_proposal,
+        })
+        .map_err(SetDrawProposalHandlerError::Service)?;
+
+    if result.changed {
+        let turn = result.game.current_turn();
+        if request.draw_proposal {
+            if let Err(error) = message_repository.append_settlement_proposed_message(result.game.uuid, &turn) {
+                eprintln!(
+                    "failed to persist SettlementProposed message (game_uuid={}): {}",
+                    result.game.uuid, error
+                );
+            }
+        } else {
+            if let Err(error) = message_repository.append_settlement_rescinded_message(result.game.uuid, &turn) {
+                eprintln!(
+                    "failed to persist SettlementRescinded message (game_uuid={}): {}",
+                    result.game.uuid, error
+                );
+            }
+        }
+    }
+
+    Ok(SetDrawProposalResponse {
+        game_uuid: result.game.uuid,
+        draw_proposal: request.draw_proposal,
     })
 }
 

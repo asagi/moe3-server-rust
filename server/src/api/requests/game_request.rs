@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use super::CreateGameRequestValidationError;
 use super::JoinGameRequestValidationError;
+use super::SetDrawProposalRequestValidationError;
 
 // ============================================================================
 // definitions
@@ -95,6 +96,45 @@ impl JoinGameRequest {
         let token = auth.trim_start_matches("Bearer ").trim();
         if token.is_empty() {
             return Err(JoinGameRequestValidationError::MissingAccessToken);
+        }
+
+        Ok(())
+    }
+}
+
+///
+/// 和平終了フラグ設定リクエストパラメータボディ構造体
+///
+#[derive(Debug, Deserialize)]
+pub(crate) struct SetDrawProposalRequestBody {
+    pub draw_proposal: bool,
+}
+
+///
+/// 和平終了フラグ設定リクエストの構造体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SetDrawProposalRequest {
+    pub authorization: String,
+    pub game_uuid: uuid::Uuid,
+    pub draw_proposal: bool,
+}
+
+/// 和平終了フラグ設定リクエストの構造体の実装
+impl SetDrawProposalRequest {
+    pub(crate) fn validate(&self) -> Result<(), SetDrawProposalRequestValidationError> {
+        let auth = self.authorization.trim();
+        if auth.is_empty() {
+            return Err(SetDrawProposalRequestValidationError::MissingAuthorization);
+        }
+
+        if !auth.starts_with("Bearer ") {
+            return Err(SetDrawProposalRequestValidationError::InvalidAuthorizationScheme);
+        }
+
+        let token = auth.trim_start_matches("Bearer ").trim();
+        if token.is_empty() {
+            return Err(SetDrawProposalRequestValidationError::MissingAccessToken);
         }
 
         Ok(())

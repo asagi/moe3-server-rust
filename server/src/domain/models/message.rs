@@ -85,9 +85,9 @@ pub(crate) enum SystemNoticeCatalog {
     Ready,
     Aborted,
     StartSeason { season: String },
-    SettlementProposed,
+    DrawProposed,
     OwnerAbsent,
-    SettlementRescinded,
+    DrawRescinded,
     Solo { power: Power },
     Draw,
     Closed,
@@ -112,13 +112,13 @@ impl fmt::Display for SystemNoticeCatalog {
             Self::StartSeason { season } => {
                 write!(f, "{} のメインフェイズが開始されました。", season)
             }
-            Self::SettlementProposed => {
+            Self::DrawProposed => {
                 write!(f, "卓主によって講和が宣言されました。")
             }
             Self::OwnerAbsent => {
                 write!(f, "卓主が消息不明のため、自動的に講和の手続きが進められます。")
             }
-            Self::SettlementRescinded => {
+            Self::DrawRescinded => {
                 write!(f, "卓主によって講和が撤回されました。")
             }
             Self::Solo { power } => {

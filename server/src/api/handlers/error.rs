@@ -10,6 +10,8 @@ use super::CreateGameRequestValidationError;
 use super::DiscordClientError;
 use super::JoinGameError;
 use super::JoinGameRequestValidationError;
+use super::SetDrawProposalError;
+use super::SetDrawProposalRequestValidationError;
 
 // ============================================================================
 // definitions
@@ -171,6 +173,59 @@ impl JoinGameHandlerError {
                 "keyword must contain only alphanumeric characters".to_string()
             }
             Self::Service(JoinGameError::Forbidden(message)) => message.clone(),
+            Self::Service(error) => error.to_string(),
+        }
+    }
+}
+
+///
+/// 和平終了フラグ設定リクエストハンドラのエラーの列挙体
+///
+#[derive(Debug)]
+pub(crate) enum SetDrawProposalHandlerError {
+    InvalidRequest(SetDrawProposalRequestValidationError),
+    Service(SetDrawProposalError),
+}
+
+/// 和平終了フラグ設定リクエストハンドラのエラーの列挙体の実装
+impl SetDrawProposalHandlerError {
+    ///
+    /// エラーコードを取得する
+    ///
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidRequest(_) => "invalid_request",
+            Self::Service(SetDrawProposalError::Unauthorized) => "unauthorized",
+            Self::Service(SetDrawProposalError::NotFound) => "not_found",
+            Self::Service(SetDrawProposalError::Forbidden(_)) => "forbidden",
+            Self::Service(SetDrawProposalError::Repository(_)) => "repository_error",
+        }
+    }
+
+    ///
+    /// 和平終了フラグ設定リクエストハンドラのエラーを API エラーレスポンスに変換する
+    ///
+    pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
+        ApiErrorResponse {
+            code: self.code(),
+            message: self.message(),
+        }
+    }
+
+    /// 和平終了フラグ設定リクエストハンドラのエラーに対応するエラーメッセージを生成する
+    fn message(&self) -> String {
+        match self {
+            Self::InvalidRequest(SetDrawProposalRequestValidationError::MissingAuthorization) => {
+                "authorization header is required".to_string()
+            }
+            Self::InvalidRequest(SetDrawProposalRequestValidationError::InvalidAuthorizationScheme) => {
+                "authorization must start with 'Bearer <token>'".to_string()
+            }
+            Self::InvalidRequest(SetDrawProposalRequestValidationError::MissingAccessToken) => {
+                "access token is required".to_string()
+            }
+            Self::InvalidRequest(SetDrawProposalRequestValidationError::InvalidGameUuid) => "game_uuid is invalid".to_string(),
+            Self::Service(SetDrawProposalError::Forbidden(message)) => message.clone(),
             Self::Service(error) => error.to_string(),
         }
     }

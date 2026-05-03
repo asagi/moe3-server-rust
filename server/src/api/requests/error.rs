@@ -38,3 +38,14 @@ pub(crate) enum JoinGameRequestValidationError {
     InvalidRequestedPower,
     InvalidKeyword,
 }
+
+///
+/// 和平終了フラグ設定リクエストのバリデーションエラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SetDrawProposalRequestValidationError {
+    MissingAuthorization,
+    InvalidAuthorizationScheme,
+    MissingAccessToken,
+    InvalidGameUuid,
+}
