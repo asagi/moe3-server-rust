@@ -227,7 +227,7 @@ impl SqliteMessageRepository {
     ///
     /// 卓主による講和宣言のシステムメッセージを保存する
     ///
-    pub(crate) fn append_settlement_proposed_message(&self, game_uuid: Uuid, turn: &str) -> Result<(), RepositoryError> {
+    pub(crate) fn append_draw_proposed_message(&self, game_uuid: Uuid, turn: &str) -> Result<(), RepositoryError> {
         let connection = self.open_connection()?;
 
         self.init_schema(&connection)?;
@@ -247,7 +247,7 @@ impl SqliteMessageRepository {
     ///
     /// 卓主による講和撤回のシステムメッセージを保存する
     ///
-    pub(crate) fn append_settlement_rescinded_message(&self, game_uuid: Uuid, turn: &str) -> Result<(), RepositoryError> {
+    pub(crate) fn append_draw_rescinded_message(&self, game_uuid: Uuid, turn: &str) -> Result<(), RepositoryError> {
         let connection = self.open_connection()?;
 
         self.init_schema(&connection)?;
@@ -371,9 +371,9 @@ impl SqliteMessageRepository {
             SystemNoticeCatalog::Ready => "ready",
             SystemNoticeCatalog::Aborted => "aborted",
             SystemNoticeCatalog::StartSeason { .. } => "start_season",
-            SystemNoticeCatalog::DrawProposed => "settlement_proposed",
+            SystemNoticeCatalog::DrawProposed => "draw_proposed",
             SystemNoticeCatalog::OwnerAbsent => "owner_absent",
-            SystemNoticeCatalog::DrawRescinded => "settlement_rescinded",
+            SystemNoticeCatalog::DrawRescinded => "draw_rescinded",
             SystemNoticeCatalog::Solo { .. } => "solo",
             SystemNoticeCatalog::Draw => "draw",
             SystemNoticeCatalog::Closed => "closed",
@@ -460,5 +460,55 @@ mod tests {
             context,
             format!("{} ({}) が参加を表明しました。", user.username, user.discord_user_id)
         );
+    }
+
+    #[test]
+    fn append_draw_proposed_message_persists_system_message() {
+        let (repository, db_path) = new_test_repository();
+        let game_uuid = Uuid::now_v7();
+
+        repository
+            .append_draw_proposed_message(game_uuid, "1901s")
+            .expect("append draw proposed message should succeed");
+
+        let connection = Connection::open(&db_path).expect("open message db");
+        let (sender_power, turn, context, kind, catalog): (Option<String>, String, String, String, String) = connection
+            .query_row(
+                "SELECT sender_power, turn, context, kind, system_notice_catalog FROM messages LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .expect("read inserted message");
+
+        assert_eq!(sender_power, None);
+        assert_eq!(turn, "1901s");
+        assert_eq!(kind, "system");
+        assert_eq!(catalog, "draw_proposed");
+        assert_eq!(context, "卓主によって講和が宣言されました。");
+    }
+
+    #[test]
+    fn append_draw_rescinded_message_persists_system_message() {
+        let (repository, db_path) = new_test_repository();
+        let game_uuid = Uuid::now_v7();
+
+        repository
+            .append_draw_rescinded_message(game_uuid, "1901s")
+            .expect("append draw rescinded message should succeed");
+
+        let connection = Connection::open(&db_path).expect("open message db");
+        let (sender_power, turn, context, kind, catalog): (Option<String>, String, String, String, String) = connection
+            .query_row(
+                "SELECT sender_power, turn, context, kind, system_notice_catalog FROM messages LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .expect("read inserted message");
+
+        assert_eq!(sender_power, None);
+        assert_eq!(turn, "1901s");
+        assert_eq!(kind, "system");
+        assert_eq!(catalog, "draw_rescinded");
+        assert_eq!(context, "卓主によって講和が撤回されました。");
     }
 }

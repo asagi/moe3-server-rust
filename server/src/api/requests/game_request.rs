@@ -128,11 +128,10 @@ impl SetDrawProposalRequest {
             return Err(SetDrawProposalRequestValidationError::MissingAuthorization);
         }
 
-        if !auth.starts_with("Bearer ") {
-            return Err(SetDrawProposalRequestValidationError::InvalidAuthorizationScheme);
-        }
-
-        let token = auth.trim_start_matches("Bearer ").trim();
+        let token = match auth.get(..7) {
+            Some(prefix) if prefix.eq_ignore_ascii_case("Bearer ") => auth.get(7..).unwrap_or("").trim(),
+            _ => return Err(SetDrawProposalRequestValidationError::InvalidAuthorizationScheme),
+        };
         if token.is_empty() {
             return Err(SetDrawProposalRequestValidationError::MissingAccessToken);
         }

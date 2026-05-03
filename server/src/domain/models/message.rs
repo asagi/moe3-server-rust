@@ -78,7 +78,6 @@ pub(crate) struct SystemNotice {}
 /// システムメッセージ定義の列挙体
 ///
 #[derive(Debug, Clone, PartialEq)]
-#[allow(dead_code)]
 pub(crate) enum SystemNoticeCatalog {
     GameCreated { user: User },
     PlayerJoined { user: User },
