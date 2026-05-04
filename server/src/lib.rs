@@ -62,6 +62,8 @@ pub(crate) use services::LoginCommand;
 pub(crate) use services::LoginUser;
 pub(crate) use services::SetDrawProposalCommand;
 pub(crate) use services::SetDrawProposalError;
+pub(crate) use services::SetTerritoryCommand;
+pub(crate) use services::SetTerritoryError;
 pub(crate) use services::SetUnitCommand;
 pub(crate) use services::SetUnitError;
 pub(crate) use services::UnitSpec;

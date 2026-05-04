@@ -15,11 +15,14 @@ pub(crate) use error::AuthHandlerError;
 pub(crate) use error::CreateGameHandlerError;
 pub(crate) use error::JoinGameHandlerError;
 pub(crate) use error::SetDrawProposalHandlerError;
+pub(crate) use error::SetTerritoryHandlerError;
 pub(crate) use error::SetUnitHandlerError;
+pub(crate) use game_handler::delete_admin_games_territories;
 pub(crate) use game_handler::delete_admin_games_units;
 pub(crate) use game_handler::post_games;
 pub(crate) use game_handler::post_games_players;
 pub(crate) use game_handler::put_admin_games_draw_proposal;
+pub(crate) use game_handler::put_admin_games_territories;
 pub(crate) use game_handler::put_admin_games_units;
 
 // ============================================================================
@@ -62,6 +65,12 @@ pub(crate) use super::SetDrawProposalRequest;
 pub(crate) use super::SetDrawProposalRequestBody;
 pub(crate) use super::SetDrawProposalRequestValidationError;
 pub(crate) use super::SetDrawProposalResponse;
+pub(crate) use super::SetTerritoryCommand;
+pub(crate) use super::SetTerritoryError;
+pub(crate) use super::SetTerritoryRequest;
+pub(crate) use super::SetTerritoryRequestBody;
+pub(crate) use super::SetTerritoryRequestValidationError;
+pub(crate) use super::SetTerritoryResponse;
 pub(crate) use super::SetUnitCommand;
 pub(crate) use super::SetUnitError;
 pub(crate) use super::SetUnitRequest;

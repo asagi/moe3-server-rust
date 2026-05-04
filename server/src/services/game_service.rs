@@ -20,9 +20,11 @@ use super::Province;
 use super::Regulation;
 use super::RepositoryError;
 use super::SetDrawProposalError;
+use super::SetTerritoryError;
 use super::SetUnitError;
 use super::Unit;
 use super::UserRepository;
+use crate::Territory;
 use strum::IntoEnumIterator;
 
 // ============================================================================
@@ -118,6 +120,29 @@ pub(crate) struct SetUnitResult {
     pub game: Game,
     pub old_unit: Option<Unit>,
     pub new_unit: Option<Unit>,
+    pub changed: bool,
+}
+
+///
+/// 占領情報編集コマンドの構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SetTerritoryCommand {
+    pub access_token: String,
+    pub game_uuid: Uuid,
+    pub code: String,
+    pub power: Option<String>,
+}
+
+///
+/// 占領情報編集処理結果の構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SetTerritoryResult {
+    pub game: Game,
+    pub province: Province,
+    pub old_power: Option<Power>,
+    pub new_power: Option<Power>,
     pub changed: bool,
 }
 
@@ -560,6 +585,97 @@ where
             game: updated_game,
             old_unit,
             new_unit,
+            changed: true,
+        })
+    }
+
+    ///
+    /// 卓主権限で占領情報を設定・削除する
+    ///
+    pub(crate) fn set_territory(&self, command: SetTerritoryCommand) -> Result<SetTerritoryResult, SetTerritoryError> {
+        if command.access_token.is_empty() {
+            return Err(SetTerritoryError::Unauthorized);
+        }
+
+        let user = self
+            .user_repository
+            .find_by_access_token(&command.access_token)
+            .map_err(SetTerritoryError::Repository)?
+            .ok_or(SetTerritoryError::Unauthorized)?;
+
+        let game = self
+            .game_repository
+            .find_by_uuid(command.game_uuid)
+            .map_err(SetTerritoryError::Repository)?
+            .ok_or(SetTerritoryError::NotFound)?;
+
+        game.players
+            .iter()
+            .find(|p| p.is_owner && p.user_uuid == user.uuid)
+            .ok_or_else(|| SetTerritoryError::Forbidden("user is not the owner of this game".to_string()))?;
+
+        let latest_phase = game
+            .phases
+            .last()
+            .ok_or_else(|| SetTerritoryError::Forbidden("game has no phases".to_string()))?;
+        let is_main_phase = matches!(
+            latest_phase.kind,
+            crate::domain::PhaseKind::SpringMain(_) | crate::domain::PhaseKind::FallMain(_)
+        );
+        if !is_main_phase {
+            return Err(SetTerritoryError::Forbidden(
+                "territories can only be set during a main phase".to_string(),
+            ));
+        }
+
+        let province = Province::from_code(&command.code)
+            .ok_or_else(|| SetTerritoryError::InvalidRequest(format!("invalid code: {}", command.code)))?;
+
+        if province.is_water() {
+            return Err(SetTerritoryError::WaterProvince);
+        }
+
+        let base_code = province.code();
+
+        let new_power = if let Some(ref symbol) = command.power {
+            let p = Power::from_symbol(symbol)
+                .ok_or_else(|| SetTerritoryError::InvalidRequest(format!("invalid power: {}", symbol)))?;
+            Some(p)
+        } else {
+            None
+        };
+
+        let mut updated_game = game;
+        let phase = updated_game.phases.last_mut().expect("phase exists");
+
+        let old_power = phase.territories.iter().find(|t| t.code() == base_code).map(|t| t.power);
+
+        let changed = old_power != new_power;
+        if !changed {
+            return Ok(SetTerritoryResult {
+                game: updated_game,
+                province,
+                old_power,
+                new_power,
+                changed: false,
+            });
+        }
+
+        phase.territories.retain(|t| t.code() != base_code);
+
+        if let Some(power) = new_power {
+            phase.territories.push(Territory::new(power, base_code));
+        }
+
+        self.game_repository
+            .update(&updated_game)
+            .map_err(SetTerritoryError::Repository)?;
+
+        Ok(SetTerritoryResult {
+            game: updated_game,
+            province,
+            old_power,
+            new_power,
             changed: true,
         })
     }

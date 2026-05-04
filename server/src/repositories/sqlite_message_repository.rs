@@ -11,6 +11,7 @@ use uuid::Uuid;
 use super::Message;
 use super::MessageKind;
 use super::Power;
+use super::Province;
 use super::RepositoryError;
 use super::SystemNotice;
 use super::SystemNoticeCatalog;
@@ -322,6 +323,80 @@ impl SqliteMessageRepository {
         Ok(())
     }
 
+    ///
+    /// 占領登録のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_territory_set_message(
+        &self,
+        game_uuid: Uuid,
+        turn: &str,
+        province: Province,
+        power: Power,
+    ) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+        let catalog = SystemNoticeCatalog::TerritorySet { province, power };
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
+    ///
+    /// 占領置換のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_territory_replaced_message(
+        &self,
+        game_uuid: Uuid,
+        turn: &str,
+        province: Province,
+        old_power: Power,
+        new_power: Power,
+    ) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+        let catalog = SystemNoticeCatalog::TerritoryReplaced {
+            province,
+            old_power,
+            new_power,
+        };
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
+    ///
+    /// 占領解放のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_territory_released_message(
+        &self,
+        game_uuid: Uuid,
+        turn: &str,
+        province: Province,
+        old_power: Power,
+    ) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+        let catalog = SystemNoticeCatalog::TerritoryReleased { province, old_power };
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
     /// メッセージ DB 接続を開く
     fn open_connection(&self) -> Result<Connection, RepositoryError> {
         Connection::open(&self.message_database_path)
@@ -438,6 +513,9 @@ impl SqliteMessageRepository {
             SystemNoticeCatalog::UnitPlaced { .. } => "unit_placed",
             SystemNoticeCatalog::UnitReplaced { .. } => "unit_replaced",
             SystemNoticeCatalog::UnitRemoved { .. } => "unit_removed",
+            SystemNoticeCatalog::TerritorySet { .. } => "territory_set",
+            SystemNoticeCatalog::TerritoryReplaced { .. } => "territory_replaced",
+            SystemNoticeCatalog::TerritoryReleased { .. } => "territory_released",
         }
     }
 
@@ -470,6 +548,23 @@ impl SqliteMessageRepository {
             SystemNoticeCatalog::UnitRemoved { unit } => json!({
                 "power": unit.power.symbol(),
                 "unit_label": unit.label(),
+            }),
+            SystemNoticeCatalog::TerritorySet { province, power } => json!({
+                "province": province.code(),
+                "power": power.symbol(),
+            }),
+            SystemNoticeCatalog::TerritoryReplaced {
+                province,
+                old_power,
+                new_power,
+            } => json!({
+                "province": province.code(),
+                "old_power": old_power.symbol(),
+                "new_power": new_power.symbol(),
+            }),
+            SystemNoticeCatalog::TerritoryReleased { province, old_power } => json!({
+                "province": province.code(),
+                "old_power": old_power.symbol(),
             }),
             SystemNoticeCatalog::Ready
             | SystemNoticeCatalog::Aborted
@@ -585,5 +680,91 @@ mod tests {
         assert_eq!(kind, "system");
         assert_eq!(catalog, "draw_rescinded");
         assert_eq!(context, "卓主によって講和が撤回されました。");
+    }
+
+    #[test]
+    fn append_territory_set_message_persists_correct_catalog_and_payload() {
+        let (repository, db_path) = new_test_repository();
+        let game_uuid = Uuid::now_v7();
+        let province = Province::from_code("par").expect("par should be valid");
+        let power = Power::France;
+
+        repository
+            .append_territory_set_message(game_uuid, "1901s", province, power)
+            .expect("append territory set message should succeed");
+
+        let connection = Connection::open(&db_path).expect("open message db");
+        let (turn, context, kind, catalog, payload): (String, String, String, String, String) = connection
+            .query_row(
+                "SELECT turn, context, kind, system_notice_catalog, kind_payload FROM messages LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .expect("read inserted message");
+
+        assert_eq!(turn, "1901s");
+        assert_eq!(kind, "system");
+        assert_eq!(catalog, "territory_set");
+        assert_eq!(context, "パリ の保有国が France に変更されました。");
+        let payload: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
+        assert_eq!(payload["province"], "par");
+        assert_eq!(payload["power"], "f");
+    }
+
+    #[test]
+    fn append_territory_replaced_message_persists_correct_catalog_and_payload() {
+        let (repository, db_path) = new_test_repository();
+        let game_uuid = Uuid::now_v7();
+        let province = Province::from_code("par").expect("par should be valid");
+
+        repository
+            .append_territory_replaced_message(game_uuid, "1901s", province, Power::France, Power::England)
+            .expect("append territory replaced message should succeed");
+
+        let connection = Connection::open(&db_path).expect("open message db");
+        let (turn, context, kind, catalog, payload): (String, String, String, String, String) = connection
+            .query_row(
+                "SELECT turn, context, kind, system_notice_catalog, kind_payload FROM messages LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .expect("read inserted message");
+
+        assert_eq!(turn, "1901s");
+        assert_eq!(kind, "system");
+        assert_eq!(catalog, "territory_replaced");
+        assert_eq!(context, "パリ の保有国が France から England に変更されました。");
+        let payload: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
+        assert_eq!(payload["province"], "par");
+        assert_eq!(payload["old_power"], "f");
+        assert_eq!(payload["new_power"], "e");
+    }
+
+    #[test]
+    fn append_territory_released_message_persists_correct_catalog_and_payload() {
+        let (repository, db_path) = new_test_repository();
+        let game_uuid = Uuid::now_v7();
+        let province = Province::from_code("par").expect("par should be valid");
+
+        repository
+            .append_territory_released_message(game_uuid, "1901s", province, Power::France)
+            .expect("append territory released message should succeed");
+
+        let connection = Connection::open(&db_path).expect("open message db");
+        let (turn, context, kind, catalog, payload): (String, String, String, String, String) = connection
+            .query_row(
+                "SELECT turn, context, kind, system_notice_catalog, kind_payload FROM messages LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .expect("read inserted message");
+
+        assert_eq!(turn, "1901s");
+        assert_eq!(kind, "system");
+        assert_eq!(catalog, "territory_released");
+        assert_eq!(context, "France が保有していた パリ が解放されました。");
+        let payload: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
+        assert_eq!(payload["province"], "par");
+        assert_eq!(payload["old_power"], "f");
     }
 }

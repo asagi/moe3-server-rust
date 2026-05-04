@@ -56,3 +56,13 @@ pub(crate) struct SetUnitResponse {
     pub location: String,
     pub unit: Option<UnitResponseBody>,
 }
+
+///
+/// 占領情報編集レスポンスの構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(crate) struct SetTerritoryResponse {
+    pub game_uuid: Uuid,
+    pub code: String,
+    pub power: Option<String>,
+}

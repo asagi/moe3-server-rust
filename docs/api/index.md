@@ -36,7 +36,8 @@
 | --- | --- | --- | --- |
 | `PUT` | [`/admin/games/{id}/units/{location}`](./put-admin-games-units.md) | ユニットの登録、変更 | メインフェイズのみ |
 | `DELETE` | [`/admin/games/{id}/units/{location}`](./delete-admin-games-units.md) | ユニットの削除 | メインフェイズのみ |
-| `PUT` | `/admin/games/{id}/territories` | 占領情報の登録、変更、削除 | メインフェイズのみ |
+| `PUT` | [`/admin/games/{id}/territories/{code}`](./put-admin-games-territories.md) | 占領情報の登録、変更 | メインフェイズのみ |
+| `DELETE` | [`/admin/games/{id}/territories/{code}`](./delete-admin-games-territories.md) | 占領情報の削除 | メインフェイズのみ |
 | `PUT` | `/admin/games/{id}/progress-mode` | 進行モードを合意進行に切り替える | メインフェイズのみ |
 | `PUT` | `/admin/games/{id}/next-update-at` | 次回更新時刻を変更する | メインフェイズのみ |
 | `PUT` | [`/admin/games/{id}/draw-proposal`](./admin-games-draw-proposal.md) | 和平終了フラグを変更する | メインフェイズのみ |
