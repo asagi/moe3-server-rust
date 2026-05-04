@@ -256,6 +256,7 @@ impl SetUnitHandlerError {
             Self::Service(SetUnitError::NotFound) => "not_found",
             Self::Service(SetUnitError::Forbidden(_)) => "forbidden",
             Self::Service(SetUnitError::InvalidRequest(_)) => "invalid_request",
+            Self::Service(SetUnitError::PhaseConflict) => "phase_conflict",
             Self::Service(SetUnitError::Repository(_)) => "repository_error",
         }
     }
@@ -308,6 +309,7 @@ impl SetTerritoryHandlerError {
             Self::Service(SetTerritoryError::WaterProvince) => "not_found",
             Self::Service(SetTerritoryError::Forbidden(_)) => "forbidden",
             Self::Service(SetTerritoryError::InvalidRequest(_)) => "invalid_request",
+            Self::Service(SetTerritoryError::PhaseConflict) => "phase_conflict",
             Self::Service(SetTerritoryError::Repository(_)) => "repository_error",
         }
     }

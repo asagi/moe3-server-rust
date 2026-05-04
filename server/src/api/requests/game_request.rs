@@ -157,6 +157,7 @@ pub(crate) struct UnitSpecBody {
 #[derive(Debug, Deserialize)]
 pub(crate) struct SetUnitRequestBody {
     pub unit: UnitSpecBody,
+    pub season: String,
 }
 
 ///
@@ -168,6 +169,7 @@ pub(crate) struct SetUnitRequest {
     pub game_uuid: Uuid,
     pub unit: Option<UnitSpecBody>,
     pub location: String,
+    pub season: String,
 }
 
 /// ユニット配置制御リクエストの構造体の実装
@@ -196,6 +198,7 @@ impl SetUnitRequest {
 #[derive(Debug, Deserialize)]
 pub(crate) struct SetTerritoryRequestBody {
     pub power: String,
+    pub season: String,
 }
 
 ///
@@ -207,6 +210,7 @@ pub(crate) struct SetTerritoryRequest {
     pub game_uuid: Uuid,
     pub code: String,
     pub power: Option<String>,
+    pub season: String,
 }
 
 /// 占領情報編集リクエストの構造体の実装
@@ -227,4 +231,20 @@ impl SetTerritoryRequest {
 
         Ok(())
     }
+}
+
+///
+/// ユニット削除リクエストのクエリパラメータ構造体
+///
+#[derive(Debug, Deserialize)]
+pub(crate) struct DeleteUnitQueryParams {
+    pub season: String,
+}
+
+///
+/// 占領情報削除リクエストのクエリパラメータ構造体
+///
+#[derive(Debug, Deserialize)]
+pub(crate) struct DeleteTerritoryQueryParams {
+    pub season: String,
 }

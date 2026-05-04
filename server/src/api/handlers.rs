@@ -43,6 +43,8 @@ pub(crate) use super::CreateGameRequest;
 pub(crate) use super::CreateGameRequestBody;
 pub(crate) use super::CreateGameRequestValidationError;
 pub(crate) use super::CreateGameResponse;
+pub(crate) use super::DeleteTerritoryQueryParams;
+pub(crate) use super::DeleteUnitQueryParams;
 pub(crate) use super::DiscordClientError;
 pub(crate) use super::DiscordIdentityProvider;
 pub(crate) use super::GameRepository;

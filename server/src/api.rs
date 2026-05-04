@@ -20,6 +20,8 @@ pub(crate) use requests::AuthRequestValidationError;
 pub(crate) use requests::CreateGameRequest;
 pub(crate) use requests::CreateGameRequestBody;
 pub(crate) use requests::CreateGameRequestValidationError;
+pub(crate) use requests::DeleteTerritoryQueryParams;
+pub(crate) use requests::DeleteUnitQueryParams;
 pub(crate) use requests::JoinGameRequest;
 pub(crate) use requests::JoinGameRequestBody;
 pub(crate) use requests::JoinGameRequestValidationError;
