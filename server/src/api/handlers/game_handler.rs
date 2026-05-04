@@ -647,7 +647,7 @@ where
             game_uuid: request.game_uuid,
             location: request.location.clone(),
             unit: unit_spec,
-            season: request.season,
+            season: request.season.to_lowercase(),
         })
         .map_err(SetUnitHandlerError::Service)?;
 
@@ -816,7 +816,7 @@ where
             game_uuid: request.game_uuid,
             code: request.code.clone(),
             power: request.power,
-            season: request.season,
+            season: request.season.to_lowercase(),
         })
         .map_err(SetTerritoryHandlerError::Service)?;
 
@@ -1988,5 +1988,91 @@ mod tests {
         .expect_err("should fail with wrong season");
 
         assert_eq!(error.code(), "phase_conflict");
+    }
+
+    #[test]
+    fn handle_set_unit_rejects_invalid_season_format() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        for bad_season in &["", "1901", "1901x", "190s", "19011s", "SPRING"] {
+            let error = handle_set_unit(
+                &service,
+                &message_repository,
+                SetUnitRequest {
+                    authorization: "Bearer dummy".to_string(),
+                    game_uuid: uuid::Uuid::now_v7(),
+                    unit: None,
+                    location: "par".to_string(),
+                    season: bad_season.to_string(),
+                },
+            )
+            .expect_err(&format!("should reject invalid season: {bad_season}"));
+
+            assert_eq!(error.code(), "invalid_request", "season={bad_season}");
+        }
+    }
+
+    #[test]
+    fn handle_set_unit_accepts_uppercase_season() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game = sample_in_progress_game_for_handler(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        // "1901S" (大文字) は "1901s" に正規化されてフェイズと一致する
+        let result = handle_set_unit(
+            &service,
+            &message_repository,
+            SetUnitRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                unit: None,
+                location: "par".to_string(),
+                season: "1901S".to_string(),
+            },
+        );
+
+        assert!(result.is_ok(), "uppercase season should be accepted");
+    }
+
+    #[test]
+    fn handle_set_territory_rejects_invalid_season_format() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        for bad_season in &["", "1901", "1901x", "190f", "19011f", "FALL"] {
+            let error = handle_set_territory(
+                &service,
+                &message_repository,
+                SetTerritoryRequest {
+                    authorization: "Bearer dummy".to_string(),
+                    game_uuid: uuid::Uuid::now_v7(),
+                    code: "par".to_string(),
+                    power: None,
+                    season: bad_season.to_string(),
+                },
+            )
+            .expect_err(&format!("should reject invalid season: {bad_season}"));
+
+            assert_eq!(error.code(), "invalid_request", "season={bad_season}");
+        }
     }
 }

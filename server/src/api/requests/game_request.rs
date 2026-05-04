@@ -188,13 +188,14 @@ impl SetUnitRequest {
             return Err(SetUnitRequestValidationError::MissingAccessToken);
         }
 
+        if !is_valid_season(&self.season) {
+            return Err(SetUnitRequestValidationError::InvalidSeason);
+        }
+
         Ok(())
     }
 }
 
-///
-/// 占領情報編集リクエストパラメータボディ構造体（PUT のみ使用）
-///
 #[derive(Debug, Deserialize)]
 pub(crate) struct SetTerritoryRequestBody {
     pub power: String,
@@ -229,13 +230,14 @@ impl SetTerritoryRequest {
             return Err(SetTerritoryRequestValidationError::MissingAccessToken);
         }
 
+        if !is_valid_season(&self.season) {
+            return Err(SetTerritoryRequestValidationError::InvalidSeason);
+        }
+
         Ok(())
     }
 }
 
-///
-/// ユニット削除リクエストのクエリパラメータ構造体
-///
 #[derive(Debug, Deserialize)]
 pub(crate) struct DeleteUnitQueryParams {
     pub season: String,
@@ -247,4 +249,13 @@ pub(crate) struct DeleteUnitQueryParams {
 #[derive(Debug, Deserialize)]
 pub(crate) struct DeleteTerritoryQueryParams {
     pub season: String,
+}
+
+/// season 文字列が有効な形式かどうかを検証する（例: "1901s", "1901F"）
+fn is_valid_season(season: &str) -> bool {
+    let bytes = season.as_bytes();
+    if bytes.len() != 5 {
+        return false;
+    }
+    bytes[..4].iter().all(|b| b.is_ascii_digit()) && matches!(bytes[4], b's' | b'S' | b'f' | b'F')
 }

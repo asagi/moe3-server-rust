@@ -81,23 +81,48 @@ pub(crate) struct SystemNotice {}
 ///
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum SystemNoticeCatalog {
-    GameCreated { user: User },
-    PlayerJoined { user: User },
+    GameCreated {
+        user: User,
+    },
+    PlayerJoined {
+        user: User,
+    },
     Ready,
     Aborted,
-    StartSeason { season: String },
+    StartSeason {
+        season: String,
+    },
     DrawProposed,
     OwnerAbsent,
     DrawRescinded,
-    Solo { power: Power },
+    Solo {
+        power: Power,
+    },
     Draw,
     Closed,
-    UnitPlaced { unit: Unit },
-    UnitReplaced { old_unit: Unit, new_unit: Unit },
-    UnitRemoved { unit: Unit },
-    TerritorySet { province: Province, power: Power },
-    TerritoryReplaced { province: Province, old_power: Power, new_power: Power },
-    TerritoryReleased { province: Province, old_power: Power },
+    UnitPlaced {
+        unit: Unit,
+    },
+    UnitReplaced {
+        old_unit: Unit,
+        new_unit: Unit,
+    },
+    UnitRemoved {
+        unit: Unit,
+    },
+    TerritorySet {
+        province: Province,
+        power: Power,
+    },
+    TerritoryReplaced {
+        province: Province,
+        old_power: Power,
+        new_power: Power,
+    },
+    TerritoryReleased {
+        province: Province,
+        old_power: Power,
+    },
 }
 
 /// システムメッセージ定義の列挙体の fmt::Display トレイト実装
@@ -170,7 +195,12 @@ impl fmt::Display for SystemNoticeCatalog {
                 )
             }
             Self::TerritoryReleased { province, old_power } => {
-                write!(f, "{} が保有していた {} が解放されました。", old_power.name(), province.jname())
+                write!(
+                    f,
+                    "{} が保有していた {} が解放されました。",
+                    old_power.name(),
+                    province.jname()
+                )
             }
         }
     }

@@ -59,6 +59,7 @@ pub(crate) enum SetUnitRequestValidationError {
     InvalidAuthorizationScheme,
     MissingAccessToken,
     InvalidGameUuid,
+    InvalidSeason,
 }
 
 ///
@@ -70,4 +71,5 @@ pub(crate) enum SetTerritoryRequestValidationError {
     InvalidAuthorizationScheme,
     MissingAccessToken,
     InvalidGameUuid,
+    InvalidSeason,
 }
