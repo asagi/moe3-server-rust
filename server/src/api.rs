@@ -29,6 +29,7 @@ pub(crate) use requests::SetDrawProposalRequestValidationError;
 pub(crate) use requests::SetUnitRequest;
 pub(crate) use requests::SetUnitRequestBody;
 pub(crate) use requests::SetUnitRequestValidationError;
+pub(crate) use requests::UnitSpecBody;
 pub(crate) use responses::ApiErrorResponse;
 pub(crate) use responses::AuthLoginResponse;
 pub(crate) use responses::AuthLoginResponseUser;

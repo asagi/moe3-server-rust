@@ -118,6 +118,7 @@ pub(crate) struct SetUnitResult {
     pub game: Game,
     pub old_unit: Option<Unit>,
     pub new_unit: Option<Unit>,
+    pub changed: bool,
 }
 
 ///
@@ -518,6 +519,16 @@ where
         // 既存ユニット検索（ベースコードで一致）
         let old_unit = phase.units.iter().find(|u| u.location.code() == location.code()).copied();
 
+        let changed = old_unit != new_unit;
+        if !changed {
+            return Ok(SetUnitResult {
+                game: updated_game,
+                old_unit,
+                new_unit,
+                changed: false,
+            });
+        }
+
         // 既存ユニットを削除（ベースコード一致するものすべて）
         if old_unit.is_some() {
             phase.units.retain(|u| u.location.code() != location.code());
@@ -549,6 +560,7 @@ where
             game: updated_game,
             old_unit,
             new_unit,
+            changed: true,
         })
     }
 }
@@ -2014,6 +2026,40 @@ mod tests {
 
         assert!(result.old_unit.is_none());
         assert!(result.new_unit.is_some());
+    }
+
+    #[test]
+    fn set_unit_returns_unchanged_when_same_unit_is_requested() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let mut game = sample_in_progress_game(owner_uuid);
+        let paris = Province::from_code("par").expect("par should be a valid province");
+        let existing = Unit::new_army(Power::France, paris);
+        let phase = game.phases.last_mut().expect("phase should exist");
+        phase.units.push(existing);
+        phase.orders.push(crate::domain::Order::new_hold(Power::France, existing));
+
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service
+            .set_unit(SetUnitCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                location: "par".to_string(),
+                unit: Some(UnitSpec {
+                    power_symbol: "f".to_string(),
+                    kind_str: "a".to_string(),
+                }),
+            })
+            .expect("should succeed");
+
+        assert!(!result.changed, "changed should be false for no-op update");
+        assert!(
+            game_repository.updated_first().is_none(),
+            "update should not be called for no-op"
+        );
     }
 
     #[test]

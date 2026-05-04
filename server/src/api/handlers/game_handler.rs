@@ -8,6 +8,7 @@ use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
+use axum::response::Response;
 use chrono::NaiveDate;
 use uuid::Uuid;
 
@@ -50,6 +51,7 @@ use super::SetUnitResponse;
 use super::SqliteMessageRepository;
 use super::UnitResponseBody;
 use super::UnitSpec;
+use super::UnitSpecBody;
 use super::User;
 use super::UserRepository;
 
@@ -510,10 +512,41 @@ where
 ///
 pub(crate) async fn put_admin_games_units<U, G, D>(
     State(state): State<AppState<U, G, D>>,
-    Path(game_uuid_str): Path<String>,
+    Path((game_uuid_str, location)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<SetUnitRequestBody>,
 ) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    dispatch_set_unit(state, game_uuid_str, location, headers, Some(body.unit)).await
+}
+
+///
+/// ユニット削除リクエスト Axum ハンドラ関数
+///
+pub(crate) async fn delete_admin_games_units<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    Path((game_uuid_str, location)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    dispatch_set_unit(state, game_uuid_str, location, headers, None).await
+}
+
+async fn dispatch_set_unit<U, G, D>(
+    state: AppState<U, G, D>,
+    game_uuid_str: String,
+    location: String,
+    headers: HeaderMap,
+    unit: Option<UnitSpecBody>,
+) -> Response
 where
     U: UserRepository + Send + Sync + 'static,
     G: GameRepository + Send + Sync + 'static,
@@ -539,8 +572,8 @@ where
     let request = SetUnitRequest {
         authorization,
         game_uuid,
-        unit: body.unit,
-        location: body.location,
+        unit,
+        location,
     };
 
     let state_clone = state.clone();
@@ -606,23 +639,25 @@ where
     let turn = result.game.current_turn();
     let game_uuid = result.game.uuid;
 
-    match (result.old_unit, result.new_unit) {
-        (None, Some(new_unit)) => {
-            if let Err(error) = message_repository.append_unit_placed_message(game_uuid, &turn, new_unit) {
-                eprintln!("failed to persist UnitPlaced message (game_uuid={}): {}", game_uuid, error);
+    if result.changed {
+        match (result.old_unit, result.new_unit) {
+            (None, Some(new_unit)) => {
+                if let Err(error) = message_repository.append_unit_placed_message(game_uuid, &turn, new_unit) {
+                    eprintln!("failed to persist UnitPlaced message (game_uuid={}): {}", game_uuid, error);
+                }
             }
-        }
-        (Some(old_unit), Some(new_unit)) => {
-            if let Err(error) = message_repository.append_unit_replaced_message(game_uuid, &turn, old_unit, new_unit) {
-                eprintln!("failed to persist UnitReplaced message (game_uuid={}): {}", game_uuid, error);
+            (Some(old_unit), Some(new_unit)) => {
+                if let Err(error) = message_repository.append_unit_replaced_message(game_uuid, &turn, old_unit, new_unit) {
+                    eprintln!("failed to persist UnitReplaced message (game_uuid={}): {}", game_uuid, error);
+                }
             }
-        }
-        (Some(old_unit), None) => {
-            if let Err(error) = message_repository.append_unit_removed_message(game_uuid, &turn, old_unit) {
-                eprintln!("failed to persist UnitRemoved message (game_uuid={}): {}", game_uuid, error);
+            (Some(old_unit), None) => {
+                if let Err(error) = message_repository.append_unit_removed_message(game_uuid, &turn, old_unit) {
+                    eprintln!("failed to persist UnitRemoved message (game_uuid={}): {}", game_uuid, error);
+                }
             }
+            (None, None) => {}
         }
-        (None, None) => {}
     }
 
     let unit_body = result.new_unit.map(|u| UnitResponseBody {

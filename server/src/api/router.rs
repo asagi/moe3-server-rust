@@ -37,6 +37,7 @@ use super::SqliteGameRepository;
 use super::SqliteMessageRepository;
 use super::SqliteUserRepository;
 use super::UserRepository;
+use super::handlers::delete_admin_games_units;
 use super::handlers::post_auth_login;
 use super::handlers::post_games;
 use super::handlers::post_games_players;
@@ -270,7 +271,10 @@ where
             "/admin/games/:game_uuid/draw-proposal",
             put(put_admin_games_draw_proposal::<U, G, D>),
         )
-        .route("/admin/games/:game_uuid/units", put(put_admin_games_units::<U, G, D>))
+        .route(
+            "/admin/games/:game_uuid/units/:location",
+            put(put_admin_games_units::<U, G, D>).delete(delete_admin_games_units::<U, G, D>),
+        )
         .route("/auth/login", post(post_auth_login::<U, G, D>))
         .with_state(state.clone())
         .layer(from_fn_with_state(state, run_global_pre_handler::<U, G, D>))
