@@ -474,6 +474,12 @@ where
 
             let unit = match spec.kind_str.to_lowercase().as_str() {
                 "a" | "army" => {
+                    // 陸軍は海域に配置できない
+                    if location.is_water() {
+                        return Err(SetUnitError::InvalidRequest(
+                            "army cannot be placed in a sea province".to_string(),
+                        ));
+                    }
                     // 陸軍は海岸バリアントコードを許可しない
                     if location.code_with_coast() != location.code() {
                         return Err(SetUnitError::InvalidRequest(
@@ -483,6 +489,12 @@ where
                     Unit::new_army(power, location)
                 }
                 "f" | "fleet" => {
+                    // 海軍は内陸に配置できない
+                    if location.kind() == "Inland" {
+                        return Err(SetUnitError::InvalidRequest(
+                            "fleet cannot be placed in an inland province".to_string(),
+                        ));
+                    }
                     // 海軍は双海岸地域（例: spa）に直接配置できない
                     if location.code_with_coast() == location.code() && location.has_coast_variants() {
                         return Err(SetUnitError::InvalidRequest(
@@ -1744,5 +1756,345 @@ mod tests {
             updated.players.iter().find(|p| p.is_owner).unwrap().is_accepting_draw,
             "persisted game should have is_accepting_draw=true"
         );
+    }
+
+    #[test]
+    fn set_unit_rejects_empty_access_token() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_unit(SetUnitCommand {
+                access_token: "".to_string(),
+                game_uuid,
+                location: "par".to_string(),
+                unit: None,
+            })
+            .expect_err("should reject empty token");
+
+        assert!(matches!(error, SetUnitError::Unauthorized));
+    }
+
+    #[test]
+    fn set_unit_rejects_unknown_access_token() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_unit(SetUnitCommand {
+                access_token: "unknown-token".to_string(),
+                game_uuid,
+                location: "par".to_string(),
+                unit: None,
+            })
+            .expect_err("should reject unknown token");
+
+        assert!(matches!(error, SetUnitError::Unauthorized));
+    }
+
+    #[test]
+    fn set_unit_rejects_when_game_not_found() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game_repository = InMemoryGameRepository::new(vec![]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_unit(SetUnitCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid: Uuid::now_v7(),
+                location: "par".to_string(),
+                unit: None,
+            })
+            .expect_err("should reject when game not found");
+
+        assert!(matches!(error, SetUnitError::NotFound));
+    }
+
+    #[test]
+    fn set_unit_rejects_non_owner() {
+        let owner_uuid = Uuid::now_v7();
+        let other_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            owner_user_record(owner_uuid),
+            UserRecord {
+                id: 2,
+                uuid: other_uuid,
+                discord_user_id: "discord-other".to_string(),
+                username: "other".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: "token-other".to_string(),
+                last_access_at: Utc::now(),
+            },
+        ]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_unit(SetUnitCommand {
+                access_token: "token-other".to_string(),
+                game_uuid,
+                location: "par".to_string(),
+                unit: None,
+            })
+            .expect_err("should reject non-owner");
+
+        assert!(matches!(error, SetUnitError::Forbidden(_)));
+    }
+
+    #[test]
+    fn set_unit_rejects_when_not_main_phase() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_preparing_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_unit(SetUnitCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                location: "par".to_string(),
+                unit: None,
+            })
+            .expect_err("should reject when not main phase");
+
+        assert!(matches!(error, SetUnitError::Forbidden(_)));
+    }
+
+    #[test]
+    fn set_unit_rejects_invalid_location() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_unit(SetUnitCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                location: "zzz".to_string(),
+                unit: Some(UnitSpec {
+                    power_symbol: "f".to_string(),
+                    kind_str: "a".to_string(),
+                }),
+            })
+            .expect_err("should reject invalid location");
+
+        assert!(matches!(error, SetUnitError::InvalidRequest(_)));
+    }
+
+    #[test]
+    fn set_unit_rejects_army_in_sea_province() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        // "mid" = Mid-Atlantic Ocean (Water)
+        let error = service
+            .set_unit(SetUnitCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                location: "mid".to_string(),
+                unit: Some(UnitSpec {
+                    power_symbol: "f".to_string(),
+                    kind_str: "a".to_string(),
+                }),
+            })
+            .expect_err("should reject army in sea province");
+
+        assert!(matches!(error, SetUnitError::InvalidRequest(_)));
+    }
+
+    #[test]
+    fn set_unit_rejects_fleet_in_inland_province() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        // "par" = Paris (Inland)
+        let error = service
+            .set_unit(SetUnitCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                location: "par".to_string(),
+                unit: Some(UnitSpec {
+                    power_symbol: "f".to_string(),
+                    kind_str: "f".to_string(),
+                }),
+            })
+            .expect_err("should reject fleet in inland province");
+
+        assert!(matches!(error, SetUnitError::InvalidRequest(_)));
+    }
+
+    #[test]
+    fn set_unit_rejects_fleet_on_dual_coast_base_code() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        // "spa" = Spain (Coast with north/south coast variants)
+        let error = service
+            .set_unit(SetUnitCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                location: "spa".to_string(),
+                unit: Some(UnitSpec {
+                    power_symbol: "f".to_string(),
+                    kind_str: "f".to_string(),
+                }),
+            })
+            .expect_err("should reject fleet on dual-coast base code");
+
+        assert!(matches!(error, SetUnitError::InvalidRequest(_)));
+    }
+
+    #[test]
+    fn set_unit_places_army_and_creates_hold_order() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        // "par" = Paris (Inland) — army can be placed here
+        let result = service
+            .set_unit(SetUnitCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                location: "par".to_string(),
+                unit: Some(UnitSpec {
+                    power_symbol: "f".to_string(),
+                    kind_str: "a".to_string(),
+                }),
+            })
+            .expect("should succeed");
+
+        let phase = result.game.phases.last().unwrap();
+        let unit = phase
+            .units
+            .iter()
+            .find(|u| u.location.code() == "par")
+            .expect("unit should be placed");
+        assert_eq!(unit.power, Power::France);
+        assert_eq!(unit.symbol(), "A");
+
+        // Hold 命令が生成されているか確認
+        let hold_order = phase
+            .orders
+            .iter()
+            .find(|o| o.unit.location.code() == "par" && matches!(o.kind, crate::domain::OrderKind::Hold(_)));
+        assert!(hold_order.is_some(), "hold order should be created for placed unit");
+
+        assert!(result.old_unit.is_none());
+        assert!(result.new_unit.is_some());
+    }
+
+    #[test]
+    fn set_unit_removes_unit_and_its_orders() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let mut game = sample_in_progress_game(owner_uuid);
+        let paris = Province::from_code("par").unwrap();
+        let unit = Unit::new_army(Power::France, paris);
+        let phase = game.phases.last_mut().unwrap();
+        phase.units.push(unit);
+        phase.orders.push(crate::domain::Order::new_hold(Power::France, unit));
+
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service
+            .set_unit(SetUnitCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                location: "par".to_string(),
+                unit: None,
+            })
+            .expect("should succeed");
+
+        let phase = result.game.phases.last().unwrap();
+        assert!(
+            phase.units.iter().all(|u| u.location.code() != "par"),
+            "unit should be removed"
+        );
+        assert!(
+            phase.orders.iter().all(|o| o.unit.location.code() != "par"),
+            "orders for removed unit should be deleted"
+        );
+        assert!(result.old_unit.is_some());
+        assert!(result.new_unit.is_none());
+    }
+
+    #[test]
+    fn set_unit_replaces_existing_unit() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let mut game = sample_in_progress_game(owner_uuid);
+        let brest = Province::from_code("bre").unwrap();
+        let old_unit = Unit::new_army(Power::France, brest);
+        let phase = game.phases.last_mut().unwrap();
+        phase.units.push(old_unit);
+        phase.orders.push(crate::domain::Order::new_hold(Power::France, old_unit));
+
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        // bre = Brest (Coast) — fleet can be placed here
+        let result = service
+            .set_unit(SetUnitCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                location: "bre".to_string(),
+                unit: Some(UnitSpec {
+                    power_symbol: "f".to_string(),
+                    kind_str: "f".to_string(),
+                }),
+            })
+            .expect("should succeed");
+
+        let phase = result.game.phases.last().unwrap();
+        let new_unit = phase
+            .units
+            .iter()
+            .find(|u| u.location.code() == "bre")
+            .expect("unit should exist");
+        assert_eq!(new_unit.symbol(), "F", "unit should now be a fleet");
+
+        // 古い命令は削除され、新しい Hold 命令のみ
+        let hold_orders: Vec<_> = phase.orders.iter().filter(|o| o.unit.location.code() == "bre").collect();
+        assert_eq!(hold_orders.len(), 1, "exactly one hold order for new unit");
+        assert!(matches!(hold_orders[0].kind, crate::domain::OrderKind::Hold(_)));
+
+        assert!(result.old_unit.is_some(), "old_unit should be Some");
+        assert!(result.new_unit.is_some(), "new_unit should be Some");
     }
 }

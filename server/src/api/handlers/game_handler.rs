@@ -587,7 +587,7 @@ where
 {
     request.validate().map_err(SetUnitHandlerError::InvalidRequest)?;
 
-    let access_token = request.authorization.trim().trim_start_matches("Bearer ").trim().to_string();
+    let access_token = request.authorization.trim()[7..].trim().to_string();
 
     let unit_spec = request.unit.map(|b| UnitSpec {
         power_symbol: b.power,
@@ -653,6 +653,7 @@ mod tests {
     use chrono::Utc;
 
     use super::*;
+    use crate::api::requests::UnitSpecBody;
     use crate::domain::Game;
     use crate::domain::GameStatus;
     use crate::domain::Phase;
@@ -1316,5 +1317,149 @@ mod tests {
 
         assert_eq!(response.game_uuid, game_uuid);
         assert!(response.draw_proposal);
+    }
+
+    #[test]
+    fn handle_set_unit_rejects_missing_authorization() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_unit(
+            &service,
+            &message_repository,
+            SetUnitRequest {
+                authorization: "".to_string(),
+                game_uuid: uuid::Uuid::now_v7(),
+                unit: None,
+                location: "par".to_string(),
+            },
+        )
+        .expect_err("should fail without authorization");
+
+        assert_eq!(error.code(), "invalid_request");
+    }
+
+    #[test]
+    fn handle_set_unit_extracts_token_case_insensitively() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game = sample_in_progress_game_for_handler(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        // "bearer" 小文字でも validate() が通る (eq_ignore_ascii_case) が、
+        // handler 側の token 抽出は [7..] スライスのため "token-owner" が正しく抽出される
+        let result = handle_set_unit(
+            &service,
+            &message_repository,
+            SetUnitRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                unit: Some(UnitSpecBody {
+                    power: "f".to_string(),
+                    kind: "a".to_string(),
+                }),
+                location: "par".to_string(),
+            },
+        );
+
+        // par = Paris (Inland) — army は配置可能
+        assert!(result.is_ok(), "should succeed with valid token");
+    }
+
+    #[test]
+    fn handle_set_unit_places_unit_and_records_message() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game = sample_in_progress_game_for_handler(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let response = handle_set_unit(
+            &service,
+            &message_repository,
+            SetUnitRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                unit: Some(UnitSpecBody {
+                    power: "f".to_string(),
+                    kind: "a".to_string(),
+                }),
+                location: "par".to_string(),
+            },
+        )
+        .expect("should succeed");
+
+        assert_eq!(response.game_uuid, game_uuid);
+        // 配置されたユニット情報がレスポンスに含まれる
+        assert!(response.unit.is_some(), "unit should be present in response");
+        assert_eq!(response.location, "par");
+    }
+
+    #[test]
+    fn handle_set_unit_removes_unit_and_records_message() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let mut game = sample_in_progress_game_for_handler(owner_uuid);
+        let paris = crate::domain::Province::from_code("par").unwrap();
+        let unit = crate::domain::Unit::new_army(crate::domain::Power::France, paris);
+        game.phases.last_mut().unwrap().units.push(unit);
+
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let response = handle_set_unit(
+            &service,
+            &message_repository,
+            SetUnitRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                unit: None,
+                location: "par".to_string(),
+            },
+        )
+        .expect("should succeed");
+
+        assert_eq!(response.game_uuid, game_uuid);
+        assert!(response.unit.is_none(), "unit should be absent when removed");
+        assert_eq!(response.location, "par");
     }
 }

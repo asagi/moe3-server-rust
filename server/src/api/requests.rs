@@ -24,3 +24,6 @@ pub(crate) use game_request::SetDrawProposalRequest;
 pub(crate) use game_request::SetDrawProposalRequestBody;
 pub(crate) use game_request::SetUnitRequest;
 pub(crate) use game_request::SetUnitRequestBody;
+// テストコード (game_handler.rs) からのみ参照されるため unused_imports 警告を抑制する
+#[allow(unused_imports)]
+pub(crate) use game_request::UnitSpecBody;
