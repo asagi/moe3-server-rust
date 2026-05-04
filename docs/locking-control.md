@@ -71,10 +71,10 @@ drop(_game_update_guard);
     │
     ▼
 run_global_pre_handler
-    │ ① last_access_at 更新（ロック外）
-    │ ② game_update_lock 取得
-    │ ③ GlobalPreHandler::run()（定時進行）
-    │ ④ game_update_lock 解放
+    │ [1] last_access_at 更新（ロック外）
+    │ [2] game_update_lock 取得
+    │ [3] GlobalPreHandler::run()（定時進行）
+    │ [4] game_update_lock 解放
     │
     ▼
 各ハンドラ実行（ロック外）
