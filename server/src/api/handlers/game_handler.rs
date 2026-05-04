@@ -1674,4 +1674,224 @@ mod tests {
         assert!(response.unit.is_none(), "unit should be absent when removed");
         assert_eq!(response.location, "par");
     }
+
+    #[test]
+    fn handle_set_territory_rejects_missing_authorization() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_territory(
+            &service,
+            &message_repository,
+            SetTerritoryRequest {
+                authorization: "".to_string(),
+                game_uuid: uuid::Uuid::now_v7(),
+                code: "par".to_string(),
+                power: Some("f".to_string()),
+            },
+        )
+        .expect_err("should fail without authorization");
+
+        assert_eq!(error.code(), "invalid_request");
+    }
+
+    #[test]
+    fn handle_set_territory_sets_territory_and_records_message() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game = sample_in_progress_game_for_handler(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let response = handle_set_territory(
+            &service,
+            &message_repository,
+            SetTerritoryRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                code: "par".to_string(),
+                power: Some("f".to_string()),
+            },
+        )
+        .expect("should succeed");
+
+        assert_eq!(response.game_uuid, game_uuid);
+        assert_eq!(response.code, "par");
+        assert_eq!(response.power.as_deref(), Some("f"));
+    }
+
+    #[test]
+    fn handle_set_territory_replaces_existing_owner() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let mut game = sample_in_progress_game_for_handler(owner_uuid);
+        // 事前に France が par を保有
+        game.phases
+            .last_mut()
+            .unwrap()
+            .territories
+            .push(crate::domain::Territory::new(crate::domain::Power::France, "par"));
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let response = handle_set_territory(
+            &service,
+            &message_repository,
+            SetTerritoryRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                code: "par".to_string(),
+                power: Some("e".to_string()), // France → England に変更
+            },
+        )
+        .expect("should succeed");
+
+        assert_eq!(response.code, "par");
+        assert_eq!(response.power.as_deref(), Some("e"));
+    }
+
+    #[test]
+    fn handle_set_territory_releases_territory() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let mut game = sample_in_progress_game_for_handler(owner_uuid);
+        game.phases
+            .last_mut()
+            .unwrap()
+            .territories
+            .push(crate::domain::Territory::new(crate::domain::Power::France, "par"));
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let response = handle_set_territory(
+            &service,
+            &message_repository,
+            SetTerritoryRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                code: "par".to_string(),
+                power: None, // DELETE: 保有解除
+            },
+        )
+        .expect("should succeed");
+
+        assert_eq!(response.code, "par");
+        assert!(response.power.is_none(), "power should be null after release");
+    }
+
+    #[test]
+    fn handle_set_territory_noop_does_not_update_repository() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let mut game = sample_in_progress_game_for_handler(owner_uuid);
+        game.phases
+            .last_mut()
+            .unwrap()
+            .territories
+            .push(crate::domain::Territory::new(crate::domain::Power::France, "par"));
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+        let message_repository = new_test_message_repository();
+
+        let _response = handle_set_territory(
+            &service,
+            &message_repository,
+            SetTerritoryRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                code: "par".to_string(),
+                power: Some("f".to_string()), // France → France（変更なし）
+            },
+        )
+        .expect("should succeed");
+
+        assert!(
+            game_repository.last_updated().is_none(),
+            "repository.update should not be called on no-op"
+        );
+    }
+
+    #[test]
+    fn handle_set_territory_water_province_returns_not_found() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game = sample_in_progress_game_for_handler(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_territory(
+            &service,
+            &message_repository,
+            SetTerritoryRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                code: "nth".to_string(), // North Sea = 海洋プロヴィンス
+                power: Some("f".to_string()),
+            },
+        )
+        .expect_err("water province should be rejected");
+
+        assert_eq!(error.code(), "not_found");
+    }
 }

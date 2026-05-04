@@ -74,7 +74,7 @@
 | 条件 | `message` |
 |---|---|
 | 指定した UUID の卓が存在しない | `"game not found"` |
-| 指定したコードが海洋プロヴィンス | `"territory not found"` |
+| 指定したコードが海洋プロヴィンス | `"cannot set territory ownership for a water province"` |
 
 ### `500 Internal Server Error` — `code: repository_error`
 

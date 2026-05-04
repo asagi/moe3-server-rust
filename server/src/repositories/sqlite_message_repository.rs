@@ -553,7 +553,11 @@ impl SqliteMessageRepository {
                 "province": province.code(),
                 "power": power.symbol(),
             }),
-            SystemNoticeCatalog::TerritoryReplaced { province, old_power, new_power } => json!({
+            SystemNoticeCatalog::TerritoryReplaced {
+                province,
+                old_power,
+                new_power,
+            } => json!({
                 "province": province.code(),
                 "old_power": old_power.symbol(),
                 "new_power": new_power.symbol(),
@@ -676,5 +680,91 @@ mod tests {
         assert_eq!(kind, "system");
         assert_eq!(catalog, "draw_rescinded");
         assert_eq!(context, "卓主によって講和が撤回されました。");
+    }
+
+    #[test]
+    fn append_territory_set_message_persists_correct_catalog_and_payload() {
+        let (repository, db_path) = new_test_repository();
+        let game_uuid = Uuid::now_v7();
+        let province = Province::from_code("par").expect("par should be valid");
+        let power = Power::France;
+
+        repository
+            .append_territory_set_message(game_uuid, "1901s", province, power)
+            .expect("append territory set message should succeed");
+
+        let connection = Connection::open(&db_path).expect("open message db");
+        let (turn, context, kind, catalog, payload): (String, String, String, String, String) = connection
+            .query_row(
+                "SELECT turn, context, kind, system_notice_catalog, kind_payload FROM messages LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .expect("read inserted message");
+
+        assert_eq!(turn, "1901s");
+        assert_eq!(kind, "system");
+        assert_eq!(catalog, "territory_set");
+        assert_eq!(context, "パリ の保有国が France に変更されました。");
+        let payload: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
+        assert_eq!(payload["province"], "par");
+        assert_eq!(payload["power"], "f");
+    }
+
+    #[test]
+    fn append_territory_replaced_message_persists_correct_catalog_and_payload() {
+        let (repository, db_path) = new_test_repository();
+        let game_uuid = Uuid::now_v7();
+        let province = Province::from_code("par").expect("par should be valid");
+
+        repository
+            .append_territory_replaced_message(game_uuid, "1901s", province, Power::France, Power::England)
+            .expect("append territory replaced message should succeed");
+
+        let connection = Connection::open(&db_path).expect("open message db");
+        let (turn, context, kind, catalog, payload): (String, String, String, String, String) = connection
+            .query_row(
+                "SELECT turn, context, kind, system_notice_catalog, kind_payload FROM messages LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .expect("read inserted message");
+
+        assert_eq!(turn, "1901s");
+        assert_eq!(kind, "system");
+        assert_eq!(catalog, "territory_replaced");
+        assert_eq!(context, "パリ の保有国が France から England に変更されました。");
+        let payload: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
+        assert_eq!(payload["province"], "par");
+        assert_eq!(payload["old_power"], "f");
+        assert_eq!(payload["new_power"], "e");
+    }
+
+    #[test]
+    fn append_territory_released_message_persists_correct_catalog_and_payload() {
+        let (repository, db_path) = new_test_repository();
+        let game_uuid = Uuid::now_v7();
+        let province = Province::from_code("par").expect("par should be valid");
+
+        repository
+            .append_territory_released_message(game_uuid, "1901s", province, Power::France)
+            .expect("append territory released message should succeed");
+
+        let connection = Connection::open(&db_path).expect("open message db");
+        let (turn, context, kind, catalog, payload): (String, String, String, String, String) = connection
+            .query_row(
+                "SELECT turn, context, kind, system_notice_catalog, kind_payload FROM messages LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .expect("read inserted message");
+
+        assert_eq!(turn, "1901s");
+        assert_eq!(kind, "system");
+        assert_eq!(catalog, "territory_released");
+        assert_eq!(context, "France が保有していた パリ が解放されました。");
+        let payload: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
+        assert_eq!(payload["province"], "par");
+        assert_eq!(payload["old_power"], "f");
     }
 }

@@ -209,7 +209,7 @@ impl fmt::Display for SetTerritoryError {
         match self {
             Self::Unauthorized => write!(f, "unauthorized"),
             Self::NotFound => write!(f, "game not found"),
-            Self::WaterProvince => write!(f, "territory not found"),
+            Self::WaterProvince => write!(f, "cannot set territory ownership for a water province"),
             Self::Forbidden(message) => write!(f, "forbidden: {}", message),
             Self::InvalidRequest(message) => write!(f, "invalid request: {}", message),
             Self::Repository(error) => write!(f, "repository error: {}", error),
