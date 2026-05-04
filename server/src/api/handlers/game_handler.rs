@@ -40,7 +40,16 @@ use super::SetDrawProposalRequest;
 use super::SetDrawProposalRequestBody;
 use super::SetDrawProposalRequestValidationError;
 use super::SetDrawProposalResponse;
+use super::SetUnitCommand;
+use super::SetUnitError;
+use super::SetUnitHandlerError;
+use super::SetUnitRequest;
+use super::SetUnitRequestBody;
+use super::SetUnitRequestValidationError;
+use super::SetUnitResponse;
 use super::SqliteMessageRepository;
+use super::UnitResponseBody;
+use super::UnitSpec;
 use super::User;
 use super::UserRepository;
 
@@ -493,6 +502,138 @@ where
     Ok(SetDrawProposalResponse {
         game_uuid: result.game.uuid,
         draw_proposal: request.draw_proposal,
+    })
+}
+
+///
+/// ユニット配置制御リクエスト Axum ハンドラ関数
+///
+pub(crate) async fn put_admin_games_units<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    Path(game_uuid_str): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<SetUnitRequestBody>,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    let game_uuid = match game_uuid_str.parse::<Uuid>() {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(SetUnitHandlerError::InvalidRequest(SetUnitRequestValidationError::InvalidGameUuid).to_api_error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let authorization = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
+    let request = SetUnitRequest {
+        authorization,
+        game_uuid,
+        unit: body.unit,
+        location: body.location,
+    };
+
+    let state_clone = state.clone();
+    let request_clone = request.clone();
+
+    let _game_update_guard = state.game_update_lock.lock().await;
+    let result = tokio::task::spawn_blocking(move || {
+        match handle_set_unit(
+            &state_clone.game_service,
+            state_clone.message_repository.as_ref(),
+            request_clone,
+        ) {
+            Ok(response) => (StatusCode::OK, Json(response)).into_response(),
+            Err(error) => {
+                let status = match &error {
+                    SetUnitHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+                    SetUnitHandlerError::Service(SetUnitError::Unauthorized) => StatusCode::UNAUTHORIZED,
+                    SetUnitHandlerError::Service(SetUnitError::NotFound) => StatusCode::NOT_FOUND,
+                    SetUnitHandlerError::Service(SetUnitError::Forbidden(_)) => StatusCode::FORBIDDEN,
+                    SetUnitHandlerError::Service(SetUnitError::InvalidRequest(_)) => StatusCode::BAD_REQUEST,
+                    _ => StatusCode::INTERNAL_SERVER_ERROR,
+                };
+                (status, Json(error.to_api_error_response())).into_response()
+            }
+        }
+    })
+    .await;
+    drop(_game_update_guard);
+    match result {
+        Ok(response) => response,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+/// ユニット配置制御リクエストハンドラ関数
+fn handle_set_unit<U, G>(
+    service: &GameService<U, G>,
+    message_repository: &SqliteMessageRepository,
+    request: SetUnitRequest,
+) -> Result<SetUnitResponse, SetUnitHandlerError>
+where
+    U: UserRepository,
+    G: GameRepository,
+{
+    request.validate().map_err(SetUnitHandlerError::InvalidRequest)?;
+
+    let access_token = request.authorization.trim().trim_start_matches("Bearer ").trim().to_string();
+
+    let unit_spec = request.unit.map(|b| UnitSpec {
+        power_symbol: b.power,
+        kind_str: b.kind,
+    });
+
+    let result = service
+        .set_unit(SetUnitCommand {
+            access_token,
+            game_uuid: request.game_uuid,
+            location: request.location.clone(),
+            unit: unit_spec,
+        })
+        .map_err(SetUnitHandlerError::Service)?;
+
+    let turn = result.game.current_turn();
+    let game_uuid = result.game.uuid;
+
+    match (result.old_unit, result.new_unit) {
+        (None, Some(new_unit)) => {
+            if let Err(error) = message_repository.append_unit_placed_message(game_uuid, &turn, new_unit) {
+                eprintln!("failed to persist UnitPlaced message (game_uuid={}): {}", game_uuid, error);
+            }
+        }
+        (Some(old_unit), Some(new_unit)) => {
+            if let Err(error) = message_repository.append_unit_replaced_message(game_uuid, &turn, old_unit, new_unit) {
+                eprintln!("failed to persist UnitReplaced message (game_uuid={}): {}", game_uuid, error);
+            }
+        }
+        (Some(old_unit), None) => {
+            if let Err(error) = message_repository.append_unit_removed_message(game_uuid, &turn, old_unit) {
+                eprintln!("failed to persist UnitRemoved message (game_uuid={}): {}", game_uuid, error);
+            }
+        }
+        (None, None) => {}
+    }
+
+    let unit_body = result.new_unit.map(|u| UnitResponseBody {
+        power: u.power.symbol().to_string(),
+        kind: u.symbol().to_string(),
+    });
+
+    Ok(SetUnitResponse {
+        game_uuid,
+        location: request.location,
+        unit: unit_body,
     })
 }
 

@@ -49,3 +49,14 @@ pub(crate) enum SetDrawProposalRequestValidationError {
     MissingAccessToken,
     InvalidGameUuid,
 }
+
+///
+/// ユニット配置制御リクエストのバリデーションエラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SetUnitRequestValidationError {
+    MissingAuthorization,
+    InvalidAuthorizationScheme,
+    MissingAccessToken,
+    InvalidGameUuid,
+}

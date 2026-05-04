@@ -16,9 +16,12 @@ use super::NewGame;
 use super::Phase;
 use super::Player;
 use super::Power;
+use super::Province;
 use super::Regulation;
 use super::RepositoryError;
 use super::SetDrawProposalError;
+use super::SetUnitError;
+use super::Unit;
 use super::UserRepository;
 use strum::IntoEnumIterator;
 
@@ -85,6 +88,36 @@ pub(crate) struct SetDrawProposalCommand {
 pub(crate) struct SetDrawProposalResult {
     pub game: Game,
     pub changed: bool,
+}
+
+///
+/// ユニット配置制御コマンドのユニット指定
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct UnitSpec {
+    pub power_symbol: String,
+    pub kind_str: String,
+}
+
+///
+/// ユニット配置制御コマンドの構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SetUnitCommand {
+    pub access_token: String,
+    pub game_uuid: Uuid,
+    pub location: String,
+    pub unit: Option<UnitSpec>,
+}
+
+///
+/// ユニット配置制御処理結果の構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SetUnitResult {
+    pub game: Game,
+    pub old_unit: Option<Unit>,
+    pub new_unit: Option<Unit>,
 }
 
 ///
@@ -389,6 +422,121 @@ where
         Ok(SetDrawProposalResult {
             game: updated_game,
             changed: true,
+        })
+    }
+
+    ///
+    /// ユニットを配置・削除する
+    ///
+    pub(crate) fn set_unit(&self, command: SetUnitCommand) -> Result<SetUnitResult, SetUnitError> {
+        if command.access_token.is_empty() {
+            return Err(SetUnitError::Unauthorized);
+        }
+
+        let user = self
+            .user_repository
+            .find_by_access_token(&command.access_token)
+            .map_err(SetUnitError::Repository)?
+            .ok_or(SetUnitError::Unauthorized)?;
+
+        let game = self
+            .game_repository
+            .find_by_uuid(command.game_uuid)
+            .map_err(SetUnitError::Repository)?
+            .ok_or(SetUnitError::NotFound)?;
+
+        game.players
+            .iter()
+            .find(|p| p.is_owner && p.user_uuid == user.uuid)
+            .ok_or_else(|| SetUnitError::Forbidden("user is not the owner of this game".to_string()))?;
+
+        let latest_phase = game
+            .phases
+            .last()
+            .ok_or_else(|| SetUnitError::Forbidden("game has no phases".to_string()))?;
+        let is_main_phase = matches!(
+            latest_phase.kind,
+            crate::domain::PhaseKind::SpringMain(_) | crate::domain::PhaseKind::FallMain(_)
+        );
+        if !is_main_phase {
+            return Err(SetUnitError::Forbidden(
+                "units can only be set during a main phase".to_string(),
+            ));
+        }
+
+        let location = Province::from_code(&command.location)
+            .ok_or_else(|| SetUnitError::InvalidRequest(format!("invalid location: {}", command.location)))?;
+
+        // 新ユニットの構築（指定がある場合）
+        let new_unit = if let Some(ref spec) = command.unit {
+            let power = Power::from_symbol(&spec.power_symbol)
+                .ok_or_else(|| SetUnitError::InvalidRequest(format!("invalid power: {}", spec.power_symbol)))?;
+
+            let unit = match spec.kind_str.to_lowercase().as_str() {
+                "a" | "army" => {
+                    // 陸軍は海岸バリアントコードを許可しない
+                    if location.code_with_coast() != location.code() {
+                        return Err(SetUnitError::InvalidRequest(
+                            "army cannot be placed on a coast variant location".to_string(),
+                        ));
+                    }
+                    Unit::new_army(power, location)
+                }
+                "f" | "fleet" => {
+                    // 海軍は双海岸地域（例: spa）に直接配置できない
+                    if location.code_with_coast() == location.code() && location.has_coast_variants() {
+                        return Err(SetUnitError::InvalidRequest(
+                            "fleet must specify a coast variant for this location".to_string(),
+                        ));
+                    }
+                    Unit::new_fleet(power, location)
+                }
+                _ => {
+                    return Err(SetUnitError::InvalidRequest(format!("invalid unit kind: {}", spec.kind_str)));
+                }
+            };
+            Some(unit)
+        } else {
+            None
+        };
+
+        let mut updated_game = game;
+        let phase = updated_game.phases.last_mut().expect("phase exists");
+
+        // 既存ユニット検索（ベースコードで一致）
+        let old_unit = phase.units.iter().find(|u| u.location.code() == location.code()).copied();
+
+        // 既存ユニットを削除（ベースコード一致するものすべて）
+        if old_unit.is_some() {
+            phase.units.retain(|u| u.location.code() != location.code());
+
+            // 削除ユニットに関する命令もすべて削除
+            phase.orders.retain(|o| {
+                // 直接命令（削除ユニット自身が主体）
+                if o.unit.location.code() == location.code() {
+                    return false;
+                }
+                // 仮定命令（支援・輸送の対象が削除ユニット）
+                match o.kind {
+                    crate::domain::OrderKind::Support(s) => s.target_unit.location.code() != location.code(),
+                    crate::domain::OrderKind::Convoy(c) => c.target_unit.location.code() != location.code(),
+                    _ => true,
+                }
+            });
+        }
+
+        // 新ユニットを配置し、Hold 命令を生成
+        if let Some(unit) = new_unit {
+            phase.units.push(unit);
+            phase.orders.push(crate::domain::Order::new_hold(unit.power, unit));
+        }
+
+        self.game_repository.update(&updated_game).map_err(SetUnitError::Repository)?;
+
+        Ok(SetUnitResult {
+            game: updated_game,
+            old_unit,
+            new_unit,
         })
     }
 }

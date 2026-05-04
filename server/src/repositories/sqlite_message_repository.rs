@@ -14,6 +14,7 @@ use super::Power;
 use super::RepositoryError;
 use super::SystemNotice;
 use super::SystemNoticeCatalog;
+use super::Unit;
 use super::User;
 
 // ============================================================================
@@ -264,6 +265,63 @@ impl SqliteMessageRepository {
         Ok(())
     }
 
+    ///
+    /// ユニット配置のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_unit_placed_message(&self, game_uuid: Uuid, turn: &str, unit: Unit) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+        let catalog = SystemNoticeCatalog::UnitPlaced { unit };
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
+    ///
+    /// ユニット置換のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_unit_replaced_message(
+        &self,
+        game_uuid: Uuid,
+        turn: &str,
+        old_unit: Unit,
+        new_unit: Unit,
+    ) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+        let catalog = SystemNoticeCatalog::UnitReplaced { old_unit, new_unit };
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
+    ///
+    /// ユニット除去のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_unit_removed_message(&self, game_uuid: Uuid, turn: &str, unit: Unit) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+        let catalog = SystemNoticeCatalog::UnitRemoved { unit };
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
     /// メッセージ DB 接続を開く
     fn open_connection(&self) -> Result<Connection, RepositoryError> {
         Connection::open(&self.message_database_path)
@@ -377,6 +435,9 @@ impl SqliteMessageRepository {
             SystemNoticeCatalog::Solo { .. } => "solo",
             SystemNoticeCatalog::Draw => "draw",
             SystemNoticeCatalog::Closed => "closed",
+            SystemNoticeCatalog::UnitPlaced { .. } => "unit_placed",
+            SystemNoticeCatalog::UnitReplaced { .. } => "unit_replaced",
+            SystemNoticeCatalog::UnitRemoved { .. } => "unit_removed",
         }
     }
 
@@ -396,6 +457,20 @@ impl SqliteMessageRepository {
             SystemNoticeCatalog::Solo { power } => {
                 json!({ "power": power.symbol() })
             }
+            SystemNoticeCatalog::UnitPlaced { unit } => json!({
+                "power": unit.power.symbol(),
+                "unit_label": unit.label(),
+            }),
+            SystemNoticeCatalog::UnitReplaced { old_unit, new_unit } => json!({
+                "old_power": old_unit.power.symbol(),
+                "old_unit_label": old_unit.label(),
+                "new_power": new_unit.power.symbol(),
+                "new_unit_label": new_unit.label(),
+            }),
+            SystemNoticeCatalog::UnitRemoved { unit } => json!({
+                "power": unit.power.symbol(),
+                "unit_label": unit.label(),
+            }),
             SystemNoticeCatalog::Ready
             | SystemNoticeCatalog::Aborted
             | SystemNoticeCatalog::DrawProposed

@@ -23,11 +23,14 @@ pub(crate) use error::DiscordClientError;
 pub(crate) use error::GameProgressionError;
 pub(crate) use error::JoinGameError;
 pub(crate) use error::SetDrawProposalError;
+pub(crate) use error::SetUnitError;
 pub(crate) use game_progression_service::GameProgressionService;
 pub(crate) use game_service::CreateGameCommand;
 pub(crate) use game_service::GameService;
 pub(crate) use game_service::JoinGameCommand;
 pub(crate) use game_service::SetDrawProposalCommand;
+pub(crate) use game_service::SetUnitCommand;
+pub(crate) use game_service::UnitSpec;
 
 // ============================================================================
 // re-exports
@@ -43,8 +46,10 @@ pub(crate) use super::Phase;
 pub(crate) use super::PhaseContext;
 pub(crate) use super::Player;
 pub(crate) use super::Power;
+pub(crate) use super::Province;
 pub(crate) use super::Regulation;
 pub(crate) use super::RepositoryError;
+pub(crate) use super::Unit;
 pub(crate) use super::UserProfileUpdate;
 pub(crate) use super::UserRecord;
 pub(crate) use super::UserRepository;

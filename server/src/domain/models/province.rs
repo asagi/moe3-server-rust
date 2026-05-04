@@ -109,6 +109,14 @@ impl Province {
     }
 
     ///
+    /// 海岸バリアント（例: spa_nc / spa_sc）が存在するかを返却する
+    ///
+    pub(crate) fn has_coast_variants(self) -> bool {
+        let base = &self.0[..3.min(self.0.len())];
+        PROVINCE_DATA.iter().any(|d| d.code.len() > 3 && d.code.starts_with(base))
+    }
+
+    ///
     /// 地域コードを返却する
     ///
     pub(crate) fn code(self) -> &'static str {

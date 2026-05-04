@@ -12,6 +12,8 @@ use super::JoinGameError;
 use super::JoinGameRequestValidationError;
 use super::SetDrawProposalError;
 use super::SetDrawProposalRequestValidationError;
+use super::SetUnitError;
+use super::SetUnitRequestValidationError;
 
 // ============================================================================
 // definitions
@@ -226,6 +228,60 @@ impl SetDrawProposalHandlerError {
             }
             Self::InvalidRequest(SetDrawProposalRequestValidationError::InvalidGameUuid) => "game_uuid is invalid".to_string(),
             Self::Service(SetDrawProposalError::Forbidden(message)) => message.clone(),
+            Self::Service(error) => error.to_string(),
+        }
+    }
+}
+
+///
+/// ユニット配置制御リクエストハンドラのエラーの列挙体
+///
+#[derive(Debug)]
+pub(crate) enum SetUnitHandlerError {
+    InvalidRequest(SetUnitRequestValidationError),
+    Service(SetUnitError),
+}
+
+/// ユニット配置制御リクエストハンドラのエラーの列挙体の実装
+impl SetUnitHandlerError {
+    ///
+    /// エラーコードを取得する
+    ///
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidRequest(_) => "invalid_request",
+            Self::Service(SetUnitError::Unauthorized) => "unauthorized",
+            Self::Service(SetUnitError::NotFound) => "not_found",
+            Self::Service(SetUnitError::Forbidden(_)) => "forbidden",
+            Self::Service(SetUnitError::InvalidRequest(_)) => "invalid_request",
+            Self::Service(SetUnitError::Repository(_)) => "repository_error",
+        }
+    }
+
+    ///
+    /// ユニット配置制御リクエストハンドラのエラーを API エラーレスポンスに変換する
+    ///
+    pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
+        ApiErrorResponse {
+            code: self.code(),
+            message: self.message(),
+        }
+    }
+
+    /// ユニット配置制御リクエストハンドラのエラーに対応するエラーメッセージを生成する
+    fn message(&self) -> String {
+        match self {
+            Self::InvalidRequest(SetUnitRequestValidationError::MissingAuthorization) => {
+                "authorization header is required".to_string()
+            }
+            Self::InvalidRequest(SetUnitRequestValidationError::InvalidAuthorizationScheme) => {
+                "authorization must start with 'Bearer <token>'".to_string()
+            }
+            Self::InvalidRequest(SetUnitRequestValidationError::MissingAccessToken) => "access token is required".to_string(),
+            Self::InvalidRequest(SetUnitRequestValidationError::InvalidGameUuid) => "game_uuid is invalid".to_string(),
+            Self::Service(SetUnitError::Forbidden(message)) | Self::Service(SetUnitError::InvalidRequest(message)) => {
+                message.clone()
+            }
             Self::Service(error) => error.to_string(),
         }
     }
