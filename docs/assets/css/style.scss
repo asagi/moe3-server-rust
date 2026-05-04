@@ -1,0 +1,14 @@
+@import "{{ site.theme }}";
+
+.page-header {
+    padding: 1rem 6rem;
+}
+
+.page-header .project-name {
+    display: none;
+}
+
+.main-content {
+    padding-top: 2rem;
+    max-width: 70rem;
+}
