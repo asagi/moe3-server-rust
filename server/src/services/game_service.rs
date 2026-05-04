@@ -110,6 +110,7 @@ pub(crate) struct SetUnitCommand {
     pub game_uuid: Uuid,
     pub location: String,
     pub unit: Option<UnitSpec>,
+    pub season: String,
 }
 
 ///
@@ -132,6 +133,7 @@ pub(crate) struct SetTerritoryCommand {
     pub game_uuid: Uuid,
     pub code: String,
     pub power: Option<String>,
+    pub season: String,
 }
 
 ///
@@ -490,6 +492,10 @@ where
             ));
         }
 
+        if game.current_turn() != command.season {
+            return Err(SetUnitError::PhaseConflict);
+        }
+
         let location = Province::from_code(&command.location)
             .ok_or_else(|| SetUnitError::InvalidRequest(format!("invalid location: {}", command.location)))?;
 
@@ -626,6 +632,10 @@ where
             return Err(SetTerritoryError::Forbidden(
                 "territories can only be set during a main phase".to_string(),
             ));
+        }
+
+        if game.current_turn() != command.season {
+            return Err(SetTerritoryError::PhaseConflict);
         }
 
         let province = Province::from_code(&command.code)
@@ -1901,6 +1911,7 @@ mod tests {
                 game_uuid,
                 location: "par".to_string(),
                 unit: None,
+                season: "1901s".to_string(),
             })
             .expect_err("should reject empty token");
 
@@ -1922,6 +1933,7 @@ mod tests {
                 game_uuid,
                 location: "par".to_string(),
                 unit: None,
+                season: "1901s".to_string(),
             })
             .expect_err("should reject unknown token");
 
@@ -1941,6 +1953,7 @@ mod tests {
                 game_uuid: Uuid::now_v7(),
                 location: "par".to_string(),
                 unit: None,
+                season: "1901s".to_string(),
             })
             .expect_err("should reject when game not found");
 
@@ -1976,6 +1989,7 @@ mod tests {
                 game_uuid,
                 location: "par".to_string(),
                 unit: None,
+                season: "1901s".to_string(),
             })
             .expect_err("should reject non-owner");
 
@@ -1997,6 +2011,7 @@ mod tests {
                 game_uuid,
                 location: "par".to_string(),
                 unit: None,
+                season: "1901s".to_string(),
             })
             .expect_err("should reject when not main phase");
 
@@ -2021,6 +2036,7 @@ mod tests {
                     power_symbol: "f".to_string(),
                     kind_str: "a".to_string(),
                 }),
+                season: "1901s".to_string(),
             })
             .expect_err("should reject invalid location");
 
@@ -2046,6 +2062,7 @@ mod tests {
                     power_symbol: "f".to_string(),
                     kind_str: "a".to_string(),
                 }),
+                season: "1901s".to_string(),
             })
             .expect_err("should reject army in sea province");
 
@@ -2071,6 +2088,7 @@ mod tests {
                     power_symbol: "f".to_string(),
                     kind_str: "f".to_string(),
                 }),
+                season: "1901s".to_string(),
             })
             .expect_err("should reject fleet in inland province");
 
@@ -2096,6 +2114,7 @@ mod tests {
                     power_symbol: "f".to_string(),
                     kind_str: "f".to_string(),
                 }),
+                season: "1901s".to_string(),
             })
             .expect_err("should reject fleet on dual-coast base code");
 
@@ -2121,6 +2140,7 @@ mod tests {
                     power_symbol: "f".to_string(),
                     kind_str: "a".to_string(),
                 }),
+                season: "1901s".to_string(),
             })
             .expect("should succeed");
 
@@ -2168,6 +2188,7 @@ mod tests {
                     power_symbol: "f".to_string(),
                     kind_str: "a".to_string(),
                 }),
+                season: "1901s".to_string(),
             })
             .expect("should succeed");
 
@@ -2199,6 +2220,7 @@ mod tests {
                 game_uuid,
                 location: "par".to_string(),
                 unit: None,
+                season: "1901s".to_string(),
             })
             .expect("should succeed");
 
@@ -2240,6 +2262,7 @@ mod tests {
                     power_symbol: "f".to_string(),
                     kind_str: "f".to_string(),
                 }),
+                season: "1901s".to_string(),
             })
             .expect("should succeed");
 
@@ -2258,5 +2281,27 @@ mod tests {
 
         assert!(result.old_unit.is_some(), "old_unit should be Some");
         assert!(result.new_unit.is_some(), "new_unit should be Some");
+    }
+
+    #[test]
+    fn set_unit_rejects_wrong_season() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_unit(SetUnitCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                location: "par".to_string(),
+                unit: None,
+                season: "1901f".to_string(), // wrong season (game is 1901s)
+            })
+            .expect_err("should reject mismatched season");
+
+        assert!(matches!(error, SetUnitError::PhaseConflict));
     }
 }

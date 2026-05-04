@@ -256,6 +256,7 @@ impl SetUnitHandlerError {
             Self::Service(SetUnitError::NotFound) => "not_found",
             Self::Service(SetUnitError::Forbidden(_)) => "forbidden",
             Self::Service(SetUnitError::InvalidRequest(_)) => "invalid_request",
+            Self::Service(SetUnitError::PhaseConflict) => "phase_conflict",
             Self::Service(SetUnitError::Repository(_)) => "repository_error",
         }
     }
@@ -281,6 +282,9 @@ impl SetUnitHandlerError {
             }
             Self::InvalidRequest(SetUnitRequestValidationError::MissingAccessToken) => "access token is required".to_string(),
             Self::InvalidRequest(SetUnitRequestValidationError::InvalidGameUuid) => "game_uuid is invalid".to_string(),
+            Self::InvalidRequest(SetUnitRequestValidationError::InvalidSeason) => {
+                "season must be in the format like '1901s' or '1901f'".to_string()
+            }
             Self::Service(SetUnitError::Forbidden(message)) | Self::Service(SetUnitError::InvalidRequest(message)) => {
                 message.clone()
             }
@@ -308,6 +312,7 @@ impl SetTerritoryHandlerError {
             Self::Service(SetTerritoryError::WaterProvince) => "not_found",
             Self::Service(SetTerritoryError::Forbidden(_)) => "forbidden",
             Self::Service(SetTerritoryError::InvalidRequest(_)) => "invalid_request",
+            Self::Service(SetTerritoryError::PhaseConflict) => "phase_conflict",
             Self::Service(SetTerritoryError::Repository(_)) => "repository_error",
         }
     }
@@ -331,6 +336,9 @@ impl SetTerritoryHandlerError {
                 "access token is required".to_string()
             }
             Self::InvalidRequest(SetTerritoryRequestValidationError::InvalidGameUuid) => "game_uuid is invalid".to_string(),
+            Self::InvalidRequest(SetTerritoryRequestValidationError::InvalidSeason) => {
+                "season must be in the format like '1901s' or '1901f'".to_string()
+            }
             Self::Service(SetTerritoryError::Forbidden(message)) | Self::Service(SetTerritoryError::InvalidRequest(message)) => {
                 message.clone()
             }

@@ -4,6 +4,7 @@
 
 use axum::extract::Json;
 use axum::extract::Path;
+use axum::extract::Query;
 use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
@@ -20,6 +21,8 @@ use super::CreateGameRequest;
 use super::CreateGameRequestBody;
 use super::CreateGameRequestValidationError;
 use super::CreateGameResponse;
+use super::DeleteTerritoryQueryParams;
+use super::DeleteUnitQueryParams;
 use super::DiscordIdentityProvider;
 use super::GameRepository;
 use super::GameService;
@@ -528,7 +531,7 @@ where
     G: GameRepository + Send + Sync + 'static,
     D: DiscordIdentityProvider + Send + Sync + 'static,
 {
-    dispatch_set_unit(state, game_uuid_str, location, headers, Some(body.unit)).await
+    dispatch_set_unit(state, game_uuid_str, location, headers, Some(body.unit), body.season).await
 }
 
 ///
@@ -538,13 +541,14 @@ pub(crate) async fn delete_admin_games_units<U, G, D>(
     State(state): State<AppState<U, G, D>>,
     Path((game_uuid_str, location)): Path<(String, String)>,
     headers: HeaderMap,
+    Query(params): Query<DeleteUnitQueryParams>,
 ) -> impl IntoResponse
 where
     U: UserRepository + Send + Sync + 'static,
     G: GameRepository + Send + Sync + 'static,
     D: DiscordIdentityProvider + Send + Sync + 'static,
 {
-    dispatch_set_unit(state, game_uuid_str, location, headers, None).await
+    dispatch_set_unit(state, game_uuid_str, location, headers, None, params.season).await
 }
 
 async fn dispatch_set_unit<U, G, D>(
@@ -553,6 +557,7 @@ async fn dispatch_set_unit<U, G, D>(
     location: String,
     headers: HeaderMap,
     unit: Option<UnitSpecBody>,
+    season: String,
 ) -> Response
 where
     U: UserRepository + Send + Sync + 'static,
@@ -581,6 +586,7 @@ where
         game_uuid,
         unit,
         location,
+        season,
     };
 
     let state_clone = state.clone();
@@ -601,6 +607,7 @@ where
                     SetUnitHandlerError::Service(SetUnitError::NotFound) => StatusCode::NOT_FOUND,
                     SetUnitHandlerError::Service(SetUnitError::Forbidden(_)) => StatusCode::FORBIDDEN,
                     SetUnitHandlerError::Service(SetUnitError::InvalidRequest(_)) => StatusCode::BAD_REQUEST,
+                    SetUnitHandlerError::Service(SetUnitError::PhaseConflict) => StatusCode::CONFLICT,
                     _ => StatusCode::INTERNAL_SERVER_ERROR,
                 };
                 (status, Json(error.to_api_error_response())).into_response()
@@ -640,6 +647,7 @@ where
             game_uuid: request.game_uuid,
             location: request.location.clone(),
             unit: unit_spec,
+            season: request.season.to_lowercase(),
         })
         .map_err(SetUnitHandlerError::Service)?;
 
@@ -693,7 +701,7 @@ where
     G: GameRepository + Send + Sync + 'static,
     D: DiscordIdentityProvider + Send + Sync + 'static,
 {
-    dispatch_set_territory(state, game_uuid_str, code, headers, Some(body.power)).await
+    dispatch_set_territory(state, game_uuid_str, code, headers, Some(body.power), body.season).await
 }
 
 ///
@@ -703,13 +711,14 @@ pub(crate) async fn delete_admin_games_territories<U, G, D>(
     State(state): State<AppState<U, G, D>>,
     Path((game_uuid_str, code)): Path<(String, String)>,
     headers: HeaderMap,
+    Query(params): Query<DeleteTerritoryQueryParams>,
 ) -> impl IntoResponse
 where
     U: UserRepository + Send + Sync + 'static,
     G: GameRepository + Send + Sync + 'static,
     D: DiscordIdentityProvider + Send + Sync + 'static,
 {
-    dispatch_set_territory(state, game_uuid_str, code, headers, None).await
+    dispatch_set_territory(state, game_uuid_str, code, headers, None, params.season).await
 }
 
 async fn dispatch_set_territory<U, G, D>(
@@ -718,6 +727,7 @@ async fn dispatch_set_territory<U, G, D>(
     code: String,
     headers: HeaderMap,
     power: Option<String>,
+    season: String,
 ) -> Response
 where
     U: UserRepository + Send + Sync + 'static,
@@ -749,6 +759,7 @@ where
         game_uuid,
         code,
         power,
+        season,
     };
 
     let state_clone = state.clone();
@@ -770,6 +781,7 @@ where
                     SetTerritoryHandlerError::Service(SetTerritoryError::WaterProvince) => StatusCode::NOT_FOUND,
                     SetTerritoryHandlerError::Service(SetTerritoryError::Forbidden(_)) => StatusCode::FORBIDDEN,
                     SetTerritoryHandlerError::Service(SetTerritoryError::InvalidRequest(_)) => StatusCode::BAD_REQUEST,
+                    SetTerritoryHandlerError::Service(SetTerritoryError::PhaseConflict) => StatusCode::CONFLICT,
                     _ => StatusCode::INTERNAL_SERVER_ERROR,
                 };
                 (status, Json(error.to_api_error_response())).into_response()
@@ -804,6 +816,7 @@ where
             game_uuid: request.game_uuid,
             code: request.code.clone(),
             power: request.power,
+            season: request.season.to_lowercase(),
         })
         .map_err(SetTerritoryHandlerError::Service)?;
 
@@ -1546,6 +1559,7 @@ mod tests {
                 game_uuid: uuid::Uuid::now_v7(),
                 unit: None,
                 location: "par".to_string(),
+                season: "1901s".to_string(),
             },
         )
         .expect_err("should fail without authorization");
@@ -1586,6 +1600,7 @@ mod tests {
                     kind: "a".to_string(),
                 }),
                 location: "par".to_string(),
+                season: "1901s".to_string(),
             },
         );
 
@@ -1624,6 +1639,7 @@ mod tests {
                     kind: "a".to_string(),
                 }),
                 location: "par".to_string(),
+                season: "1901s".to_string(),
             },
         )
         .expect("should succeed");
@@ -1666,6 +1682,7 @@ mod tests {
                 game_uuid,
                 unit: None,
                 location: "par".to_string(),
+                season: "1901s".to_string(),
             },
         )
         .expect("should succeed");
@@ -1690,6 +1707,7 @@ mod tests {
                 game_uuid: uuid::Uuid::now_v7(),
                 code: "par".to_string(),
                 power: Some("f".to_string()),
+                season: "1901s".to_string(),
             },
         )
         .expect_err("should fail without authorization");
@@ -1725,6 +1743,7 @@ mod tests {
                 game_uuid,
                 code: "par".to_string(),
                 power: Some("f".to_string()),
+                season: "1901s".to_string(),
             },
         )
         .expect("should succeed");
@@ -1768,6 +1787,7 @@ mod tests {
                 game_uuid,
                 code: "par".to_string(),
                 power: Some("e".to_string()), // France → England に変更
+                season: "1901s".to_string(),
             },
         )
         .expect("should succeed");
@@ -1809,6 +1829,7 @@ mod tests {
                 game_uuid,
                 code: "par".to_string(),
                 power: None, // DELETE: 保有解除
+                season: "1901s".to_string(),
             },
         )
         .expect("should succeed");
@@ -1850,6 +1871,7 @@ mod tests {
                 game_uuid,
                 code: "par".to_string(),
                 power: Some("f".to_string()), // France → France（変更なし）
+                season: "1901s".to_string(),
             },
         )
         .expect("should succeed");
@@ -1888,10 +1910,169 @@ mod tests {
                 game_uuid,
                 code: "nth".to_string(), // North Sea = 海洋プロヴィンス
                 power: Some("f".to_string()),
+                season: "1901s".to_string(),
             },
         )
         .expect_err("water province should be rejected");
 
         assert_eq!(error.code(), "not_found");
+    }
+
+    #[test]
+    fn handle_set_unit_rejects_wrong_season() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game = sample_in_progress_game_for_handler(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_unit(
+            &service,
+            &message_repository,
+            SetUnitRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                unit: None,
+                location: "par".to_string(),
+                season: "1901f".to_string(), // wrong season (game is 1901s)
+            },
+        )
+        .expect_err("should fail with wrong season");
+
+        assert_eq!(error.code(), "phase_conflict");
+    }
+
+    #[test]
+    fn handle_set_territory_rejects_wrong_season() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game = sample_in_progress_game_for_handler(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_territory(
+            &service,
+            &message_repository,
+            SetTerritoryRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                code: "par".to_string(),
+                power: Some("f".to_string()),
+                season: "1901f".to_string(), // wrong season (game is 1901s)
+            },
+        )
+        .expect_err("should fail with wrong season");
+
+        assert_eq!(error.code(), "phase_conflict");
+    }
+
+    #[test]
+    fn handle_set_unit_rejects_invalid_season_format() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        for bad_season in &["", "1901", "1901x", "190s", "19011s", "SPRING"] {
+            let error = handle_set_unit(
+                &service,
+                &message_repository,
+                SetUnitRequest {
+                    authorization: "Bearer dummy".to_string(),
+                    game_uuid: uuid::Uuid::now_v7(),
+                    unit: None,
+                    location: "par".to_string(),
+                    season: bad_season.to_string(),
+                },
+            )
+            .expect_err(&format!("should reject invalid season: {bad_season}"));
+
+            assert_eq!(error.code(), "invalid_request", "season={bad_season}");
+        }
+    }
+
+    #[test]
+    fn handle_set_unit_accepts_uppercase_season() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game = sample_in_progress_game_for_handler(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        // "1901S" (大文字) は "1901s" に正規化されてフェイズと一致する
+        let result = handle_set_unit(
+            &service,
+            &message_repository,
+            SetUnitRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                unit: None,
+                location: "par".to_string(),
+                season: "1901S".to_string(),
+            },
+        );
+
+        assert!(result.is_ok(), "uppercase season should be accepted");
+    }
+
+    #[test]
+    fn handle_set_territory_rejects_invalid_season_format() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        for bad_season in &["", "1901", "1901x", "190f", "19011f", "FALL"] {
+            let error = handle_set_territory(
+                &service,
+                &message_repository,
+                SetTerritoryRequest {
+                    authorization: "Bearer dummy".to_string(),
+                    game_uuid: uuid::Uuid::now_v7(),
+                    code: "par".to_string(),
+                    power: None,
+                    season: bad_season.to_string(),
+                },
+            )
+            .expect_err(&format!("should reject invalid season: {bad_season}"));
+
+            assert_eq!(error.code(), "invalid_request", "season={bad_season}");
+        }
     }
 }

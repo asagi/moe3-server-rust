@@ -157,6 +157,7 @@ pub(crate) struct UnitSpecBody {
 #[derive(Debug, Deserialize)]
 pub(crate) struct SetUnitRequestBody {
     pub unit: UnitSpecBody,
+    pub season: String,
 }
 
 ///
@@ -168,6 +169,7 @@ pub(crate) struct SetUnitRequest {
     pub game_uuid: Uuid,
     pub unit: Option<UnitSpecBody>,
     pub location: String,
+    pub season: String,
 }
 
 /// ユニット配置制御リクエストの構造体の実装
@@ -186,16 +188,18 @@ impl SetUnitRequest {
             return Err(SetUnitRequestValidationError::MissingAccessToken);
         }
 
+        if !is_valid_season(&self.season) {
+            return Err(SetUnitRequestValidationError::InvalidSeason);
+        }
+
         Ok(())
     }
 }
 
-///
-/// 占領情報編集リクエストパラメータボディ構造体（PUT のみ使用）
-///
 #[derive(Debug, Deserialize)]
 pub(crate) struct SetTerritoryRequestBody {
     pub power: String,
+    pub season: String,
 }
 
 ///
@@ -207,6 +211,7 @@ pub(crate) struct SetTerritoryRequest {
     pub game_uuid: Uuid,
     pub code: String,
     pub power: Option<String>,
+    pub season: String,
 }
 
 /// 占領情報編集リクエストの構造体の実装
@@ -225,6 +230,32 @@ impl SetTerritoryRequest {
             return Err(SetTerritoryRequestValidationError::MissingAccessToken);
         }
 
+        if !is_valid_season(&self.season) {
+            return Err(SetTerritoryRequestValidationError::InvalidSeason);
+        }
+
         Ok(())
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct DeleteUnitQueryParams {
+    pub season: String,
+}
+
+///
+/// 占領情報削除リクエストのクエリパラメータ構造体
+///
+#[derive(Debug, Deserialize)]
+pub(crate) struct DeleteTerritoryQueryParams {
+    pub season: String,
+}
+
+/// season 文字列が有効な形式かどうかを検証する（例: "1901s", "1901F"）
+fn is_valid_season(season: &str) -> bool {
+    let bytes = season.as_bytes();
+    if bytes.len() != 5 {
+        return false;
+    }
+    bytes[..4].iter().all(|b| b.is_ascii_digit()) && matches!(bytes[4], b's' | b'S' | b'f' | b'F')
 }

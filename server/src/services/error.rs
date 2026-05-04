@@ -148,6 +148,7 @@ pub(crate) enum SetUnitError {
     NotFound,
     Forbidden(String),
     InvalidRequest(String),
+    PhaseConflict,
     Repository(RepositoryError),
 }
 
@@ -162,6 +163,7 @@ impl fmt::Display for SetUnitError {
             Self::NotFound => write!(f, "game not found"),
             Self::Forbidden(message) => write!(f, "forbidden: {}", message),
             Self::InvalidRequest(message) => write!(f, "invalid request: {}", message),
+            Self::PhaseConflict => write!(f, "phase has changed since this request was issued"),
             Self::Repository(error) => write!(f, "repository error: {}", error),
         }
     }
@@ -197,6 +199,7 @@ pub(crate) enum SetTerritoryError {
     WaterProvince,
     Forbidden(String),
     InvalidRequest(String),
+    PhaseConflict,
     Repository(RepositoryError),
 }
 
@@ -212,6 +215,7 @@ impl fmt::Display for SetTerritoryError {
             Self::WaterProvince => write!(f, "cannot set territory ownership for a water province"),
             Self::Forbidden(message) => write!(f, "forbidden: {}", message),
             Self::InvalidRequest(message) => write!(f, "invalid request: {}", message),
+            Self::PhaseConflict => write!(f, "phase has changed since this request was issued"),
             Self::Repository(error) => write!(f, "repository error: {}", error),
         }
     }

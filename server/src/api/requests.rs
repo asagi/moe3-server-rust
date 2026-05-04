@@ -19,6 +19,8 @@ pub(crate) use error::SetTerritoryRequestValidationError;
 pub(crate) use error::SetUnitRequestValidationError;
 pub(crate) use game_request::CreateGameRequest;
 pub(crate) use game_request::CreateGameRequestBody;
+pub(crate) use game_request::DeleteTerritoryQueryParams;
+pub(crate) use game_request::DeleteUnitQueryParams;
 pub(crate) use game_request::JoinGameRequest;
 pub(crate) use game_request::JoinGameRequestBody;
 pub(crate) use game_request::SetDrawProposalRequest;
