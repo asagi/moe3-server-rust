@@ -5,6 +5,7 @@
 use std::fmt;
 
 use super::Power;
+use super::Province;
 use super::Unit;
 use super::User;
 
@@ -94,6 +95,9 @@ pub(crate) enum SystemNoticeCatalog {
     UnitPlaced { unit: Unit },
     UnitReplaced { old_unit: Unit, new_unit: Unit },
     UnitRemoved { unit: Unit },
+    TerritorySet { province: Province, power: Power },
+    TerritoryReplaced { province: Province, old_power: Power, new_power: Power },
+    TerritoryReleased { province: Province, old_power: Power },
 }
 
 /// システムメッセージ定義の列挙体の fmt::Display トレイト実装
@@ -148,6 +152,25 @@ impl fmt::Display for SystemNoticeCatalog {
             }
             Self::UnitRemoved { unit } => {
                 write!(f, "{} {} が除去されました。", unit.power.adjective(), unit.label())
+            }
+            Self::TerritorySet { province, power } => {
+                write!(f, "{} の保有国が {} に変更されました。", province.jname(), power.name())
+            }
+            Self::TerritoryReplaced {
+                province,
+                old_power,
+                new_power,
+            } => {
+                write!(
+                    f,
+                    "{} の保有国が {} から {} に変更されました。",
+                    province.jname(),
+                    old_power.name(),
+                    new_power.name()
+                )
+            }
+            Self::TerritoryReleased { province, old_power } => {
+                write!(f, "{} が保有していた {} が解放されました。", old_power.name(), province.jname())
             }
         }
     }

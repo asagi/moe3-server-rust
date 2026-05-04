@@ -41,6 +41,13 @@ use super::SetDrawProposalRequest;
 use super::SetDrawProposalRequestBody;
 use super::SetDrawProposalRequestValidationError;
 use super::SetDrawProposalResponse;
+use super::SetTerritoryCommand;
+use super::SetTerritoryError;
+use super::SetTerritoryHandlerError;
+use super::SetTerritoryRequest;
+use super::SetTerritoryRequestBody;
+use super::SetTerritoryRequestValidationError;
+use super::SetTerritoryResponse;
 use super::SetUnitCommand;
 use super::SetUnitError;
 use super::SetUnitHandlerError;
@@ -669,6 +676,176 @@ where
         game_uuid,
         location: request.location,
         unit: unit_body,
+    })
+}
+
+///
+/// 占領情報登録リクエスト Axum ハンドラ関数
+///
+pub(crate) async fn put_admin_games_territories<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    Path((game_uuid_str, code)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<SetTerritoryRequestBody>,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    dispatch_set_territory(state, game_uuid_str, code, headers, Some(body.power)).await
+}
+
+///
+/// 占領情報削除リクエスト Axum ハンドラ関数
+///
+pub(crate) async fn delete_admin_games_territories<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    Path((game_uuid_str, code)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    dispatch_set_territory(state, game_uuid_str, code, headers, None).await
+}
+
+async fn dispatch_set_territory<U, G, D>(
+    state: AppState<U, G, D>,
+    game_uuid_str: String,
+    code: String,
+    headers: HeaderMap,
+    power: Option<String>,
+) -> Response
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    let game_uuid = match game_uuid_str.parse::<Uuid>() {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(
+                    SetTerritoryHandlerError::InvalidRequest(SetTerritoryRequestValidationError::InvalidGameUuid)
+                        .to_api_error_response(),
+                ),
+            )
+                .into_response();
+        }
+    };
+
+    let authorization = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
+    let request = SetTerritoryRequest {
+        authorization,
+        game_uuid,
+        code,
+        power,
+    };
+
+    let state_clone = state.clone();
+    let request_clone = request.clone();
+
+    let _game_update_guard = state.game_update_lock.lock().await;
+    let result = tokio::task::spawn_blocking(move || {
+        match handle_set_territory(
+            &state_clone.game_service,
+            state_clone.message_repository.as_ref(),
+            request_clone,
+        ) {
+            Ok(response) => (StatusCode::OK, Json(response)).into_response(),
+            Err(error) => {
+                let status = match &error {
+                    SetTerritoryHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+                    SetTerritoryHandlerError::Service(SetTerritoryError::Unauthorized) => StatusCode::UNAUTHORIZED,
+                    SetTerritoryHandlerError::Service(SetTerritoryError::NotFound) => StatusCode::NOT_FOUND,
+                    SetTerritoryHandlerError::Service(SetTerritoryError::WaterProvince) => StatusCode::NOT_FOUND,
+                    SetTerritoryHandlerError::Service(SetTerritoryError::Forbidden(_)) => StatusCode::FORBIDDEN,
+                    SetTerritoryHandlerError::Service(SetTerritoryError::InvalidRequest(_)) => StatusCode::BAD_REQUEST,
+                    _ => StatusCode::INTERNAL_SERVER_ERROR,
+                };
+                (status, Json(error.to_api_error_response())).into_response()
+            }
+        }
+    })
+    .await;
+    drop(_game_update_guard);
+    match result {
+        Ok(response) => response,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+/// 占領情報編集リクエストハンドラ関数
+fn handle_set_territory<U, G>(
+    service: &GameService<U, G>,
+    message_repository: &SqliteMessageRepository,
+    request: SetTerritoryRequest,
+) -> Result<SetTerritoryResponse, SetTerritoryHandlerError>
+where
+    U: UserRepository,
+    G: GameRepository,
+{
+    request.validate().map_err(SetTerritoryHandlerError::InvalidRequest)?;
+
+    let access_token = request.authorization.trim()[7..].trim().to_string();
+
+    let result = service
+        .set_territory(SetTerritoryCommand {
+            access_token,
+            game_uuid: request.game_uuid,
+            code: request.code.clone(),
+            power: request.power,
+        })
+        .map_err(SetTerritoryHandlerError::Service)?;
+
+    let turn = result.game.current_turn();
+    let game_uuid = result.game.uuid;
+
+    if result.changed {
+        match (result.old_power, result.new_power) {
+            (None, Some(new_power)) => {
+                if let Err(error) = message_repository.append_territory_set_message(game_uuid, &turn, result.province, new_power)
+                {
+                    eprintln!("failed to persist TerritorySet message (game_uuid={}): {}", game_uuid, error);
+                }
+            }
+            (Some(old_power), Some(new_power)) => {
+                if let Err(error) =
+                    message_repository.append_territory_replaced_message(game_uuid, &turn, result.province, old_power, new_power)
+                {
+                    eprintln!(
+                        "failed to persist TerritoryReplaced message (game_uuid={}): {}",
+                        game_uuid, error
+                    );
+                }
+            }
+            (Some(old_power), None) => {
+                if let Err(error) =
+                    message_repository.append_territory_released_message(game_uuid, &turn, result.province, old_power)
+                {
+                    eprintln!(
+                        "failed to persist TerritoryReleased message (game_uuid={}): {}",
+                        game_uuid, error
+                    );
+                }
+            }
+            (None, None) => {}
+        }
+    }
+
+    Ok(SetTerritoryResponse {
+        game_uuid,
+        code: result.province.code().to_string(),
+        power: result.new_power.map(|p| p.symbol().to_string()),
     })
 }
 

@@ -186,3 +186,33 @@ impl fmt::Display for GameProgressionError {
         }
     }
 }
+
+///
+/// 占領情報編集エラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SetTerritoryError {
+    Unauthorized,
+    NotFound,
+    WaterProvince,
+    Forbidden(String),
+    InvalidRequest(String),
+    Repository(RepositoryError),
+}
+
+/// 占領情報編集エラーの列挙体の実装（Error トレイト）
+impl Error for SetTerritoryError {}
+
+/// 占領情報編集エラーの列挙体の実装（fmt::Display トレイト）
+impl fmt::Display for SetTerritoryError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unauthorized => write!(f, "unauthorized"),
+            Self::NotFound => write!(f, "game not found"),
+            Self::WaterProvince => write!(f, "territory not found"),
+            Self::Forbidden(message) => write!(f, "forbidden: {}", message),
+            Self::InvalidRequest(message) => write!(f, "invalid request: {}", message),
+            Self::Repository(error) => write!(f, "repository error: {}", error),
+        }
+    }
+}

@@ -12,6 +12,8 @@ use super::JoinGameError;
 use super::JoinGameRequestValidationError;
 use super::SetDrawProposalError;
 use super::SetDrawProposalRequestValidationError;
+use super::SetTerritoryError;
+use super::SetTerritoryRequestValidationError;
 use super::SetUnitError;
 use super::SetUnitRequestValidationError;
 
@@ -280,6 +282,56 @@ impl SetUnitHandlerError {
             Self::InvalidRequest(SetUnitRequestValidationError::MissingAccessToken) => "access token is required".to_string(),
             Self::InvalidRequest(SetUnitRequestValidationError::InvalidGameUuid) => "game_uuid is invalid".to_string(),
             Self::Service(SetUnitError::Forbidden(message)) | Self::Service(SetUnitError::InvalidRequest(message)) => {
+                message.clone()
+            }
+            Self::Service(error) => error.to_string(),
+        }
+    }
+}
+
+///
+/// 占領情報編集リクエストハンドラのエラーの列挙体
+///
+#[derive(Debug)]
+pub(crate) enum SetTerritoryHandlerError {
+    InvalidRequest(SetTerritoryRequestValidationError),
+    Service(SetTerritoryError),
+}
+
+/// 占領情報編集リクエストハンドラのエラーの列挙体の実装
+impl SetTerritoryHandlerError {
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidRequest(_) => "invalid_request",
+            Self::Service(SetTerritoryError::Unauthorized) => "unauthorized",
+            Self::Service(SetTerritoryError::NotFound) => "not_found",
+            Self::Service(SetTerritoryError::WaterProvince) => "not_found",
+            Self::Service(SetTerritoryError::Forbidden(_)) => "forbidden",
+            Self::Service(SetTerritoryError::InvalidRequest(_)) => "invalid_request",
+            Self::Service(SetTerritoryError::Repository(_)) => "repository_error",
+        }
+    }
+
+    pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
+        ApiErrorResponse {
+            code: self.code(),
+            message: self.message(),
+        }
+    }
+
+    fn message(&self) -> String {
+        match self {
+            Self::InvalidRequest(SetTerritoryRequestValidationError::MissingAuthorization) => {
+                "authorization header is required".to_string()
+            }
+            Self::InvalidRequest(SetTerritoryRequestValidationError::InvalidAuthorizationScheme) => {
+                "authorization must start with 'Bearer <token>'".to_string()
+            }
+            Self::InvalidRequest(SetTerritoryRequestValidationError::MissingAccessToken) => {
+                "access token is required".to_string()
+            }
+            Self::InvalidRequest(SetTerritoryRequestValidationError::InvalidGameUuid) => "game_uuid is invalid".to_string(),
+            Self::Service(SetTerritoryError::Forbidden(message)) | Self::Service(SetTerritoryError::InvalidRequest(message)) => {
                 message.clone()
             }
             Self::Service(error) => error.to_string(),

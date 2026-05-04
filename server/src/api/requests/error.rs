@@ -60,3 +60,14 @@ pub(crate) enum SetUnitRequestValidationError {
     MissingAccessToken,
     InvalidGameUuid,
 }
+
+///
+/// 占領情報編集リクエストのバリデーションエラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SetTerritoryRequestValidationError {
+    MissingAuthorization,
+    InvalidAuthorizationScheme,
+    MissingAccessToken,
+    InvalidGameUuid,
+}

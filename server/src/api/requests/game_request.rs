@@ -8,6 +8,7 @@ use uuid::Uuid;
 use super::CreateGameRequestValidationError;
 use super::JoinGameRequestValidationError;
 use super::SetDrawProposalRequestValidationError;
+use super::SetTerritoryRequestValidationError;
 use super::SetUnitRequestValidationError;
 
 // ============================================================================
@@ -183,6 +184,45 @@ impl SetUnitRequest {
         };
         if token.is_empty() {
             return Err(SetUnitRequestValidationError::MissingAccessToken);
+        }
+
+        Ok(())
+    }
+}
+
+///
+/// 占領情報編集リクエストパラメータボディ構造体（PUT のみ使用）
+///
+#[derive(Debug, Deserialize)]
+pub(crate) struct SetTerritoryRequestBody {
+    pub power: String,
+}
+
+///
+/// 占領情報編集リクエストの構造体
+///
+#[derive(Debug, Clone)]
+pub(crate) struct SetTerritoryRequest {
+    pub authorization: String,
+    pub game_uuid: Uuid,
+    pub code: String,
+    pub power: Option<String>,
+}
+
+/// 占領情報編集リクエストの構造体の実装
+impl SetTerritoryRequest {
+    pub(crate) fn validate(&self) -> Result<(), SetTerritoryRequestValidationError> {
+        let auth = self.authorization.trim();
+        if auth.is_empty() {
+            return Err(SetTerritoryRequestValidationError::MissingAuthorization);
+        }
+
+        let token = match auth.get(..7) {
+            Some(prefix) if prefix.eq_ignore_ascii_case("Bearer ") => auth.get(7..).unwrap_or("").trim(),
+            _ => return Err(SetTerritoryRequestValidationError::InvalidAuthorizationScheme),
+        };
+        if token.is_empty() {
+            return Err(SetTerritoryRequestValidationError::MissingAccessToken);
         }
 
         Ok(())

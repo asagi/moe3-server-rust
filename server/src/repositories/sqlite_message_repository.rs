@@ -11,6 +11,7 @@ use uuid::Uuid;
 use super::Message;
 use super::MessageKind;
 use super::Power;
+use super::Province;
 use super::RepositoryError;
 use super::SystemNotice;
 use super::SystemNoticeCatalog;
@@ -322,6 +323,80 @@ impl SqliteMessageRepository {
         Ok(())
     }
 
+    ///
+    /// 占領登録のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_territory_set_message(
+        &self,
+        game_uuid: Uuid,
+        turn: &str,
+        province: Province,
+        power: Power,
+    ) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+        let catalog = SystemNoticeCatalog::TerritorySet { province, power };
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
+    ///
+    /// 占領置換のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_territory_replaced_message(
+        &self,
+        game_uuid: Uuid,
+        turn: &str,
+        province: Province,
+        old_power: Power,
+        new_power: Power,
+    ) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+        let catalog = SystemNoticeCatalog::TerritoryReplaced {
+            province,
+            old_power,
+            new_power,
+        };
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
+    ///
+    /// 占領解放のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_territory_released_message(
+        &self,
+        game_uuid: Uuid,
+        turn: &str,
+        province: Province,
+        old_power: Power,
+    ) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+        let catalog = SystemNoticeCatalog::TerritoryReleased { province, old_power };
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
     /// メッセージ DB 接続を開く
     fn open_connection(&self) -> Result<Connection, RepositoryError> {
         Connection::open(&self.message_database_path)
@@ -438,6 +513,9 @@ impl SqliteMessageRepository {
             SystemNoticeCatalog::UnitPlaced { .. } => "unit_placed",
             SystemNoticeCatalog::UnitReplaced { .. } => "unit_replaced",
             SystemNoticeCatalog::UnitRemoved { .. } => "unit_removed",
+            SystemNoticeCatalog::TerritorySet { .. } => "territory_set",
+            SystemNoticeCatalog::TerritoryReplaced { .. } => "territory_replaced",
+            SystemNoticeCatalog::TerritoryReleased { .. } => "territory_released",
         }
     }
 
@@ -470,6 +548,19 @@ impl SqliteMessageRepository {
             SystemNoticeCatalog::UnitRemoved { unit } => json!({
                 "power": unit.power.symbol(),
                 "unit_label": unit.label(),
+            }),
+            SystemNoticeCatalog::TerritorySet { province, power } => json!({
+                "province": province.code(),
+                "power": power.symbol(),
+            }),
+            SystemNoticeCatalog::TerritoryReplaced { province, old_power, new_power } => json!({
+                "province": province.code(),
+                "old_power": old_power.symbol(),
+                "new_power": new_power.symbol(),
+            }),
+            SystemNoticeCatalog::TerritoryReleased { province, old_power } => json!({
+                "province": province.code(),
+                "old_power": old_power.symbol(),
             }),
             SystemNoticeCatalog::Ready
             | SystemNoticeCatalog::Aborted
