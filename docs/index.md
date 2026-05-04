@@ -1,4 +1,4 @@
-# Diplomacy MOE Server (v3) ドキュメント
+# Index
 
 - [API ドキュメント](api/index.md)
 - [ゲーム更新フロー](game-update-flow.md)
