@@ -1,6 +1,4 @@
-# PUT /admin/games/:game_uuid/units/:location
-
-# DELETE /admin/games/:game_uuid/units/:location
+# /admin/games/:game_uuid/units/:location
 
 ## 概要
 

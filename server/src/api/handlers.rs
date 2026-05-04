@@ -71,5 +71,6 @@ pub(crate) use super::SetUnitResponse;
 pub(crate) use super::SqliteMessageRepository;
 pub(crate) use super::UnitResponseBody;
 pub(crate) use super::UnitSpec;
+pub(crate) use super::UnitSpecBody;
 pub(crate) use super::User;
 pub(crate) use super::UserRepository;

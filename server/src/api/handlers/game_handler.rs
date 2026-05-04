@@ -8,6 +8,7 @@ use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
+use axum::response::Response;
 use chrono::NaiveDate;
 use uuid::Uuid;
 
@@ -50,6 +51,7 @@ use super::SetUnitResponse;
 use super::SqliteMessageRepository;
 use super::UnitResponseBody;
 use super::UnitSpec;
+use super::UnitSpecBody;
 use super::User;
 use super::UserRepository;
 
@@ -519,60 +521,7 @@ where
     G: GameRepository + Send + Sync + 'static,
     D: DiscordIdentityProvider + Send + Sync + 'static,
 {
-    let game_uuid = match game_uuid_str.parse::<Uuid>() {
-        Ok(uuid) => uuid,
-        Err(_) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(SetUnitHandlerError::InvalidRequest(SetUnitRequestValidationError::InvalidGameUuid).to_api_error_response()),
-            )
-                .into_response();
-        }
-    };
-
-    let authorization = headers
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-
-    let request = SetUnitRequest {
-        authorization,
-        game_uuid,
-        unit: Some(body.unit),
-        location,
-    };
-
-    let state_clone = state.clone();
-    let request_clone = request.clone();
-
-    let _game_update_guard = state.game_update_lock.lock().await;
-    let result = tokio::task::spawn_blocking(move || {
-        match handle_set_unit(
-            &state_clone.game_service,
-            state_clone.message_repository.as_ref(),
-            request_clone,
-        ) {
-            Ok(response) => (StatusCode::OK, Json(response)).into_response(),
-            Err(error) => {
-                let status = match &error {
-                    SetUnitHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
-                    SetUnitHandlerError::Service(SetUnitError::Unauthorized) => StatusCode::UNAUTHORIZED,
-                    SetUnitHandlerError::Service(SetUnitError::NotFound) => StatusCode::NOT_FOUND,
-                    SetUnitHandlerError::Service(SetUnitError::Forbidden(_)) => StatusCode::FORBIDDEN,
-                    SetUnitHandlerError::Service(SetUnitError::InvalidRequest(_)) => StatusCode::BAD_REQUEST,
-                    _ => StatusCode::INTERNAL_SERVER_ERROR,
-                };
-                (status, Json(error.to_api_error_response())).into_response()
-            }
-        }
-    })
-    .await;
-    drop(_game_update_guard);
-    match result {
-        Ok(response) => response,
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-    }
+    dispatch_set_unit(state, game_uuid_str, location, headers, Some(body.unit)).await
 }
 
 ///
@@ -583,6 +532,21 @@ pub(crate) async fn delete_admin_games_units<U, G, D>(
     Path((game_uuid_str, location)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    dispatch_set_unit(state, game_uuid_str, location, headers, None).await
+}
+
+async fn dispatch_set_unit<U, G, D>(
+    state: AppState<U, G, D>,
+    game_uuid_str: String,
+    location: String,
+    headers: HeaderMap,
+    unit: Option<UnitSpecBody>,
+) -> Response
 where
     U: UserRepository + Send + Sync + 'static,
     G: GameRepository + Send + Sync + 'static,
@@ -608,7 +572,7 @@ where
     let request = SetUnitRequest {
         authorization,
         game_uuid,
-        unit: None,
+        unit,
         location,
     };
 
