@@ -8,6 +8,7 @@ use uuid::Uuid;
 use super::CreateGameRequestValidationError;
 use super::JoinGameRequestValidationError;
 use super::SetDrawProposalRequestValidationError;
+use super::SetUnitRequestValidationError;
 
 // ============================================================================
 // definitions
@@ -134,6 +135,55 @@ impl SetDrawProposalRequest {
         };
         if token.is_empty() {
             return Err(SetDrawProposalRequestValidationError::MissingAccessToken);
+        }
+
+        Ok(())
+    }
+}
+
+///
+/// ユニット配置制御リクエストパラメータのユニット指定ボディ構造体
+///
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct UnitSpecBody {
+    pub power: String,
+    pub kind: String,
+}
+
+///
+/// ユニット配置制御リクエストパラメータボディ構造体
+///
+#[derive(Debug, Deserialize)]
+pub(crate) struct SetUnitRequestBody {
+    pub unit: Option<UnitSpecBody>,
+    pub location: String,
+}
+
+///
+/// ユニット配置制御リクエストの構造体
+///
+#[derive(Debug, Clone)]
+pub(crate) struct SetUnitRequest {
+    pub authorization: String,
+    pub game_uuid: Uuid,
+    pub unit: Option<UnitSpecBody>,
+    pub location: String,
+}
+
+/// ユニット配置制御リクエストの構造体の実装
+impl SetUnitRequest {
+    pub(crate) fn validate(&self) -> Result<(), SetUnitRequestValidationError> {
+        let auth = self.authorization.trim();
+        if auth.is_empty() {
+            return Err(SetUnitRequestValidationError::MissingAuthorization);
+        }
+
+        let token = match auth.get(..7) {
+            Some(prefix) if prefix.eq_ignore_ascii_case("Bearer ") => auth.get(7..).unwrap_or("").trim(),
+            _ => return Err(SetUnitRequestValidationError::InvalidAuthorizationScheme),
+        };
+        if token.is_empty() {
+            return Err(SetUnitRequestValidationError::MissingAccessToken);
         }
 
         Ok(())

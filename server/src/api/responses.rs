@@ -16,6 +16,8 @@ pub(crate) use error::ApiErrorResponse;
 pub(crate) use game_response::CreateGameResponse;
 pub(crate) use game_response::JoinGameResponse;
 pub(crate) use game_response::SetDrawProposalResponse;
+pub(crate) use game_response::SetUnitResponse;
+pub(crate) use game_response::UnitResponseBody;
 
 // ============================================================================
 // re-exports

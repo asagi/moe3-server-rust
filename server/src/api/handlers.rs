@@ -15,9 +15,11 @@ pub(crate) use error::AuthHandlerError;
 pub(crate) use error::CreateGameHandlerError;
 pub(crate) use error::JoinGameHandlerError;
 pub(crate) use error::SetDrawProposalHandlerError;
+pub(crate) use error::SetUnitHandlerError;
 pub(crate) use game_handler::post_games;
 pub(crate) use game_handler::post_games_players;
 pub(crate) use game_handler::put_admin_games_draw_proposal;
+pub(crate) use game_handler::put_admin_games_units;
 
 // ============================================================================
 // re-exports
@@ -59,6 +61,14 @@ pub(crate) use super::SetDrawProposalRequest;
 pub(crate) use super::SetDrawProposalRequestBody;
 pub(crate) use super::SetDrawProposalRequestValidationError;
 pub(crate) use super::SetDrawProposalResponse;
+pub(crate) use super::SetUnitCommand;
+pub(crate) use super::SetUnitError;
+pub(crate) use super::SetUnitRequest;
+pub(crate) use super::SetUnitRequestBody;
+pub(crate) use super::SetUnitRequestValidationError;
+pub(crate) use super::SetUnitResponse;
 pub(crate) use super::SqliteMessageRepository;
+pub(crate) use super::UnitResponseBody;
+pub(crate) use super::UnitSpec;
 pub(crate) use super::User;
 pub(crate) use super::UserRepository;

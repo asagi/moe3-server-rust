@@ -140,6 +140,34 @@ impl fmt::Display for SetDrawProposalError {
 }
 
 ///
+/// ユニット配置制御エラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SetUnitError {
+    Unauthorized,
+    NotFound,
+    Forbidden(String),
+    InvalidRequest(String),
+    Repository(RepositoryError),
+}
+
+/// ユニット配置制御エラーの列挙体の実装（Error トレイト）
+impl Error for SetUnitError {}
+
+/// ユニット配置制御エラーの列挙体の実装（fmt::Display トレイト）
+impl fmt::Display for SetUnitError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unauthorized => write!(f, "unauthorized"),
+            Self::NotFound => write!(f, "game not found"),
+            Self::Forbidden(message) => write!(f, "forbidden: {}", message),
+            Self::InvalidRequest(message) => write!(f, "invalid request: {}", message),
+            Self::Repository(error) => write!(f, "repository error: {}", error),
+        }
+    }
+}
+
+///
 /// 卓進行エラーの列挙体
 ///
 #[derive(Debug)]

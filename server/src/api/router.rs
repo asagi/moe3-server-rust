@@ -41,6 +41,7 @@ use super::handlers::post_auth_login;
 use super::handlers::post_games;
 use super::handlers::post_games_players;
 use super::handlers::put_admin_games_draw_proposal;
+use super::handlers::put_admin_games_units;
 
 // ============================================================================
 // definitions
@@ -269,6 +270,7 @@ where
             "/admin/games/:game_uuid/draw-proposal",
             put(put_admin_games_draw_proposal::<U, G, D>),
         )
+        .route("/admin/games/:game_uuid/units", put(put_admin_games_units::<U, G, D>))
         .route("/auth/login", post(post_auth_login::<U, G, D>))
         .with_state(state.clone())
         .layer(from_fn_with_state(state, run_global_pre_handler::<U, G, D>))

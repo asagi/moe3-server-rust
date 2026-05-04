@@ -5,6 +5,7 @@
 use std::fmt;
 
 use super::Power;
+use super::Unit;
 use super::User;
 
 // ============================================================================
@@ -90,6 +91,9 @@ pub(crate) enum SystemNoticeCatalog {
     Solo { power: Power },
     Draw,
     Closed,
+    UnitPlaced { unit: Unit },
+    UnitReplaced { old_unit: Unit, new_unit: Unit },
+    UnitRemoved { unit: Unit },
 }
 
 /// システムメッセージ定義の列挙体の fmt::Display トレイト実装
@@ -128,6 +132,22 @@ impl fmt::Display for SystemNoticeCatalog {
             }
             Self::Closed => {
                 write!(f, "卓が閉鎖されました。")
+            }
+            Self::UnitPlaced { unit } => {
+                write!(f, "{} {} が配置されました。", unit.power.adjective(), unit.label())
+            }
+            Self::UnitReplaced { old_unit, new_unit } => {
+                write!(
+                    f,
+                    "{} {} が {} {} に変更されました。",
+                    old_unit.power.adjective(),
+                    old_unit.label(),
+                    new_unit.power.adjective(),
+                    new_unit.label()
+                )
+            }
+            Self::UnitRemoved { unit } => {
+                write!(f, "{} {} が除去されました。", unit.power.adjective(), unit.label())
             }
         }
     }

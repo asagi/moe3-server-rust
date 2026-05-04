@@ -37,3 +37,22 @@ pub(crate) struct SetDrawProposalResponse {
     pub game_uuid: Uuid,
     pub draw_proposal: bool,
 }
+
+///
+/// ユニット配置制御レスポンスのユニットボディ構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(crate) struct UnitResponseBody {
+    pub power: String,
+    pub kind: String,
+}
+
+///
+/// ユニット配置制御レスポンスの構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(crate) struct SetUnitResponse {
+    pub game_uuid: Uuid,
+    pub location: String,
+    pub unit: Option<UnitResponseBody>,
+}
