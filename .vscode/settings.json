@@ -1,3 +1,7 @@
 {
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "scss.validate": false,
+    "[scss]": {
+        "editor.formatOnSave": false
+    }
 }
