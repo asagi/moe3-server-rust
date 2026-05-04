@@ -155,8 +155,7 @@ pub(crate) struct UnitSpecBody {
 ///
 #[derive(Debug, Deserialize)]
 pub(crate) struct SetUnitRequestBody {
-    pub unit: Option<UnitSpecBody>,
-    pub location: String,
+    pub unit: UnitSpecBody,
 }
 
 ///

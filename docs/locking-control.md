@@ -52,7 +52,8 @@ drop(_game_update_guard);
 |---|---|---|---|
 | グローバルプリハンドラ（`run_global_pre_handler`） | `pre_handler.run()` 呼び出し前 | `pre_handler.run()` 完了後（ハンドラ実行前） | 自動進行（定時更新）を直列化 |
 | `PUT /admin/games/:game_uuid/draw-proposal` | ハンドラ本体の先頭 | ハンドラ本体の末尾 | 講和フラグ更新 |
-| `PUT /admin/games/:game_uuid/units` | ハンドラ本体の先頭 | ハンドラ本体の末尾 | ユニット配置・削除 |
+| `PUT /admin/games/:game_uuid/units/:location` | ハンドラ本体の先頭 | ハンドラ本体の末尾 | ユニット配置・置換 |
+| `DELETE /admin/games/:game_uuid/units/:location` | ハンドラ本体の先頭 | ハンドラ本体の末尾 | ユニット削除 |
 
 ### ロックを取得しないエンドポイント
 
@@ -78,12 +79,12 @@ run_global_pre_handler
     │
     ▼
 各ハンドラ実行（ロック外）
-    │ ※ draw-proposal / units は再度 game_update_lock を取得
+    │ ※ draw-proposal / units(put/delete) は再度 game_update_lock を取得
     ▼
 レスポンス返却
 ```
 
-プリハンドラはロックを解放してからハンドラに制御を渡す。draw-proposal・units ハンドラは再度ロックを取得するため、同一リクエスト内で定時進行と操作が衝突することはない。
+プリハンドラはロックを解放してからハンドラに制御を渡す。draw-proposal・units(put/delete) ハンドラは再度ロックを取得するため、同一リクエスト内で定時進行と操作が衝突することはない。
 
 ---
 

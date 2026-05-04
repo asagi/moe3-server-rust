@@ -34,7 +34,8 @@
 
 | メソッド | パス | 概要 | 備考 |
 | --- | --- | --- | --- |
-| `PUT` | [`/admin/games/{id}/units`](./admin-games-units.md) | ユニットの登録、変更、削除 | メインフェイズのみ |
+| `PUT` | [`/admin/games/{id}/units/{location}`](./admin-games-units.md) | ユニットの登録、変更 | メインフェイズのみ |
+| `DELETE` | [`/admin/games/{id}/units/{location}`](./admin-games-units.md) | ユニットの削除 | メインフェイズのみ |
 | `PUT` | `/admin/games/{id}/territories` | 占領情報の登録、変更、削除 | メインフェイズのみ |
 | `PUT` | `/admin/games/{id}/progress-mode` | 進行モードを合意進行に切り替える | メインフェイズのみ |
 | `PUT` | `/admin/games/{id}/next-update-at` | 次回更新時刻を変更する | メインフェイズのみ |

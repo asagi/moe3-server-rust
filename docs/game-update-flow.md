@@ -29,7 +29,7 @@ run_global_pre_handler（ミドルウェア）
     │
     ▼
 各ハンドラ実行（ロック外）
-    │   ※ PUT draw-proposal / PUT units は再度 game_update_lock を取得して実行
+    │   ※ PUT draw-proposal / PUT units / DELETE units は再度 game_update_lock を取得して実行
     ▼
 レスポンス返却
 ```

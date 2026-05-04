@@ -1,108 +1,54 @@
-# PUT /admin/games/:game_uuid/units
+# PUT /admin/games/:game_uuid/units/:location
+
+# DELETE /admin/games/:game_uuid/units/:location
 
 ## 概要
 
-- 卓主が自分の卓のユニットを配置・置換・削除する API
-- `unit` を指定するとユニットを配置し、省略または `null` にすると `location` のユニットを削除する
+- 卓主が自分の卓のユニットを操作する API
+- `PUT`: 指定地点のユニットを配置または置換
+- `DELETE`: 指定地点のユニットを削除
 - 既存ユニットと配置先が重複する場合は既存ユニットおよびその命令を削除してから新ユニットを配置する
 
 ## HTTP
 
-- Method: `PUT`
-- Path: `/admin/games/:game_uuid/units`
-- Content-Type: `application/json`
+- `PUT /admin/games/:game_uuid/units/:location`
+- `DELETE /admin/games/:game_uuid/units/:location`
 
 ## ヘッダ
 
 - Authorization: 必須（`Bearer <access_token>`）
-- Content-Type: `application/json`
+- Content-Type: `application/json`（`PUT` のみ）
 
 ## パスパラメータ
 
 - `game_uuid` (`string`): 対象の卓の UUID（UUID v7 形式）
+- `location` (`string`): 地域コード（例: `par`, `lon`, `spa_nc`）
 
-## リクエストボディ
-
-### 型
-
-- `object`
-
-### 必須パラメータ
-
-- `location` (`string`)
-
-### 任意パラメータ
-
-- `unit` (`object | null`)
-
-### 値定義
-
-#### `location`
-
-- 地域コード文字列（例: `"par"`, `"lon"`, `"spa_nc"`）
-- 存在しないコードは `400 Bad Request`
-- 双海岸地域（`spa` など）に海軍を配置する場合は海岸バリアントコード（`"spa_nc"` / `"spa_sc"`）を指定すること
-
-#### `unit`
-
-- `null` または省略: 指定 `location` のユニットを削除する
-- 存在しない場合: 削除操作
-
-##### `unit.power` (`string`)
-
-- 担当国を示す1文字コード: `"a" | "e" | "f" | "g" | "i" | "r" | "t"`
-- 上記以外は `400 Bad Request`
-
-##### `unit.kind` (`string`)
-
-- ユニット種別:
-  - `"a"` または `"army"` → 陸軍
-  - `"f"` または `"fleet"` → 海軍
-- 上記以外は `400 Bad Request`
-
-## リクエスト例
-
-### 陸軍配置
+## PUT リクエストボディ
 
 ```json
 {
-  "unit": { "power": "f", "kind": "a" },
-  "location": "par"
+  "unit": {
+    "power": "f",
+    "kind": "a"
+  }
 }
 ```
 
-### 海軍配置（海岸バリアント指定）
+### `unit.power` (`string`)
 
-```json
-{
-  "unit": { "power": "f", "kind": "f" },
-  "location": "bre"
-}
-```
+- 担当国1文字コード: `a | e | f | g | i | r | t`
 
-### 双海岸地域への海軍配置
+### `unit.kind` (`string`)
 
-```json
-{
-  "unit": { "power": "f", "kind": "f" },
-  "location": "spa_nc"
-}
-```
-
-### ユニット削除
-
-```json
-{
-  "unit": null,
-  "location": "par"
-}
-```
+- `a` または `army`（陸軍）
+- `f` または `fleet`（海軍）
 
 ## 成功レスポンス
 
 - Status: `200 OK`
 
-### ユニット配置・置換時
+### PUT（配置・置換）
 
 ```json
 {
@@ -115,7 +61,7 @@
 }
 ```
 
-### ユニット削除時
+### DELETE（削除）
 
 ```json
 {
@@ -124,11 +70,6 @@
   "unit": null
 }
 ```
-
-注意:
-
-- `unit.power` はレスポンスで1文字コードを返す（例: `"f"`）
-- `unit.kind` はレスポンスでシンボル文字を返す（陸軍: `"A"`, 海軍: `"F"`）
 
 ## エラー形式（共通）
 
@@ -143,31 +84,19 @@
 
 ### `400 Bad Request` — `code: invalid_request`
 
-#### `Authorization` ヘッダ関連
-
 | 条件 | `message` |
 |---|---|
 | Authorization ヘッダ欠落 | `"authorization header is required"` |
 | Authorization 形式不正（Bearer プレフィックスなし） | `"authorization must start with 'Bearer <token>'"` |
 | アクセストークン空（Bearer 後が空文字） | `"access token is required"` |
-
-#### パスパラメータ検証
-
-| 条件 | `message` |
-|---|---|
 | `game_uuid` が有効な UUID でない | `"game_uuid is invalid"` |
-
-#### リクエストボディ検証
-
-| 条件 | `message` |
-|---|---|
 | `location` が無効な地域コード | `"invalid location: <location>"` |
-| `unit.power` が無効な国コード | `"invalid power: <power>"` |
-| `unit.kind` が無効な値 | `"invalid unit kind: <kind>"` |
-| 陸軍を海域に配置しようとした | `"army cannot be placed in a sea province"` |
-| 陸軍を海岸バリアントコードで指定した | `"army cannot be placed on a coast variant location"` |
-| 海軍を内陸に配置しようとした | `"fleet cannot be placed in an inland province"` |
-| 海軍を双海岸地域のベースコードで指定した（バリアント指定なし） | `"fleet must specify a coast variant for this location"` |
+| `unit.power` が無効な国コード（PUT） | `"invalid power: <power>"` |
+| `unit.kind` が無効な値（PUT） | `"invalid unit kind: <kind>"` |
+| 陸軍を海域に配置しようとした（PUT） | `"army cannot be placed in a sea province"` |
+| 陸軍を海岸バリアントコードで指定した（PUT） | `"army cannot be placed on a coast variant location"` |
+| 海軍を内陸に配置しようとした（PUT） | `"fleet cannot be placed in an inland province"` |
+| 海軍を双海岸地域のベースコードで指定した（PUT） | `"fleet must specify a coast variant for this location"` |
 
 ### `401 Unauthorized` — `code: unauthorized`
 
@@ -181,7 +110,7 @@
 |---|---|
 | リクエストユーザーが当該卓の卓主でない | `"user is not the owner of this game"` |
 | 卓にフェイズが存在しない | `"game has no phases"` |
-| 現在の最新フェイズがメインフェイズ（春命令・秋命令）以外 | `"units can only be set during a main phase"` |
+| 最新フェイズがメインフェイズ以外 | `"units can only be set during a main phase"` |
 
 ### `404 Not Found` — `code: not_found`
 
@@ -197,36 +126,32 @@
 
 ## ビジネスルール
 
-- メインフェイズ制限: 最新フェイズが `SpringMain`（春命令）または `FallMain`（秋命令）のときのみ操作可能
-- 既存ユニット置換: 同じベースコードにユニットが既に存在する場合、既存ユニットとその関連命令（直接命令・支援対象・輸送対象を含む）をすべて削除してから新ユニットを配置する
-- Hold 命令自動生成: 新ユニット配置時、そのユニットの Hold 命令を自動で生成する
-- システムメッセージ: ユニットの状態が変化した場合にメッセージ DB へ追記する
+- メインフェイズ制限: 最新フェイズが `SpringMain` または `FallMain` のときのみ操作可能
+- 既存ユニット置換: 同じベースコードに既存ユニットがある場合、既存ユニットと関連命令を削除してから新ユニットを配置
+- Hold 命令自動生成: PUT で新ユニット配置時に Hold 命令を自動生成
+- システムメッセージ: ユニット状態が変化した場合のみメッセージ DB に追記（同じ状態への再適用では追記しない）
 
 | 操作 | 追記されるメッセージ |
 |---|---|
-| 新規配置（旧ユニットなし → 新ユニットあり） | `UnitPlaced` |
-| 置換（旧ユニットあり → 新ユニットあり） | `UnitReplaced` |
-| 削除（旧ユニットあり → 新ユニットなし） | `UnitRemoved` |
-| 変化なし（旧ユニットなし → 新ユニットなし） | なし |
-
-- 排他制御: サーバー全体の `game_update_lock` を取得した上で実行される
+| 新規配置（旧なし → 新あり） | `UnitPlaced` |
+| 置換（旧あり → 新あり、内容が異なる） | `UnitReplaced` |
+| 削除（旧あり → 新なし） | `UnitRemoved` |
+| 変化なし（旧新が同一） | なし |
 
 ## curl
 
-### 陸軍配置
+### 陸軍配置（PUT）
 
 ```bash
-curl -X PUT '{base_path}/admin/games/{game_uuid}/units' \
+curl -X PUT '{base_path}/admin/games/{game_uuid}/units/par' \
   -H 'Authorization: Bearer <access_token>' \
   -H 'Content-Type: application/json' \
-  -d '{"unit":{"power":"f","kind":"a"},"location":"par"}'
+  -d '{"unit":{"power":"f","kind":"a"}}'
 ```
 
-### ユニット削除
+### ユニット削除（DELETE）
 
 ```bash
-curl -X PUT '{base_path}/admin/games/{game_uuid}/units' \
-  -H 'Authorization: Bearer <access_token>' \
-  -H 'Content-Type: application/json' \
-  -d '{"unit":null,"location":"par"}'
+curl -X DELETE '{base_path}/admin/games/{game_uuid}/units/par' \
+  -H 'Authorization: Bearer <access_token>'
 ```

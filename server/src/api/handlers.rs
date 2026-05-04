@@ -16,6 +16,7 @@ pub(crate) use error::CreateGameHandlerError;
 pub(crate) use error::JoinGameHandlerError;
 pub(crate) use error::SetDrawProposalHandlerError;
 pub(crate) use error::SetUnitHandlerError;
+pub(crate) use game_handler::delete_admin_games_units;
 pub(crate) use game_handler::post_games;
 pub(crate) use game_handler::post_games_players;
 pub(crate) use game_handler::put_admin_games_draw_proposal;
