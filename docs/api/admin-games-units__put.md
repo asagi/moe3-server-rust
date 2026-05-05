@@ -28,7 +28,8 @@
   "unit": {
     "power": "f",
     "kind": "a"
-  }
+  },
+  "season": "1901s"
 }
 ```
 
@@ -40,6 +41,12 @@
 
 - `a` または `army`（陸軍）
 - `f` または `fleet`（海軍）
+
+### `season` (`string`)
+
+- 対象フェイズを指定するシーズン文字列（例: `"1901s"`, `"1901f"`）
+- 形式: `<年4桁><s|f>`（大文字小文字不問）
+- 現在の最新フェイズのシーズンと一致しない場合は `409 Conflict`
 
 ## 成功レスポンス
 
@@ -60,7 +67,7 @@
 
 ```json
 {
-  "code": "invalid_request | unauthorized | not_found | forbidden | repository_error",
+  "code": "invalid_request | unauthorized | not_found | forbidden | phase_conflict | repository_error",
   "message": "人間向け説明"
 }
 ```
@@ -78,6 +85,7 @@
 | `location` が無効な地域コード | `"invalid location: <location>"` |
 | `unit.power` が無効な国コード | `"invalid power: <power>"` |
 | `unit.kind` が無効な値 | `"invalid unit kind: <kind>"` |
+| `season` が無効な形式 | `"season must be in the format like '1901s' or '1901f'"` |
 | 陸軍を海域に配置しようとした | `"army cannot be placed in a sea province"` |
 | 陸軍を海岸バリアントコードで指定した | `"army cannot be placed on a coast variant location"` |
 | 海軍を内陸に配置しようとした | `"fleet cannot be placed in an inland province"` |
@@ -102,6 +110,12 @@
 | 条件 | `message` |
 |---|---|
 | 指定した UUID の卓が存在しない | `"game not found"` |
+
+### `409 Conflict` — `code: phase_conflict`
+
+| 条件 | `message` |
+|---|---|
+| 指定した `season` が現在の最新フェイズと一致しない | `"phase conflict"` |
 
 ### `500 Internal Server Error` — `code: repository_error`
 
