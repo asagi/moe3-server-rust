@@ -963,16 +963,18 @@ impl GameRepository for SqliteGameRepository {
                 r#"
                 UPDATE games
                 SET game_number = ?2,
-                    status = ?3,
-                    is_draw = ?4,
-                    is_solo = ?5,
-                    next_update = ?6,
-                    updated_at = ?7
+                    regulation_progress_mode = ?3,
+                    status = ?4,
+                    is_draw = ?5,
+                    is_solo = ?6,
+                    next_update = ?7,
+                    updated_at = ?8
                 WHERE uuid = ?1
                 "#,
                 params![
                     game.uuid.to_string(),
                     game.game_number,
+                    game.regulation.progress_mode as i32,
                     Self::serialize_status(game.status),
                     game.is_draw as i32,
                     game.is_solo as i32,

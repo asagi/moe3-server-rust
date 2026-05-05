@@ -73,3 +73,15 @@ pub(crate) enum SetTerritoryRequestValidationError {
     InvalidGameUuid,
     InvalidSeason,
 }
+
+///
+/// 進行モード変更リクエストのバリデーションエラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SetProgressModeRequestValidationError {
+    MissingAuthorization,
+    InvalidAuthorizationScheme,
+    MissingAccessToken,
+    InvalidGameUuid,
+    InvalidSeason,
+}

@@ -123,6 +123,7 @@ pub(crate) enum SystemNoticeCatalog {
         province: Province,
         old_power: Power,
     },
+    ProgressModeChanged,
 }
 
 /// システムメッセージ定義の列挙体の fmt::Display トレイト実装
@@ -201,6 +202,9 @@ impl fmt::Display for SystemNoticeCatalog {
                     old_power.name(),
                     province.jname()
                 )
+            }
+            Self::ProgressModeChanged => {
+                write!(f, "進行モードが定時進行から合意進行に変更されました。")
             }
         }
     }

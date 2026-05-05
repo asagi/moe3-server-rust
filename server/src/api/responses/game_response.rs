@@ -66,3 +66,12 @@ pub(crate) struct SetTerritoryResponse {
     pub code: String,
     pub power: Option<String>,
 }
+
+///
+/// 進行モード変更レスポンスの構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(crate) struct SetProgressModeResponse {
+    pub game_uuid: Uuid,
+    pub progress_mode: String,
+}

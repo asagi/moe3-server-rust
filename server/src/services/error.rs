@@ -220,3 +220,31 @@ impl fmt::Display for SetTerritoryError {
         }
     }
 }
+
+///
+/// 進行モード変更エラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SetProgressModeError {
+    Unauthorized,
+    NotFound,
+    Forbidden(String),
+    PhaseConflict,
+    Repository(RepositoryError),
+}
+
+/// 進行モード変更エラーの列挙体の実装（Error トレイト）
+impl Error for SetProgressModeError {}
+
+/// 進行モード変更エラーの列挙体の実装（fmt::Display トレイト）
+impl fmt::Display for SetProgressModeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unauthorized => write!(f, "unauthorized"),
+            Self::NotFound => write!(f, "game not found"),
+            Self::Forbidden(message) => write!(f, "forbidden: {}", message),
+            Self::PhaseConflict => write!(f, "phase has changed since this request was issued"),
+            Self::Repository(error) => write!(f, "repository error: {}", error),
+        }
+    }
+}

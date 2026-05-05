@@ -66,4 +66,6 @@ pub(crate) use services::SetTerritoryCommand;
 pub(crate) use services::SetTerritoryError;
 pub(crate) use services::SetUnitCommand;
 pub(crate) use services::SetUnitError;
+pub(crate) use services::SetProgressModeCommand;
+pub(crate) use services::SetProgressModeError;
 pub(crate) use services::UnitSpec;

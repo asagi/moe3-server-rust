@@ -44,6 +44,13 @@ use super::SetDrawProposalRequest;
 use super::SetDrawProposalRequestBody;
 use super::SetDrawProposalRequestValidationError;
 use super::SetDrawProposalResponse;
+use super::SetProgressModeCommand;
+use super::SetProgressModeError;
+use super::SetProgressModeHandlerError;
+use super::SetProgressModeRequest;
+use super::SetProgressModeRequestBody;
+use super::SetProgressModeRequestValidationError;
+use super::SetProgressModeResponse;
 use super::SetTerritoryCommand;
 use super::SetTerritoryError;
 use super::SetTerritoryHandlerError;
@@ -859,6 +866,116 @@ where
         game_uuid,
         code: result.province.code().to_string(),
         power: result.new_power.map(|p| p.symbol().to_string()),
+    })
+}
+
+///
+/// 進行モード変更リクエスト Axum ハンドラ関数
+///
+pub(crate) async fn put_admin_games_progress_mode<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    Path(game_uuid_str): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<SetProgressModeRequestBody>,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    let game_uuid = match game_uuid_str.parse::<Uuid>() {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(
+                    SetProgressModeHandlerError::InvalidRequest(SetProgressModeRequestValidationError::InvalidGameUuid)
+                        .to_api_error_response(),
+                ),
+            )
+                .into_response();
+        }
+    };
+
+    let authorization = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
+    let request = SetProgressModeRequest {
+        authorization,
+        game_uuid,
+        season: body.season,
+    };
+
+    let state_clone = state.clone();
+    let request_clone = request.clone();
+
+    let _game_update_guard = state.game_update_lock.lock().await;
+    let result = tokio::task::spawn_blocking(move || {
+        match handle_set_progress_mode(
+            &state_clone.game_service,
+            state_clone.message_repository.as_ref(),
+            request_clone,
+        ) {
+            Ok(response) => (StatusCode::OK, Json(response)).into_response(),
+            Err(error) => {
+                let status = match &error {
+                    SetProgressModeHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+                    SetProgressModeHandlerError::Service(SetProgressModeError::Unauthorized) => StatusCode::UNAUTHORIZED,
+                    SetProgressModeHandlerError::Service(SetProgressModeError::NotFound) => StatusCode::NOT_FOUND,
+                    SetProgressModeHandlerError::Service(SetProgressModeError::Forbidden(_)) => StatusCode::FORBIDDEN,
+                    SetProgressModeHandlerError::Service(SetProgressModeError::PhaseConflict) => StatusCode::CONFLICT,
+                    _ => StatusCode::INTERNAL_SERVER_ERROR,
+                };
+                (status, Json(error.to_api_error_response())).into_response()
+            }
+        }
+    })
+    .await;
+    drop(_game_update_guard);
+    match result {
+        Ok(response) => response,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+/// 進行モード変更リクエストハンドラ関数
+fn handle_set_progress_mode<U, G>(
+    service: &GameService<U, G>,
+    message_repository: &SqliteMessageRepository,
+    request: SetProgressModeRequest,
+) -> Result<SetProgressModeResponse, SetProgressModeHandlerError>
+where
+    U: UserRepository,
+    G: GameRepository,
+{
+    request.validate().map_err(SetProgressModeHandlerError::InvalidRequest)?;
+
+    let access_token = request.authorization.trim()[7..].trim().to_string();
+
+    let result = service
+        .set_progress_mode(SetProgressModeCommand {
+            access_token,
+            game_uuid: request.game_uuid,
+            season: request.season.to_lowercase(),
+        })
+        .map_err(SetProgressModeHandlerError::Service)?;
+
+    if result.changed {
+        let turn = result.game.current_turn();
+        if let Err(error) = message_repository.append_progress_mode_changed_message(result.game.uuid, &turn) {
+            eprintln!(
+                "failed to persist ProgressModeChanged message (game_uuid={}): {}",
+                result.game.uuid, error
+            );
+        }
+    }
+
+    Ok(SetProgressModeResponse {
+        game_uuid: result.game.uuid,
+        progress_mode: "consensus".to_string(),
     })
 }
 
@@ -2074,5 +2191,275 @@ mod tests {
 
             assert_eq!(error.code(), "invalid_request", "season={bad_season}");
         }
+    }
+
+    // ============================================================================
+    // handle_set_progress_mode tests
+    // ============================================================================
+
+    #[test]
+    fn handle_set_progress_mode_rejects_missing_authorization() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_progress_mode(
+            &service,
+            &message_repository,
+            SetProgressModeRequest {
+                authorization: "".to_string(),
+                game_uuid: uuid::Uuid::now_v7(),
+                season: "1901s".to_string(),
+            },
+        )
+        .expect_err("should fail without authorization");
+
+        assert_eq!(error.code(), "invalid_request");
+    }
+
+    #[test]
+    fn handle_set_progress_mode_rejects_invalid_season_format() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_progress_mode(
+            &service,
+            &message_repository,
+            SetProgressModeRequest {
+                authorization: "Bearer dummy".to_string(),
+                game_uuid: uuid::Uuid::now_v7(),
+                season: "1901x".to_string(),
+            },
+        )
+        .expect_err("should fail with invalid season");
+
+        assert_eq!(error.code(), "invalid_request");
+    }
+
+    #[test]
+    fn handle_set_progress_mode_rejects_unauthorized() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game = sample_in_progress_game_for_handler(owner_uuid);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_progress_mode(
+            &service,
+            &message_repository,
+            SetProgressModeRequest {
+                authorization: "Bearer invalid-token".to_string(),
+                game_uuid: uuid::Uuid::now_v7(),
+                season: "1901s".to_string(),
+            },
+        )
+        .expect_err("should fail with unknown token");
+
+        assert_eq!(error.code(), "unauthorized");
+    }
+
+    #[test]
+    fn handle_set_progress_mode_returns_not_found_for_missing_game() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_progress_mode(
+            &service,
+            &message_repository,
+            SetProgressModeRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid: uuid::Uuid::now_v7(),
+                season: "1901s".to_string(),
+            },
+        )
+        .expect_err("should fail for missing game");
+
+        assert_eq!(error.code(), "not_found");
+    }
+
+    #[test]
+    fn handle_set_progress_mode_returns_forbidden_for_non_owner() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let other_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            UserRecord {
+                id: 1,
+                uuid: owner_uuid,
+                discord_user_id: "discord-owner".to_string(),
+                username: "owner".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: "token-owner".to_string(),
+                last_access_at: Utc::now(),
+            },
+            UserRecord {
+                id: 2,
+                uuid: other_uuid,
+                discord_user_id: "discord-other".to_string(),
+                username: "other".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: "token-other".to_string(),
+                last_access_at: Utc::now(),
+            },
+        ]);
+        let game = sample_in_progress_game_for_handler(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_progress_mode(
+            &service,
+            &message_repository,
+            SetProgressModeRequest {
+                authorization: "Bearer token-other".to_string(),
+                game_uuid,
+                season: "1901s".to_string(),
+            },
+        )
+        .expect_err("should fail for non-owner");
+
+        assert_eq!(error.code(), "forbidden");
+    }
+
+    #[test]
+    fn handle_set_progress_mode_returns_phase_conflict_for_wrong_season() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game = sample_in_progress_game_for_handler(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_progress_mode(
+            &service,
+            &message_repository,
+            SetProgressModeRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                season: "1901f".to_string(), // wrong season
+            },
+        )
+        .expect_err("should fail for wrong season");
+
+        assert_eq!(error.code(), "phase_conflict");
+    }
+
+    #[test]
+    fn handle_set_progress_mode_returns_ok_when_already_consensus() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let mut game = sample_in_progress_game_for_handler(owner_uuid);
+        game.regulation.progress_mode = crate::domain::ProgressMode::Consensus;
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+        let message_repository = new_test_message_repository();
+
+        let response = handle_set_progress_mode(
+            &service,
+            &message_repository,
+            SetProgressModeRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                season: "1901s".to_string(),
+            },
+        )
+        .expect("should succeed for already consensus");
+
+        assert_eq!(response.game_uuid, game_uuid);
+        assert_eq!(response.progress_mode, "consensus");
+        assert!(
+            game_repository.last_updated().is_none(),
+            "repository.update should not be called"
+        );
+    }
+
+    #[test]
+    fn handle_set_progress_mode_changes_to_consensus_and_records_message() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game = sample_in_progress_game_for_handler(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+        let message_repository = new_test_message_repository();
+
+        let response = handle_set_progress_mode(
+            &service,
+            &message_repository,
+            SetProgressModeRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                season: "1901s".to_string(),
+            },
+        )
+        .expect("should succeed");
+
+        assert_eq!(response.game_uuid, game_uuid);
+        assert_eq!(response.progress_mode, "consensus");
+        let updated = game_repository.last_updated().expect("game should be updated");
+        assert_eq!(updated.regulation.progress_mode, crate::domain::ProgressMode::Consensus);
     }
 }

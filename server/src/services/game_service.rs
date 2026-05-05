@@ -20,6 +20,7 @@ use super::Province;
 use super::Regulation;
 use super::RepositoryError;
 use super::SetDrawProposalError;
+use super::SetProgressModeError;
 use super::SetTerritoryError;
 use super::SetUnitError;
 use super::Unit;
@@ -145,6 +146,25 @@ pub(crate) struct SetTerritoryResult {
     pub province: Province,
     pub old_power: Option<Power>,
     pub new_power: Option<Power>,
+    pub changed: bool,
+}
+
+///
+/// 進行モード変更コマンドの構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SetProgressModeCommand {
+    pub access_token: String,
+    pub game_uuid: Uuid,
+    pub season: String,
+}
+
+///
+/// 進行モード変更処理結果の構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SetProgressModeResult {
+    pub game: Game,
     pub changed: bool,
 }
 
@@ -686,6 +706,70 @@ where
             province,
             old_power,
             new_power,
+            changed: true,
+        })
+    }
+
+    ///
+    /// 卓主権限で進行モードを合意進行に変更する
+    ///
+    pub(crate) fn set_progress_mode(
+        &self,
+        command: SetProgressModeCommand,
+    ) -> Result<SetProgressModeResult, SetProgressModeError> {
+        if command.access_token.is_empty() {
+            return Err(SetProgressModeError::Unauthorized);
+        }
+
+        let user = self
+            .user_repository
+            .find_by_access_token(&command.access_token)
+            .map_err(SetProgressModeError::Repository)?
+            .ok_or(SetProgressModeError::Unauthorized)?;
+
+        let game = self
+            .game_repository
+            .find_by_uuid(command.game_uuid)
+            .map_err(SetProgressModeError::Repository)?
+            .ok_or(SetProgressModeError::NotFound)?;
+
+        game.players
+            .iter()
+            .find(|p| p.is_owner && p.user_uuid == user.uuid)
+            .ok_or_else(|| SetProgressModeError::Forbidden("user is not the owner of this game".to_string()))?;
+
+        let latest_phase = game
+            .phases
+            .last()
+            .ok_or_else(|| SetProgressModeError::Forbidden("game has no phases".to_string()))?;
+        let is_main_phase = matches!(
+            latest_phase.kind,
+            crate::domain::PhaseKind::SpringMain(_) | crate::domain::PhaseKind::FallMain(_)
+        );
+        if !is_main_phase {
+            return Err(SetProgressModeError::Forbidden(
+                "progress mode can only be changed during a main phase".to_string(),
+            ));
+        }
+
+        if game.current_turn() != command.season {
+            return Err(SetProgressModeError::PhaseConflict);
+        }
+
+        // 既に Consensus なら変更なしで OK を返す
+        if game.regulation.progress_mode == crate::domain::ProgressMode::Consensus {
+            return Ok(SetProgressModeResult { game, changed: false });
+        }
+
+        let mut updated_game = game;
+        updated_game.regulation.progress_mode = crate::domain::ProgressMode::Consensus;
+
+        self.game_repository
+            .update(&updated_game)
+            .map_err(SetProgressModeError::Repository)?;
+
+        Ok(SetProgressModeResult {
+            game: updated_game,
             changed: true,
         })
     }
@@ -2303,5 +2387,187 @@ mod tests {
             .expect_err("should reject mismatched season");
 
         assert!(matches!(error, SetUnitError::PhaseConflict));
+    }
+
+    // ============================================================================
+    // set_progress_mode tests
+    // ============================================================================
+
+    #[test]
+    fn set_progress_mode_rejects_empty_access_token() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_progress_mode(SetProgressModeCommand {
+                access_token: "".to_string(),
+                game_uuid,
+                season: "1901s".to_string(),
+            })
+            .expect_err("should reject empty token");
+
+        assert!(matches!(error, SetProgressModeError::Unauthorized));
+    }
+
+    #[test]
+    fn set_progress_mode_rejects_unknown_access_token() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_progress_mode(SetProgressModeCommand {
+                access_token: "unknown-token".to_string(),
+                game_uuid,
+                season: "1901s".to_string(),
+            })
+            .expect_err("should reject unknown token");
+
+        assert!(matches!(error, SetProgressModeError::Unauthorized));
+    }
+
+    #[test]
+    fn set_progress_mode_rejects_when_game_not_found() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game_repository = InMemoryGameRepository::new(vec![]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_progress_mode(SetProgressModeCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid: Uuid::now_v7(),
+                season: "1901s".to_string(),
+            })
+            .expect_err("should reject when game not found");
+
+        assert!(matches!(error, SetProgressModeError::NotFound));
+    }
+
+    #[test]
+    fn set_progress_mode_rejects_non_owner() {
+        let owner_uuid = Uuid::now_v7();
+        let other_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            owner_user_record(owner_uuid),
+            UserRecord {
+                id: 2,
+                uuid: other_uuid,
+                discord_user_id: "discord-other".to_string(),
+                username: "other".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: "token-other".to_string(),
+                last_access_at: Utc::now(),
+            },
+        ]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_progress_mode(SetProgressModeCommand {
+                access_token: "token-other".to_string(),
+                game_uuid,
+                season: "1901s".to_string(),
+            })
+            .expect_err("should reject non-owner");
+
+        assert!(matches!(error, SetProgressModeError::Forbidden(_)));
+    }
+
+    #[test]
+    fn set_progress_mode_rejects_when_not_main_phase() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        // Ready フェイズのみ（メインフェイズでない）
+        let game = sample_preparing_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_progress_mode(SetProgressModeCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                season: "1901s".to_string(),
+            })
+            .expect_err("should reject when not main phase");
+
+        assert!(matches!(error, SetProgressModeError::Forbidden(_)));
+    }
+
+    #[test]
+    fn set_progress_mode_rejects_mismatched_season() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_progress_mode(SetProgressModeCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                season: "1901f".to_string(), // wrong season (game is 1901s)
+            })
+            .expect_err("should reject mismatched season");
+
+        assert!(matches!(error, SetProgressModeError::PhaseConflict));
+    }
+
+    #[test]
+    fn set_progress_mode_returns_unchanged_when_already_consensus() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let mut game = sample_in_progress_game(owner_uuid);
+        game.regulation.progress_mode = ProgressMode::Consensus;
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service
+            .set_progress_mode(SetProgressModeCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                season: "1901s".to_string(),
+            })
+            .expect("should succeed");
+
+        assert!(!result.changed, "changed should be false when already consensus");
+        assert!(game_repository.updated_first().is_none(), "update should not be called");
+    }
+
+    #[test]
+    fn set_progress_mode_changes_to_consensus_and_persists() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service
+            .set_progress_mode(SetProgressModeCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                season: "1901s".to_string(),
+            })
+            .expect("should succeed");
+
+        assert!(result.changed, "changed should be true");
+        assert_eq!(result.game.regulation.progress_mode, ProgressMode::Consensus);
+        let updated = game_repository.updated_first().expect("game should be updated");
+        assert_eq!(updated.regulation.progress_mode, ProgressMode::Consensus);
     }
 }
