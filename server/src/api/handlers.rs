@@ -17,6 +17,7 @@ pub(crate) use error::JoinGameHandlerError;
 pub(crate) use error::SetDrawProposalHandlerError;
 pub(crate) use error::SetTerritoryHandlerError;
 pub(crate) use error::SetUnitHandlerError;
+pub(crate) use error::SetProgressModeHandlerError;
 pub(crate) use game_handler::delete_admin_games_territories;
 pub(crate) use game_handler::delete_admin_games_units;
 pub(crate) use game_handler::post_games;
@@ -24,6 +25,7 @@ pub(crate) use game_handler::post_games_players;
 pub(crate) use game_handler::put_admin_games_draw_proposal;
 pub(crate) use game_handler::put_admin_games_territories;
 pub(crate) use game_handler::put_admin_games_units;
+pub(crate) use game_handler::put_admin_games_progress_mode;
 
 // ============================================================================
 // re-exports
@@ -79,6 +81,12 @@ pub(crate) use super::SetUnitRequest;
 pub(crate) use super::SetUnitRequestBody;
 pub(crate) use super::SetUnitRequestValidationError;
 pub(crate) use super::SetUnitResponse;
+pub(crate) use super::SetProgressModeCommand;
+pub(crate) use super::SetProgressModeError;
+pub(crate) use super::SetProgressModeRequest;
+pub(crate) use super::SetProgressModeRequestBody;
+pub(crate) use super::SetProgressModeRequestValidationError;
+pub(crate) use super::SetProgressModeResponse;
 pub(crate) use super::SqliteMessageRepository;
 pub(crate) use super::UnitResponseBody;
 pub(crate) use super::UnitSpec;

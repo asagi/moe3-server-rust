@@ -516,6 +516,7 @@ impl SqliteMessageRepository {
             SystemNoticeCatalog::TerritorySet { .. } => "territory_set",
             SystemNoticeCatalog::TerritoryReplaced { .. } => "territory_replaced",
             SystemNoticeCatalog::TerritoryReleased { .. } => "territory_released",
+            SystemNoticeCatalog::ProgressModeChanged => "progress_mode_changed",
         }
     }
 
@@ -572,8 +573,23 @@ impl SqliteMessageRepository {
             | SystemNoticeCatalog::OwnerAbsent
             | SystemNoticeCatalog::DrawRescinded
             | SystemNoticeCatalog::Draw
-            | SystemNoticeCatalog::Closed => json!({}),
+            | SystemNoticeCatalog::Closed
+            | SystemNoticeCatalog::ProgressModeChanged => json!({}),
         }
+    }
+
+    pub(crate) fn append_progress_mode_changed_message(&self, game_uuid: Uuid, turn: &str) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+        let catalog = SystemNoticeCatalog::ProgressModeChanged;
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
     }
 }
 

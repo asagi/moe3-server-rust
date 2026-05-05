@@ -58,6 +58,13 @@ use super::SetUnitRequest;
 use super::SetUnitRequestBody;
 use super::SetUnitRequestValidationError;
 use super::SetUnitResponse;
+use super::SetProgressModeCommand;
+use super::SetProgressModeError;
+use super::SetProgressModeHandlerError;
+use super::SetProgressModeRequest;
+use super::SetProgressModeRequestBody;
+use super::SetProgressModeRequestValidationError;
+use super::SetProgressModeResponse;
 use super::SqliteMessageRepository;
 use super::UnitResponseBody;
 use super::UnitSpec;
@@ -859,6 +866,116 @@ where
         game_uuid,
         code: result.province.code().to_string(),
         power: result.new_power.map(|p| p.symbol().to_string()),
+    })
+}
+
+///
+/// 進行モード変更リクエスト Axum ハンドラ関数
+///
+pub(crate) async fn put_admin_games_progress_mode<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    Path(game_uuid_str): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<SetProgressModeRequestBody>,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    let game_uuid = match game_uuid_str.parse::<Uuid>() {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(
+                    SetProgressModeHandlerError::InvalidRequest(SetProgressModeRequestValidationError::InvalidGameUuid)
+                        .to_api_error_response(),
+                ),
+            )
+                .into_response();
+        }
+    };
+
+    let authorization = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
+    let request = SetProgressModeRequest {
+        authorization,
+        game_uuid,
+        season: body.season,
+    };
+
+    let state_clone = state.clone();
+    let request_clone = request.clone();
+
+    let _game_update_guard = state.game_update_lock.lock().await;
+    let result = tokio::task::spawn_blocking(move || {
+        match handle_set_progress_mode(
+            &state_clone.game_service,
+            state_clone.message_repository.as_ref(),
+            request_clone,
+        ) {
+            Ok(response) => (StatusCode::OK, Json(response)).into_response(),
+            Err(error) => {
+                let status = match &error {
+                    SetProgressModeHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+                    SetProgressModeHandlerError::Service(SetProgressModeError::Unauthorized) => StatusCode::UNAUTHORIZED,
+                    SetProgressModeHandlerError::Service(SetProgressModeError::NotFound) => StatusCode::NOT_FOUND,
+                    SetProgressModeHandlerError::Service(SetProgressModeError::Forbidden(_)) => StatusCode::FORBIDDEN,
+                    SetProgressModeHandlerError::Service(SetProgressModeError::PhaseConflict) => StatusCode::CONFLICT,
+                    _ => StatusCode::INTERNAL_SERVER_ERROR,
+                };
+                (status, Json(error.to_api_error_response())).into_response()
+            }
+        }
+    })
+    .await;
+    drop(_game_update_guard);
+    match result {
+        Ok(response) => response,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+/// 進行モード変更リクエストハンドラ関数
+fn handle_set_progress_mode<U, G>(
+    service: &GameService<U, G>,
+    message_repository: &SqliteMessageRepository,
+    request: SetProgressModeRequest,
+) -> Result<SetProgressModeResponse, SetProgressModeHandlerError>
+where
+    U: UserRepository,
+    G: GameRepository,
+{
+    request.validate().map_err(SetProgressModeHandlerError::InvalidRequest)?;
+
+    let access_token = request.authorization.trim()[7..].trim().to_string();
+
+    let result = service
+        .set_progress_mode(SetProgressModeCommand {
+            access_token,
+            game_uuid: request.game_uuid,
+            season: request.season.to_lowercase(),
+        })
+        .map_err(SetProgressModeHandlerError::Service)?;
+
+    if result.changed {
+        let turn = result.game.current_turn();
+        if let Err(error) = message_repository.append_progress_mode_changed_message(result.game.uuid, &turn) {
+            eprintln!(
+                "failed to persist ProgressModeChanged message (game_uuid={}): {}",
+                result.game.uuid, error
+            );
+        }
+    }
+
+    Ok(SetProgressModeResponse {
+        game_uuid: result.game.uuid,
+        progress_mode: "consensus".to_string(),
     })
 }
 

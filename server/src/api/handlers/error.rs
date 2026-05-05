@@ -16,6 +16,8 @@ use super::SetTerritoryError;
 use super::SetTerritoryRequestValidationError;
 use super::SetUnitError;
 use super::SetUnitRequestValidationError;
+use super::SetProgressModeError;
+use super::SetProgressModeRequestValidationError;
 
 // ============================================================================
 // definitions
@@ -342,6 +344,56 @@ impl SetTerritoryHandlerError {
             Self::Service(SetTerritoryError::Forbidden(message)) | Self::Service(SetTerritoryError::InvalidRequest(message)) => {
                 message.clone()
             }
+            Self::Service(error) => error.to_string(),
+        }
+    }
+}
+
+///
+/// 進行モード変更リクエストハンドラのエラーの列挙体
+///
+#[derive(Debug)]
+pub(crate) enum SetProgressModeHandlerError {
+    InvalidRequest(SetProgressModeRequestValidationError),
+    Service(SetProgressModeError),
+}
+
+/// 進行モード変更リクエストハンドラのエラーの列挙体の実装
+impl SetProgressModeHandlerError {
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidRequest(_) => "invalid_request",
+            Self::Service(SetProgressModeError::Unauthorized) => "unauthorized",
+            Self::Service(SetProgressModeError::NotFound) => "not_found",
+            Self::Service(SetProgressModeError::Forbidden(_)) => "forbidden",
+            Self::Service(SetProgressModeError::PhaseConflict) => "phase_conflict",
+            Self::Service(SetProgressModeError::Repository(_)) => "repository_error",
+        }
+    }
+
+    pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
+        ApiErrorResponse {
+            code: self.code(),
+            message: self.message(),
+        }
+    }
+
+    fn message(&self) -> String {
+        match self {
+            Self::InvalidRequest(SetProgressModeRequestValidationError::MissingAuthorization) => {
+                "authorization header is required".to_string()
+            }
+            Self::InvalidRequest(SetProgressModeRequestValidationError::InvalidAuthorizationScheme) => {
+                "authorization must start with 'Bearer <token>'".to_string()
+            }
+            Self::InvalidRequest(SetProgressModeRequestValidationError::MissingAccessToken) => {
+                "access token is required".to_string()
+            }
+            Self::InvalidRequest(SetProgressModeRequestValidationError::InvalidGameUuid) => "game_uuid is invalid".to_string(),
+            Self::InvalidRequest(SetProgressModeRequestValidationError::InvalidSeason) => {
+                "season must be in the format like '1901s' or '1901f'".to_string()
+            }
+            Self::Service(SetProgressModeError::Forbidden(message)) => message.clone(),
             Self::Service(error) => error.to_string(),
         }
     }

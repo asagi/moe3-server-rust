@@ -10,6 +10,7 @@ use super::JoinGameRequestValidationError;
 use super::SetDrawProposalRequestValidationError;
 use super::SetTerritoryRequestValidationError;
 use super::SetUnitRequestValidationError;
+use super::SetProgressModeRequestValidationError;
 
 // ============================================================================
 // definitions
@@ -258,4 +259,46 @@ fn is_valid_season(season: &str) -> bool {
         return false;
     }
     bytes[..4].iter().all(|b| b.is_ascii_digit()) && matches!(bytes[4], b's' | b'S' | b'f' | b'F')
+}
+
+///
+/// 進行モード変更リクエストボディ構造体
+///
+#[derive(Debug, Deserialize)]
+pub(crate) struct SetProgressModeRequestBody {
+    pub season: String,
+}
+
+///
+/// 進行モード変更リクエストの構造体
+///
+#[derive(Debug, Clone)]
+pub(crate) struct SetProgressModeRequest {
+    pub authorization: String,
+    pub game_uuid: Uuid,
+    pub season: String,
+}
+
+/// 進行モード変更リクエストの構造体の実装
+impl SetProgressModeRequest {
+    pub(crate) fn validate(&self) -> Result<(), SetProgressModeRequestValidationError> {
+        let auth = self.authorization.trim();
+        if auth.is_empty() {
+            return Err(SetProgressModeRequestValidationError::MissingAuthorization);
+        }
+
+        let token = match auth.get(..7) {
+            Some(prefix) if prefix.eq_ignore_ascii_case("Bearer ") => auth.get(7..).unwrap_or("").trim(),
+            _ => return Err(SetProgressModeRequestValidationError::InvalidAuthorizationScheme),
+        };
+        if token.is_empty() {
+            return Err(SetProgressModeRequestValidationError::MissingAccessToken);
+        }
+
+        if !is_valid_season(&self.season) {
+            return Err(SetProgressModeRequestValidationError::InvalidSeason);
+        }
+
+        Ok(())
+    }
 }
