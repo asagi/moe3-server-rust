@@ -783,4 +783,29 @@ mod tests {
         assert_eq!(payload["province"], "par");
         assert_eq!(payload["old_power"], "f");
     }
+
+    #[test]
+    fn append_progress_mode_changed_message_persists_system_message() {
+        let (repository, db_path) = new_test_repository();
+        let game_uuid = Uuid::now_v7();
+
+        repository
+            .append_progress_mode_changed_message(game_uuid, "1901s")
+            .expect("append progress mode changed message should succeed");
+
+        let connection = Connection::open(&db_path).expect("open message db");
+        let (sender_power, turn, context, kind, catalog): (Option<String>, String, String, String, String) = connection
+            .query_row(
+                "SELECT sender_power, turn, context, kind, system_notice_catalog FROM messages LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .expect("read inserted message");
+
+        assert_eq!(sender_power, None);
+        assert_eq!(turn, "1901s");
+        assert_eq!(kind, "system");
+        assert_eq!(catalog, "progress_mode_changed");
+        assert_eq!(context, "進行モードが定時進行から合意進行に変更されました。");
+    }
 }

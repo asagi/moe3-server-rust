@@ -204,7 +204,7 @@ impl fmt::Display for SystemNoticeCatalog {
                 )
             }
             Self::ProgressModeChanged => {
-                write!(f, "進行モードが 定時進行 から 合意進行 に変更されました。")
+                write!(f, "進行モードが定時進行から合意進行に変更されました。")
             }
         }
     }
