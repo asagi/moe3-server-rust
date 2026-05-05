@@ -1,4 +1,4 @@
-# PUT /admin/games/{id}/draw-proposal
+# PUT /admin/games/:game_uuid/draw-proposal
 
 ## 概要
 
@@ -9,7 +9,7 @@
 ## HTTP
 
 - Method: `PUT`
-- Path: `/admin/games/{id}/draw-proposal`
+- Path: `/admin/games/:game_uuid/draw-proposal`
 - Content-Type: `application/json`
 
 ## ヘッダ
@@ -19,7 +19,7 @@
 
 ## パスパラメータ
 
-- `id` (`string`): 対象の卓の UUID（UUID v7 形式）
+- `game_uuid` (`string`): 対象の卓の UUID（UUID v7 形式）
 
 ## リクエストボディ
 
@@ -97,7 +97,7 @@
 
 | 条件 | `message` |
 |---|---|
-| `{id}` が有効な UUID でない | `"game_uuid is invalid"` |
+| `game_uuid` が有効な UUID でない | `"game_uuid is invalid"` |
 
 ### `401 Unauthorized` — `code: unauthorized`
 
@@ -141,7 +141,7 @@
 ### 講和宣言
 
 ```
-curl -X PUT '{base_path}/admin/games/{id}/draw-proposal' \
+curl -X PUT '{base_path}/admin/games/{game_uuid}/draw-proposal' \
   -H 'Authorization: Bearer token-1' \
   -H 'Content-Type: application/json' \
   -d '{"draw_proposal":true}'
@@ -150,7 +150,7 @@ curl -X PUT '{base_path}/admin/games/{id}/draw-proposal' \
 ### 講和撤回
 
 ```
-curl -X PUT '{base_path}/admin/games/{id}/draw-proposal' \
+curl -X PUT '{base_path}/admin/games/{game_uuid}/draw-proposal' \
   -H 'Authorization: Bearer token-1' \
   -H 'Content-Type: application/json' \
   -d '{"draw_proposal":false}'
