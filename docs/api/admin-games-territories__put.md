@@ -25,13 +25,20 @@
 
 ```json
 {
-  "power": "f"
+  "power": "f",
+  "season": "1901s"
 }
 ```
 
 ### `power` (`string`)
 
 - 担当国1文字コード: `a | e | f | g | i | r | t`
+
+### `season` (`string`)
+
+- 対象フェイズを指定するシーズン文字列（例: `"1901s"`, `"1901f"`）
+- 形式: `<年4桁><s|f>`（大文字小文字不問）
+- 現在の最新フェイズのシーズンと一致しない場合は `409 Conflict`
 
 ## 成功レスポンス
 
@@ -49,7 +56,7 @@
 
 ```json
 {
-  "code": "invalid_request | unauthorized | not_found | forbidden | repository_error",
+  "code": "invalid_request | unauthorized | not_found | forbidden | phase_conflict | repository_error",
   "message": "人間向け説明"
 }
 ```
@@ -66,6 +73,7 @@
 | `game_uuid` が有効な UUID でない | `"game_uuid is invalid"` |
 | `code` が無効なプロヴィンスコード | `"invalid code: <code>"` |
 | `power` が無効な国コード | `"invalid power: <power>"` |
+| `season` が無効な形式 | `"season must be in the format like '1901s' or '1901f'"` |
 
 ### `401 Unauthorized` — `code: unauthorized`
 
@@ -87,6 +95,12 @@
 |---|---|
 | 指定した UUID の卓が存在しない | `"game not found"` |
 | 指定したコードが海洋プロヴィンス | `"cannot set territory ownership for a water province"` |
+
+### `409 Conflict` — `code: phase_conflict`
+
+| 条件 | `message` |
+|---|---|
+| 指定した `season` が現在の最新フェイズと一致しない | `"phase conflict"` |
 
 ### `500 Internal Server Error` — `code: repository_error`
 

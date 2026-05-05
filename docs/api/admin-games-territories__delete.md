@@ -18,9 +18,11 @@
 - `game_uuid` (`string`): 対象の卓の UUID（UUID v7 形式）
 - `code` (`string`): プロヴィンスコード（例: `par`, `lon`, `bud`）
 
-## リクエストボディ
+## クエリパラメータ
 
-なし
+| パラメータ | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `season` | `string` | 必須 | 対象フェイズのシーズン（例: `1901s`, `1901f`） |
 
 ## 成功レスポンス
 
@@ -38,7 +40,7 @@
 
 ```json
 {
-  "code": "invalid_request | unauthorized | not_found | forbidden | repository_error",
+  "code": "invalid_request | unauthorized | not_found | forbidden | phase_conflict | repository_error",
   "message": "人間向け説明"
 }
 ```
@@ -54,6 +56,7 @@
 | アクセストークン空（Bearer 後が空文字） | `"access token is required"` |
 | `game_uuid` が有効な UUID でない | `"game_uuid is invalid"` |
 | `code` が無効なプロヴィンスコード | `"invalid code: <code>"` |
+| `season` が無効な形式 | `"season must be in the format like '1901s' or '1901f'"` |
 
 ### `401 Unauthorized` — `code: unauthorized`
 
@@ -75,6 +78,12 @@
 |---|---|
 | 指定した UUID の卓が存在しない | `"game not found"` |
 | 指定したコードが海洋プロヴィンス | `"cannot set territory ownership for a water province"` |
+
+### `409 Conflict` — `code: phase_conflict`
+
+| 条件 | `message` |
+|---|---|
+| 指定した `season` が現在の最新フェイズと一致しない | `"phase conflict"` |
 
 ### `500 Internal Server Error` — `code: repository_error`
 
