@@ -19,6 +19,7 @@ pub(crate) use game_response::SetDrawProposalResponse;
 pub(crate) use game_response::SetTerritoryResponse;
 pub(crate) use game_response::SetUnitResponse;
 pub(crate) use game_response::SetProgressModeResponse;
+pub(crate) use game_response::SetProgressConsensusResponse;
 pub(crate) use game_response::UnitResponseBody;
 
 // ============================================================================

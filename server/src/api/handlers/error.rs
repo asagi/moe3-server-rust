@@ -18,6 +18,8 @@ use super::SetUnitError;
 use super::SetUnitRequestValidationError;
 use super::SetProgressModeError;
 use super::SetProgressModeRequestValidationError;
+use super::SetProgressConsensusError;
+use super::SetProgressConsensusRequestValidationError;
 
 // ============================================================================
 // definitions
@@ -394,6 +396,54 @@ impl SetProgressModeHandlerError {
                 "season must be in the format like '1901s' or '1901f'".to_string()
             }
             Self::Service(SetProgressModeError::Forbidden(message)) => message.clone(),
+            Self::Service(error) => error.to_string(),
+        }
+    }
+}
+
+///
+/// 即時進行合意設定リクエストハンドラのエラーの列挙体
+///
+#[derive(Debug)]
+pub(crate) enum SetProgressConsensusHandlerError {
+    InvalidRequest(SetProgressConsensusRequestValidationError),
+    Service(SetProgressConsensusError),
+}
+
+/// 即時進行合意設定リクエストハンドラのエラーの列挙体の実装
+impl SetProgressConsensusHandlerError {
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidRequest(_) => "invalid_request",
+            Self::Service(SetProgressConsensusError::Unauthorized) => "unauthorized",
+            Self::Service(SetProgressConsensusError::NotFound) => "not_found",
+            Self::Service(SetProgressConsensusError::Forbidden(_)) => "forbidden",
+            Self::Service(SetProgressConsensusError::Repository(_)) => "repository_error",
+        }
+    }
+
+    pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
+        ApiErrorResponse {
+            code: self.code(),
+            message: self.message(),
+        }
+    }
+
+    fn message(&self) -> String {
+        match self {
+            Self::InvalidRequest(SetProgressConsensusRequestValidationError::MissingAuthorization) => {
+                "authorization header is required".to_string()
+            }
+            Self::InvalidRequest(SetProgressConsensusRequestValidationError::InvalidAuthorizationScheme) => {
+                "authorization must start with 'Bearer <token>'".to_string()
+            }
+            Self::InvalidRequest(SetProgressConsensusRequestValidationError::MissingAccessToken) => {
+                "access token is required".to_string()
+            }
+            Self::InvalidRequest(SetProgressConsensusRequestValidationError::InvalidGameUuid) => {
+                "game_uuid is invalid".to_string()
+            }
+            Self::Service(SetProgressConsensusError::Forbidden(message)) => message.clone(),
             Self::Service(error) => error.to_string(),
         }
     }

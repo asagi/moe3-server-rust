@@ -18,6 +18,7 @@ pub(crate) use error::SetDrawProposalRequestValidationError;
 pub(crate) use error::SetTerritoryRequestValidationError;
 pub(crate) use error::SetUnitRequestValidationError;
 pub(crate) use error::SetProgressModeRequestValidationError;
+pub(crate) use error::SetProgressConsensusRequestValidationError;
 pub(crate) use game_request::CreateGameRequest;
 pub(crate) use game_request::CreateGameRequestBody;
 pub(crate) use game_request::DeleteTerritoryQueryParams;
@@ -32,6 +33,8 @@ pub(crate) use game_request::SetUnitRequest;
 pub(crate) use game_request::SetUnitRequestBody;
 pub(crate) use game_request::SetProgressModeRequest;
 pub(crate) use game_request::SetProgressModeRequestBody;
+pub(crate) use game_request::SetProgressConsensusRequest;
+pub(crate) use game_request::SetProgressConsensusRequestBody;
 // テストコード (game_handler.rs) からのみ参照されるため unused_imports 警告を抑制する
 #[allow(unused_imports)]
 pub(crate) use game_request::UnitSpecBody;

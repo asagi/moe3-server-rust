@@ -274,6 +274,48 @@ where
         Ok(newly_marked)
     }
 
+    /// 無政府プレイヤーの即時進行合意フラグを立てる
+    ///
+    /// 進行中卓の担当国プレイヤーについて、無政府判定された場合のみ
+    /// progress_consented を true に設定する。
+    /// 復帰時に自動解除は行わない。
+    pub(crate) fn mark_idle_players_progress_consented(&self) -> Result<(), GameProgressionError> {
+        let now = Utc::now().naive_utc();
+        let games = self
+            .game_repository
+            .find_all_active()
+            .map_err(GameProgressionError::Repository)?;
+
+        for mut game in games {
+            if game.status != super::GameStatus::InProgress {
+                continue;
+            }
+
+            let threshold = Self::idle_threshold(&game, now);
+            let mut changed = false;
+
+            for player in game.players.iter_mut().filter(|p| p.power.is_some() && !p.progress_consented) {
+                let user = self
+                    .user_repository
+                    .find_by_uuid(player.user_uuid)
+                    .map_err(GameProgressionError::Repository)?;
+
+                if Self::is_idle_or_missing(user, threshold) {
+                    player.progress_consented = true;
+                    changed = true;
+                }
+            }
+
+            if changed {
+                self.game_repository
+                    .update(&game)
+                    .map_err(GameProgressionError::Repository)?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// 指定卓の卓主が現時刻基準で無政府状態かどうかを返す
     pub(crate) fn is_owner_idle_for_game(
         &self,
@@ -633,6 +675,7 @@ mod tests {
                 user_uuid: owner_uuid,
                 power: Some(Power::France),
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             }],
@@ -653,6 +696,7 @@ mod tests {
                 user_uuid: uuid::Uuid::now_v7(),
                 power: Some(power),
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: false,
                 requested_power: Some(power),
             });
@@ -669,6 +713,7 @@ mod tests {
                 user_uuid: uuid::Uuid::now_v7(),
                 power: Some(power),
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: false,
                 requested_power: Some(power),
             });
@@ -805,6 +850,7 @@ mod tests {
                 user_uuid: france_user_uuid,
                 power: Some(Power::France),
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             },
@@ -812,6 +858,7 @@ mod tests {
                 user_uuid: germany_user_uuid,
                 power: Some(Power::Germany),
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: false,
                 requested_power: Some(Power::Germany),
             },
@@ -1037,6 +1084,7 @@ mod tests {
                 user_uuid: uuid::Uuid::now_v7(),
                 power: None,
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: i == 0, // 最初のプレイヤーが卓主
                 requested_power: Some(p),
             })
@@ -1090,6 +1138,7 @@ mod tests {
                 user_uuid: uuid::Uuid::now_v7(),
                 power: None,
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: i == 0,
                 requested_power: Some(p),
             })
@@ -1118,6 +1167,7 @@ mod tests {
                 user_uuid: owner_uuid,
                 power: None,
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: true,
                 requested_power: Some(powers[0]), // Austria
             },
@@ -1125,6 +1175,7 @@ mod tests {
                 user_uuid: conflicting_uuid,
                 power: None,
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: false,
                 requested_power: Some(powers[0]), // Austria（衝突）
             },
@@ -1135,6 +1186,7 @@ mod tests {
                 user_uuid: uuid::Uuid::now_v7(),
                 power: None,
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: false,
                 requested_power: Some(p),
             });
@@ -1170,6 +1222,7 @@ mod tests {
             user_uuid: uuid::Uuid::now_v7(),
             power: None,
             is_accepting_draw: false,
+            progress_consented: false,
             is_owner: true,
             requested_power: Some(powers[0]), // Austria
         }];
@@ -1180,6 +1233,7 @@ mod tests {
                 user_uuid: uuid::Uuid::now_v7(),
                 power: None,
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: false,
                 requested_power: Some(england),
             });
@@ -1190,6 +1244,7 @@ mod tests {
                 user_uuid: uuid::Uuid::now_v7(),
                 power: None,
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: false,
                 requested_power: Some(p),
             });
@@ -1215,6 +1270,7 @@ mod tests {
             user_uuid: uuid::Uuid::now_v7(),
             power: None,
             is_accepting_draw: false,
+            progress_consented: false,
             is_owner: true,
             requested_power: None, // 希望なし
         }];
@@ -1223,6 +1279,7 @@ mod tests {
                 user_uuid: uuid::Uuid::now_v7(),
                 power: None,
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: false,
                 requested_power: Some(p),
             });

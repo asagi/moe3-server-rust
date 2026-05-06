@@ -46,6 +46,7 @@ use super::handlers::put_admin_games_draw_proposal;
 use super::handlers::put_admin_games_territories;
 use super::handlers::put_admin_games_units;
 use super::handlers::put_admin_games_progress_mode;
+use super::handlers::put_games_progress_consensus;
 
 // ============================================================================
 // definitions
@@ -178,6 +179,10 @@ where
     G: GameRepository + Send + Sync + 'static,
     D: DiscordIdentityProvider + Send + Sync + 'static,
 {
+    let skip_pre_handler = request.method() == axum::http::Method::PUT
+        && request.uri().path().starts_with("/games/")
+        && request.uri().path().ends_with("/progress-consensus");
+
     // アイドル判定の誤検知を防ぐため、last_access_at の更新を先行して行う
     if let Some(access_token) =
         extract_bearer_access_token(request.headers().get("authorization").and_then(|value| value.to_str().ok()))
@@ -193,6 +198,10 @@ where
             Ok(Err(error)) => eprintln!("failed to update last_access_at: {}", error),
             Err(error) => eprintln!("failed to execute last_access_at task: {}", error),
         }
+    }
+
+    if skip_pre_handler {
+        return next.run(request).await;
     }
 
     // Serialize progression updates (not entire request) through lock.
@@ -270,6 +279,10 @@ where
     Router::new()
         .route("/games", post(post_games::<U, G, D>))
         .route("/games/:game_uuid/players", post(post_games_players::<U, G, D>))
+        .route(
+            "/games/:game_uuid/progress-consensus",
+            put(put_games_progress_consensus::<U, G, D>),
+        )
         .route(
             "/admin/games/:game_uuid/draw-proposal",
             put(put_admin_games_draw_proposal::<U, G, D>),

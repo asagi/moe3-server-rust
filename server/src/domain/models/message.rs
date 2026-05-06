@@ -124,6 +124,13 @@ pub(crate) enum SystemNoticeCatalog {
         old_power: Power,
     },
     ProgressModeChanged,
+    ProgressConsented {
+        power: Power,
+    },
+    ProgressConsensusRescinded {
+        power: Power,
+    },
+    ProgressConsensusReached,
 }
 
 /// システムメッセージ定義の列挙体の fmt::Display トレイト実装
@@ -205,6 +212,15 @@ impl fmt::Display for SystemNoticeCatalog {
             }
             Self::ProgressModeChanged => {
                 write!(f, "進行モードが定時進行から合意進行に変更されました。")
+            }
+            Self::ProgressConsented { power } => {
+                write!(f, "{} が即時進行に合意しました。", power.name())
+            }
+            Self::ProgressConsensusRescinded { power } => {
+                write!(f, "{} が即時進行への合意を撤回しました。", power.name())
+            }
+            Self::ProgressConsensusReached => {
+                write!(f, "全ての生存国の合意を確認しました。メインフェイズをただちに終了します。")
             }
         }
     }

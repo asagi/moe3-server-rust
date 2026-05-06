@@ -11,6 +11,7 @@ use super::SetDrawProposalRequestValidationError;
 use super::SetTerritoryRequestValidationError;
 use super::SetUnitRequestValidationError;
 use super::SetProgressModeRequestValidationError;
+use super::SetProgressConsensusRequestValidationError;
 
 // ============================================================================
 // definitions
@@ -297,6 +298,44 @@ impl SetProgressModeRequest {
 
         if !is_valid_season(&self.season) {
             return Err(SetProgressModeRequestValidationError::InvalidSeason);
+        }
+
+        Ok(())
+    }
+}
+
+///
+/// 即時進行合意設定リクエストボディ構造体
+///
+#[derive(Debug, Deserialize)]
+pub(crate) struct SetProgressConsensusRequestBody {
+    pub agreed: bool,
+}
+
+///
+/// 即時進行合意設定リクエストの構造体
+///
+#[derive(Debug, Clone)]
+pub(crate) struct SetProgressConsensusRequest {
+    pub authorization: String,
+    pub game_uuid: Uuid,
+    pub agreed: bool,
+}
+
+/// 即時進行合意設定リクエストの構造体の実装
+impl SetProgressConsensusRequest {
+    pub(crate) fn validate(&self) -> Result<(), SetProgressConsensusRequestValidationError> {
+        let auth = self.authorization.trim();
+        if auth.is_empty() {
+            return Err(SetProgressConsensusRequestValidationError::MissingAuthorization);
+        }
+
+        let token = match auth.get(..7) {
+            Some(prefix) if prefix.eq_ignore_ascii_case("Bearer ") => auth.get(7..).unwrap_or("").trim(),
+            _ => return Err(SetProgressConsensusRequestValidationError::InvalidAuthorizationScheme),
+        };
+        if token.is_empty() {
+            return Err(SetProgressConsensusRequestValidationError::MissingAccessToken);
         }
 
         Ok(())

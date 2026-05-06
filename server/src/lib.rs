@@ -68,4 +68,6 @@ pub(crate) use services::SetUnitCommand;
 pub(crate) use services::SetUnitError;
 pub(crate) use services::SetProgressModeCommand;
 pub(crate) use services::SetProgressModeError;
+pub(crate) use services::SetProgressConsensusCommand;
+pub(crate) use services::SetProgressConsensusError;
 pub(crate) use services::UnitSpec;

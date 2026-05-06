@@ -20,6 +20,7 @@ use super::Province;
 use super::Regulation;
 use super::RepositoryError;
 use super::SetDrawProposalError;
+use super::SetProgressConsensusError;
 use super::SetProgressModeError;
 use super::SetTerritoryError;
 use super::SetUnitError;
@@ -169,6 +170,28 @@ pub(crate) struct SetProgressModeResult {
 }
 
 ///
+/// 即時進行合意設定コマンドの構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SetProgressConsensusCommand {
+    pub access_token: String,
+    pub game_uuid: Uuid,
+    pub agreed: bool,
+}
+
+///
+/// 即時進行合意設定処理結果の構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SetProgressConsensusResult {
+    pub game: Game,
+    pub agreed: bool,
+    pub actor_power: Power,
+    pub changed: bool,
+    pub reached_consensus_in_main_phase: bool,
+}
+
+///
 /// 卓サービスの構造体
 ///
 pub(crate) struct GameService<U, G>
@@ -234,6 +257,7 @@ where
             user_uuid: user.uuid,
             power: None,
             is_accepting_draw: false,
+            progress_consented: false,
             is_owner: true,
             requested_power: command.requested_power,
         };
@@ -773,6 +797,129 @@ where
             changed: true,
         })
     }
+
+    ///
+    /// プレイヤー権限で即時進行への合意フラグを設定する
+    ///
+    pub(crate) fn set_progress_consensus(
+        &self,
+        command: SetProgressConsensusCommand,
+    ) -> Result<SetProgressConsensusResult, SetProgressConsensusError> {
+        let access_token = command.access_token.trim().to_string();
+        if access_token.is_empty() {
+            return Err(SetProgressConsensusError::Unauthorized);
+        }
+
+        let user = self
+            .user_repository
+            .find_by_access_token(&access_token)
+            .map_err(SetProgressConsensusError::Repository)?
+            .ok_or(SetProgressConsensusError::Unauthorized)?;
+
+        let game = self
+            .game_repository
+            .find_by_uuid(command.game_uuid)
+            .map_err(SetProgressConsensusError::Repository)?
+            .ok_or(SetProgressConsensusError::NotFound)?;
+
+        if game.regulation.progress_mode != crate::domain::ProgressMode::Consensus {
+            return Err(SetProgressConsensusError::Forbidden(
+                "progress consensus is available only when progress mode is consensus".to_string(),
+            ));
+        }
+
+        let actor = game
+            .players
+            .iter()
+            .find(|p| p.user_uuid == user.uuid)
+            .ok_or_else(|| SetProgressConsensusError::Forbidden("user is not a player of this game".to_string()))?;
+
+        let actor_power = actor
+            .power
+            .ok_or_else(|| SetProgressConsensusError::Forbidden("player has no assigned power yet".to_string()))?;
+
+        let latest_phase = game
+            .phases
+            .last()
+            .ok_or_else(|| SetProgressConsensusError::Forbidden("game has no phases".to_string()))?;
+        let is_main_phase = matches!(
+            latest_phase.kind,
+            crate::domain::PhaseKind::SpringMain(_) | crate::domain::PhaseKind::FallMain(_)
+        );
+        let active_powers: std::collections::HashSet<Power> = latest_phase.territories.iter().map(|t| t.power).collect();
+
+        if !active_powers.contains(&actor_power) {
+            return Err(SetProgressConsensusError::Forbidden(
+                "player is not an active power in the current phase".to_string(),
+            ));
+        }
+
+        let mut updated_game = game;
+
+        let mut changed = false;
+        if let Some(actor_player) = updated_game.players.iter_mut().find(|p| p.user_uuid == user.uuid)
+            && actor_player.progress_consented != command.agreed
+        {
+            actor_player.progress_consented = command.agreed;
+            changed = true;
+        }
+
+        let mut reached_consensus_in_main_phase = false;
+        if changed && command.agreed {
+            let all_active_consented = updated_game
+                .players
+                .iter()
+                .filter_map(|p| p.power.map(|power| (p, power)))
+                .filter(|(_, power)| active_powers.contains(power))
+                .all(|(p, _)| p.progress_consented);
+
+            if !active_powers.is_empty() && all_active_consented {
+                let idle_threshold = chrono::Utc::now().naive_utc()
+                    - chrono::Duration::minutes(i64::from(updated_game.regulation.duration_type.idle_limit_minutes()));
+                updated_game.next_update_at = Some(chrono::Utc::now().naive_utc());
+                for player in &mut updated_game.players {
+                    if player.power.is_none() {
+                        continue;
+                    }
+                    let is_idle = match self
+                        .user_repository
+                        .find_by_uuid(player.user_uuid)
+                        .map_err(SetProgressConsensusError::Repository)?
+                    {
+                        Some(user_record) => user_record.last_access_at.naive_utc() <= idle_threshold,
+                        None => true,
+                    };
+                    if !is_idle {
+                        player.progress_consented = false;
+                    }
+                }
+
+                reached_consensus_in_main_phase = is_main_phase;
+            }
+        }
+
+        if !changed && !reached_consensus_in_main_phase {
+            return Ok(SetProgressConsensusResult {
+                game: updated_game,
+                agreed: command.agreed,
+                actor_power,
+                changed: false,
+                reached_consensus_in_main_phase: false,
+            });
+        }
+
+        self.game_repository
+            .update(&updated_game)
+            .map_err(SetProgressConsensusError::Repository)?;
+
+        Ok(SetProgressConsensusResult {
+            game: updated_game,
+            agreed: command.agreed,
+            actor_power,
+            changed,
+            reached_consensus_in_main_phase,
+        })
+    }
 }
 
 // ============================================================================
@@ -887,6 +1034,7 @@ mod tests {
                         user_uuid,
                         power: None,
                         is_accepting_draw: false,
+                        progress_consented: false,
                         is_owner: false,
                         requested_power,
                     });
@@ -1120,6 +1268,7 @@ mod tests {
                 user_uuid,
                 power: Some(Power::France),
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: false,
                 requested_power: Some(Power::France),
             }],
@@ -1170,6 +1319,7 @@ mod tests {
                 user_uuid,
                 power: Some(Power::France),
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: false,
                 requested_power: Some(Power::France),
             }],
@@ -1218,6 +1368,7 @@ mod tests {
                 user_uuid,
                 power: Some(Power::France),
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: false,
                 requested_power: Some(Power::France),
             }],
@@ -1276,6 +1427,7 @@ mod tests {
                 user_uuid: player_user_uuid,
                 power: None,
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: true,
                 requested_power: None,
             }],
@@ -1377,6 +1529,7 @@ mod tests {
                 user_uuid,
                 power: Some(Power::France),
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: false,
                 requested_power: Some(Power::France),
             }],
@@ -1458,6 +1611,7 @@ mod tests {
                 user_uuid: Uuid::now_v7(),
                 power: Some(Power::France),
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             }],
@@ -1497,6 +1651,7 @@ mod tests {
                 user_uuid: owner_uuid,
                 power: None,
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: true,
                 requested_power: Some(powers[0]),
             }],
@@ -1524,6 +1679,7 @@ mod tests {
                 user_uuid: uuid,
                 power: None,
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: false,
                 requested_power: Some(*power),
             });
@@ -1812,6 +1968,42 @@ mod tests {
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
         }
+    }
+
+    fn player_user_record(user_uuid: Uuid, token: &str) -> UserRecord {
+        UserRecord {
+            id: 2,
+            uuid: user_uuid,
+            discord_user_id: "discord-player".to_string(),
+            username: "player".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: token.to_string(),
+            last_access_at: Utc::now(),
+        }
+    }
+
+    fn sample_consensus_game_with_two_active_players(owner_uuid: Uuid, player_uuid: Uuid) -> Game {
+        let mut game = sample_in_progress_game(owner_uuid);
+        game.regulation.progress_mode = ProgressMode::Consensus;
+
+        game.players[0].power = Some(Power::France);
+        game.players.push(Player {
+            user_uuid: player_uuid,
+            power: Some(Power::England),
+            is_accepting_draw: false,
+            progress_consented: false,
+            is_owner: false,
+            requested_power: None,
+        });
+
+        let phase = game.phases.last_mut().expect("phase exists");
+        phase.territories.clear();
+        phase.territories.push(crate::domain::Territory::new(Power::France, "par"));
+        phase.territories.push(crate::domain::Territory::new(Power::England, "lon"));
+
+        game
     }
 
     #[test]
@@ -2569,5 +2761,147 @@ mod tests {
         assert_eq!(result.game.regulation.progress_mode, ProgressMode::Consensus);
         let updated = game_repository.updated_first().expect("game should be updated");
         assert_eq!(updated.regulation.progress_mode, ProgressMode::Consensus);
+    }
+
+    // ============================================================================
+    // set_progress_consensus tests
+    // ============================================================================
+
+    #[test]
+    fn set_progress_consensus_rejects_when_mode_is_not_consensus() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let mut game = sample_in_progress_game(owner_uuid);
+        game.players[0].power = Some(Power::France);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_progress_consensus(SetProgressConsensusCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                agreed: true,
+            })
+            .expect_err("should reject when progress mode is not consensus");
+
+        assert!(matches!(error, SetProgressConsensusError::Forbidden(_)));
+    }
+
+    #[test]
+    fn set_progress_consensus_rejects_non_player() {
+        let owner_uuid = Uuid::now_v7();
+        let outsider_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            owner_user_record(owner_uuid),
+            player_user_record(outsider_uuid, "token-outsider"),
+        ]);
+        let mut game = sample_in_progress_game(owner_uuid);
+        game.regulation.progress_mode = ProgressMode::Consensus;
+        game.players[0].power = Some(Power::France);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = service
+            .set_progress_consensus(SetProgressConsensusCommand {
+                access_token: "token-outsider".to_string(),
+                game_uuid,
+                agreed: true,
+            })
+            .expect_err("should reject non-player");
+
+        assert!(matches!(error, SetProgressConsensusError::Forbidden(_)));
+    }
+
+    #[test]
+    fn set_progress_consensus_returns_noop_when_state_is_unchanged() {
+        let owner_uuid = Uuid::now_v7();
+        let other_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            owner_user_record(owner_uuid),
+            player_user_record(other_uuid, "token-player"),
+        ]);
+        let mut game = sample_consensus_game_with_two_active_players(owner_uuid, other_uuid);
+        game.players[0].progress_consented = true;
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service
+            .set_progress_consensus(SetProgressConsensusCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                agreed: true,
+            })
+            .expect("no-op should succeed");
+
+        assert!(!result.changed);
+        assert!(!result.reached_consensus_in_main_phase);
+        assert!(game_repository.updated_first().is_none(), "update should not be called");
+    }
+
+    #[test]
+    fn set_progress_consensus_sets_flag_and_persists_without_full_consensus() {
+        let owner_uuid = Uuid::now_v7();
+        let other_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            owner_user_record(owner_uuid),
+            player_user_record(other_uuid, "token-player"),
+        ]);
+        let mut game = sample_consensus_game_with_two_active_players(owner_uuid, other_uuid);
+        game.players[1].progress_consented = false;
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service
+            .set_progress_consensus(SetProgressConsensusCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                agreed: true,
+            })
+            .expect("should succeed");
+
+        assert!(result.changed);
+        assert!(!result.reached_consensus_in_main_phase);
+        assert_eq!(result.actor_power, Power::France);
+
+        let updated = game_repository.updated_first().expect("game should be updated");
+        assert!(updated.players[0].progress_consented, "actor consent should be true");
+    }
+
+    #[test]
+    fn set_progress_consensus_reaches_full_consensus_and_resets_non_idle_flags() {
+        let owner_uuid = Uuid::now_v7();
+        let other_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            owner_user_record(owner_uuid),
+            player_user_record(other_uuid, "token-player"),
+        ]);
+        let mut game = sample_consensus_game_with_two_active_players(owner_uuid, other_uuid);
+        game.players[0].progress_consented = false;
+        game.players[1].progress_consented = true;
+        game.next_update_at = None;
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service
+            .set_progress_consensus(SetProgressConsensusCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                agreed: true,
+            })
+            .expect("should succeed");
+
+        assert!(result.changed);
+        assert!(result.reached_consensus_in_main_phase);
+        let updated = game_repository.updated_first().expect("game should be updated");
+        assert!(updated.next_update_at.is_some(), "next_update_at should be set to now");
+        assert!(
+            updated.players.iter().all(|p| !p.progress_consented),
+            "non-idle players should be reset after consensus reached"
+        );
     }
 }

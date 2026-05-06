@@ -105,6 +105,7 @@ impl SqliteGameRepository {
                 user_uuid TEXT NOT NULL,
                 power INTEGER,
                 is_accepting_draw INTEGER NOT NULL,
+                progress_consented INTEGER NOT NULL DEFAULT 0,
                 is_owner INTEGER NOT NULL,
                 requested_power INTEGER
             );
@@ -505,7 +506,7 @@ impl SqliteGameRepository {
                 let mut stmt = connection
                     .prepare(
                         r#"
-                        SELECT user_uuid, power, is_accepting_draw, is_owner, requested_power
+                        SELECT user_uuid, power, is_accepting_draw, progress_consented, is_owner, requested_power
                         FROM game_players
                         WHERE game_uuid = ?1
                         "#,
@@ -519,7 +520,8 @@ impl SqliteGameRepository {
                             r.get::<_, Option<i32>>(1)?,
                             r.get::<_, i32>(2)?,
                             r.get::<_, i32>(3)?,
-                            r.get::<_, Option<i32>>(4)?,
+                            r.get::<_, i32>(4)?,
+                            r.get::<_, Option<i32>>(5)?,
                         ))
                     })
                     .map_err(|error| RepositoryError::Unavailable(format!("query players: {}", error)))?
@@ -529,7 +531,7 @@ impl SqliteGameRepository {
                 raw_rows
                     .into_iter()
                     .map(
-                        |(user_uuid_str, power_val, is_accepting_draw, is_owner, requested_power_val)| {
+                        |(user_uuid_str, power_val, is_accepting_draw, progress_consented, is_owner, requested_power_val)| {
                             let user_uuid = Uuid::parse_str(&user_uuid_str)
                                 .map_err(|error| RepositoryError::Unavailable(format!("parse player uuid: {}", error)))?;
                             let power = power_val.map(Self::power_from_i32).transpose()?;
@@ -538,6 +540,7 @@ impl SqliteGameRepository {
                                 user_uuid,
                                 power,
                                 is_accepting_draw: is_accepting_draw != 0,
+                                progress_consented: progress_consented != 0,
                                 is_owner: is_owner != 0,
                                 requested_power,
                             })
@@ -705,8 +708,8 @@ impl GameRepository for SqliteGameRepository {
         let affected = connection
             .execute(
                 r#"
-                INSERT INTO game_players (game_uuid, user_uuid, power, is_accepting_draw, is_owner, requested_power)
-                SELECT ?1, ?2, NULL, 0, 0, ?3
+                INSERT INTO game_players (game_uuid, user_uuid, power, is_accepting_draw, progress_consented, is_owner, requested_power)
+                SELECT ?1, ?2, NULL, 0, 0, 0, ?3
                 WHERE NOT EXISTS (
                     SELECT 1 FROM game_players WHERE game_uuid = ?1 AND user_uuid = ?2
                 )
@@ -787,15 +790,17 @@ impl GameRepository for SqliteGameRepository {
                         user_uuid,
                         power,
                         is_accepting_draw,
+                        progress_consented,
                         is_owner,
                         requested_power
-                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
                     "#,
                     params![
                         game.uuid.to_string(),
                         player.user_uuid.to_string(),
                         player.power.map(|v| v as i32),
                         player.is_accepting_draw as i32,
+                        player.progress_consented as i32,
                         player.is_owner as i32,
                         player.requested_power.map(|v| v as i32),
                     ],
@@ -1073,13 +1078,15 @@ impl GameRepository for SqliteGameRepository {
                     r#"
                     UPDATE game_players
                     SET is_accepting_draw = ?3,
-                        power = ?4
+                        progress_consented = ?4,
+                        power = ?5
                     WHERE game_uuid = ?1 AND user_uuid = ?2
                     "#,
                     params![
                         game.uuid.to_string(),
                         player.user_uuid.to_string(),
                         player.is_accepting_draw as i32,
+                        player.progress_consented as i32,
                         player.power.map(|p| p as i32),
                     ],
                 )
@@ -1237,6 +1244,7 @@ mod tests {
                 user_uuid: owner_uuid,
                 power: None,
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             }],
@@ -1293,6 +1301,7 @@ mod tests {
                 user_uuid: uuid::Uuid::now_v7(),
                 power: None,
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: true,
                 requested_power: None,
             }],
@@ -1414,6 +1423,7 @@ mod tests {
                 user_uuid: uuid::Uuid::now_v7(),
                 power: Some(Power::France),
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             }],
@@ -1460,6 +1470,7 @@ mod tests {
                 user_uuid: uuid::Uuid::now_v7(),
                 power: Some(Power::France),
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             }],
@@ -1525,6 +1536,7 @@ mod tests {
                 user_uuid: uuid::Uuid::now_v7(),
                 power: Some(Power::France),
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             }],
@@ -1596,6 +1608,7 @@ mod transaction_tests {
                 user_uuid: uuid::Uuid::now_v7(),
                 power: None,
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: true,
                 requested_power: None,
             }],
@@ -1645,6 +1658,7 @@ mod transaction_tests {
                 user_uuid: uuid::Uuid::now_v7(),
                 power: Some(Power::France),
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             }],
@@ -1692,6 +1706,7 @@ mod transaction_tests {
                 user_uuid: uuid::Uuid::now_v7(),
                 power: Some(Power::France),
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             }],
