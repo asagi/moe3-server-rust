@@ -55,7 +55,7 @@
 注意:
 
 - `next_update_at` はリクエストで指定した値（JST文字列）をそのまま返す
-- 成功時はシステムメッセージ「次回更新時刻が {next_update_at} に変更されました。」を追記する
+- 変更が発生した場合のみ、システムメッセージ「次回更新時刻が {next_update_at} に変更されました。」を追記する
 
 ## エラー形式（共通）
 
@@ -84,7 +84,7 @@
 - `season` は `"ready"` または `"YYYYs"` / `"YYYYf"`（英字の大小文字は許容）
 - `next_update_at` は `YYYY-MM-DD HH:MM`（JST）形式
 - `next_update_at` の分（MM）は 5 分刻み
-- 新しい `next_update_at` が現在の `next_update_at` より過去の場合はエラー（同一時刻は許容）
+- 新しい `next_update_at` が現在の `next_update_at` より過去の場合はエラー（同一時刻は no-op として成功）
 - 排他制御: `game_update_lock` を取得した上で実行
 
 ## curl

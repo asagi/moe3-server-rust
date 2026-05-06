@@ -1217,14 +1217,16 @@ where
         })
         .map_err(SetNextUpdateAtHandlerError::Service)?;
 
-    let turn = result.game.current_turn();
-    if let Err(error) =
-        message_repository.append_next_update_at_changed_message(result.game.uuid, &turn, &result.next_update_at_jst)
-    {
-        eprintln!(
-            "failed to persist NextUpdateAtChanged message (game_uuid={}): {}",
-            result.game.uuid, error
-        );
+    if result.changed {
+        let turn = result.game.current_turn();
+        if let Err(error) =
+            message_repository.append_next_update_at_changed_message(result.game.uuid, &turn, &result.next_update_at_jst)
+        {
+            eprintln!(
+                "failed to persist NextUpdateAtChanged message (game_uuid={}): {}",
+                result.game.uuid, error
+            );
+        }
     }
 
     Ok(SetNextUpdateAtResponse {
@@ -2149,6 +2151,56 @@ mod tests {
 
         assert_eq!(response.game_uuid, game_uuid);
         assert_eq!(response.next_update_at, "2099-06-15 14:00");
+    }
+
+    #[test]
+    fn handle_set_next_update_at_returns_noop_when_same_time() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+
+        let mut game = sample_in_progress_game_for_handler(owner_uuid);
+        let jst = chrono::FixedOffset::east_opt(9 * 3600).unwrap();
+        let same_time_jst = "2099-06-15 14:00";
+        let same_naive = chrono::NaiveDateTime::parse_from_str(same_time_jst, "%Y-%m-%d %H:%M").unwrap();
+        let same_utc = jst
+            .from_local_datetime(&same_naive)
+            .single()
+            .unwrap()
+            .with_timezone(&Utc)
+            .naive_utc();
+        game.next_update_at = Some(same_utc);
+
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let repo_clone = game_repository.clone();
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let response = handle_set_next_update_at(
+            &service,
+            &message_repository,
+            SetNextUpdateAtRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                next_update_at: same_time_jst.to_string(),
+                season: "1901s".to_string(),
+            },
+        )
+        .expect("no-op should succeed");
+
+        assert_eq!(response.game_uuid, game_uuid);
+        assert_eq!(response.next_update_at, same_time_jst);
+        assert!(repo_clone.last_updated().is_none(), "update should not be called for no-op");
     }
 
     #[test]

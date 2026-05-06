@@ -211,6 +211,7 @@ pub(crate) struct SetNextUpdateAtCommand {
 pub(crate) struct SetNextUpdateAtResult {
     pub game: Game,
     pub next_update_at_jst: String,
+    pub changed: bool,
 }
 
 ///
@@ -597,6 +598,14 @@ where
             ));
         }
 
+        if new_next_update == current_next_update {
+            return Ok(SetNextUpdateAtResult {
+                game,
+                next_update_at_jst: command.next_update_at,
+                changed: false,
+            });
+        }
+
         let mut updated_game = game;
         updated_game.next_update_at = Some(new_next_update);
 
@@ -607,6 +616,7 @@ where
         Ok(SetNextUpdateAtResult {
             game: updated_game,
             next_update_at_jst: command.next_update_at,
+            changed: true,
         })
     }
 
@@ -2769,6 +2779,88 @@ mod tests {
             .expect_err("should reject mismatched season");
 
         assert!(matches!(error, SetUnitError::PhaseConflict));
+    }
+
+    #[test]
+    fn set_next_update_at_returns_noop_when_time_is_unchanged() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+
+        let mut game = sample_in_progress_game(owner_uuid);
+        let jst = chrono::FixedOffset::east_opt(9 * 3600).expect("valid JST offset");
+        let target_jst_str = "2099-06-15 14:00";
+        let target_naive = chrono::NaiveDateTime::parse_from_str(target_jst_str, "%Y-%m-%d %H:%M").expect("valid datetime");
+        let target_utc = jst
+            .from_local_datetime(&target_naive)
+            .single()
+            .expect("non-ambiguous JST")
+            .with_timezone(&Utc)
+            .naive_utc();
+        game.next_update_at = Some(target_utc);
+
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service
+            .set_next_update_at(SetNextUpdateAtCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                next_update_at: target_jst_str.to_string(),
+                season: "1901s".to_string(),
+            })
+            .expect("no-op should succeed");
+
+        assert!(!result.changed, "changed should be false when time is unchanged");
+        assert!(game_repository.updated_first().is_none(), "update should not be called");
+    }
+
+    #[test]
+    fn set_next_update_at_updates_when_time_is_extended() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+
+        let mut game = sample_in_progress_game(owner_uuid);
+        let jst = chrono::FixedOffset::east_opt(9 * 3600).expect("valid JST offset");
+        let current_jst_str = "2099-06-15 13:00";
+        let new_jst_str = "2099-06-15 14:00";
+
+        let current_naive =
+            chrono::NaiveDateTime::parse_from_str(current_jst_str, "%Y-%m-%d %H:%M").expect("valid current datetime");
+        let current_utc = jst
+            .from_local_datetime(&current_naive)
+            .single()
+            .expect("non-ambiguous JST")
+            .with_timezone(&Utc)
+            .naive_utc();
+        game.next_update_at = Some(current_utc);
+
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service
+            .set_next_update_at(SetNextUpdateAtCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                next_update_at: new_jst_str.to_string(),
+                season: "1901s".to_string(),
+            })
+            .expect("update should succeed");
+
+        assert!(result.changed, "changed should be true when time is extended");
+        assert_eq!(result.next_update_at_jst, new_jst_str);
+
+        let updated = game_repository.updated_first().expect("update should be called");
+        let expected_new_utc = jst
+            .from_local_datetime(
+                &chrono::NaiveDateTime::parse_from_str(new_jst_str, "%Y-%m-%d %H:%M").expect("valid new datetime"),
+            )
+            .single()
+            .expect("non-ambiguous JST")
+            .with_timezone(&Utc)
+            .naive_utc();
+        assert_eq!(updated.next_update_at, Some(expected_new_utc));
     }
 
     // ============================================================================
