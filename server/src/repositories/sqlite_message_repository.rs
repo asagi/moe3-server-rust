@@ -267,6 +267,67 @@ impl SqliteMessageRepository {
     }
 
     ///
+    /// プレイヤーによる即時進行合意のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_progress_consented_message(
+        &self,
+        game_uuid: Uuid,
+        turn: &str,
+        power: Power,
+    ) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+        let catalog = SystemNoticeCatalog::ProgressConsented { power };
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
+    ///
+    /// プレイヤーによる即時進行合意撤回のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_progress_consensus_rescinded_message(
+        &self,
+        game_uuid: Uuid,
+        turn: &str,
+        power: Power,
+    ) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+        let catalog = SystemNoticeCatalog::ProgressConsensusRescinded { power };
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
+    ///
+    /// 全生存国の即時進行合意成立メッセージを保存する
+    ///
+    pub(crate) fn append_progress_consensus_reached_message(&self, game_uuid: Uuid, turn: &str) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+        let catalog = SystemNoticeCatalog::ProgressConsensusReached;
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
+    ///
     /// ユニット配置のシステムメッセージを保存する
     ///
     pub(crate) fn append_unit_placed_message(&self, game_uuid: Uuid, turn: &str, unit: Unit) -> Result<(), RepositoryError> {
@@ -517,6 +578,9 @@ impl SqliteMessageRepository {
             SystemNoticeCatalog::TerritoryReplaced { .. } => "territory_replaced",
             SystemNoticeCatalog::TerritoryReleased { .. } => "territory_released",
             SystemNoticeCatalog::ProgressModeChanged => "progress_mode_changed",
+            SystemNoticeCatalog::ProgressConsented { .. } => "progress_consented",
+            SystemNoticeCatalog::ProgressConsensusRescinded { .. } => "progress_consensus_rescinded",
+            SystemNoticeCatalog::ProgressConsensusReached => "progress_consensus_reached",
         }
     }
 
@@ -567,6 +631,11 @@ impl SqliteMessageRepository {
                 "province": province.code(),
                 "old_power": old_power.symbol(),
             }),
+            SystemNoticeCatalog::ProgressConsented { power } | SystemNoticeCatalog::ProgressConsensusRescinded { power } => {
+                json!({
+                    "power": power.symbol(),
+                })
+            }
             SystemNoticeCatalog::Ready
             | SystemNoticeCatalog::Aborted
             | SystemNoticeCatalog::DrawProposed
@@ -574,7 +643,8 @@ impl SqliteMessageRepository {
             | SystemNoticeCatalog::DrawRescinded
             | SystemNoticeCatalog::Draw
             | SystemNoticeCatalog::Closed
-            | SystemNoticeCatalog::ProgressModeChanged => json!({}),
+            | SystemNoticeCatalog::ProgressModeChanged
+            | SystemNoticeCatalog::ProgressConsensusReached => json!({}),
         }
     }
 
@@ -807,5 +877,86 @@ mod tests {
         assert_eq!(kind, "system");
         assert_eq!(catalog, "progress_mode_changed");
         assert_eq!(context, "進行モードが定時進行から合意進行に変更されました。");
+    }
+
+    #[test]
+    fn append_progress_consented_message_persists_correct_catalog_and_payload() {
+        let (repository, db_path) = new_test_repository();
+        let game_uuid = Uuid::now_v7();
+
+        repository
+            .append_progress_consented_message(game_uuid, "1901s", Power::France)
+            .expect("append progress consented message should succeed");
+
+        let connection = Connection::open(&db_path).expect("open message db");
+        let (turn, context, kind, catalog, payload): (String, String, String, String, String) = connection
+            .query_row(
+                "SELECT turn, context, kind, system_notice_catalog, kind_payload FROM messages LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .expect("read inserted message");
+
+        assert_eq!(turn, "1901s");
+        assert_eq!(kind, "system");
+        assert_eq!(catalog, "progress_consented");
+        assert_eq!(context, "France が即時進行に合意しました。");
+        let payload: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
+        assert_eq!(payload["power"], "f");
+    }
+
+    #[test]
+    fn append_progress_consensus_rescinded_message_persists_correct_catalog_and_payload() {
+        let (repository, db_path) = new_test_repository();
+        let game_uuid = Uuid::now_v7();
+
+        repository
+            .append_progress_consensus_rescinded_message(game_uuid, "1901s", Power::England)
+            .expect("append progress consensus rescinded message should succeed");
+
+        let connection = Connection::open(&db_path).expect("open message db");
+        let (turn, context, kind, catalog, payload): (String, String, String, String, String) = connection
+            .query_row(
+                "SELECT turn, context, kind, system_notice_catalog, kind_payload FROM messages LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .expect("read inserted message");
+
+        assert_eq!(turn, "1901s");
+        assert_eq!(kind, "system");
+        assert_eq!(catalog, "progress_consensus_rescinded");
+        assert_eq!(context, "England が即時進行への合意を撤回しました。");
+        let payload: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
+        assert_eq!(payload["power"], "e");
+    }
+
+    #[test]
+    fn append_progress_consensus_reached_message_persists_system_message() {
+        let (repository, db_path) = new_test_repository();
+        let game_uuid = Uuid::now_v7();
+
+        repository
+            .append_progress_consensus_reached_message(game_uuid, "1901s")
+            .expect("append progress consensus reached message should succeed");
+
+        let connection = Connection::open(&db_path).expect("open message db");
+        let (turn, context, kind, catalog, payload): (String, String, String, String, String) = connection
+            .query_row(
+                "SELECT turn, context, kind, system_notice_catalog, kind_payload FROM messages LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .expect("read inserted message");
+
+        assert_eq!(turn, "1901s");
+        assert_eq!(kind, "system");
+        assert_eq!(catalog, "progress_consensus_reached");
+        assert_eq!(
+            context,
+            "全ての生存国の合意を確認しました。メインフェイズをただちに終了します。"
+        );
+        let payload: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
+        assert_eq!(payload, serde_json::json!({}));
     }
 }

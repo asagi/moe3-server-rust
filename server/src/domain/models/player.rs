@@ -18,6 +18,7 @@ pub(crate) struct Player {
     pub(crate) user_uuid: Uuid,
     pub(crate) power: Option<Power>,
     pub(crate) is_accepting_draw: bool,
+    pub(crate) progress_consented: bool,
     pub(crate) is_owner: bool,
     pub(crate) requested_power: Option<Power>,
 }

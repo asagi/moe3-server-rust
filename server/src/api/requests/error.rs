@@ -85,3 +85,14 @@ pub(crate) enum SetProgressModeRequestValidationError {
     InvalidGameUuid,
     InvalidSeason,
 }
+
+///
+/// 即時進行合意設定リクエストのバリデーションエラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SetProgressConsensusRequestValidationError {
+    MissingAuthorization,
+    InvalidAuthorizationScheme,
+    MissingAccessToken,
+    InvalidGameUuid,
+}

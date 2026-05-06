@@ -29,6 +29,7 @@
 | `PUT` | `/games/:game_uuid/orders/:order_id` | 命令変更 |
 | `POST` | `/games/:game_uuid/orders` | 仮想命令・建造命令登録 |
 | `DELETE` | `/games/:game_uuid/orders/:order_id` | 仮想命令・建造命令削除 |
+| `PUT` | [`/games/:game_uuid/progress-consensus` 🔗](./games-progress-consensus__put.md) | 即時進行への合意を表明/撤回 |
 
 ## 卓主権限
 

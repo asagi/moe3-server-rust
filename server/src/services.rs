@@ -26,6 +26,7 @@ pub(crate) use error::SetDrawProposalError;
 pub(crate) use error::SetTerritoryError;
 pub(crate) use error::SetUnitError;
 pub(crate) use error::SetProgressModeError;
+pub(crate) use error::SetProgressConsensusError;
 pub(crate) use game_progression_service::GameProgressionService;
 pub(crate) use game_service::CreateGameCommand;
 pub(crate) use game_service::GameService;
@@ -34,6 +35,7 @@ pub(crate) use game_service::SetDrawProposalCommand;
 pub(crate) use game_service::SetTerritoryCommand;
 pub(crate) use game_service::SetUnitCommand;
 pub(crate) use game_service::SetProgressModeCommand;
+pub(crate) use game_service::SetProgressConsensusCommand;
 pub(crate) use game_service::UnitSpec;
 
 // ============================================================================

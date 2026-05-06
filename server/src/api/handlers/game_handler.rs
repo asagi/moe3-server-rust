@@ -44,6 +44,13 @@ use super::SetDrawProposalRequest;
 use super::SetDrawProposalRequestBody;
 use super::SetDrawProposalRequestValidationError;
 use super::SetDrawProposalResponse;
+use super::SetProgressConsensusCommand;
+use super::SetProgressConsensusError;
+use super::SetProgressConsensusHandlerError;
+use super::SetProgressConsensusRequest;
+use super::SetProgressConsensusRequestBody;
+use super::SetProgressConsensusRequestValidationError;
+use super::SetProgressConsensusResponse;
 use super::SetProgressModeCommand;
 use super::SetProgressModeError;
 use super::SetProgressModeHandlerError;
@@ -979,6 +986,132 @@ where
     })
 }
 
+///
+/// 即時進行合意設定リクエスト Axum ハンドラ関数
+///
+pub(crate) async fn put_games_progress_consensus<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    Path(game_uuid_str): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<SetProgressConsensusRequestBody>,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    let game_uuid = match game_uuid_str.parse::<Uuid>() {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(
+                    SetProgressConsensusHandlerError::InvalidRequest(SetProgressConsensusRequestValidationError::InvalidGameUuid)
+                        .to_api_error_response(),
+                ),
+            )
+                .into_response();
+        }
+    };
+
+    let authorization = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
+    let request = SetProgressConsensusRequest {
+        authorization,
+        game_uuid,
+        agreed: body.agreed,
+    };
+
+    let state_clone = state.clone();
+    let request_clone = request.clone();
+
+    let _game_update_guard = state.game_update_lock.lock().await;
+    let result = tokio::task::spawn_blocking(move || {
+        match handle_set_progress_consensus(
+            &state_clone.game_service,
+            state_clone.message_repository.as_ref(),
+            request_clone,
+        ) {
+            Ok(response) => (StatusCode::OK, Json(response)).into_response(),
+            Err(error) => {
+                let status = match &error {
+                    SetProgressConsensusHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+                    SetProgressConsensusHandlerError::Service(SetProgressConsensusError::Unauthorized) => {
+                        StatusCode::UNAUTHORIZED
+                    }
+                    SetProgressConsensusHandlerError::Service(SetProgressConsensusError::NotFound) => StatusCode::NOT_FOUND,
+                    SetProgressConsensusHandlerError::Service(SetProgressConsensusError::Forbidden(_)) => StatusCode::FORBIDDEN,
+                    _ => StatusCode::INTERNAL_SERVER_ERROR,
+                };
+                (status, Json(error.to_api_error_response())).into_response()
+            }
+        }
+    })
+    .await;
+    drop(_game_update_guard);
+    match result {
+        Ok(response) => response,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+/// 即時進行合意設定リクエストハンドラ関数
+fn handle_set_progress_consensus<U, G>(
+    service: &GameService<U, G>,
+    message_repository: &SqliteMessageRepository,
+    request: SetProgressConsensusRequest,
+) -> Result<SetProgressConsensusResponse, SetProgressConsensusHandlerError>
+where
+    U: UserRepository,
+    G: GameRepository,
+{
+    request.validate().map_err(SetProgressConsensusHandlerError::InvalidRequest)?;
+
+    let access_token = request.authorization.trim()[7..].trim().to_string();
+
+    let result = service
+        .set_progress_consensus(SetProgressConsensusCommand {
+            access_token,
+            game_uuid: request.game_uuid,
+            agreed: request.agreed,
+        })
+        .map_err(SetProgressConsensusHandlerError::Service)?;
+
+    if result.changed {
+        let turn = result.game.current_turn();
+        let append_result = if result.agreed {
+            message_repository.append_progress_consented_message(result.game.uuid, &turn, result.actor_power)
+        } else {
+            message_repository.append_progress_consensus_rescinded_message(result.game.uuid, &turn, result.actor_power)
+        };
+        if let Err(error) = append_result {
+            eprintln!(
+                "failed to persist progress consensus message (game_uuid={}): {}",
+                result.game.uuid, error
+            );
+        }
+    }
+
+    if result.reached_consensus_in_main_phase {
+        let turn = result.game.current_turn();
+        if let Err(error) = message_repository.append_progress_consensus_reached_message(result.game.uuid, &turn) {
+            eprintln!(
+                "failed to persist ProgressConsensusReached message (game_uuid={}): {}",
+                result.game.uuid, error
+            );
+        }
+    }
+
+    Ok(SetProgressConsensusResponse {
+        game_uuid: result.game.uuid,
+        agreed: request.agreed,
+    })
+}
+
 // ============================================================================
 // tests
 // ============================================================================
@@ -1126,6 +1259,7 @@ mod tests {
                         user_uuid,
                         power: None,
                         is_accepting_draw: false,
+                        progress_consented: false,
                         is_owner: false,
                         requested_power,
                     });
@@ -1337,6 +1471,7 @@ mod tests {
                 user_uuid: owner_uuid,
                 power: None,
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: true,
                 requested_power: None,
             }],
@@ -1510,6 +1645,7 @@ mod tests {
                 user_uuid: owner_uuid,
                 power: None,
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: true,
                 requested_power: None,
             }],
@@ -1519,6 +1655,31 @@ mod tests {
             is_solo: false,
             next_update_at: None,
         }
+    }
+
+    fn sample_consensus_game_for_handler(owner_uuid: uuid::Uuid, player_uuid: uuid::Uuid) -> Game {
+        let mut game = sample_in_progress_game_for_handler(owner_uuid);
+        game.regulation.progress_mode = crate::domain::ProgressMode::Consensus;
+        game.players[0].power = Some(crate::domain::Power::France);
+        game.players.push(Player {
+            user_uuid: player_uuid,
+            power: Some(crate::domain::Power::England),
+            is_accepting_draw: false,
+            progress_consented: false,
+            is_owner: false,
+            requested_power: None,
+        });
+
+        let phase = game.phases.last_mut().expect("phase exists");
+        phase.territories.clear();
+        phase
+            .territories
+            .push(crate::domain::Territory::new(crate::domain::Power::France, "par"));
+        phase
+            .territories
+            .push(crate::domain::Territory::new(crate::domain::Power::England, "lon"));
+
+        game
     }
 
     #[test]
@@ -2461,5 +2622,178 @@ mod tests {
         assert_eq!(response.progress_mode, "consensus");
         let updated = game_repository.last_updated().expect("game should be updated");
         assert_eq!(updated.regulation.progress_mode, crate::domain::ProgressMode::Consensus);
+    }
+
+    // ============================================================================
+    // handle_set_progress_consensus tests
+    // ============================================================================
+
+    #[test]
+    fn handle_set_progress_consensus_rejects_missing_authorization() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_progress_consensus(
+            &service,
+            &message_repository,
+            SetProgressConsensusRequest {
+                authorization: "".to_string(),
+                game_uuid: uuid::Uuid::now_v7(),
+                agreed: true,
+            },
+        )
+        .expect_err("should fail without authorization");
+
+        assert_eq!(error.code(), "invalid_request");
+    }
+
+    #[test]
+    fn handle_set_progress_consensus_returns_forbidden_when_mode_not_consensus() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let mut game = sample_in_progress_game_for_handler(owner_uuid);
+        game.players[0].power = Some(crate::domain::Power::France);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_progress_consensus(
+            &service,
+            &message_repository,
+            SetProgressConsensusRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                agreed: true,
+            },
+        )
+        .expect_err("should be forbidden");
+
+        assert_eq!(error.code(), "forbidden");
+    }
+
+    #[test]
+    fn handle_set_progress_consensus_returns_ok_on_noop() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let player_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            UserRecord {
+                id: 1,
+                uuid: owner_uuid,
+                discord_user_id: "discord-owner".to_string(),
+                username: "owner".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: "token-owner".to_string(),
+                last_access_at: Utc::now(),
+            },
+            UserRecord {
+                id: 2,
+                uuid: player_uuid,
+                discord_user_id: "discord-player".to_string(),
+                username: "player".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: "token-player".to_string(),
+                last_access_at: Utc::now(),
+            },
+        ]);
+        let mut game = sample_consensus_game_for_handler(owner_uuid, player_uuid);
+        game.players[0].progress_consented = true;
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+        let message_repository = new_test_message_repository();
+
+        let response = handle_set_progress_consensus(
+            &service,
+            &message_repository,
+            SetProgressConsensusRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                agreed: true,
+            },
+        )
+        .expect("no-op should succeed");
+
+        assert_eq!(response.game_uuid, game_uuid);
+        assert!(response.agreed);
+        assert!(
+            game_repository.last_updated().is_none(),
+            "repository.update should not be called"
+        );
+    }
+
+    #[test]
+    fn handle_set_progress_consensus_changes_and_persists() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let player_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            UserRecord {
+                id: 1,
+                uuid: owner_uuid,
+                discord_user_id: "discord-owner".to_string(),
+                username: "owner".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: "token-owner".to_string(),
+                last_access_at: Utc::now(),
+            },
+            UserRecord {
+                id: 2,
+                uuid: player_uuid,
+                discord_user_id: "discord-player".to_string(),
+                username: "player".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: "token-player".to_string(),
+                last_access_at: Utc::now(),
+            },
+        ]);
+        let game = sample_consensus_game_for_handler(owner_uuid, player_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+        let message_repository = new_test_message_repository();
+
+        let response = handle_set_progress_consensus(
+            &service,
+            &message_repository,
+            SetProgressConsensusRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                agreed: true,
+            },
+        )
+        .expect("should succeed");
+
+        assert_eq!(response.game_uuid, game_uuid);
+        assert!(response.agreed);
+        let updated = game_repository.last_updated().expect("game should be updated");
+        assert!(
+            updated
+                .players
+                .iter()
+                .find(|p| p.user_uuid == owner_uuid)
+                .expect("owner exists")
+                .progress_consented,
+            "owner consent should be true"
+        );
     }
 }

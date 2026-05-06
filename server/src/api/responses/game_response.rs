@@ -75,3 +75,12 @@ pub(crate) struct SetProgressModeResponse {
     pub game_uuid: Uuid,
     pub progress_mode: String,
 }
+
+///
+/// 即時進行合意設定レスポンスの構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(crate) struct SetProgressConsensusResponse {
+    pub game_uuid: Uuid,
+    pub agreed: bool,
+}

@@ -52,6 +52,10 @@ where
     /// - アクティブな全卓について卓主の無政府化を確認し、無政府化していれば is_accepting_draw を true に設定する。
     /// - Closed 以外の Game を取得し、next_update_at が過去なら最新フェイズを close する。
     pub(crate) fn run(&self) -> Result<(), PreHandlerError> {
+        self.progression_service
+            .mark_idle_players_progress_consented()
+            .map_err(PreHandlerError::GameProgression)?;
+
         let newly_idle_owner_games = self
             .progression_service
             .mark_idle_owners_accepting_draw()

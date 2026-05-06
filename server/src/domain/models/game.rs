@@ -198,6 +198,7 @@ mod tests {
                 user_uuid: Uuid::now_v7(),
                 power: Some(Power::France),
                 is_accepting_draw: false,
+                progress_consented: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             }],
