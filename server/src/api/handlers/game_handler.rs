@@ -44,6 +44,13 @@ use super::SetDrawProposalRequest;
 use super::SetDrawProposalRequestBody;
 use super::SetDrawProposalRequestValidationError;
 use super::SetDrawProposalResponse;
+use super::SetNextUpdateAtCommand;
+use super::SetNextUpdateAtError;
+use super::SetNextUpdateAtHandlerError;
+use super::SetNextUpdateAtRequest;
+use super::SetNextUpdateAtRequestBody;
+use super::SetNextUpdateAtRequestValidationError;
+use super::SetNextUpdateAtResponse;
 use super::SetProgressConsensusCommand;
 use super::SetProgressConsensusError;
 use super::SetProgressConsensusHandlerError;
@@ -1112,6 +1119,122 @@ where
     })
 }
 
+///
+/// 次回更新時刻変更リクエスト Axum ハンドラ関数
+///
+pub(crate) async fn put_admin_games_next_update_at<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    Path(game_uuid_str): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<SetNextUpdateAtRequestBody>,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    let game_uuid = match game_uuid_str.parse::<Uuid>() {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(
+                    SetNextUpdateAtHandlerError::InvalidRequest(SetNextUpdateAtRequestValidationError::InvalidGameUuid)
+                        .to_api_error_response(),
+                ),
+            )
+                .into_response();
+        }
+    };
+
+    let authorization = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
+    let request = SetNextUpdateAtRequest {
+        authorization,
+        game_uuid,
+        next_update_at: body.next_update_at,
+        season: body.season,
+    };
+
+    let state_clone = state.clone();
+    let request_clone = request.clone();
+
+    let _game_update_guard = state.game_update_lock.lock().await;
+    let result = tokio::task::spawn_blocking(move || {
+        match handle_set_next_update_at(
+            &state_clone.game_service,
+            state_clone.message_repository.as_ref(),
+            request_clone,
+        ) {
+            Ok(response) => (StatusCode::OK, Json(response)).into_response(),
+            Err(error) => {
+                let status = match &error {
+                    SetNextUpdateAtHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+                    SetNextUpdateAtHandlerError::Service(SetNextUpdateAtError::Unauthorized) => StatusCode::UNAUTHORIZED,
+                    SetNextUpdateAtHandlerError::Service(SetNextUpdateAtError::NotFound) => StatusCode::NOT_FOUND,
+                    SetNextUpdateAtHandlerError::Service(SetNextUpdateAtError::Forbidden(_)) => StatusCode::FORBIDDEN,
+                    SetNextUpdateAtHandlerError::Service(SetNextUpdateAtError::InvalidRequest(_)) => StatusCode::BAD_REQUEST,
+                    SetNextUpdateAtHandlerError::Service(SetNextUpdateAtError::PhaseConflict) => StatusCode::CONFLICT,
+                    _ => StatusCode::INTERNAL_SERVER_ERROR,
+                };
+                (status, Json(error.to_api_error_response())).into_response()
+            }
+        }
+    })
+    .await;
+    drop(_game_update_guard);
+    match result {
+        Ok(response) => response,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+/// 次回更新時刻変更リクエストハンドラ関数
+fn handle_set_next_update_at<U, G>(
+    service: &GameService<U, G>,
+    message_repository: &SqliteMessageRepository,
+    request: SetNextUpdateAtRequest,
+) -> Result<SetNextUpdateAtResponse, SetNextUpdateAtHandlerError>
+where
+    U: UserRepository,
+    G: GameRepository,
+{
+    request.validate().map_err(SetNextUpdateAtHandlerError::InvalidRequest)?;
+
+    let authorization = request.authorization.trim();
+    let access_token = authorization[7..].trim().to_string();
+
+    let result = service
+        .set_next_update_at(SetNextUpdateAtCommand {
+            access_token,
+            game_uuid: request.game_uuid,
+            next_update_at: request.next_update_at,
+            season: request.season,
+        })
+        .map_err(SetNextUpdateAtHandlerError::Service)?;
+
+    if result.changed {
+        let turn = result.game.current_turn();
+        if let Err(error) =
+            message_repository.append_next_update_at_changed_message(result.game.uuid, &turn, &result.next_update_at_jst)
+        {
+            eprintln!(
+                "failed to persist NextUpdateAtChanged message (game_uuid={}): {}",
+                result.game.uuid, error
+            );
+        }
+    }
+
+    Ok(SetNextUpdateAtResponse {
+        game_uuid: result.game.uuid,
+        next_update_at: result.next_update_at_jst,
+    })
+}
+
 // ============================================================================
 // tests
 // ============================================================================
@@ -1140,6 +1263,7 @@ mod tests {
     use crate::repositories::UserId;
     use crate::repositories::UserProfileUpdate;
     use crate::repositories::UserRecord;
+    use chrono::TimeZone;
 
     #[derive(Debug, Clone)]
     struct InMemoryUserRepository {
@@ -1820,6 +1944,263 @@ mod tests {
 
         assert_eq!(response.game_uuid, game_uuid);
         assert!(response.draw_proposal);
+    }
+
+    fn sample_in_progress_game_with_next_update(owner_uuid: uuid::Uuid) -> Game {
+        let mut game = sample_in_progress_game_for_handler(owner_uuid);
+        let jst = chrono::FixedOffset::east_opt(9 * 3600).unwrap();
+        let future_jst = (Utc::now() + chrono::Duration::hours(2)).with_timezone(&jst);
+        let future_naive_jst = future_jst.naive_local();
+        let future_utc = jst
+            .from_local_datetime(&future_naive_jst)
+            .single()
+            .unwrap()
+            .with_timezone(&Utc)
+            .naive_utc();
+        game.next_update_at = Some(future_utc);
+        game
+    }
+
+    #[test]
+    fn handle_set_next_update_at_rejects_missing_authorization() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_next_update_at(
+            &service,
+            &message_repository,
+            SetNextUpdateAtRequest {
+                authorization: "".to_string(),
+                game_uuid: uuid::Uuid::now_v7(),
+                next_update_at: "2099-01-01 12:00".to_string(),
+                season: "ready".to_string(),
+            },
+        )
+        .expect_err("should fail without authorization");
+
+        assert_eq!(error.code(), "invalid_request");
+    }
+
+    #[test]
+    fn handle_set_next_update_at_rejects_non_owner() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let other_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            UserRecord {
+                id: 1,
+                uuid: owner_uuid,
+                discord_user_id: "discord-owner".to_string(),
+                username: "owner".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: "token-owner".to_string(),
+                last_access_at: Utc::now(),
+            },
+            UserRecord {
+                id: 2,
+                uuid: other_uuid,
+                discord_user_id: "discord-other".to_string(),
+                username: "other".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: "token-other".to_string(),
+                last_access_at: Utc::now(),
+            },
+        ]);
+        let game = sample_in_progress_game_with_next_update(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_next_update_at(
+            &service,
+            &message_repository,
+            SetNextUpdateAtRequest {
+                authorization: "Bearer token-other".to_string(),
+                game_uuid,
+                next_update_at: "2099-01-01 12:00".to_string(),
+                season: "ready".to_string(),
+            },
+        )
+        .expect_err("should fail for non-owner");
+
+        assert_eq!(error.code(), "forbidden");
+    }
+
+    #[test]
+    fn handle_set_next_update_at_rejects_non_main_or_ready_phase() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let mut game = sample_in_progress_game_with_next_update(owner_uuid);
+        // 撤退フェーズに変更
+        let spring_retreat = Phase::new_spring_retreat(1901, 1);
+        game.phases.push(spring_retreat);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_next_update_at(
+            &service,
+            &message_repository,
+            SetNextUpdateAtRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                next_update_at: "2099-01-01 12:00".to_string(),
+                season: "1901s".to_string(),
+            },
+        )
+        .expect_err("should fail during retreat phase");
+
+        assert_eq!(error.code(), "forbidden");
+    }
+
+    #[test]
+    fn handle_set_next_update_at_rejects_past_time() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let mut game = sample_in_progress_game_with_next_update(owner_uuid);
+        // next_update_at を未来にセット（パスト判定のため、リクエストは現在より過去）
+        // next_update_at を遠い未来にセット
+        let jst = chrono::FixedOffset::east_opt(9 * 3600).unwrap();
+        let far_future = (Utc::now() + chrono::Duration::days(365)).naive_utc();
+        game.next_update_at = Some(far_future);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        // 過去の時刻を JST で指定
+        // 5分刻みに丸めた過去の時刻を JST で指定
+        let past_jst = (Utc::now() - chrono::Duration::hours(1)).with_timezone(&jst);
+        let minute = past_jst.minute();
+        let rounded_minute = (minute / 5) * 5;
+        let past_str = format!("{} {:02}:{:02}", past_jst.format("%Y-%m-%d"), past_jst.hour(), rounded_minute);
+
+        let error = handle_set_next_update_at(
+            &service,
+            &message_repository,
+            SetNextUpdateAtRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                next_update_at: past_str,
+                season: "1901s".to_string(),
+            },
+        )
+        .expect_err("should fail for past time");
+
+        assert_eq!(error.code(), "invalid_request");
+    }
+
+    #[test]
+    fn handle_set_next_update_at_updates_and_returns_response() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game = sample_in_progress_game_with_next_update(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let response = handle_set_next_update_at(
+            &service,
+            &message_repository,
+            SetNextUpdateAtRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                next_update_at: "2099-06-15 14:00".to_string(),
+                season: "1901s".to_string(),
+            },
+        )
+        .expect("should succeed");
+
+        assert_eq!(response.game_uuid, game_uuid);
+        assert_eq!(response.next_update_at, "2099-06-15 14:00");
+    }
+
+    #[test]
+    fn handle_set_next_update_at_returns_noop_when_same_time() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+
+        let mut game = sample_in_progress_game_for_handler(owner_uuid);
+        let jst = chrono::FixedOffset::east_opt(9 * 3600).unwrap();
+        let same_time_jst = "2099-06-15 14:00";
+        let same_naive = chrono::NaiveDateTime::parse_from_str(same_time_jst, "%Y-%m-%d %H:%M").unwrap();
+        let same_utc = jst
+            .from_local_datetime(&same_naive)
+            .single()
+            .unwrap()
+            .with_timezone(&Utc)
+            .naive_utc();
+        game.next_update_at = Some(same_utc);
+
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let repo_clone = game_repository.clone();
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let response = handle_set_next_update_at(
+            &service,
+            &message_repository,
+            SetNextUpdateAtRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                next_update_at: same_time_jst.to_string(),
+                season: "1901s".to_string(),
+            },
+        )
+        .expect("no-op should succeed");
+
+        assert_eq!(response.game_uuid, game_uuid);
+        assert_eq!(response.next_update_at, same_time_jst);
+        assert!(repo_clone.last_updated().is_none(), "update should not be called for no-op");
     }
 
     #[test]

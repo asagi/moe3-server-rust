@@ -131,6 +131,9 @@ pub(crate) enum SystemNoticeCatalog {
         power: Power,
     },
     ProgressConsensusReached,
+    NextUpdateAtChanged {
+        next_update_at: String,
+    },
 }
 
 /// システムメッセージ定義の列挙体の fmt::Display トレイト実装
@@ -221,6 +224,9 @@ impl fmt::Display for SystemNoticeCatalog {
             }
             Self::ProgressConsensusReached => {
                 write!(f, "全ての生存国の合意を確認しました。メインフェイズをただちに終了します。")
+            }
+            Self::NextUpdateAtChanged { next_update_at } => {
+                write!(f, "次回更新時刻が {} に変更されました。", next_update_at)
             }
         }
     }

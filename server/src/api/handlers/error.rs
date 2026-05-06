@@ -12,14 +12,16 @@ use super::JoinGameError;
 use super::JoinGameRequestValidationError;
 use super::SetDrawProposalError;
 use super::SetDrawProposalRequestValidationError;
+use super::SetNextUpdateAtError;
+use super::SetNextUpdateAtRequestValidationError;
+use super::SetProgressConsensusError;
+use super::SetProgressConsensusRequestValidationError;
+use super::SetProgressModeError;
+use super::SetProgressModeRequestValidationError;
 use super::SetTerritoryError;
 use super::SetTerritoryRequestValidationError;
 use super::SetUnitError;
 use super::SetUnitRequestValidationError;
-use super::SetProgressModeError;
-use super::SetProgressModeRequestValidationError;
-use super::SetProgressConsensusError;
-use super::SetProgressConsensusRequestValidationError;
 
 // ============================================================================
 // definitions
@@ -444,6 +446,58 @@ impl SetProgressConsensusHandlerError {
                 "game_uuid is invalid".to_string()
             }
             Self::Service(SetProgressConsensusError::Forbidden(message)) => message.clone(),
+            Self::Service(error) => error.to_string(),
+        }
+    }
+}
+
+///
+/// 次回更新時刻変更リクエストハンドラのエラーの列挙体
+///
+#[derive(Debug)]
+pub(crate) enum SetNextUpdateAtHandlerError {
+    InvalidRequest(SetNextUpdateAtRequestValidationError),
+    Service(SetNextUpdateAtError),
+}
+
+/// 次回更新時刻変更リクエストハンドラのエラーの列挙体の実装
+impl SetNextUpdateAtHandlerError {
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidRequest(_) => "invalid_request",
+            Self::Service(SetNextUpdateAtError::Unauthorized) => "unauthorized",
+            Self::Service(SetNextUpdateAtError::NotFound) => "not_found",
+            Self::Service(SetNextUpdateAtError::Forbidden(_)) => "forbidden",
+            Self::Service(SetNextUpdateAtError::InvalidRequest(_)) => "invalid_request",
+            Self::Service(SetNextUpdateAtError::PhaseConflict) => "phase_conflict",
+            Self::Service(SetNextUpdateAtError::Repository(_)) => "repository_error",
+        }
+    }
+
+    pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
+        ApiErrorResponse {
+            code: self.code(),
+            message: self.message(),
+        }
+    }
+
+    fn message(&self) -> String {
+        match self {
+            Self::InvalidRequest(SetNextUpdateAtRequestValidationError::MissingAuthorization) => {
+                "authorization header is required".to_string()
+            }
+            Self::InvalidRequest(SetNextUpdateAtRequestValidationError::InvalidAuthorizationScheme) => {
+                "authorization must start with 'Bearer <token>'".to_string()
+            }
+            Self::InvalidRequest(SetNextUpdateAtRequestValidationError::MissingAccessToken) => {
+                "access token is required".to_string()
+            }
+            Self::InvalidRequest(SetNextUpdateAtRequestValidationError::InvalidGameUuid) => "game_uuid is invalid".to_string(),
+            Self::InvalidRequest(SetNextUpdateAtRequestValidationError::InvalidSeason) => {
+                "season must be 'ready' or in the format like '1901s' or '1901f'".to_string()
+            }
+            Self::Service(SetNextUpdateAtError::Forbidden(message))
+            | Self::Service(SetNextUpdateAtError::InvalidRequest(message)) => message.clone(),
             Self::Service(error) => error.to_string(),
         }
     }

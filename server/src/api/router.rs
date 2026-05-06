@@ -43,9 +43,10 @@ use super::handlers::post_auth_login;
 use super::handlers::post_games;
 use super::handlers::post_games_players;
 use super::handlers::put_admin_games_draw_proposal;
+use super::handlers::put_admin_games_next_update_at;
+use super::handlers::put_admin_games_progress_mode;
 use super::handlers::put_admin_games_territories;
 use super::handlers::put_admin_games_units;
-use super::handlers::put_admin_games_progress_mode;
 use super::handlers::put_games_progress_consensus;
 
 // ============================================================================
@@ -286,6 +287,10 @@ where
         .route(
             "/admin/games/:game_uuid/draw-proposal",
             put(put_admin_games_draw_proposal::<U, G, D>),
+        )
+        .route(
+            "/admin/games/:game_uuid/next-update-at",
+            put(put_admin_games_next_update_at::<U, G, D>),
         )
         .route(
             "/admin/games/:game_uuid/units/:location",

@@ -96,3 +96,15 @@ pub(crate) enum SetProgressConsensusRequestValidationError {
     MissingAccessToken,
     InvalidGameUuid,
 }
+
+///
+/// 次回更新時刻変更リクエストのバリデーションエラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SetNextUpdateAtRequestValidationError {
+    MissingAuthorization,
+    InvalidAuthorizationScheme,
+    MissingAccessToken,
+    InvalidGameUuid,
+    InvalidSeason,
+}
