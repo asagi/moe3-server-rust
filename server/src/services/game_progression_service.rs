@@ -2,6 +2,7 @@
 // imports
 // ============================================================================
 
+use crate::ProgressMode;
 use chrono::Utc;
 use rand::seq::SliceRandom;
 use strum::IntoEnumIterator;
@@ -291,6 +292,10 @@ where
                 continue;
             }
 
+            if game.regulation.progress_mode != ProgressMode::Consensus {
+                continue;
+            }
+
             let threshold = Self::idle_threshold(&game, now);
             let mut changed = false;
 
@@ -307,9 +312,7 @@ where
             }
 
             if changed {
-                self.game_repository
-                    .update(&game)
-                    .map_err(GameProgressionError::Repository)?;
+                self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
             }
         }
 

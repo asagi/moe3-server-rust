@@ -846,7 +846,7 @@ where
             latest_phase.kind,
             crate::domain::PhaseKind::SpringMain(_) | crate::domain::PhaseKind::FallMain(_)
         );
-        let active_powers: std::collections::HashSet<Power> = latest_phase.territories.iter().map(|t| t.power).collect();
+        let active_powers = Self::consensus_required_powers(latest_phase);
 
         if !active_powers.contains(&actor_power) {
             return Err(SetProgressConsensusError::Forbidden(
@@ -869,9 +869,14 @@ where
             let all_active_consented = updated_game
                 .players
                 .iter()
-                .filter_map(|p| p.power.map(|power| (p, power)))
-                .filter(|(_, power)| active_powers.contains(power))
-                .all(|(p, _)| p.progress_consented);
+                .filter_map(|p| p.power)
+                .filter(|power| active_powers.contains(power))
+                .all(|power| {
+                    updated_game
+                        .players
+                        .iter()
+                        .any(|p| p.power == Some(power) && p.progress_consented)
+                });
 
             if !active_powers.is_empty() && all_active_consented {
                 let idle_threshold = chrono::Utc::now().naive_utc()
@@ -919,6 +924,28 @@ where
             changed,
             reached_consensus_in_main_phase,
         })
+    }
+
+    fn consensus_required_powers(latest_phase: &Phase) -> std::collections::HashSet<Power> {
+        match latest_phase.kind {
+            crate::domain::PhaseKind::SpringMain(_) | crate::domain::PhaseKind::FallMain(_) => {
+                latest_phase.territories.iter().map(|t| t.power).collect()
+            }
+            crate::domain::PhaseKind::SpringRetreat(_) | crate::domain::PhaseKind::FallRetreat(_) => latest_phase
+                .orders
+                .iter()
+                .filter(|o| o.dislodged_from.is_some())
+                .map(|o| o.power)
+                .collect(),
+            crate::domain::PhaseKind::Adjustment(_) => Power::iter()
+                .filter(|power| {
+                    let supply_center_count = latest_phase.territories.iter().filter(|t| t.power == *power).count();
+                    let unit_count = latest_phase.units.iter().filter(|u| u.power == *power).count();
+                    supply_center_count != unit_count
+                })
+                .collect(),
+            crate::domain::PhaseKind::Ready(_) | crate::domain::PhaseKind::Debrief(_) => std::collections::HashSet::new(),
+        }
     }
 }
 
@@ -2006,6 +2033,56 @@ mod tests {
         game
     }
 
+    fn sample_consensus_spring_retreat_game(owner_uuid: Uuid, player_uuid: Uuid, optional_uuid: Uuid) -> Game {
+        let mut game = sample_consensus_game_with_two_active_players(owner_uuid, player_uuid);
+        game.players.push(Player {
+            user_uuid: optional_uuid,
+            power: Some(Power::Germany),
+            is_accepting_draw: false,
+            progress_consented: false,
+            is_owner: false,
+            requested_power: None,
+        });
+
+        let mut dislodged_france_unit = Unit::new_army(Power::France, Province::from_code("par").expect("valid province"));
+        dislodged_france_unit.set_dislodged_from(Some(Province::from_code("bur").expect("valid province")));
+
+        let mut retreat_phase = Phase::new_spring_retreat(1901, 0);
+        retreat_phase.orders = vec![dislodged_france_unit.disband()];
+        retreat_phase.units = vec![dislodged_france_unit];
+        retreat_phase.territories = vec![Territory::new(Power::France, "par"), Territory::new(Power::England, "lon")];
+
+        game.phases = vec![retreat_phase];
+        game
+    }
+
+    fn sample_consensus_adjustment_game(owner_uuid: Uuid, player_uuid: Uuid, optional_uuid: Uuid) -> Game {
+        let mut game = sample_consensus_game_with_two_active_players(owner_uuid, player_uuid);
+        game.players.push(Player {
+            user_uuid: optional_uuid,
+            power: Some(Power::Germany),
+            is_accepting_draw: false,
+            progress_consented: false,
+            is_owner: false,
+            requested_power: None,
+        });
+
+        let mut adjustment_phase = Phase::new_adjustment(1901, 1);
+        adjustment_phase.orders = vec![];
+        adjustment_phase.units = vec![
+            Unit::new_army(Power::France, Province::from_code("par").expect("valid province")),
+            Unit::new_army(Power::England, Province::from_code("lon").expect("valid province")),
+        ];
+        adjustment_phase.territories = vec![
+            Territory::new(Power::France, "par"),
+            Territory::new(Power::France, "mar"),
+            Territory::new(Power::England, "lon"),
+        ];
+
+        game.phases = vec![adjustment_phase];
+        game
+    }
+
     #[test]
     fn set_draw_proposal_rejects_empty_access_token() {
         let owner_uuid = Uuid::now_v7();
@@ -2903,5 +2980,63 @@ mod tests {
             updated.players.iter().all(|p| !p.progress_consented),
             "non-idle players should be reset after consensus reached"
         );
+    }
+
+    #[test]
+    fn set_progress_consensus_reaches_consensus_in_retreat_with_only_required_players() {
+        let owner_uuid = Uuid::now_v7();
+        let other_uuid = Uuid::now_v7();
+        let optional_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            owner_user_record(owner_uuid),
+            player_user_record(other_uuid, "token-player"),
+            player_user_record(optional_uuid, "token-optional"),
+        ]);
+        let game = sample_consensus_spring_retreat_game(owner_uuid, other_uuid, optional_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service
+            .set_progress_consensus(SetProgressConsensusCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                agreed: true,
+            })
+            .expect("should succeed");
+
+        assert!(result.changed);
+        assert!(!result.reached_consensus_in_main_phase);
+        let updated = game_repository.updated_first().expect("game should be updated");
+        assert!(updated.next_update_at.is_some(), "next_update_at should be set to now");
+    }
+
+    #[test]
+    fn set_progress_consensus_reaches_consensus_in_adjustment_with_only_required_players() {
+        let owner_uuid = Uuid::now_v7();
+        let other_uuid = Uuid::now_v7();
+        let optional_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            owner_user_record(owner_uuid),
+            player_user_record(other_uuid, "token-player"),
+            player_user_record(optional_uuid, "token-optional"),
+        ]);
+        let game = sample_consensus_adjustment_game(owner_uuid, other_uuid, optional_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service
+            .set_progress_consensus(SetProgressConsensusCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                agreed: true,
+            })
+            .expect("should succeed");
+
+        assert!(result.changed);
+        assert!(!result.reached_consensus_in_main_phase);
+        let updated = game_repository.updated_first().expect("game should be updated");
+        assert!(updated.next_update_at.is_some(), "next_update_at should be set to now");
     }
 }
