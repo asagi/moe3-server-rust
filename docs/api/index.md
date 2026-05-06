@@ -40,7 +40,7 @@
 | `PUT`    | [`/admin/games/:game_uuid/territories/:code` 🔗](./admin-games-territories__put.md)    | 占領情報の登録、変更             |
 | `DELETE` | [`/admin/games/:game_uuid/territories/:code` 🔗](./admin-games-territories__delete.md) | 占領情報の削除                   |
 | `PUT`    | [`/admin/games/:game_uuid/progress-mode` 🔗](./admin-games-progress-mode__put.md)      | 進行モードを合意進行に切り替える |
-| `PUT`    | `/admin/games/:game_uuid/next-update-at`                                               | 次回更新時刻を延長する           |
+| `PUT`    | [`/admin/games/:game_uuid/next-update-at` 🔗](./admin-games-next-update-at__put.md)    | 次回更新時刻を延長する           |
 | `PUT`    | [`/admin/games/:game_uuid/draw-proposal` 🔗](./admin-games-draw-proposal__put.md)      | 和平終了フラグを変更する         |
 
 ---
