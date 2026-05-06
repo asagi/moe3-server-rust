@@ -581,6 +581,7 @@ impl SqliteMessageRepository {
             SystemNoticeCatalog::ProgressConsented { .. } => "progress_consented",
             SystemNoticeCatalog::ProgressConsensusRescinded { .. } => "progress_consensus_rescinded",
             SystemNoticeCatalog::ProgressConsensusReached => "progress_consensus_reached",
+            SystemNoticeCatalog::NextUpdateAtChanged { .. } => "next_update_at_changed",
         }
     }
 
@@ -645,6 +646,9 @@ impl SqliteMessageRepository {
             | SystemNoticeCatalog::Closed
             | SystemNoticeCatalog::ProgressModeChanged
             | SystemNoticeCatalog::ProgressConsensusReached => json!({}),
+            SystemNoticeCatalog::NextUpdateAtChanged { next_update_at } => {
+                json!({ "next_update_at": next_update_at })
+            }
         }
     }
 
@@ -652,6 +656,27 @@ impl SqliteMessageRepository {
         let connection = self.open_connection()?;
         self.init_schema(&connection)?;
         let catalog = SystemNoticeCatalog::ProgressModeChanged;
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::System(SystemNotice {}),
+        };
+        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        Ok(())
+    }
+
+    pub(crate) fn append_next_update_at_changed_message(
+        &self,
+        game_uuid: Uuid,
+        turn: &str,
+        next_update_at: &str,
+    ) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+        let catalog = SystemNoticeCatalog::NextUpdateAtChanged {
+            next_update_at: next_update_at.to_string(),
+        };
         let message = Message {
             sender: None,
             turn: turn.to_string(),

@@ -8,10 +8,11 @@ use uuid::Uuid;
 use super::CreateGameRequestValidationError;
 use super::JoinGameRequestValidationError;
 use super::SetDrawProposalRequestValidationError;
+use super::SetNextUpdateAtRequestValidationError;
+use super::SetProgressConsensusRequestValidationError;
+use super::SetProgressModeRequestValidationError;
 use super::SetTerritoryRequestValidationError;
 use super::SetUnitRequestValidationError;
-use super::SetProgressModeRequestValidationError;
-use super::SetProgressConsensusRequestValidationError;
 
 // ============================================================================
 // definitions
@@ -262,6 +263,11 @@ fn is_valid_season(season: &str) -> bool {
     bytes[..4].iter().all(|b| b.is_ascii_digit()) && matches!(bytes[4], b's' | b'S' | b'f' | b'F')
 }
 
+/// season 文字列が次回更新時刻変更 API で有効な形式かどうかを検証する（"ready" または "1901s" 形式）
+fn is_valid_next_update_season(season: &str) -> bool {
+    season == "ready" || is_valid_season(season)
+}
+
 ///
 /// 進行モード変更リクエストボディ構造体
 ///
@@ -336,6 +342,50 @@ impl SetProgressConsensusRequest {
         };
         if token.is_empty() {
             return Err(SetProgressConsensusRequestValidationError::MissingAccessToken);
+        }
+
+        Ok(())
+    }
+}
+
+///
+/// 次回更新時刻変更リクエストボディ構造体
+///
+#[derive(Debug, Deserialize)]
+pub(crate) struct SetNextUpdateAtRequestBody {
+    pub next_update_at: String,
+    pub season: String,
+}
+
+///
+/// 次回更新時刻変更リクエストの構造体
+///
+#[derive(Debug, Clone)]
+pub(crate) struct SetNextUpdateAtRequest {
+    pub authorization: String,
+    pub game_uuid: Uuid,
+    pub next_update_at: String,
+    pub season: String,
+}
+
+/// 次回更新時刻変更リクエストの構造体の実装
+impl SetNextUpdateAtRequest {
+    pub(crate) fn validate(&self) -> Result<(), SetNextUpdateAtRequestValidationError> {
+        let auth = self.authorization.trim();
+        if auth.is_empty() {
+            return Err(SetNextUpdateAtRequestValidationError::MissingAuthorization);
+        }
+
+        let token = match auth.get(..7) {
+            Some(prefix) if prefix.eq_ignore_ascii_case("Bearer ") => auth.get(7..).unwrap_or("").trim(),
+            _ => return Err(SetNextUpdateAtRequestValidationError::InvalidAuthorizationScheme),
+        };
+        if token.is_empty() {
+            return Err(SetNextUpdateAtRequestValidationError::MissingAccessToken);
+        }
+
+        if !is_valid_next_update_season(&self.season) {
+            return Err(SetNextUpdateAtRequestValidationError::InvalidSeason);
         }
 
         Ok(())

@@ -4,6 +4,7 @@
 
 use chrono::FixedOffset;
 use chrono::TimeZone;
+use chrono::Timelike;
 use uuid::Uuid;
 
 use super::CreateGameError;
@@ -20,6 +21,7 @@ use super::Province;
 use super::Regulation;
 use super::RepositoryError;
 use super::SetDrawProposalError;
+use super::SetNextUpdateAtError;
 use super::SetProgressConsensusError;
 use super::SetProgressModeError;
 use super::SetTerritoryError;
@@ -189,6 +191,26 @@ pub(crate) struct SetProgressConsensusResult {
     pub actor_power: Power,
     pub changed: bool,
     pub reached_consensus_in_main_phase: bool,
+}
+
+///
+/// 次回更新時刻変更コマンドの構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SetNextUpdateAtCommand {
+    pub access_token: String,
+    pub game_uuid: Uuid,
+    pub next_update_at: String,
+    pub season: String,
+}
+
+///
+/// 次回更新時刻変更処理結果の構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SetNextUpdateAtResult {
+    pub game: Game,
+    pub next_update_at_jst: String,
 }
 
 ///
@@ -494,6 +516,96 @@ where
         Ok(SetDrawProposalResult {
             game: updated_game,
             changed: true,
+        })
+    }
+
+    ///
+    /// 卓主権限で次回更新時刻を変更する
+    ///
+    pub(crate) fn set_next_update_at(
+        &self,
+        command: SetNextUpdateAtCommand,
+    ) -> Result<SetNextUpdateAtResult, SetNextUpdateAtError> {
+        if command.access_token.is_empty() {
+            return Err(SetNextUpdateAtError::Unauthorized);
+        }
+
+        let user = self
+            .user_repository
+            .find_by_access_token(&command.access_token)
+            .map_err(SetNextUpdateAtError::Repository)?
+            .ok_or(SetNextUpdateAtError::Unauthorized)?;
+
+        let game = self
+            .game_repository
+            .find_by_uuid(command.game_uuid)
+            .map_err(SetNextUpdateAtError::Repository)?
+            .ok_or(SetNextUpdateAtError::NotFound)?;
+
+        game.players
+            .iter()
+            .find(|p| p.is_owner && p.user_uuid == user.uuid)
+            .ok_or_else(|| SetNextUpdateAtError::Forbidden("user is not the owner of this game".to_string()))?;
+
+        let latest_phase = game
+            .phases
+            .last()
+            .ok_or_else(|| SetNextUpdateAtError::Forbidden("game has no phases".to_string()))?;
+
+        let is_allowed_phase = matches!(
+            latest_phase.kind,
+            crate::domain::PhaseKind::Ready(_) | crate::domain::PhaseKind::SpringMain(_) | crate::domain::PhaseKind::FallMain(_)
+        );
+        if !is_allowed_phase {
+            return Err(SetNextUpdateAtError::Forbidden(
+                "next_update_at can only be changed during a ready or main phase".to_string(),
+            ));
+        }
+
+        if game.current_turn() != command.season {
+            return Err(SetNextUpdateAtError::PhaseConflict);
+        }
+
+        let current_next_update = game
+            .next_update_at
+            .ok_or_else(|| SetNextUpdateAtError::Forbidden("next_update_at is not set for this game".to_string()))?;
+
+        let naive_jst = chrono::NaiveDateTime::parse_from_str(&command.next_update_at, "%Y-%m-%d %H:%M").map_err(|_| {
+            SetNextUpdateAtError::InvalidRequest("next_update_at must be in 'YYYY-MM-DD HH:MM' format".to_string())
+        })?;
+
+        if naive_jst.minute() % 5 != 0 {
+            return Err(SetNextUpdateAtError::InvalidRequest(
+                "minutes of next_update_at must be a multiple of 5".to_string(),
+            ));
+        }
+
+        let jst = chrono::FixedOffset::east_opt(9 * 3600)
+            .ok_or_else(|| SetNextUpdateAtError::InvalidRequest("internal: failed to build JST offset".to_string()))?;
+
+        let new_next_update = jst
+            .from_local_datetime(&naive_jst)
+            .single()
+            .ok_or_else(|| SetNextUpdateAtError::InvalidRequest("ambiguous or invalid local time".to_string()))?
+            .with_timezone(&chrono::Utc)
+            .naive_utc();
+
+        if new_next_update < current_next_update {
+            return Err(SetNextUpdateAtError::InvalidRequest(
+                "new next_update_at must not be earlier than the current next_update_at".to_string(),
+            ));
+        }
+
+        let mut updated_game = game;
+        updated_game.next_update_at = Some(new_next_update);
+
+        self.game_repository
+            .update(&updated_game)
+            .map_err(SetNextUpdateAtError::Repository)?;
+
+        Ok(SetNextUpdateAtResult {
+            game: updated_game,
+            next_update_at_jst: command.next_update_at,
         })
     }
 

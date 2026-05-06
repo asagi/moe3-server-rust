@@ -84,3 +84,12 @@ pub(crate) struct SetProgressConsensusResponse {
     pub game_uuid: Uuid,
     pub agreed: bool,
 }
+
+///
+/// 次回更新時刻変更レスポンスの構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(crate) struct SetNextUpdateAtResponse {
+    pub game_uuid: Uuid,
+    pub next_update_at: String,
+}

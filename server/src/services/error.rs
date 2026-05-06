@@ -274,3 +274,33 @@ impl fmt::Display for SetProgressConsensusError {
         }
     }
 }
+
+///
+/// 次回更新時刻変更エラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SetNextUpdateAtError {
+    Unauthorized,
+    NotFound,
+    Forbidden(String),
+    InvalidRequest(String),
+    PhaseConflict,
+    Repository(RepositoryError),
+}
+
+/// 次回更新時刻変更エラーの列挙体の実装（Error トレイト）
+impl Error for SetNextUpdateAtError {}
+
+/// 次回更新時刻変更エラーの列挙体の実装（fmt::Display トレイト）
+impl fmt::Display for SetNextUpdateAtError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unauthorized => write!(f, "unauthorized"),
+            Self::NotFound => write!(f, "game not found"),
+            Self::Forbidden(message) => write!(f, "forbidden: {}", message),
+            Self::InvalidRequest(message) => write!(f, "invalid request: {}", message),
+            Self::PhaseConflict => write!(f, "phase has changed since this request was issued"),
+            Self::Repository(error) => write!(f, "repository error: {}", error),
+        }
+    }
+}
