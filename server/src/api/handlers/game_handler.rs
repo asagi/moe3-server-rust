@@ -1205,7 +1205,8 @@ where
 {
     request.validate().map_err(SetNextUpdateAtHandlerError::InvalidRequest)?;
 
-    let access_token = request.authorization.trim().trim_start_matches("Bearer ").trim().to_string();
+    let authorization = request.authorization.trim();
+    let access_token = authorization[7..].trim().to_string();
 
     let result = service
         .set_next_update_at(SetNextUpdateAtCommand {

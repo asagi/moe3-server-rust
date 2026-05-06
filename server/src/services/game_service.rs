@@ -562,7 +562,8 @@ where
             ));
         }
 
-        if game.current_turn() != command.season {
+        let command_season = command.season.to_ascii_lowercase();
+        if game.current_turn() != command_season {
             return Err(SetNextUpdateAtError::PhaseConflict);
         }
 
