@@ -1288,9 +1288,12 @@ impl GameRepository for SqliteGameRepository {
                 g.regulation_duration_type, g.regulation_start_date, g.regulation_first_period_hour,
                 g.status, g.next_update,
                 (SELECT COUNT(*) FROM game_players WHERE game_uuid = g.uuid) AS player_count,
-                (SELECT phase_kind FROM game_phases WHERE game_uuid = g.uuid ORDER BY phase_index DESC LIMIT 1) AS last_phase_kind,
-                (SELECT phase_year FROM game_phases WHERE game_uuid = g.uuid ORDER BY phase_index DESC LIMIT 1) AS last_phase_year
+                lp.phase_kind AS last_phase_kind,
+                lp.phase_year AS last_phase_year
             FROM games g
+            LEFT JOIN game_phases AS lp
+                ON lp.game_uuid = g.uuid
+                AND lp.phase_index = (SELECT MAX(phase_index) FROM game_phases WHERE game_uuid = g.uuid)
             {}
             ORDER BY g.created_at DESC, g.uuid ASC
             LIMIT ?1 OFFSET ?2
@@ -1342,9 +1345,12 @@ impl GameRepository for SqliteGameRepository {
                 g.regulation_duration_type, g.regulation_start_date, g.regulation_first_period_hour,
                 g.status, g.next_update,
                 (SELECT COUNT(*) FROM game_players WHERE game_uuid = g.uuid) AS player_count,
-                (SELECT phase_kind FROM game_phases WHERE game_uuid = g.uuid ORDER BY phase_index DESC LIMIT 1) AS last_phase_kind,
-                (SELECT phase_year FROM game_phases WHERE game_uuid = g.uuid ORDER BY phase_index DESC LIMIT 1) AS last_phase_year
+                lp.phase_kind AS last_phase_kind,
+                lp.phase_year AS last_phase_year
             FROM games g
+            LEFT JOIN game_phases AS lp
+                ON lp.game_uuid = g.uuid
+                AND lp.phase_index = (SELECT MAX(phase_index) FROM game_phases WHERE game_uuid = g.uuid)
             WHERE EXISTS (
                 SELECT 1 FROM game_players WHERE game_uuid = g.uuid AND user_uuid = ?1
             )
