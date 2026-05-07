@@ -19,6 +19,7 @@ use axum::middleware::Next;
 use axum::middleware::from_fn_with_state;
 use axum::response::IntoResponse;
 use axum::response::Response;
+use axum::routing::get;
 use axum::routing::post;
 use axum::routing::put;
 use chrono::DateTime;
@@ -39,6 +40,7 @@ use super::SqliteUserRepository;
 use super::UserRepository;
 use super::handlers::delete_admin_games_territories;
 use super::handlers::delete_admin_games_units;
+use super::handlers::get_users_me;
 use super::handlers::post_auth_login;
 use super::handlers::post_auth_reset_token;
 use super::handlers::post_games;
@@ -307,6 +309,7 @@ where
         )
         .route("/auth/login", post(post_auth_login::<U, G, D>))
         .route("/auth/token", post(post_auth_reset_token::<U, G, D>))
+        .route("/users/me", get(get_users_me::<U, G, D>))
         .with_state(state.clone())
         .layer(from_fn_with_state(state, run_global_pre_handler::<U, G, D>))
 }
@@ -375,7 +378,12 @@ mod tests {
             Ok(true)
         }
 
-        fn update_access_token(&self, id: UserId, current_token: &str, new_token: &str) -> Result<UserRecord, super::super::RepositoryError> {
+        fn update_access_token(
+            &self,
+            id: UserId,
+            current_token: &str,
+            new_token: &str,
+        ) -> Result<UserRecord, super::super::RepositoryError> {
             let mut user = self.user.lock().expect("lock should succeed");
             let row = user
                 .as_mut()

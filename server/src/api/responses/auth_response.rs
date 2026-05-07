@@ -54,3 +54,15 @@ impl From<LoginUser> for AuthLoginResponseUser {
 pub(crate) struct AuthResetTokenResponse {
     pub access_token: String,
 }
+
+///
+/// ユーザー情報取得レスポンスの構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(crate) struct GetMeResponse {
+    pub discord_user_id: String,
+    pub username: String,
+    pub global_name: Option<String>,
+    pub avatar_url: Option<String>,
+    pub access_token: String,
+}

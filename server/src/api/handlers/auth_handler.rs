@@ -22,6 +22,8 @@ use super::AuthService;
 use super::DiscordClientError;
 use super::DiscordIdentityProvider;
 use super::GameRepository;
+use super::GetMeHandlerError;
+use super::GetMeResponse;
 use super::LoginCommand;
 use super::RepositoryError;
 use super::ResetTokenHandlerError;
@@ -147,6 +149,65 @@ where
         .map_err(ResetTokenHandlerError::Service)?;
 
     Ok(AuthResetTokenResponse {
+        access_token: result.access_token,
+    })
+}
+
+///
+/// ユーザー情報取得リクエスト Axum ハンドラ
+///
+pub(crate) async fn get_users_me<U, G, D>(State(state): State<AppState<U, G, D>>, headers: HeaderMap) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    let authorization = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
+    let request = AuthResetTokenRequest { authorization };
+    let auth_service = Arc::clone(&state.auth_service);
+
+    match tokio::task::spawn_blocking(move || handle_get_users_me(&auth_service, request)).await {
+        Ok(Ok(response)) => (StatusCode::OK, Json(response)).into_response(),
+        Ok(Err(error)) => {
+            let status = match &error {
+                GetMeHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+                GetMeHandlerError::Service(AuthError::Unauthorized) => StatusCode::UNAUTHORIZED,
+                GetMeHandlerError::Service(AuthError::Repository(RepositoryError::Unavailable(_))) => {
+                    StatusCode::SERVICE_UNAVAILABLE
+                }
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            };
+            (status, Json(error.to_api_error_response())).into_response()
+        }
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+///
+/// ユーザー情報取得リクエストハンドラ
+///
+pub(crate) fn handle_get_users_me<U, D>(
+    service: &AuthService<U, D>,
+    request: AuthResetTokenRequest,
+) -> Result<GetMeResponse, GetMeHandlerError>
+where
+    U: UserRepository,
+    D: DiscordIdentityProvider,
+{
+    request.validate().map_err(GetMeHandlerError::InvalidRequest)?;
+
+    let result = service.get_me(request.access_token()).map_err(GetMeHandlerError::Service)?;
+
+    Ok(GetMeResponse {
+        discord_user_id: result.discord_user_id,
+        username: result.username,
+        global_name: result.global_name,
+        avatar_url: result.avatar_url,
         access_token: result.access_token,
     })
 }
@@ -429,6 +490,95 @@ mod tests {
         .expect_err("handler should fail");
 
         assert_eq!(error.code(), "invalid_request");
+    }
+
+    #[test]
+    fn handle_get_users_me_returns_user_info() {
+        let repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: uuid::Uuid::now_v7(),
+            discord_user_id: "1001".to_string(),
+            username: "nemu".to_string(),
+            global_name: Some("asagi".to_string()),
+            avatar_hash: Some("hash".to_string()),
+            avatar_url: Some("https://cdn.discordapp.com/avatar.png".to_string()),
+            access_token: "my-token".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let discord = FakeDiscordIdentityProvider {
+            profile: DiscordProfile {
+                discord_user_id: "1001".to_string(),
+                username: "nemu".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+            },
+        };
+        let service = AuthService::new(repository, discord);
+
+        let response = handle_get_users_me(
+            &service,
+            AuthResetTokenRequest {
+                authorization: "Bearer my-token".to_string(),
+            },
+        )
+        .expect("handler should succeed");
+
+        assert_eq!(response.discord_user_id, "1001");
+        assert_eq!(response.username, "nemu");
+        assert_eq!(response.global_name.as_deref(), Some("asagi"));
+        assert_eq!(response.avatar_url.as_deref(), Some("https://cdn.discordapp.com/avatar.png"));
+        assert_eq!(response.access_token, "my-token");
+    }
+
+    #[test]
+    fn handle_get_users_me_rejects_missing_authorization() {
+        let repository = InMemoryUserRepository::new(Vec::new());
+        let discord = FakeDiscordIdentityProvider {
+            profile: DiscordProfile {
+                discord_user_id: "1001".to_string(),
+                username: "nemu".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+            },
+        };
+        let service = AuthService::new(repository, discord);
+
+        let error = handle_get_users_me(
+            &service,
+            AuthResetTokenRequest {
+                authorization: "".to_string(),
+            },
+        )
+        .expect_err("handler should fail");
+
+        assert_eq!(error.code(), "invalid_request");
+    }
+
+    #[test]
+    fn handle_get_users_me_returns_unauthorized_for_unknown_token() {
+        let repository = InMemoryUserRepository::new(Vec::new());
+        let discord = FakeDiscordIdentityProvider {
+            profile: DiscordProfile {
+                discord_user_id: "1001".to_string(),
+                username: "nemu".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+            },
+        };
+        let service = AuthService::new(repository, discord);
+
+        let error = handle_get_users_me(
+            &service,
+            AuthResetTokenRequest {
+                authorization: "Bearer unknown-token".to_string(),
+            },
+        )
+        .expect_err("handler should fail");
+
+        assert_eq!(error.code(), "unauthorized");
     }
 
     #[test]
