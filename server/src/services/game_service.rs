@@ -12,7 +12,10 @@ use super::Game;
 use super::GameProgressionService;
 use super::GameRepository;
 use super::GameStatus;
+use super::GameStatusFilter;
+use super::GameSummary;
 use super::JoinGameError;
+use super::ListGamesError;
 use super::NewGame;
 use super::Phase;
 use super::Player;
@@ -212,6 +215,15 @@ pub(crate) struct SetNextUpdateAtResult {
     pub game: Game,
     pub next_update_at_jst: String,
     pub changed: bool,
+}
+
+///
+/// 卓一覧取得処理結果の構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct ListGamesResult {
+    pub games: Vec<GameSummary>,
+    pub total: u64,
 }
 
 ///
@@ -1070,6 +1082,50 @@ where
             crate::domain::PhaseKind::Ready(_) | crate::domain::PhaseKind::Debrief(_) => std::collections::HashSet::new(),
         }
     }
+
+    ///
+    /// ステータスフィルタで卓一覧をページネーションして返す
+    ///
+    pub(crate) fn list_games_by_status(
+        &self,
+        filter: GameStatusFilter,
+        page: u32,
+        per_page: u32,
+    ) -> Result<ListGamesResult, ListGamesError> {
+        let (games, total) = self
+            .game_repository
+            .find_paginated_by_status(filter, page, per_page)
+            .map_err(ListGamesError::Repository)?;
+        Ok(ListGamesResult { games, total })
+    }
+
+    ///
+    /// 指定ユーザーが参加している卓一覧をページネーションして返す
+    ///
+    pub(crate) fn list_games_by_user(
+        &self,
+        access_token: &str,
+        target_discord_user_id: &str,
+        page: u32,
+        per_page: u32,
+    ) -> Result<ListGamesResult, ListGamesError> {
+        let user = self
+            .user_repository
+            .find_by_access_token(access_token)
+            .map_err(ListGamesError::Repository)?
+            .ok_or(ListGamesError::Unauthorized)?;
+
+        if user.discord_user_id != target_discord_user_id.trim() {
+            return Err(ListGamesError::Forbidden("you can only query your own games".to_string()));
+        }
+
+        let (games, total) = self
+            .game_repository
+            .find_paginated_by_user_uuid(user.uuid, page, per_page)
+            .map_err(ListGamesError::Repository)?;
+
+        Ok(ListGamesResult { games, total })
+    }
 }
 
 // ============================================================================
@@ -1267,6 +1323,60 @@ mod tests {
                 .ok_or(RepositoryError::NotFound)?;
             game.game_number = Some(next);
             Ok(next)
+        }
+
+        fn find_paginated_by_status(
+            &self,
+            filter: GameStatusFilter,
+            page: u32,
+            per_page: u32,
+        ) -> Result<(Vec<GameSummary>, u64), RepositoryError> {
+            let all: Vec<GameSummary> = self
+                .active_games
+                .borrow()
+                .iter()
+                .filter(|g| match filter {
+                    GameStatusFilter::Active => !matches!(g.status, GameStatus::Closed | GameStatus::Aborted),
+                    GameStatusFilter::Closed => matches!(g.status, GameStatus::Closed),
+                    GameStatusFilter::Aborted => matches!(g.status, GameStatus::Aborted),
+                })
+                .map(game_to_summary)
+                .collect();
+            let total = all.len() as u64;
+            let start = (page as usize).saturating_sub(1) * per_page as usize;
+            let items = all.into_iter().skip(start).take(per_page as usize).collect();
+            Ok((items, total))
+        }
+
+        fn find_paginated_by_user_uuid(
+            &self,
+            user_uuid: Uuid,
+            page: u32,
+            per_page: u32,
+        ) -> Result<(Vec<GameSummary>, u64), RepositoryError> {
+            let all: Vec<GameSummary> = self
+                .active_games
+                .borrow()
+                .iter()
+                .filter(|g| g.players.iter().any(|p| p.user_uuid == user_uuid))
+                .map(game_to_summary)
+                .collect();
+            let total = all.len() as u64;
+            let start = (page as usize).saturating_sub(1) * per_page as usize;
+            let items = all.into_iter().skip(start).take(per_page as usize).collect();
+            Ok((items, total))
+        }
+    }
+
+    fn game_to_summary(game: &Game) -> GameSummary {
+        GameSummary {
+            uuid: game.uuid,
+            game_number: game.game_number,
+            status: game.status,
+            next_update_at: game.next_update_at,
+            regulation: game.regulation.clone(),
+            player_count: game.players.len() as u64,
+            season_label: game.current_season_label(),
         }
     }
 

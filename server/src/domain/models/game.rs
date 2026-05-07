@@ -22,6 +22,20 @@ use super::Regulation;
 // ============================================================================
 
 ///
+/// 卓のステータスの列挙体
+///
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum GameStatus {
+    Preparing,
+    Ready,
+    InProgress,
+    Finished,
+    Aborted,
+    Closed,
+}
+
+///
 /// 卓の構造体
 ///
 #[derive(Debug, Clone, PartialEq)]
@@ -158,20 +172,6 @@ impl Game {
             minute_aligned + chrono::Duration::minutes(i64::from(5 - remainder))
         }
     }
-}
-
-///
-/// 卓のステータスの列挙体
-///
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum GameStatus {
-    Preparing,
-    Ready,
-    InProgress,
-    Finished,
-    Aborted,
-    Closed,
 }
 
 // ============================================================================

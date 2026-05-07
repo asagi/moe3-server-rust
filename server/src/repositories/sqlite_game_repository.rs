@@ -21,6 +21,8 @@ use super::FaceType;
 use super::Game;
 use super::GameRepository;
 use super::GameStatus;
+use super::GameStatusFilter;
+use super::GameSummary;
 use super::NewGame;
 use super::Order;
 use super::OrderKind;
@@ -131,6 +133,10 @@ impl SqliteGameRepository {
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
+
+            CREATE INDEX IF NOT EXISTS idx_game_players_game_uuid ON game_players(game_uuid);
+            CREATE INDEX IF NOT EXISTS idx_game_players_user_uuid ON game_players(user_uuid);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_game_players_game_uuid_user_uuid ON game_players(game_uuid, user_uuid);
         "#;
 
         self.connection
@@ -495,7 +501,8 @@ impl SqliteGameRepository {
                 DurationType::try_from(row.duration_type).map_err(|e| RepositoryError::Unavailable(e.to_string()))?,
                 NaiveDate::parse_from_str(&row.start_date, "%Y-%m-%d")
                     .map_err(|error| RepositoryError::Unavailable(format!("parse start_date: {}", error)))?,
-                row.first_period_hour as u8,
+                u8::try_from(row.first_period_hour)
+                    .map_err(|e| RepositoryError::Unavailable(format!("first_period_hour out of range: {}", e)))?,
             )
             .map_err(|e| RepositoryError::Unavailable(e.to_string()))?;
 
@@ -642,6 +649,105 @@ impl SqliteGameRepository {
         }
 
         Ok(games)
+    }
+
+    /// 卓一覧用の軽量クエリでサマリを読み込む（N+1 回避）
+    fn load_game_summaries<P>(connection: &Connection, sql: &str, params: P) -> Result<Vec<GameSummary>, RepositoryError>
+    where
+        P: rusqlite::Params,
+    {
+        struct SummaryRow {
+            uuid: String,
+            game_number: Option<i32>,
+            face_type: i32,
+            progress_mode: i32,
+            duration_type: i32,
+            start_date: String,
+            first_period_hour: i32,
+            status: String,
+            next_update: Option<String>,
+            player_count: i64,
+            last_phase_kind: Option<String>,
+            last_phase_year: Option<i32>,
+        }
+
+        let rows: Vec<SummaryRow> = {
+            let mut stmt = connection
+                .prepare(sql)
+                .map_err(|error| RepositoryError::Unavailable(format!("prepare load summaries: {}", error)))?;
+
+            stmt.query_map(params, |row| {
+                Ok(SummaryRow {
+                    uuid: row.get(0)?,
+                    game_number: row.get(1)?,
+                    face_type: row.get(2)?,
+                    progress_mode: row.get(3)?,
+                    duration_type: row.get(4)?,
+                    start_date: row.get(5)?,
+                    first_period_hour: row.get(6)?,
+                    status: row.get(7)?,
+                    next_update: row.get(8)?,
+                    player_count: row.get(9)?,
+                    last_phase_kind: row.get(10)?,
+                    last_phase_year: row.get(11)?,
+                })
+            })
+            .map_err(|error| RepositoryError::Unavailable(format!("query load summaries: {}", error)))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| RepositoryError::Unavailable(format!("collect summary rows: {}", error)))?
+        };
+
+        let mut summaries = Vec::new();
+        for row in rows {
+            let regulation = Regulation::new(
+                FaceType::try_from(row.face_type).map_err(|e| RepositoryError::Unavailable(e.to_string()))?,
+                ProgressMode::try_from(row.progress_mode).map_err(|e| RepositoryError::Unavailable(e.to_string()))?,
+                DurationType::try_from(row.duration_type).map_err(|e| RepositoryError::Unavailable(e.to_string()))?,
+                NaiveDate::parse_from_str(&row.start_date, "%Y-%m-%d")
+                    .map_err(|error| RepositoryError::Unavailable(format!("parse start_date: {}", error)))?,
+                u8::try_from(row.first_period_hour)
+                    .map_err(|e| RepositoryError::Unavailable(format!("first_period_hour out of range: {}", e)))?,
+            )
+            .map_err(|e| RepositoryError::Unavailable(e.to_string()))?;
+
+            let uuid = Uuid::parse_str(&row.uuid)
+                .map_err(|error| RepositoryError::Unavailable(format!("parse game uuid: {}", error)))?;
+
+            let next_update_at = row.next_update.as_deref().map(Self::parse_next_update).transpose()?;
+
+            let season_label = Self::season_label_from_last_phase(row.last_phase_kind.as_deref(), row.last_phase_year)?;
+
+            summaries.push(GameSummary {
+                uuid,
+                game_number: row.game_number,
+                status: Self::status_from_str(&row.status)?,
+                next_update_at,
+                regulation,
+                player_count: row.player_count as u64,
+                season_label,
+            });
+        }
+
+        Ok(summaries)
+    }
+
+    /// 最終フェイズの kind JSON と year からシーズン表記を生成する
+    fn season_label_from_last_phase(kind_json: Option<&str>, year: Option<i32>) -> Result<Option<String>, RepositoryError> {
+        let (json, year) = match (kind_json, year) {
+            (Some(j), Some(y)) => (j, y),
+            _ => return Ok(None),
+        };
+        let value: serde_json::Value =
+            serde_json::from_str(json).map_err(|e| RepositoryError::Unavailable(format!("parse phase_kind JSON: {}", e)))?;
+        let kind = value
+            .get("kind")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| RepositoryError::Unavailable(format!("missing 'kind' in phase_kind: {}", json)))?;
+        Ok(match kind {
+            "spring_main" | "spring_retreat" => Some(format!("{} 年春", year)),
+            "fall_main" | "fall_retreat" | "adjustment" => Some(format!("{} 年秋", year)),
+            _ => None,
+        })
     }
 
     /// ゲームを挿入するトランザクション内でフェイズの命令を挿入する
@@ -1146,6 +1252,115 @@ impl GameRepository for SqliteGameRepository {
             .map_err(|error| RepositoryError::Unavailable(format!("commit assign game number: {}", error)))?;
 
         Ok(assigned)
+    }
+
+    /// ステータスフィルタでページネーションして卓サマリ一覧と総件数を返す
+    fn find_paginated_by_status(
+        &self,
+        filter: GameStatusFilter,
+        page: u32,
+        per_page: u32,
+    ) -> Result<(Vec<GameSummary>, u64), RepositoryError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
+
+        let where_clause = match filter {
+            GameStatusFilter::Active => "WHERE g.status NOT IN ('closed', 'aborted')",
+            GameStatusFilter::Closed => "WHERE g.status = 'closed'",
+            GameStatusFilter::Aborted => "WHERE g.status = 'aborted'",
+        };
+
+        let total: u64 = {
+            let sql = format!("SELECT COUNT(*) FROM games g {}", where_clause);
+            let count: i64 = connection
+                .query_row(&sql, [], |row| row.get(0))
+                .map_err(|error| RepositoryError::Unavailable(format!("count games by status: {}", error)))?;
+            count as u64
+        };
+
+        let offset = (page as i64).saturating_sub(1).saturating_mul(per_page as i64);
+        let sql = format!(
+            r#"
+            SELECT
+                g.uuid, g.game_number, g.regulation_face_type, g.regulation_progress_mode,
+                g.regulation_duration_type, g.regulation_start_date, g.regulation_first_period_hour,
+                g.status, g.next_update,
+                (SELECT COUNT(*) FROM game_players WHERE game_uuid = g.uuid) AS player_count,
+                lp.phase_kind AS last_phase_kind,
+                lp.phase_year AS last_phase_year
+            FROM games g
+            LEFT JOIN game_phases AS lp
+                ON lp.game_uuid = g.uuid
+                AND lp.phase_index = (SELECT MAX(phase_index) FROM game_phases WHERE game_uuid = g.uuid)
+            {}
+            ORDER BY g.created_at DESC, g.uuid ASC
+            LIMIT ?1 OFFSET ?2
+            "#,
+            where_clause
+        );
+        let summaries = Self::load_game_summaries(&connection, &sql, rusqlite::params![per_page as i64, offset])?;
+
+        Ok((summaries, total))
+    }
+
+    /// 指定ユーザーが参加している卓サマリ一覧と総件数をページネーションして返す
+    fn find_paginated_by_user_uuid(
+        &self,
+        user_uuid: Uuid,
+        page: u32,
+        per_page: u32,
+    ) -> Result<(Vec<GameSummary>, u64), RepositoryError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
+
+        let user_uuid_str = user_uuid.to_string();
+
+        let total: u64 = {
+            let count: i64 = connection
+                .query_row(
+                    r#"
+                    SELECT COUNT(*)
+                    FROM games g
+                    WHERE EXISTS (
+                        SELECT 1 FROM game_players WHERE game_uuid = g.uuid AND user_uuid = ?1
+                    )
+                    "#,
+                    params![user_uuid_str],
+                    |row| row.get(0),
+                )
+                .map_err(|error| RepositoryError::Unavailable(format!("count games by user: {}", error)))?;
+            count as u64
+        };
+
+        let offset = (page as i64).saturating_sub(1).saturating_mul(per_page as i64);
+        let summaries = Self::load_game_summaries(
+            &connection,
+            r#"
+            SELECT
+                g.uuid, g.game_number, g.regulation_face_type, g.regulation_progress_mode,
+                g.regulation_duration_type, g.regulation_start_date, g.regulation_first_period_hour,
+                g.status, g.next_update,
+                (SELECT COUNT(*) FROM game_players WHERE game_uuid = g.uuid) AS player_count,
+                lp.phase_kind AS last_phase_kind,
+                lp.phase_year AS last_phase_year
+            FROM games g
+            LEFT JOIN game_phases AS lp
+                ON lp.game_uuid = g.uuid
+                AND lp.phase_index = (SELECT MAX(phase_index) FROM game_phases WHERE game_uuid = g.uuid)
+            WHERE EXISTS (
+                SELECT 1 FROM game_players WHERE game_uuid = g.uuid AND user_uuid = ?1
+            )
+            ORDER BY g.created_at DESC, g.uuid ASC
+            LIMIT ?2 OFFSET ?3
+            "#,
+            params![user_uuid_str, per_page as i64, offset],
+        )?;
+
+        Ok((summaries, total))
     }
 }
 
@@ -1673,6 +1888,135 @@ mod transaction_tests {
 
         let active_games = repository.find_all_active().expect("find_all_active should succeed");
         assert!(active_games.is_empty(), "aborted game should not appear in find_all_active");
+    }
+
+    fn sample_game(uuid: uuid::Uuid, owner_uuid: uuid::Uuid, status: GameStatus) -> Game {
+        let regulation = Regulation::new(
+            FaceType::Girls,
+            ProgressMode::Scheduled,
+            DurationType::Short,
+            chrono::NaiveDate::from_ymd_opt(2026, 4, 19).expect("valid date"),
+            12,
+        )
+        .expect("valid regulation");
+        Game {
+            uuid,
+            game_number: None,
+            keyword: None,
+            regulation,
+            players: vec![Player {
+                user_uuid: owner_uuid,
+                power: None,
+                is_accepting_draw: false,
+                progress_consented: false,
+                is_owner: true,
+                requested_power: None,
+            }],
+            phases: vec![Phase::new_ready()],
+            status,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        }
+    }
+
+    #[test]
+    fn find_paginated_by_status_returns_active_games() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+        let owner = uuid::Uuid::now_v7();
+        let active = sample_game(uuid::Uuid::now_v7(), owner, GameStatus::Preparing);
+        let closed = sample_game(uuid::Uuid::now_v7(), owner, GameStatus::Closed);
+        repository.insert(NewGame { game: active.clone() }).expect("insert active");
+        repository.insert(NewGame { game: closed }).expect("insert closed");
+
+        let (summaries, total) = repository
+            .find_paginated_by_status(GameStatusFilter::Active, 1, 20)
+            .expect("should succeed");
+
+        assert_eq!(total, 1);
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].uuid, active.uuid);
+        assert!(matches!(summaries[0].status, GameStatus::Preparing));
+        assert_eq!(summaries[0].player_count, 1);
+    }
+
+    #[test]
+    fn find_paginated_by_status_returns_closed_games() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+        let owner = uuid::Uuid::now_v7();
+        let active = sample_game(uuid::Uuid::now_v7(), owner, GameStatus::InProgress);
+        let closed = sample_game(uuid::Uuid::now_v7(), owner, GameStatus::Closed);
+        repository.insert(NewGame { game: active }).expect("insert active");
+        repository.insert(NewGame { game: closed.clone() }).expect("insert closed");
+
+        let (summaries, total) = repository
+            .find_paginated_by_status(GameStatusFilter::Closed, 1, 20)
+            .expect("should succeed");
+
+        assert_eq!(total, 1);
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].uuid, closed.uuid);
+    }
+
+    #[test]
+    fn find_paginated_by_status_paginates_correctly() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+        let owner = uuid::Uuid::now_v7();
+        for _ in 0..5 {
+            let g = sample_game(uuid::Uuid::now_v7(), owner, GameStatus::Preparing);
+            repository.insert(NewGame { game: g }).expect("insert");
+        }
+
+        let (page1, total) = repository
+            .find_paginated_by_status(GameStatusFilter::Active, 1, 3)
+            .expect("page 1");
+        assert_eq!(total, 5);
+        assert_eq!(page1.len(), 3);
+
+        let (page2, _) = repository
+            .find_paginated_by_status(GameStatusFilter::Active, 2, 3)
+            .expect("page 2");
+        assert_eq!(page2.len(), 2);
+
+        let uuids1: std::collections::HashSet<_> = page1.iter().map(|s| s.uuid).collect();
+        let uuids2: std::collections::HashSet<_> = page2.iter().map(|s| s.uuid).collect();
+        assert!(uuids1.is_disjoint(&uuids2), "pages must not overlap");
+    }
+
+    #[test]
+    fn find_paginated_by_user_uuid_returns_games_for_user() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+        let user_a = uuid::Uuid::now_v7();
+        let user_b = uuid::Uuid::now_v7();
+        let game_a = sample_game(uuid::Uuid::now_v7(), user_a, GameStatus::InProgress);
+        let game_b = sample_game(uuid::Uuid::now_v7(), user_b, GameStatus::InProgress);
+        repository.insert(NewGame { game: game_a.clone() }).expect("insert a");
+        repository.insert(NewGame { game: game_b }).expect("insert b");
+
+        let (summaries, total) = repository.find_paginated_by_user_uuid(user_a, 1, 20).expect("should succeed");
+
+        assert_eq!(total, 1);
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].uuid, game_a.uuid);
+    }
+
+    #[test]
+    fn game_players_rejects_duplicate_user_in_same_game() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+        let owner = uuid::Uuid::now_v7();
+        let game = sample_game(uuid::Uuid::now_v7(), owner, GameStatus::Preparing);
+        repository.insert(NewGame { game: game.clone() }).expect("insert");
+
+        // 同一 (game_uuid, user_uuid) の重複挿入は UNIQUE 制約で弾かれる
+        let conn = repository.connection.lock().expect("lock");
+        let result = conn.execute(
+            "INSERT INTO game_players (game_uuid, user_uuid, power, is_accepting_draw, progress_consented, is_owner, requested_power) VALUES (?1, ?2, NULL, 0, 0, 0, NULL)",
+            rusqlite::params![game.uuid.to_string(), owner.to_string()],
+        );
+        assert!(
+            result.is_err(),
+            "duplicate (game_uuid, user_uuid) must be rejected by UNIQUE constraint"
+        );
     }
 
     #[test]

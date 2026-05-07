@@ -9,8 +9,10 @@ use super::AuthResetTokenRequestValidationError;
 use super::CreateGameError;
 use super::CreateGameRequestValidationError;
 use super::DiscordClientError;
+use super::GetGamesRequestValidationError;
 use super::JoinGameError;
 use super::JoinGameRequestValidationError;
+use super::ListGamesError;
 use super::SetDrawProposalError;
 use super::SetDrawProposalRequestValidationError;
 use super::SetNextUpdateAtError;
@@ -534,6 +536,60 @@ impl SetProgressConsensusHandlerError {
                 "game_uuid is invalid".to_string()
             }
             Self::Service(SetProgressConsensusError::Forbidden(message)) => message.clone(),
+            Self::Service(error) => error.to_string(),
+        }
+    }
+}
+
+///
+/// 卓一覧取得リクエストハンドラのエラーの列挙体
+///
+#[derive(Debug)]
+pub(crate) enum GetGamesHandlerError {
+    InvalidRequest(GetGamesRequestValidationError),
+    Service(ListGamesError),
+}
+
+/// 卓一覧取得リクエストハンドラのエラーの列挙体の実装
+impl GetGamesHandlerError {
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidRequest(_) => "invalid_request",
+            Self::Service(ListGamesError::Unauthorized) => "unauthorized",
+            Self::Service(ListGamesError::Forbidden(_)) => "forbidden",
+            Self::Service(ListGamesError::Repository(_)) => "repository_error",
+        }
+    }
+
+    pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
+        ApiErrorResponse {
+            code: self.code(),
+            message: self.message(),
+        }
+    }
+
+    fn message(&self) -> String {
+        match self {
+            Self::InvalidRequest(GetGamesRequestValidationError::ConflictingParams) => {
+                "status and user cannot be specified at the same time".to_string()
+            }
+            Self::InvalidRequest(GetGamesRequestValidationError::InvalidStatus) => {
+                "status must be 'active', 'closed', or 'aborted'".to_string()
+            }
+            Self::InvalidRequest(GetGamesRequestValidationError::InvalidUser) => {
+                "user must be a non-empty Discord user id".to_string()
+            }
+            Self::InvalidRequest(GetGamesRequestValidationError::MissingAuthorization) => {
+                "authorization header is required".to_string()
+            }
+            Self::InvalidRequest(GetGamesRequestValidationError::InvalidAuthorizationScheme) => {
+                "authorization must start with 'Bearer <token>'".to_string()
+            }
+            Self::InvalidRequest(GetGamesRequestValidationError::MissingAccessToken) => "access token is required".to_string(),
+            Self::InvalidRequest(GetGamesRequestValidationError::InvalidPage) => "page must be 1 or greater".to_string(),
+            Self::InvalidRequest(GetGamesRequestValidationError::InvalidPerPage) => {
+                "per_page must be between 1 and 100".to_string()
+            }
             Self::Service(error) => error.to_string(),
         }
     }
