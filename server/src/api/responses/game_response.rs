@@ -115,7 +115,7 @@ pub(crate) struct GameListItem {
     pub season: Option<String>,
     pub next_update_at: Option<String>,
     pub regulation: GameListItemRegulation,
-    pub player_count: usize,
+    pub player_count: u64,
 }
 
 ///

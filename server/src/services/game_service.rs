@@ -1115,7 +1115,7 @@ where
             .map_err(ListGamesError::Repository)?
             .ok_or(ListGamesError::Unauthorized)?;
 
-        if user.discord_user_id != target_discord_user_id {
+        if user.discord_user_id != target_discord_user_id.trim() {
             return Err(ListGamesError::Forbidden("you can only query your own games".to_string()));
         }
 

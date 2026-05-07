@@ -1377,7 +1377,7 @@ where
                     progress_mode: progress_mode.to_string(),
                     duration_type: duration_type.to_string(),
                 },
-                player_count: game.player_count as usize,
+                player_count: game.player_count,
             }
         })
         .collect();

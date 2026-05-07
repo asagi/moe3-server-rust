@@ -136,7 +136,6 @@ impl SqliteGameRepository {
 
             CREATE INDEX IF NOT EXISTS idx_game_players_game_uuid ON game_players(game_uuid);
             CREATE INDEX IF NOT EXISTS idx_game_players_user_uuid ON game_players(user_uuid);
-            CREATE INDEX IF NOT EXISTS idx_game_phases_game_uuid_phase_index ON game_phases(game_uuid, phase_index);
         "#;
 
         self.connection
