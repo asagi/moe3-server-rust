@@ -136,6 +136,7 @@ impl SqliteGameRepository {
 
             CREATE INDEX IF NOT EXISTS idx_game_players_game_uuid ON game_players(game_uuid);
             CREATE INDEX IF NOT EXISTS idx_game_players_user_uuid ON game_players(user_uuid);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_game_players_game_uuid_user_uuid ON game_players(game_uuid, user_uuid);
         "#;
 
         self.connection
@@ -1994,25 +1995,22 @@ mod transaction_tests {
     }
 
     #[test]
-    fn find_paginated_by_user_uuid_is_stable_regardless_of_duplicate_player_rows() {
+    fn game_players_rejects_duplicate_user_in_same_game() {
         let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
         let owner = uuid::Uuid::now_v7();
         let game = sample_game(uuid::Uuid::now_v7(), owner, GameStatus::Preparing);
         repository.insert(NewGame { game: game.clone() }).expect("insert");
 
-        // game_players に同一行を直接挿入して重複を再現
-        {
-            let conn = repository.connection.lock().expect("lock");
-            conn.execute(
-                "INSERT INTO game_players (game_uuid, user_uuid, power, is_accepting_draw, progress_consented, is_owner, requested_power) VALUES (?1, ?2, NULL, 0, 0, 0, NULL)",
-                rusqlite::params![game.uuid.to_string(), owner.to_string()],
-            ).expect("insert duplicate");
-        }
-
-        let (summaries, total) = repository.find_paginated_by_user_uuid(owner, 1, 20).expect("should succeed");
-
-        assert_eq!(total, 1, "duplicate rows must not inflate total");
-        assert_eq!(summaries.len(), 1, "duplicate rows must not produce duplicate results");
+        // 同一 (game_uuid, user_uuid) の重複挿入は UNIQUE 制約で弾かれる
+        let conn = repository.connection.lock().expect("lock");
+        let result = conn.execute(
+            "INSERT INTO game_players (game_uuid, user_uuid, power, is_accepting_draw, progress_consented, is_owner, requested_power) VALUES (?1, ?2, NULL, 0, 0, 0, NULL)",
+            rusqlite::params![game.uuid.to_string(), owner.to_string()],
+        );
+        assert!(
+            result.is_err(),
+            "duplicate (game_uuid, user_uuid) must be rejected by UNIQUE constraint"
+        );
     }
 
     #[test]
