@@ -1279,7 +1279,7 @@ impl GameRepository for SqliteGameRepository {
             count as u64
         };
 
-        let offset = (page as i64).saturating_sub(1) * per_page as i64;
+        let offset = (page as i64).saturating_sub(1).saturating_mul(per_page as i64);
         let sql = format!(
             r#"
             SELECT
@@ -1332,7 +1332,7 @@ impl GameRepository for SqliteGameRepository {
             count as u64
         };
 
-        let offset = (page as i64).saturating_sub(1) * per_page as i64;
+        let offset = (page as i64).saturating_sub(1).saturating_mul(per_page as i64);
         let summaries = Self::load_game_summaries(
             &connection,
             r#"
