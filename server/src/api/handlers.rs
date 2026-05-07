@@ -10,10 +10,12 @@ mod game_handler;
 // exports
 // ============================================================================
 
+pub(crate) use auth_handler::get_users_me;
 pub(crate) use auth_handler::post_auth_login;
 pub(crate) use auth_handler::post_auth_reset_token;
 pub(crate) use error::AuthHandlerError;
 pub(crate) use error::CreateGameHandlerError;
+pub(crate) use error::GetMeHandlerError;
 pub(crate) use error::JoinGameHandlerError;
 pub(crate) use error::ResetTokenHandlerError;
 pub(crate) use error::SetDrawProposalHandlerError;
@@ -61,6 +63,7 @@ pub(crate) use super::DiscordIdentityProvider;
 pub(crate) use super::GameRepository;
 pub(crate) use super::GameService;
 pub(crate) use super::GameStatus;
+pub(crate) use super::GetMeResponse;
 pub(crate) use super::JoinGameCommand;
 pub(crate) use super::JoinGameError;
 pub(crate) use super::JoinGameRequest;

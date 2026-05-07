@@ -86,44 +86,44 @@
 
 #### `Authorization` ヘッダ関連
 
-| 条件 | `message` |
-|---|---|
-| Authorization ヘッダ欠落 | `"authorization header is required"` |
+| 条件                                                | `message`                                          |
+| --------------------------------------------------- | -------------------------------------------------- |
+| Authorization ヘッダ欠落                            | `"authorization header is required"`               |
 | Authorization 形式不正（Bearer プレフィックスなし） | `"authorization must start with 'Bearer <token>'"` |
-| アクセストークン空（Bearer 後が空文字） | `"access token is required"` |
+| アクセストークン空（Bearer 後が空文字）             | `"access token is required"`                       |
 
 #### パスパラメータ検証
 
-| 条件 | `message` |
-|---|---|
+| 条件                             | `message`                |
+| -------------------------------- | ------------------------ |
 | `game_uuid` が有効な UUID でない | `"game_uuid is invalid"` |
 
 ### `401 Unauthorized` — `code: unauthorized`
 
-| 条件 | `message` |
-|---|---|
+| 条件                                                        | `message`        |
+| ----------------------------------------------------------- | ---------------- |
 | アクセストークン未登録（DB にユーザーレコードが存在しない） | `"unauthorized"` |
 
 ### `403 Forbidden` — `code: forbidden`
 
-| 条件 | `message` |
-|---|---|
-| 進行モードが `consensus` ではない | `"progress consensus is available only when progress mode is consensus"` |
-| リクエストユーザーが当該卓のプレイヤーでない | `"user is not a player of this game"` |
-| プレイヤーの勢力が未割当 | `"player has no assigned power yet"` |
-| 現在フェーズで操作対象勢力でない | `"player is not an active power in the current phase"` |
-| 卓にフェイズが存在しない | `"game has no phases"` |
+| 条件                                         | `message`                                                                |
+| -------------------------------------------- | ------------------------------------------------------------------------ |
+| 進行モードが `consensus` ではない            | `"progress consensus is available only when progress mode is consensus"` |
+| リクエストユーザーが当該卓のプレイヤーでない | `"user is not a player of this game"`                                    |
+| プレイヤーの勢力が未割当                     | `"player has no assigned power yet"`                                     |
+| 現在フェーズで操作対象勢力でない             | `"player is not an active power in the current phase"`                   |
+| 卓にフェイズが存在しない                     | `"game has no phases"`                                                   |
 
 ### `404 Not Found` — `code: not_found`
 
-| 条件 | `message` |
-|---|---|
+| 条件                           | `message`          |
+| ------------------------------ | ------------------ |
 | 指定した UUID の卓が存在しない | `"game not found"` |
 
 ### `500 Internal Server Error` — `code: repository_error`
 
-| 条件 | `message` |
-|---|---|
+| 条件             | `message`                 |
+| ---------------- | ------------------------- |
 | データベース障害 | `"repository error: ..."` |
 
 ## ビジネスルール
@@ -131,24 +131,24 @@
 - この API はフェーズごとに「操作が必要な勢力」全員が `agreed=true` になると即時進行を成立させる
 - 操作が必要な勢力の判定は以下の通り
 
-| フェーズ | 対象勢力 |
-|---|---|
-| Main（`SpringMain` / `FallMain`） | 現在の領有勢力 |
-| Retreat（`SpringRetreat` / `FallRetreat`） | 撃退ユニットを持つ勢力 |
-| Adjustment | 補給都市数とユニット数が一致しない勢力 |
-| Ready / Debrief | 対象なし |
+| フェーズ                                   | 対象勢力                               |
+| ------------------------------------------ | -------------------------------------- |
+| Main（`SpringMain` / `FallMain`）          | 現在の領有勢力                         |
+| Retreat（`SpringRetreat` / `FallRetreat`） | 撃退ユニットを持つ勢力                 |
+| Adjustment                                 | 補給都市数とユニット数が一致しない勢力 |
+| Ready / Debrief                            | 対象なし                               |
 
 - 合意状態が変化した場合のみ、当該卓のメッセージ DB に追記する
 
-| 操作 | カタログ値 | メッセージ本文 |
-|---|---|---|
-| 合意（`agreed=true`） | `progress_consented` | {勢力名}によって即時進行に合意しました。 |
+| 操作                   | カタログ値                     | メッセージ本文                                     |
+| ---------------------- | ------------------------------ | -------------------------------------------------- |
+| 合意（`agreed=true`）  | `progress_consented`           | {勢力名}によって即時進行に合意しました。           |
 | 撤回（`agreed=false`） | `progress_consensus_rescinded` | {勢力名}によって即時進行への合意が撤回されました。 |
 
 - 即時進行が成立し、かつメインフェーズの場合のみシステムメッセージを追記する
 
-| 条件 | カタログ値 | メッセージ本文 |
-|---|---|---|
+| 条件                   | カタログ値                   | メッセージ本文                         |
+| ---------------------- | ---------------------------- | -------------------------------------- |
 | 操作対象勢力が全員合意 | `progress_consensus_reached` | 全員の合意により、即時更新されました。 |
 
 - 即時進行成立時は `next_update_at` を現在時刻に更新する

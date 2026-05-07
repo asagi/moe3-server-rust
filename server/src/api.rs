@@ -51,6 +51,7 @@ pub(crate) use responses::AuthLoginResponse;
 pub(crate) use responses::AuthLoginResponseUser;
 pub(crate) use responses::AuthResetTokenResponse;
 pub(crate) use responses::CreateGameResponse;
+pub(crate) use responses::GetMeResponse;
 pub(crate) use responses::JoinGameResponse;
 pub(crate) use responses::SetDrawProposalResponse;
 pub(crate) use responses::SetNextUpdateAtResponse;

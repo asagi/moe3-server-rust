@@ -155,48 +155,48 @@
 
 #### `Authorization` ヘッダ関連
 
-| 条件 | message |
-| --- | --- |
-| Authorization ヘッダ欠落 | `"authorization header is required"` |
+| 条件                                                | message                                            |
+| --------------------------------------------------- | -------------------------------------------------- |
+| Authorization ヘッダ欠落                            | `"authorization header is required"`               |
 | Authorization 形式不正（Bearer プレフィックスなし） | `"authorization must start with 'Bearer <token>'"` |
-| アクセストークン空（Bearer 後が空文字） | `"access token is required"` |
+| アクセストークン空（Bearer 後が空文字）             | `"access token is required"`                       |
 
 #### リクエストボディ検証 — 列挙値
 
-| 条件 | message |
-| --- | --- |
-| face_type が無効な値 | `"face_type is invalid"` |
+| 条件                     | message                      |
+| ------------------------ | ---------------------------- |
+| face_type が無効な値     | `"face_type is invalid"`     |
 | duration_type が無効な値 | `"duration_type is invalid"` |
 
 #### リクエストボディ検証 — 日時
 
-| 条件 | message |
-| --- | --- |
+| 条件                                             | message                                         |
+| ------------------------------------------------ | ----------------------------------------------- |
 | start_date フォーマット不正（"YYYY-MM-DD" 以外） | `"start_date is invalid (expected YYYY-MM-DD)"` |
-| first_period_hour 範囲外（0〜23 以外） | `"first_period_hour must be between 0 and 23"` |
+| first_period_hour 範囲外（0〜23 以外）           | `"first_period_hour must be between 0 and 23"`  |
 
 #### リクエストボディ検証 — 国コード
 
-| 条件 | message |
-| --- | --- |
+| 条件                               | message                        |
+| ---------------------------------- | ------------------------------ |
 | requested_power 不正（許容値以外） | `"requested_power is invalid"` |
 
 #### リクエストボディ検証 — keyword
 
-| 条件 | message |
-| --- | --- |
+| 条件                                 | message                                               |
+| ------------------------------------ | ----------------------------------------------------- |
 | keyword に英数字以外の文字が含まれる | `"keyword must contain only alphanumeric characters"` |
 
 ### `401 Unauthorized` — `code: unauthorized`
 
-| 条件 | message |
-| --- | --- |
+| 条件                                                        | message          |
+| ----------------------------------------------------------- | ---------------- |
 | アクセストークン未登録（DB にユーザーレコードが存在しない） | `"unauthorized"` |
 
 ### `500 Internal Server Error` — `code: repository_error`
 
-| 条件 | message |
-| --- | --- |
+| 条件                                               | message                                              |
+| -------------------------------------------------- | ---------------------------------------------------- |
 | データベース障害（ユーザー検索またはゲーム作成時） | `"repository error: repository unavailable: <詳細>"` |
 
 ## バリデーション詳細

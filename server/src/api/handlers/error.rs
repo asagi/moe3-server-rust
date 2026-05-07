@@ -111,6 +111,49 @@ impl ResetTokenHandlerError {
 }
 
 ///
+/// ユーザー情報取得リクエストハンドラのエラーの列挙体
+///
+#[derive(Debug)]
+pub(crate) enum GetMeHandlerError {
+    InvalidRequest(AuthResetTokenRequestValidationError),
+    Service(AuthError),
+}
+
+/// ユーザー情報取得リクエストハンドラのエラーの列挙体の実装
+impl GetMeHandlerError {
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidRequest(_) => "invalid_request",
+            Self::Service(AuthError::Unauthorized) => "unauthorized",
+            Self::Service(AuthError::Repository(_)) => "repository_error",
+            _ => "internal_error",
+        }
+    }
+
+    pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
+        ApiErrorResponse {
+            code: self.code(),
+            message: self.message(),
+        }
+    }
+
+    fn message(&self) -> String {
+        match self {
+            Self::InvalidRequest(AuthResetTokenRequestValidationError::MissingAuthorization) => {
+                "authorization header is required".to_string()
+            }
+            Self::InvalidRequest(AuthResetTokenRequestValidationError::InvalidAuthorizationScheme) => {
+                "authorization must start with 'Bearer <token>'".to_string()
+            }
+            Self::InvalidRequest(AuthResetTokenRequestValidationError::MissingAccessToken) => {
+                "access token is required".to_string()
+            }
+            Self::Service(error) => error.to_string(),
+        }
+    }
+}
+
+///
 /// 卓作成リクエストハンドラのエラーの列挙体
 ///
 #[derive(Debug)]

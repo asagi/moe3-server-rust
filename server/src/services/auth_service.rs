@@ -8,8 +8,8 @@ use uuid::Uuid;
 use super::AuthError;
 use super::DiscordClientError;
 use super::DiscordProfile;
-use super::RepositoryError;
 use super::NewUser;
+use super::RepositoryError;
 use super::UserProfileUpdate;
 use super::UserRecord;
 use super::UserRepository;
@@ -54,6 +54,17 @@ pub(crate) struct LoginUser {
 pub(crate) struct LoginResult {
     pub access_token: String,
     pub user: LoginUser,
+}
+
+///
+/// ユーザー情報取得結果の構造体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct GetMeResult {
+    pub discord_user_id: String,
+    pub username: String,
+    pub global_name: Option<String>,
+    pub avatar_url: Option<String>,
 }
 
 ///
@@ -147,6 +158,24 @@ where
                 avatar_url: record.avatar_url,
             },
         }
+    }
+
+    ///
+    /// 自身のユーザー情報を取得する
+    ///
+    pub(crate) fn get_me(&self, access_token: &str) -> Result<GetMeResult, AuthError> {
+        let user = self
+            .user_repository
+            .find_by_access_token(access_token)
+            .map_err(AuthError::Repository)?
+            .ok_or(AuthError::Unauthorized)?;
+
+        Ok(GetMeResult {
+            discord_user_id: user.discord_user_id,
+            username: user.username,
+            global_name: user.global_name,
+            avatar_url: user.avatar_url,
+        })
     }
 
     ///

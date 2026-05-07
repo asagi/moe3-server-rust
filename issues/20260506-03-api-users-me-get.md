@@ -19,7 +19,11 @@
 ## 成功レスポンス
 
 - Status: `200 OK`
-- 未決（`user_uuid`, `display_name`, `avatar` 等を含むか）
+- `discord_user_id`
+- `username`
+- `global_name`
+- `avatar_url`
+- `access_token`
 
 ## その他
 

@@ -87,41 +87,41 @@
 
 #### `Authorization` ヘッダ関連
 
-| 条件 | `message` |
-|---|---|
-| Authorization ヘッダ欠落 | `"authorization header is required"` |
+| 条件                                                | `message`                                          |
+| --------------------------------------------------- | -------------------------------------------------- |
+| Authorization ヘッダ欠落                            | `"authorization header is required"`               |
 | Authorization 形式不正（Bearer プレフィックスなし） | `"authorization must start with 'Bearer <token>'"` |
-| アクセストークン空（Bearer 後が空文字） | `"access token is required"` |
+| アクセストークン空（Bearer 後が空文字）             | `"access token is required"`                       |
 
 #### パスパラメータ検証
 
-| 条件 | `message` |
-|---|---|
+| 条件                             | `message`                |
+| -------------------------------- | ------------------------ |
 | `game_uuid` が有効な UUID でない | `"game_uuid is invalid"` |
 
 ### `401 Unauthorized` — `code: unauthorized`
 
-| 条件 | `message` |
-|---|---|
+| 条件                                                        | `message`        |
+| ----------------------------------------------------------- | ---------------- |
 | アクセストークン未登録（DB にユーザーレコードが存在しない） | `"unauthorized"` |
 
 ### `403 Forbidden` — `code: forbidden`
 
-| 条件 | `message` |
-|---|---|
-| リクエストユーザーが当該卓の卓主でない | `"user is not the owner of this game"` |
+| 条件                                                     | `message`                                             |
+| -------------------------------------------------------- | ----------------------------------------------------- |
+| リクエストユーザーが当該卓の卓主でない                   | `"user is not the owner of this game"`                |
 | 現在の最新フェイズがメインフェイズ（春命令・秋命令）以外 | `"draw proposal can only be set during a main phase"` |
 
 ### `404 Not Found` — `code: not_found`
 
-| 条件 | `message` |
-|---|---|
+| 条件                           | `message`          |
+| ------------------------------ | ------------------ |
 | 指定した UUID の卓が存在しない | `"game not found"` |
 
 ### `500 Internal Server Error` — `code: repository_error`
 
-| 条件 | `message` |
-|---|---|
+| 条件             | `message`                 |
+| ---------------- | ------------------------- |
 | データベース障害 | `"repository error: ..."` |
 
 ## ビジネスルール
@@ -129,9 +129,9 @@
 - メインフェイズ制限: 最新フェイズが `SpringMain`（春命令）または `FallMain`（秋命令）のときのみ操作可能。`Ready`・各退却フェイズ・調整フェイズ中は `403 Forbidden`
 - システムメッセージ: フラグ値が変化した場合のみ、当該卓のメッセージ DB に追記する
 
-| 操作 | カタログ値 | メッセージ本文 |
-|---|---|---|
-| 宣言（`true`） | `draw_proposed` | 卓主によって講和が宣言されました。 |
+| 操作            | カタログ値       | メッセージ本文                     |
+| --------------- | ---------------- | ---------------------------------- |
+| 宣言（`true`）  | `draw_proposed`  | 卓主によって講和が宣言されました。 |
 | 撤回（`false`） | `draw_rescinded` | 卓主によって講和が撤回されました。 |
 
 - 排他制御: サーバー全体の `game_update_lock` を取得した上で実行される

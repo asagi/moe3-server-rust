@@ -61,7 +61,8 @@ impl AuthResetTokenRequest {
     }
 
     pub(crate) fn access_token(&self) -> &str {
-        self.authorization.trim()
+        self.authorization
+            .trim()
             .split_once(' ')
             .map(|(_, token)| token.trim())
             .unwrap_or("")

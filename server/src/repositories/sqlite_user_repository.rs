@@ -220,14 +220,16 @@ impl UserRepository for SqliteUserRepository {
             .connection
             .lock()
             .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
-        let affected = connection.execute(sql, params![new_token, now, id, current_token]).map_err(|error| {
-            let message = error.to_string();
-            if message.contains("UNIQUE") {
-                RepositoryError::Conflict
-            } else {
-                RepositoryError::Unavailable(format!("update user access_token: {}", error))
-            }
-        })?;
+        let affected = connection
+            .execute(sql, params![new_token, now, id, current_token])
+            .map_err(|error| {
+                let message = error.to_string();
+                if message.contains("UNIQUE") {
+                    RepositoryError::Conflict
+                } else {
+                    RepositoryError::Unavailable(format!("update user access_token: {}", error))
+                }
+            })?;
 
         if affected == 0 {
             return Err(RepositoryError::NotFound);
