@@ -26,6 +26,14 @@ pub(crate) struct LoginCommand {
 }
 
 ///
+/// トークンリセット結果の構造体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ResetTokenResult {
+    pub access_token: String,
+}
+
+///
 /// ログインユーザーの構造体
 ///
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -139,6 +147,27 @@ where
             },
         }
     }
+
+    ///
+    /// トークンリセット処理を実行する
+    ///
+    pub(crate) fn reset_token(&self, current_token: &str) -> Result<ResetTokenResult, AuthError> {
+        let user = self
+            .user_repository
+            .find_by_access_token(current_token)
+            .map_err(AuthError::Repository)?
+            .ok_or(AuthError::Unauthorized)?;
+
+        let new_token = Uuid::new_v4().to_string();
+        let updated = self
+            .user_repository
+            .update_access_token(user.id, &new_token)
+            .map_err(AuthError::Repository)?;
+
+        Ok(ResetTokenResult {
+            access_token: updated.access_token,
+        })
+    }
 }
 
 // ============================================================================
@@ -222,6 +251,17 @@ mod tests {
 
             row.last_access_at = last_access_at;
             Ok(true)
+        }
+
+        fn update_access_token(&self, id: i64, new_token: &str) -> Result<UserRecord, RepositoryError> {
+            let mut state = self.state.borrow_mut();
+            let row = state
+                .rows
+                .values_mut()
+                .find(|r| r.id == id)
+                .ok_or(RepositoryError::NotFound)?;
+            row.access_token = new_token.to_string();
+            Ok(row.clone())
         }
 
         fn insert(&self, new_user: NewUser) -> Result<UserRecord, RepositoryError> {
@@ -409,5 +449,66 @@ mod tests {
 
         assert!(result.is_ok());
         assert_eq!(received_token.borrow().as_deref(), Some("valid_token"));
+    }
+
+    #[test]
+    fn reset_token_issues_new_token_and_invalidates_old_one() {
+        let uuid = uuid::Uuid::now_v7();
+        let repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid,
+            discord_user_id: "1001".to_string(),
+            username: "nemu".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "old-token".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let discord = FakeDiscordIdentityProvider {
+            profile: DiscordProfile {
+                discord_user_id: "1001".to_string(),
+                username: "nemu".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+            },
+        };
+        let service = AuthService::new(repository.clone(), discord);
+
+        let result = service.reset_token("old-token").expect("reset should succeed");
+
+        assert_ne!(result.access_token, "old-token");
+        assert!(!result.access_token.is_empty());
+
+        // 旧トークンでは取得できない
+        let old_lookup = repository.find_by_access_token("old-token").expect("find should succeed");
+        assert!(old_lookup.is_none());
+
+        // 新トークンで取得できる
+        let new_lookup = repository
+            .find_by_access_token(&result.access_token)
+            .expect("find should succeed")
+            .expect("user should exist");
+        assert_eq!(new_lookup.uuid, uuid);
+    }
+
+    #[test]
+    fn reset_token_returns_unauthorized_for_unknown_token() {
+        let repository = InMemoryUserRepository::new(Vec::new());
+        let discord = FakeDiscordIdentityProvider {
+            profile: DiscordProfile {
+                discord_user_id: "1001".to_string(),
+                username: "nemu".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+            },
+        };
+        let service = AuthService::new(repository, discord);
+
+        let result = service.reset_token("unknown-token");
+
+        assert!(matches!(result, Err(AuthError::Unauthorized)));
     }
 }

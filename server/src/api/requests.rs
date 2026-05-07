@@ -11,7 +11,9 @@ mod game_request;
 // ============================================================================
 
 pub(crate) use auth_request::AuthLoginRequest;
+pub(crate) use auth_request::AuthResetTokenRequest;
 pub(crate) use error::AuthRequestValidationError;
+pub(crate) use error::AuthResetTokenRequestValidationError;
 pub(crate) use error::CreateGameRequestValidationError;
 pub(crate) use error::JoinGameRequestValidationError;
 pub(crate) use error::SetDrawProposalRequestValidationError;

@@ -11,9 +11,11 @@ mod game_handler;
 // ============================================================================
 
 pub(crate) use auth_handler::post_auth_login;
+pub(crate) use auth_handler::post_auth_reset_token;
 pub(crate) use error::AuthHandlerError;
 pub(crate) use error::CreateGameHandlerError;
 pub(crate) use error::JoinGameHandlerError;
+pub(crate) use error::ResetTokenHandlerError;
 pub(crate) use error::SetDrawProposalHandlerError;
 pub(crate) use error::SetNextUpdateAtHandlerError;
 pub(crate) use error::SetProgressConsensusHandlerError;
@@ -42,6 +44,9 @@ pub(crate) use super::AuthLoginRequest;
 pub(crate) use super::AuthLoginResponse;
 pub(crate) use super::AuthLoginResponseUser;
 pub(crate) use super::AuthRequestValidationError;
+pub(crate) use super::AuthResetTokenRequest;
+pub(crate) use super::AuthResetTokenRequestValidationError;
+pub(crate) use super::AuthResetTokenResponse;
 pub(crate) use super::AuthService;
 pub(crate) use super::CreateGameCommand;
 pub(crate) use super::CreateGameError;

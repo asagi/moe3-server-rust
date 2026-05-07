@@ -5,6 +5,7 @@
 use serde::Deserialize;
 
 use super::AuthRequestValidationError;
+use super::AuthResetTokenRequestValidationError;
 
 // ============================================================================
 // definitions
@@ -26,5 +27,38 @@ impl AuthLoginRequest {
         }
 
         Ok(())
+    }
+}
+
+///
+/// トークンリセットリクエストの構造体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AuthResetTokenRequest {
+    pub authorization: String,
+}
+
+/// トークンリセットリクエストの構造体の実装
+impl AuthResetTokenRequest {
+    pub(crate) fn validate(&self) -> Result<(), AuthResetTokenRequestValidationError> {
+        let auth = self.authorization.trim();
+        if auth.is_empty() {
+            return Err(AuthResetTokenRequestValidationError::MissingAuthorization);
+        }
+
+        if !auth.starts_with("Bearer ") {
+            return Err(AuthResetTokenRequestValidationError::InvalidAuthorizationScheme);
+        }
+
+        let token = auth.trim_start_matches("Bearer ").trim();
+        if token.is_empty() {
+            return Err(AuthResetTokenRequestValidationError::MissingAccessToken);
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn access_token(&self) -> &str {
+        self.authorization.trim().trim_start_matches("Bearer ").trim()
     }
 }

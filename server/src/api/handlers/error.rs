@@ -5,6 +5,7 @@
 use super::ApiErrorResponse;
 use super::AuthError;
 use super::AuthRequestValidationError;
+use super::AuthResetTokenRequestValidationError;
 use super::CreateGameError;
 use super::CreateGameRequestValidationError;
 use super::DiscordClientError;
@@ -42,6 +43,7 @@ impl AuthHandlerError {
         match self {
             Self::InvalidRequest(_) => "invalid_request",
             Self::Service(AuthError::InvalidRequest(_)) => "invalid_request",
+            Self::Service(AuthError::Unauthorized) => "unauthorized",
             Self::Service(AuthError::DiscordClient(DiscordClientError::Unauthorized)) => "unauthorized",
             Self::Service(AuthError::DiscordClient(DiscordClientError::Unavailable(_))) => "discord_unavailable",
             Self::Service(AuthError::Repository(_)) => "repository_error",
@@ -59,6 +61,49 @@ impl AuthHandlerError {
         match self {
             Self::InvalidRequest(AuthRequestValidationError::MissingDiscordAccessToken) => {
                 "discord_access_token is required".to_string()
+            }
+            Self::Service(error) => error.to_string(),
+        }
+    }
+}
+
+///
+/// トークンリセットリクエストハンドラのエラーの列挙体
+///
+#[derive(Debug)]
+pub(crate) enum ResetTokenHandlerError {
+    InvalidRequest(AuthResetTokenRequestValidationError),
+    Service(AuthError),
+}
+
+/// トークンリセットリクエストハンドラのエラーの列挙体の実装
+impl ResetTokenHandlerError {
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidRequest(_) => "invalid_request",
+            Self::Service(AuthError::Unauthorized) => "unauthorized",
+            Self::Service(AuthError::Repository(_)) => "repository_error",
+            _ => "internal_error",
+        }
+    }
+
+    pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
+        ApiErrorResponse {
+            code: self.code(),
+            message: self.message(),
+        }
+    }
+
+    fn message(&self) -> String {
+        match self {
+            Self::InvalidRequest(AuthResetTokenRequestValidationError::MissingAuthorization) => {
+                "authorization header is required".to_string()
+            }
+            Self::InvalidRequest(AuthResetTokenRequestValidationError::InvalidAuthorizationScheme) => {
+                "authorization must start with 'Bearer <token>'".to_string()
+            }
+            Self::InvalidRequest(AuthResetTokenRequestValidationError::MissingAccessToken) => {
+                "access token is required".to_string()
             }
             Self::Service(error) => error.to_string(),
         }
