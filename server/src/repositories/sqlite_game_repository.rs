@@ -500,7 +500,8 @@ impl SqliteGameRepository {
                 DurationType::try_from(row.duration_type).map_err(|e| RepositoryError::Unavailable(e.to_string()))?,
                 NaiveDate::parse_from_str(&row.start_date, "%Y-%m-%d")
                     .map_err(|error| RepositoryError::Unavailable(format!("parse start_date: {}", error)))?,
-                row.first_period_hour as u8,
+                u8::try_from(row.first_period_hour)
+                    .map_err(|e| RepositoryError::Unavailable(format!("first_period_hour out of range: {}", e)))?,
             )
             .map_err(|e| RepositoryError::Unavailable(e.to_string()))?;
 
@@ -703,7 +704,8 @@ impl SqliteGameRepository {
                 DurationType::try_from(row.duration_type).map_err(|e| RepositoryError::Unavailable(e.to_string()))?,
                 NaiveDate::parse_from_str(&row.start_date, "%Y-%m-%d")
                     .map_err(|error| RepositoryError::Unavailable(format!("parse start_date: {}", error)))?,
-                row.first_period_hour as u8,
+                u8::try_from(row.first_period_hour)
+                    .map_err(|e| RepositoryError::Unavailable(format!("first_period_hour out of range: {}", e)))?,
             )
             .map_err(|e| RepositoryError::Unavailable(e.to_string()))?;
 
