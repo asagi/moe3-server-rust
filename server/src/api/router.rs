@@ -375,11 +375,11 @@ mod tests {
             Ok(true)
         }
 
-        fn update_access_token(&self, id: UserId, new_token: &str) -> Result<UserRecord, super::super::RepositoryError> {
+        fn update_access_token(&self, id: UserId, current_token: &str, new_token: &str) -> Result<UserRecord, super::super::RepositoryError> {
             let mut user = self.user.lock().expect("lock should succeed");
             let row = user
                 .as_mut()
-                .filter(|r| r.id == id)
+                .filter(|r| r.id == id && r.access_token == current_token)
                 .ok_or(super::super::RepositoryError::NotFound)?;
             row.access_token = new_token.to_string();
             Ok(row.clone())

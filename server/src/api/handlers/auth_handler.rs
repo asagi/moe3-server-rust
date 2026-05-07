@@ -117,6 +117,7 @@ where
             let status = match &error {
                 ResetTokenHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
                 ResetTokenHandlerError::Service(AuthError::Unauthorized) => StatusCode::UNAUTHORIZED,
+                ResetTokenHandlerError::Service(AuthError::Repository(RepositoryError::Conflict)) => StatusCode::CONFLICT,
                 ResetTokenHandlerError::Service(AuthError::Repository(RepositoryError::Unavailable(_))) => {
                     StatusCode::SERVICE_UNAVAILABLE
                 }
@@ -235,12 +236,12 @@ mod tests {
             Ok(true)
         }
 
-        fn update_access_token(&self, id: UserId, new_token: &str) -> Result<UserRecord, RepositoryError> {
+        fn update_access_token(&self, id: UserId, current_token: &str, new_token: &str) -> Result<UserRecord, RepositoryError> {
             let mut state = self.state.borrow_mut();
             let row = state
                 .rows
                 .values_mut()
-                .find(|r| r.id == id)
+                .find(|r| r.id == id && r.access_token == current_token)
                 .ok_or(RepositoryError::NotFound)?;
             row.access_token = new_token.to_string();
             Ok(row.clone())

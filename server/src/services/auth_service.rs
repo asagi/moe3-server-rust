@@ -8,6 +8,7 @@ use uuid::Uuid;
 use super::AuthError;
 use super::DiscordClientError;
 use super::DiscordProfile;
+use super::RepositoryError;
 use super::NewUser;
 use super::UserProfileUpdate;
 use super::UserRecord;
@@ -161,8 +162,11 @@ where
         let new_token = Uuid::new_v4().to_string();
         let updated = self
             .user_repository
-            .update_access_token(user.id, &new_token)
-            .map_err(AuthError::Repository)?;
+            .update_access_token(user.id, current_token, &new_token)
+            .map_err(|e| match e {
+                RepositoryError::NotFound => AuthError::Unauthorized,
+                e => AuthError::Repository(e),
+            })?;
 
         Ok(ResetTokenResult {
             access_token: updated.access_token,
@@ -253,12 +257,12 @@ mod tests {
             Ok(true)
         }
 
-        fn update_access_token(&self, id: i64, new_token: &str) -> Result<UserRecord, RepositoryError> {
+        fn update_access_token(&self, id: i64, current_token: &str, new_token: &str) -> Result<UserRecord, RepositoryError> {
             let mut state = self.state.borrow_mut();
             let row = state
                 .rows
                 .values_mut()
-                .find(|r| r.id == id)
+                .find(|r| r.id == id && r.access_token == current_token)
                 .ok_or(RepositoryError::NotFound)?;
             row.access_token = new_token.to_string();
             Ok(row.clone())

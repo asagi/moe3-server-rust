@@ -99,7 +99,7 @@ pub(crate) trait UserRepository {
     ) -> Result<bool, RepositoryError>;
 
     /// アクセストークンを更新する
-    fn update_access_token(&self, id: UserId, new_token: &str) -> Result<UserRecord, RepositoryError>;
+    fn update_access_token(&self, id: UserId, current_token: &str, new_token: &str) -> Result<UserRecord, RepositoryError>;
 
     /// 新規ユーザを挿入する
     fn insert(&self, new_user: NewUser) -> Result<UserRecord, RepositoryError>;

@@ -46,11 +46,13 @@ impl AuthResetTokenRequest {
             return Err(AuthResetTokenRequestValidationError::MissingAuthorization);
         }
 
-        if !auth.starts_with("Bearer ") {
+        let mut parts = auth.splitn(2, ' ');
+        let scheme = parts.next().unwrap_or("");
+        if !scheme.eq_ignore_ascii_case("Bearer") {
             return Err(AuthResetTokenRequestValidationError::InvalidAuthorizationScheme);
         }
 
-        let token = auth.trim_start_matches("Bearer ").trim();
+        let token = parts.next().unwrap_or("").trim();
         if token.is_empty() {
             return Err(AuthResetTokenRequestValidationError::MissingAccessToken);
         }
@@ -59,6 +61,9 @@ impl AuthResetTokenRequest {
     }
 
     pub(crate) fn access_token(&self) -> &str {
-        self.authorization.trim().trim_start_matches("Bearer ").trim()
+        self.authorization.trim()
+            .split_once(' ')
+            .map(|(_, token)| token.trim())
+            .unwrap_or("")
     }
 }

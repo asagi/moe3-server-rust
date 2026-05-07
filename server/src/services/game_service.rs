@@ -1141,7 +1141,7 @@ mod tests {
             Ok(true)
         }
 
-        fn update_access_token(&self, _id: UserId, _new_token: &str) -> Result<UserRecord, RepositoryError> {
+        fn update_access_token(&self, _id: UserId, _current_token: &str, _new_token: &str) -> Result<UserRecord, RepositoryError> {
             Err(RepositoryError::Unavailable("not used".to_string()))
         }
 
