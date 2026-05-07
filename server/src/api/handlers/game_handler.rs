@@ -13,6 +13,7 @@ use axum::response::Response;
 use chrono::NaiveDate;
 use uuid::Uuid;
 
+use super::ApiErrorResponse;
 use super::AppState;
 use super::CreateGameCommand;
 use super::CreateGameError;
@@ -24,9 +25,18 @@ use super::CreateGameResponse;
 use super::DeleteTerritoryQueryParams;
 use super::DeleteUnitQueryParams;
 use super::DiscordIdentityProvider;
+use super::DurationType;
+use super::FaceType;
+use super::GameListItem;
+use super::GameListItemRegulation;
 use super::GameRepository;
 use super::GameService;
 use super::GameStatus;
+use super::GameStatusFilter;
+use super::GetGamesHandlerError;
+use super::GetGamesQueryParams;
+use super::GetGamesRequest;
+use super::GetGamesResponse;
 use super::JoinGameCommand;
 use super::JoinGameError;
 use super::JoinGameHandlerError;
@@ -34,6 +44,8 @@ use super::JoinGameRequest;
 use super::JoinGameRequestBody;
 use super::JoinGameRequestValidationError;
 use super::JoinGameResponse;
+use super::ListGamesError;
+use super::ListGamesResult;
 use super::Power;
 use super::ProgressMode;
 use super::Regulation;
@@ -1235,6 +1247,149 @@ where
     })
 }
 
+///
+/// 卓一覧取得リクエスト Axum ハンドラ関数
+///
+pub(crate) async fn get_games<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    headers: HeaderMap,
+    Query(params): Query<GetGamesQueryParams>,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    let authorization = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+
+    let request = GetGamesRequest {
+        authorization,
+        status: params.status,
+        user: params.user,
+        page: params.page.unwrap_or(1),
+        per_page: params.per_page.unwrap_or(20),
+    };
+
+    let game_service = std::sync::Arc::clone(&state.game_service);
+    let result = tokio::task::spawn_blocking(move || handle_get_games(&game_service, request)).await;
+
+    match result {
+        Ok(Ok(response)) => (StatusCode::OK, axum::Json(response)).into_response(),
+        Ok(Err(error)) => {
+            let status = match &error {
+                GetGamesHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+                GetGamesHandlerError::Service(ListGamesError::Unauthorized) => StatusCode::UNAUTHORIZED,
+                GetGamesHandlerError::Service(ListGamesError::Forbidden(_)) => StatusCode::FORBIDDEN,
+                GetGamesHandlerError::Service(ListGamesError::Repository(_)) => StatusCode::SERVICE_UNAVAILABLE,
+            };
+            (status, axum::Json(error.to_api_error_response())).into_response()
+        }
+        Err(join_err) => {
+            eprintln!("get_games task failed: {}", join_err);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                axum::Json(ApiErrorResponse {
+                    code: "internal_error",
+                    message: format!("internal server error: {}", join_err),
+                }),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// 卓一覧取得の純粋関数（テスト可能）
+pub(crate) fn handle_get_games<U, G>(
+    service: &GameService<U, G>,
+    request: GetGamesRequest,
+) -> Result<GetGamesResponse, GetGamesHandlerError>
+where
+    U: UserRepository,
+    G: GameRepository,
+{
+    request.validate().map_err(GetGamesHandlerError::InvalidRequest)?;
+
+    let page = request.page;
+    let per_page = request.per_page;
+
+    let result: ListGamesResult = if let Some(ref discord_user_id) = request.user {
+        service
+            .list_games_by_user(request.access_token(), discord_user_id, page, per_page)
+            .map_err(GetGamesHandlerError::Service)?
+    } else {
+        let filter = match request.status.as_deref() {
+            Some("closed") => GameStatusFilter::Closed,
+            Some("aborted") => GameStatusFilter::Aborted,
+            _ => GameStatusFilter::Active,
+        };
+        service
+            .list_games_by_status(filter, page, per_page)
+            .map_err(GetGamesHandlerError::Service)?
+    };
+
+    let jst = chrono::FixedOffset::east_opt(9 * 60 * 60).expect("JST offset");
+
+    let games = result
+        .games
+        .iter()
+        .map(|game| {
+            let next_update_at = game.next_update_at.map(|naive_utc| {
+                let jst_dt =
+                    chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(naive_utc, chrono::Utc).with_timezone(&jst);
+                jst_dt.format("%Y-%m-%d %H:%M").to_string()
+            });
+
+            let status = match game.status {
+                GameStatus::Preparing => "preparing",
+                GameStatus::Ready => "ready",
+                GameStatus::InProgress => "in_progress",
+                GameStatus::Finished => "finished",
+                GameStatus::Aborted => "aborted",
+                GameStatus::Closed => "closed",
+            };
+
+            let face_type = match game.regulation.face_type {
+                FaceType::Girls => "girls",
+                FaceType::Flags => "flags",
+            };
+
+            let progress_mode = match game.regulation.progress_mode {
+                super::ProgressMode::Scheduled => "scheduled",
+                super::ProgressMode::Consensus => "consensus",
+            };
+
+            let duration_type = match game.regulation.duration_type {
+                DurationType::Short => "short",
+                DurationType::Normal => "normal",
+            };
+
+            GameListItem {
+                game_uuid: game.uuid.to_string(),
+                game_number: game.game_number,
+                status: status.to_string(),
+                season: game.current_season_label(),
+                next_update_at,
+                regulation: GameListItemRegulation {
+                    face_type: face_type.to_string(),
+                    progress_mode: progress_mode.to_string(),
+                    duration_type: duration_type.to_string(),
+                },
+                player_count: game.players.len(),
+            }
+        })
+        .collect();
+
+    Ok(GetGamesResponse {
+        games,
+        total: result.total,
+        page,
+        per_page,
+    })
+}
+
 // ============================================================================
 // tests
 // ============================================================================
@@ -1251,6 +1406,7 @@ mod tests {
     use chrono::Utc;
 
     use super::*;
+    use crate::api::GetGamesRequestValidationError;
     use crate::api::requests::UnitSpecBody;
     use crate::domain::Game;
     use crate::domain::GameStatus;
@@ -1454,6 +1610,34 @@ mod tests {
                 .ok_or(RepositoryError::NotFound)?;
             game.game_number = Some(next);
             Ok(next)
+        }
+
+        fn find_paginated_by_status(
+            &self,
+            _filter: GameStatusFilter,
+            _page: u32,
+            _per_page: u32,
+        ) -> Result<(Vec<Game>, u64), RepositoryError> {
+            let games = self.games.borrow().clone();
+            let total = games.len() as u64;
+            Ok((games, total))
+        }
+
+        fn find_paginated_by_user_uuid(
+            &self,
+            user_uuid: uuid::Uuid,
+            _page: u32,
+            _per_page: u32,
+        ) -> Result<(Vec<Game>, u64), RepositoryError> {
+            let games: Vec<Game> = self
+                .games
+                .borrow()
+                .iter()
+                .filter(|g| g.players.iter().any(|p| p.user_uuid == user_uuid))
+                .cloned()
+                .collect();
+            let total = games.len() as u64;
+            Ok((games, total))
         }
     }
 
@@ -3185,5 +3369,164 @@ mod tests {
                 .progress_consented,
             "owner consent should be true"
         );
+    }
+
+    fn build_game_for_get_games_tests(game_uuid: uuid::Uuid, owner_uuid: uuid::Uuid, status: GameStatus) -> Game {
+        let mut game = sample_in_progress_game_for_handler(owner_uuid);
+        game.uuid = game_uuid;
+        game.status = status;
+        game
+    }
+
+    #[test]
+    fn handle_get_games_returns_active_games_by_default() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let game_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "alice".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-alice".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::InProgress);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let response = handle_get_games(
+            &service,
+            GetGamesRequest {
+                authorization: None,
+                status: None,
+                user: None,
+                page: 1,
+                per_page: 20,
+            },
+        )
+        .expect("should succeed");
+
+        assert_eq!(response.page, 1);
+        assert_eq!(response.per_page, 20);
+        assert_eq!(response.games.len(), 1);
+        assert_eq!(response.games[0].game_uuid, game_uuid.to_string());
+    }
+
+    #[test]
+    fn handle_get_games_returns_error_when_status_and_user_both_specified() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = handle_get_games(
+            &service,
+            GetGamesRequest {
+                authorization: Some("Bearer token".to_string()),
+                status: Some("active".to_string()),
+                user: Some("1001".to_string()),
+                page: 1,
+                per_page: 20,
+            },
+        )
+        .expect_err("should fail");
+
+        assert!(matches!(
+            error,
+            GetGamesHandlerError::InvalidRequest(GetGamesRequestValidationError::ConflictingParams)
+        ));
+    }
+
+    #[test]
+    fn handle_get_games_returns_error_for_invalid_status() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = handle_get_games(
+            &service,
+            GetGamesRequest {
+                authorization: None,
+                status: Some("unknown".to_string()),
+                user: None,
+                page: 1,
+                per_page: 20,
+            },
+        )
+        .expect_err("should fail");
+
+        assert!(matches!(
+            error,
+            GetGamesHandlerError::InvalidRequest(GetGamesRequestValidationError::InvalidStatus)
+        ));
+    }
+
+    #[test]
+    fn handle_get_games_returns_games_for_own_user() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let game_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "alice".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-alice".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::Finished);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let response = handle_get_games(
+            &service,
+            GetGamesRequest {
+                authorization: Some("Bearer token-alice".to_string()),
+                status: None,
+                user: Some("1001".to_string()),
+                page: 1,
+                per_page: 20,
+            },
+        )
+        .expect("should succeed");
+
+        assert_eq!(response.games.len(), 1);
+        assert_eq!(response.games[0].status, "finished");
+    }
+
+    #[test]
+    fn handle_get_games_returns_forbidden_for_other_user() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "alice".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-alice".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = handle_get_games(
+            &service,
+            GetGamesRequest {
+                authorization: Some("Bearer token-alice".to_string()),
+                status: None,
+                user: Some("9999".to_string()),
+                page: 1,
+                per_page: 20,
+            },
+        )
+        .expect_err("should fail");
+
+        assert!(matches!(error, GetGamesHandlerError::Service(ListGamesError::Forbidden(_))));
     }
 }

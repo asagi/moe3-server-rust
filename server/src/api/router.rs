@@ -40,6 +40,7 @@ use super::SqliteUserRepository;
 use super::UserRepository;
 use super::handlers::delete_admin_games_territories;
 use super::handlers::delete_admin_games_units;
+use super::handlers::get_games;
 use super::handlers::get_users_me;
 use super::handlers::post_auth_login;
 use super::handlers::post_auth_reset_token;
@@ -281,7 +282,7 @@ where
     D: DiscordIdentityProvider + Send + Sync + 'static,
 {
     Router::new()
-        .route("/games", post(post_games::<U, G, D>))
+        .route("/games", get(get_games::<U, G, D>).post(post_games::<U, G, D>))
         .route("/games/:game_uuid/players", post(post_games_players::<U, G, D>))
         .route(
             "/games/:game_uuid/progress-consensus",

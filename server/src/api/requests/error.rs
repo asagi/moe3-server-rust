@@ -118,3 +118,17 @@ pub(crate) enum SetNextUpdateAtRequestValidationError {
     InvalidGameUuid,
     InvalidSeason,
 }
+
+///
+/// 卓一覧取得リクエストのバリデーションエラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum GetGamesRequestValidationError {
+    ConflictingParams,
+    InvalidStatus,
+    MissingAuthorization,
+    InvalidAuthorizationScheme,
+    MissingAccessToken,
+    InvalidPage,
+    InvalidPerPage,
+}

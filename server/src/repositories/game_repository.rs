@@ -22,6 +22,17 @@ pub(crate) struct NewGame {
 }
 
 ///
+/// 卓一覧取得のステータスフィルタの列挙体
+///
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GameStatusFilter {
+    /// Aborted・Closed 以外のすべてのステータス
+    Active,
+    Closed,
+    Aborted,
+}
+
+///
 /// 卓リポジトリのトレイト
 ///
 pub(crate) trait GameRepository {
@@ -45,4 +56,16 @@ pub(crate) trait GameRepository {
     /// 指定した卓に卓番号をアトミックに採番・割り当てる（排他制御付き）。
     /// すでに卓番号が割り当てられている場合はそのまま返す。
     fn assign_game_number(&self, game_uuid: Uuid) -> Result<i32, RepositoryError>;
+
+    /// ステータスフィルタでページネーションして卓一覧と総件数を返す。
+    fn find_paginated_by_status(
+        &self,
+        filter: GameStatusFilter,
+        page: u32,
+        per_page: u32,
+    ) -> Result<(Vec<Game>, u64), RepositoryError>;
+
+    /// 指定ユーザーが参加している卓一覧と総件数をページネーションして返す。
+    fn find_paginated_by_user_uuid(&self, user_uuid: Uuid, page: u32, per_page: u32)
+    -> Result<(Vec<Game>, u64), RepositoryError>;
 }

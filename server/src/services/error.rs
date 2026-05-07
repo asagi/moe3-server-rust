@@ -278,6 +278,30 @@ impl fmt::Display for SetProgressConsensusError {
 }
 
 ///
+/// 卓一覧取得エラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum ListGamesError {
+    Unauthorized,
+    Forbidden(String),
+    Repository(RepositoryError),
+}
+
+/// 卓一覧取得エラーの列挙体の実装（Error トレイト）
+impl Error for ListGamesError {}
+
+/// 卓一覧取得エラーの列挙体の実装（fmt::Display トレイト）
+impl fmt::Display for ListGamesError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unauthorized => write!(f, "unauthorized"),
+            Self::Forbidden(message) => write!(f, "forbidden: {}", message),
+            Self::Repository(error) => write!(f, "repository error: {}", error),
+        }
+    }
+}
+
+///
 /// 次回更新時刻変更エラーの列挙体
 ///
 #[derive(Debug, Clone, PartialEq, Eq)]

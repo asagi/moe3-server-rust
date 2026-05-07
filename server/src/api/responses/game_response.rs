@@ -93,3 +93,38 @@ pub(crate) struct SetNextUpdateAtResponse {
     pub game_uuid: Uuid,
     pub next_update_at: String,
 }
+
+///
+/// 卓一覧レスポンスのレギュレーション構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(crate) struct GameListItemRegulation {
+    pub face_type: String,
+    pub progress_mode: String,
+    pub duration_type: String,
+}
+
+///
+/// 卓一覧レスポンスの卓概要構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub(crate) struct GameListItem {
+    pub game_uuid: String,
+    pub game_number: Option<i32>,
+    pub status: String,
+    pub season: Option<String>,
+    pub next_update_at: Option<String>,
+    pub regulation: GameListItemRegulation,
+    pub player_count: usize,
+}
+
+///
+/// 卓一覧レスポンスの構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub(crate) struct GetGamesResponse {
+    pub games: Vec<GameListItem>,
+    pub total: u64,
+    pub page: u32,
+    pub per_page: u32,
+}

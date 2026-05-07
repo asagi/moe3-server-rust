@@ -21,6 +21,7 @@ use super::FaceType;
 use super::Game;
 use super::GameRepository;
 use super::GameStatus;
+use super::GameStatusFilter;
 use super::NewGame;
 use super::Order;
 use super::OrderKind;
@@ -1146,6 +1147,108 @@ impl GameRepository for SqliteGameRepository {
             .map_err(|error| RepositoryError::Unavailable(format!("commit assign game number: {}", error)))?;
 
         Ok(assigned)
+    }
+
+    /// ステータスフィルタでページネーションして卓一覧と総件数を返す
+    fn find_paginated_by_status(
+        &self,
+        filter: GameStatusFilter,
+        page: u32,
+        per_page: u32,
+    ) -> Result<(Vec<Game>, u64), RepositoryError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
+
+        let (where_clause, status_param) = match filter {
+            GameStatusFilter::Active => ("WHERE status NOT IN ('closed', 'aborted')", None),
+            GameStatusFilter::Closed => ("WHERE status = 'closed'", Some("closed")),
+            GameStatusFilter::Aborted => ("WHERE status = 'aborted'", Some("aborted")),
+        };
+
+        let total: u64 = {
+            let sql = format!("SELECT COUNT(*) FROM games {}", where_clause);
+            let count: i64 = if let Some(s) = status_param {
+                connection
+                    .query_row(&sql, rusqlite::params![s], |row| row.get(0))
+                    .map_err(|error| RepositoryError::Unavailable(format!("count games by status: {}", error)))?
+            } else {
+                connection
+                    .query_row(&sql, [], |row| row.get(0))
+                    .map_err(|error| RepositoryError::Unavailable(format!("count games by status: {}", error)))?
+            };
+            count as u64
+        };
+
+        let offset = (page - 1) as i64 * per_page as i64;
+        let sql = format!(
+            r#"
+            SELECT uuid, game_number, keyword, regulation_face_type, regulation_progress_mode,
+                   regulation_duration_type, regulation_start_date, regulation_first_period_hour,
+                   status, is_draw, is_solo, next_update
+            FROM games
+            {}
+            ORDER BY created_at DESC, uuid ASC
+            LIMIT ?1 OFFSET ?2
+            "#,
+            where_clause
+        );
+
+        let games = if let Some(s) = status_param {
+            Self::load_games_by_query(&connection, &sql, rusqlite::params![s, per_page as i64, offset])?
+        } else {
+            Self::load_games_by_query(&connection, &sql, rusqlite::params![per_page as i64, offset])?
+        };
+
+        Ok((games, total))
+    }
+
+    /// 指定ユーザーが参加している卓一覧と総件数をページネーションして返す
+    fn find_paginated_by_user_uuid(
+        &self,
+        user_uuid: Uuid,
+        page: u32,
+        per_page: u32,
+    ) -> Result<(Vec<Game>, u64), RepositoryError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
+
+        let user_uuid_str = user_uuid.to_string();
+
+        let total: u64 = {
+            let count: i64 = connection
+                .query_row(
+                    r#"
+                    SELECT COUNT(*)
+                    FROM games g
+                    INNER JOIN game_players gp ON gp.game_uuid = g.uuid AND gp.user_uuid = ?1
+                    "#,
+                    params![user_uuid_str],
+                    |row| row.get(0),
+                )
+                .map_err(|error| RepositoryError::Unavailable(format!("count games by user: {}", error)))?;
+            count as u64
+        };
+
+        let offset = (page - 1) as i64 * per_page as i64;
+        let games = Self::load_games_by_query(
+            &connection,
+            r#"
+            SELECT g.uuid, g.game_number, g.keyword, g.regulation_face_type, g.regulation_progress_mode,
+                   g.regulation_duration_type, g.regulation_start_date, g.regulation_first_period_hour,
+                   g.status, g.is_draw, g.is_solo, g.next_update
+            FROM games g
+            INNER JOIN game_players gp ON gp.game_uuid = g.uuid AND gp.user_uuid = ?1
+            ORDER BY g.created_at DESC, g.uuid ASC
+            LIMIT ?2 OFFSET ?3
+            "#,
+            params![user_uuid_str, per_page as i64, offset],
+        )?;
+
+        Ok((games, total))
     }
 }
 

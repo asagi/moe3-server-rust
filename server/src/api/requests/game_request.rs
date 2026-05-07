@@ -6,6 +6,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use super::CreateGameRequestValidationError;
+use super::GetGamesRequestValidationError;
 use super::JoinGameRequestValidationError;
 use super::SetDrawProposalRequestValidationError;
 use super::SetNextUpdateAtRequestValidationError;
@@ -389,5 +390,78 @@ impl SetNextUpdateAtRequest {
         }
 
         Ok(())
+    }
+}
+
+///
+/// 卓一覧取得クエリパラメータ構造体（Axum Query 抽出用）
+///
+#[derive(Debug, Deserialize)]
+pub(crate) struct GetGamesQueryParams {
+    pub status: Option<String>,
+    pub user: Option<String>,
+    pub page: Option<u32>,
+    pub per_page: Option<u32>,
+}
+
+///
+/// 卓一覧取得リクエストの構造体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct GetGamesRequest {
+    pub authorization: Option<String>,
+    pub status: Option<String>,
+    pub user: Option<String>,
+    pub page: u32,
+    pub per_page: u32,
+}
+
+/// 卓一覧取得リクエストの構造体の実装
+impl GetGamesRequest {
+    pub(crate) fn validate(&self) -> Result<(), GetGamesRequestValidationError> {
+        if self.status.is_some() && self.user.is_some() {
+            return Err(GetGamesRequestValidationError::ConflictingParams);
+        }
+
+        if let Some(status) = &self.status {
+            match status.as_str() {
+                "active" | "closed" | "aborted" => {}
+                _ => return Err(GetGamesRequestValidationError::InvalidStatus),
+            }
+        }
+
+        if self.user.is_some() {
+            let auth = self.authorization.as_deref().unwrap_or("").trim();
+            if auth.is_empty() {
+                return Err(GetGamesRequestValidationError::MissingAuthorization);
+            }
+            let token = match auth.get(..7) {
+                Some(prefix) if prefix.eq_ignore_ascii_case("Bearer ") => auth.get(7..).unwrap_or("").trim(),
+                _ => return Err(GetGamesRequestValidationError::InvalidAuthorizationScheme),
+            };
+            if token.is_empty() {
+                return Err(GetGamesRequestValidationError::MissingAccessToken);
+            }
+        }
+
+        if self.page < 1 {
+            return Err(GetGamesRequestValidationError::InvalidPage);
+        }
+
+        if self.per_page < 1 || self.per_page > 100 {
+            return Err(GetGamesRequestValidationError::InvalidPerPage);
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn access_token(&self) -> &str {
+        self.authorization
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .split_once(' ')
+            .map(|(_, token)| token.trim())
+            .unwrap_or("")
     }
 }

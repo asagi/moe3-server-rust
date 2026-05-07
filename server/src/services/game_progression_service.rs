@@ -595,6 +595,24 @@ mod tests {
         fn assign_game_number(&self, _game_uuid: uuid::Uuid) -> Result<i32, RepositoryError> {
             Err(RepositoryError::Unavailable("not used".to_string()))
         }
+
+        fn find_paginated_by_status(
+            &self,
+            _filter: super::super::GameStatusFilter,
+            _page: u32,
+            _per_page: u32,
+        ) -> Result<(Vec<Game>, u64), RepositoryError> {
+            Err(RepositoryError::Unavailable("not used".to_string()))
+        }
+
+        fn find_paginated_by_user_uuid(
+            &self,
+            _user_uuid: uuid::Uuid,
+            _page: u32,
+            _per_page: u32,
+        ) -> Result<(Vec<Game>, u64), RepositoryError> {
+            Err(RepositoryError::Unavailable("not used".to_string()))
+        }
     }
 
     #[derive(Debug, Clone)]
