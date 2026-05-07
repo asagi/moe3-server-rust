@@ -120,51 +120,51 @@
 
 #### `Authorization` ヘッダ関連
 
-| 条件 | `message` |
-|---|---|
-| Authorization ヘッダ欠落 | `"authorization header is required"` |
+| 条件                                                | `message`                                          |
+| --------------------------------------------------- | -------------------------------------------------- |
+| Authorization ヘッダ欠落                            | `"authorization header is required"`               |
 | Authorization 形式不正（Bearer プレフィックスなし） | `"authorization must start with 'Bearer <token>'"` |
-| アクセストークン空（Bearer 後が空文字） | `"access token is required"` |
+| アクセストークン空（Bearer 後が空文字）             | `"access token is required"`                       |
 
 #### パスパラメータ検証
 
-| 条件 | `message` |
-|---|---|
+| 条件                             | `message`                |
+| -------------------------------- | ------------------------ |
 | `game_uuid` が有効な UUID でない | `"game_uuid is invalid"` |
 
 #### リクエストボディ検証
 
-| 条件 | `message` |
-|---|---|
-| `requested_power` が不正な値 | `"requested_power is invalid"` |
-| `keyword` に英数字以外の文字が含まれる | `"keyword must contain only alphanumeric characters"` |
+| 条件                                          | `message`                                              |
+| --------------------------------------------- | ------------------------------------------------------ |
+| `requested_power` が不正な値                  | `"requested_power is invalid"`                         |
+| `keyword` に英数字以外の文字が含まれる        | `"keyword must contain only alphanumeric characters"`  |
 | 既に同じ卓に別の `requested_power` で参加済み | `"user already joined with different requested_power"` |
 
 ### `401 Unauthorized` — `code: unauthorized`
 
-| 条件 | `message` |
-|---|---|
+| 条件                                                        | `message`        |
+| ----------------------------------------------------------- | ---------------- |
 | アクセストークン未登録（DB にユーザーレコードが存在しない） | `"unauthorized"` |
 
 ### `403 Forbidden` — `code: forbidden`
 
-| 条件 | `message` |
-|---|---|
-| リクエストユーザーが別の卓に参加中 | `"user is already participating in another active game"` |
-| キーワードが卓のキーワードと一致しない（キーワードなし卓へのキーワード指定を含む） | `"keyword does not match"` |
-| 卓のステータスが `Preparing` でない（募集終了済み） | `"game is not accepting new players"` |
-| 卓の定員（7人）に達している | `"game is full (max players reached)"` |
+| 条件                                                                               | `message`                                                |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| リクエストユーザーが別の卓に参加中                                                 | `"user is already participating in another active game"` |
+| キーワードが卓のキーワードと一致しない（キーワードなし卓へのキーワード指定を含む） | `"keyword does not match"`                               |
+| 卓のステータスが `Preparing` でない（募集終了済み）                                | `"game is not accepting new players"`                    |
+| 卓の定員（7人）に達している                                                        | `"game is full (max players reached)"`                   |
 
 ### `404 Not Found` — `code: not_found`
 
-| 条件 | `message` |
-|---|---|
+| 条件                           | `message`          |
+| ------------------------------ | ------------------ |
 | 指定した UUID の卓が存在しない | `"game not found"` |
 
 ### `500 Internal Server Error` — `code: repository_error`
 
-| 条件 | `message` |
-|---|---|
+| 条件             | `message`                 |
+| ---------------- | ------------------------- |
 | データベース障害 | `"repository error: ..."` |
 
 ## ビジネスルール
