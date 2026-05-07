@@ -126,6 +126,7 @@ pub(crate) enum SetNextUpdateAtRequestValidationError {
 pub(crate) enum GetGamesRequestValidationError {
     ConflictingParams,
     InvalidStatus,
+    InvalidUser,
     MissingAuthorization,
     InvalidAuthorizationScheme,
     MissingAccessToken,

@@ -430,9 +430,12 @@ impl GetGamesRequest {
             }
         }
 
-        if self.user.is_some() {
-            let auth = self.authorization.as_deref().unwrap_or("").trim();
-            if auth.is_empty() {
+        if let Some(user) = &self.user {
+            if user.trim().is_empty() {
+                return Err(GetGamesRequestValidationError::InvalidUser);
+            }
+            let auth = self.authorization.as_deref().unwrap_or("");
+            if auth.trim().is_empty() {
                 return Err(GetGamesRequestValidationError::MissingAuthorization);
             }
             let token = match auth.get(..7) {

@@ -109,7 +109,7 @@ pub(crate) struct GameListItemRegulation {
 ///
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub(crate) struct GameListItem {
-    pub game_uuid: String,
+    pub game_uuid: Uuid,
     pub game_number: Option<i32>,
     pub status: String,
     pub season: Option<String>,

@@ -22,6 +22,7 @@ use super::Game;
 use super::GameRepository;
 use super::GameStatus;
 use super::GameStatusFilter;
+use super::GameSummary;
 use super::NewGame;
 use super::Order;
 use super::OrderKind;
@@ -645,6 +646,98 @@ impl SqliteGameRepository {
         Ok(games)
     }
 
+    /// 卓一覧用の軽量クエリでサマリを読み込む（N+1 回避）
+    fn load_game_summaries<P>(connection: &Connection, sql: &str, params: P) -> Result<Vec<GameSummary>, RepositoryError>
+    where
+        P: rusqlite::Params,
+    {
+        struct SummaryRow {
+            uuid: String,
+            game_number: Option<i32>,
+            face_type: i32,
+            progress_mode: i32,
+            duration_type: i32,
+            start_date: String,
+            first_period_hour: i32,
+            status: String,
+            next_update: Option<String>,
+            player_count: i64,
+            last_phase_kind: Option<String>,
+            last_phase_year: Option<i32>,
+        }
+
+        let rows: Vec<SummaryRow> = {
+            let mut stmt = connection
+                .prepare(sql)
+                .map_err(|error| RepositoryError::Unavailable(format!("prepare load summaries: {}", error)))?;
+
+            stmt.query_map(params, |row| {
+                Ok(SummaryRow {
+                    uuid: row.get(0)?,
+                    game_number: row.get(1)?,
+                    face_type: row.get(2)?,
+                    progress_mode: row.get(3)?,
+                    duration_type: row.get(4)?,
+                    start_date: row.get(5)?,
+                    first_period_hour: row.get(6)?,
+                    status: row.get(7)?,
+                    next_update: row.get(8)?,
+                    player_count: row.get(9)?,
+                    last_phase_kind: row.get(10)?,
+                    last_phase_year: row.get(11)?,
+                })
+            })
+            .map_err(|error| RepositoryError::Unavailable(format!("query load summaries: {}", error)))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| RepositoryError::Unavailable(format!("collect summary rows: {}", error)))?
+        };
+
+        let mut summaries = Vec::new();
+        for row in rows {
+            let regulation = Regulation::new(
+                FaceType::try_from(row.face_type).map_err(|e| RepositoryError::Unavailable(e.to_string()))?,
+                ProgressMode::try_from(row.progress_mode).map_err(|e| RepositoryError::Unavailable(e.to_string()))?,
+                DurationType::try_from(row.duration_type).map_err(|e| RepositoryError::Unavailable(e.to_string()))?,
+                NaiveDate::parse_from_str(&row.start_date, "%Y-%m-%d")
+                    .map_err(|error| RepositoryError::Unavailable(format!("parse start_date: {}", error)))?,
+                row.first_period_hour as u8,
+            )
+            .map_err(|e| RepositoryError::Unavailable(e.to_string()))?;
+
+            let uuid = Uuid::parse_str(&row.uuid)
+                .map_err(|error| RepositoryError::Unavailable(format!("parse game uuid: {}", error)))?;
+
+            let next_update_at = row.next_update.as_deref().map(Self::parse_next_update).transpose()?;
+
+            let season_label = Self::season_label_from_last_phase(row.last_phase_kind.as_deref(), row.last_phase_year);
+
+            summaries.push(GameSummary {
+                uuid,
+                game_number: row.game_number,
+                status: Self::status_from_str(&row.status)?,
+                next_update_at,
+                regulation,
+                player_count: row.player_count as u64,
+                season_label,
+            });
+        }
+
+        Ok(summaries)
+    }
+
+    /// 最終フェイズの kind JSON と year からシーズン表記を生成する
+    fn season_label_from_last_phase(kind_json: Option<&str>, year: Option<i32>) -> Option<String> {
+        let json = kind_json?;
+        let year = year?;
+        let value: serde_json::Value = serde_json::from_str(json).ok()?;
+        let kind = value.get("kind")?.as_str()?;
+        match kind {
+            "spring_main" | "spring_retreat" => Some(format!("{} 年春", year)),
+            "fall_main" | "fall_retreat" | "adjustment" => Some(format!("{} 年秋", year)),
+            _ => None,
+        }
+    }
+
     /// ゲームを挿入するトランザクション内でフェイズの命令を挿入する
     fn insert_phase_orders(
         transaction: &Transaction<'_>,
@@ -1149,26 +1242,26 @@ impl GameRepository for SqliteGameRepository {
         Ok(assigned)
     }
 
-    /// ステータスフィルタでページネーションして卓一覧と総件数を返す
+    /// ステータスフィルタでページネーションして卓サマリ一覧と総件数を返す
     fn find_paginated_by_status(
         &self,
         filter: GameStatusFilter,
         page: u32,
         per_page: u32,
-    ) -> Result<(Vec<Game>, u64), RepositoryError> {
+    ) -> Result<(Vec<GameSummary>, u64), RepositoryError> {
         let connection = self
             .connection
             .lock()
             .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
 
         let where_clause = match filter {
-            GameStatusFilter::Active => "WHERE status NOT IN ('closed', 'aborted')",
-            GameStatusFilter::Closed => "WHERE status = 'closed'",
-            GameStatusFilter::Aborted => "WHERE status = 'aborted'",
+            GameStatusFilter::Active => "WHERE g.status NOT IN ('closed', 'aborted')",
+            GameStatusFilter::Closed => "WHERE g.status = 'closed'",
+            GameStatusFilter::Aborted => "WHERE g.status = 'aborted'",
         };
 
         let total: u64 = {
-            let sql = format!("SELECT COUNT(*) FROM games {}", where_clause);
+            let sql = format!("SELECT COUNT(*) FROM games g {}", where_clause);
             let count: i64 = connection
                 .query_row(&sql, [], |row| row.get(0))
                 .map_err(|error| RepositoryError::Unavailable(format!("count games by status: {}", error)))?;
@@ -1178,29 +1271,32 @@ impl GameRepository for SqliteGameRepository {
         let offset = (page as i64 - 1) * per_page as i64;
         let sql = format!(
             r#"
-            SELECT uuid, game_number, keyword, regulation_face_type, regulation_progress_mode,
-                   regulation_duration_type, regulation_start_date, regulation_first_period_hour,
-                   status, is_draw, is_solo, next_update
-            FROM games
+            SELECT
+                g.uuid, g.game_number, g.regulation_face_type, g.regulation_progress_mode,
+                g.regulation_duration_type, g.regulation_start_date, g.regulation_first_period_hour,
+                g.status, g.next_update,
+                (SELECT COUNT(*) FROM game_players WHERE game_uuid = g.uuid) AS player_count,
+                (SELECT phase_kind FROM game_phases WHERE game_uuid = g.uuid ORDER BY phase_index DESC LIMIT 1) AS last_phase_kind,
+                (SELECT phase_year FROM game_phases WHERE game_uuid = g.uuid ORDER BY phase_index DESC LIMIT 1) AS last_phase_year
+            FROM games g
             {}
-            ORDER BY created_at DESC, uuid ASC
+            ORDER BY g.created_at DESC, g.uuid ASC
             LIMIT ?1 OFFSET ?2
             "#,
             where_clause
         );
+        let summaries = Self::load_game_summaries(&connection, &sql, rusqlite::params![per_page as i64, offset])?;
 
-        let games = Self::load_games_by_query(&connection, &sql, rusqlite::params![per_page as i64, offset])?;
-
-        Ok((games, total))
+        Ok((summaries, total))
     }
 
-    /// 指定ユーザーが参加している卓一覧と総件数をページネーションして返す
+    /// 指定ユーザーが参加している卓サマリ一覧と総件数をページネーションして返す
     fn find_paginated_by_user_uuid(
         &self,
         user_uuid: Uuid,
         page: u32,
         per_page: u32,
-    ) -> Result<(Vec<Game>, u64), RepositoryError> {
+    ) -> Result<(Vec<GameSummary>, u64), RepositoryError> {
         let connection = self
             .connection
             .lock()
@@ -1224,12 +1320,16 @@ impl GameRepository for SqliteGameRepository {
         };
 
         let offset = (page as i64 - 1) * per_page as i64;
-        let games = Self::load_games_by_query(
+        let summaries = Self::load_game_summaries(
             &connection,
             r#"
-            SELECT g.uuid, g.game_number, g.keyword, g.regulation_face_type, g.regulation_progress_mode,
-                   g.regulation_duration_type, g.regulation_start_date, g.regulation_first_period_hour,
-                   g.status, g.is_draw, g.is_solo, g.next_update
+            SELECT
+                g.uuid, g.game_number, g.regulation_face_type, g.regulation_progress_mode,
+                g.regulation_duration_type, g.regulation_start_date, g.regulation_first_period_hour,
+                g.status, g.next_update,
+                (SELECT COUNT(*) FROM game_players WHERE game_uuid = g.uuid) AS player_count,
+                (SELECT phase_kind FROM game_phases WHERE game_uuid = g.uuid ORDER BY phase_index DESC LIMIT 1) AS last_phase_kind,
+                (SELECT phase_year FROM game_phases WHERE game_uuid = g.uuid ORDER BY phase_index DESC LIMIT 1) AS last_phase_year
             FROM games g
             INNER JOIN game_players gp ON gp.game_uuid = g.uuid AND gp.user_uuid = ?1
             ORDER BY g.created_at DESC, g.uuid ASC
@@ -1238,7 +1338,7 @@ impl GameRepository for SqliteGameRepository {
             params![user_uuid_str, per_page as i64, offset],
         )?;
 
-        Ok((games, total))
+        Ok((summaries, total))
     }
 }
 

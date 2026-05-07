@@ -13,6 +13,7 @@ use super::GameProgressionService;
 use super::GameRepository;
 use super::GameStatus;
 use super::GameStatusFilter;
+use super::GameSummary;
 use super::JoinGameError;
 use super::ListGamesError;
 use super::NewGame;
@@ -221,7 +222,7 @@ pub(crate) struct SetNextUpdateAtResult {
 ///
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ListGamesResult {
-    pub games: Vec<Game>,
+    pub games: Vec<GameSummary>,
     pub total: u64,
 }
 
@@ -1326,30 +1327,56 @@ mod tests {
 
         fn find_paginated_by_status(
             &self,
-            _filter: GameStatusFilter,
-            _page: u32,
-            _per_page: u32,
-        ) -> Result<(Vec<Game>, u64), RepositoryError> {
-            let games = self.active_games.borrow().clone();
-            let total = games.len() as u64;
-            Ok((games, total))
+            filter: GameStatusFilter,
+            page: u32,
+            per_page: u32,
+        ) -> Result<(Vec<GameSummary>, u64), RepositoryError> {
+            let all: Vec<GameSummary> = self
+                .active_games
+                .borrow()
+                .iter()
+                .filter(|g| match filter {
+                    GameStatusFilter::Active => !matches!(g.status, GameStatus::Closed | GameStatus::Aborted),
+                    GameStatusFilter::Closed => matches!(g.status, GameStatus::Closed),
+                    GameStatusFilter::Aborted => matches!(g.status, GameStatus::Aborted),
+                })
+                .map(game_to_summary)
+                .collect();
+            let total = all.len() as u64;
+            let start = (page as usize).saturating_sub(1) * per_page as usize;
+            let items = all.into_iter().skip(start).take(per_page as usize).collect();
+            Ok((items, total))
         }
 
         fn find_paginated_by_user_uuid(
             &self,
             user_uuid: Uuid,
-            _page: u32,
-            _per_page: u32,
-        ) -> Result<(Vec<Game>, u64), RepositoryError> {
-            let games: Vec<Game> = self
+            page: u32,
+            per_page: u32,
+        ) -> Result<(Vec<GameSummary>, u64), RepositoryError> {
+            let all: Vec<GameSummary> = self
                 .active_games
                 .borrow()
                 .iter()
                 .filter(|g| g.players.iter().any(|p| p.user_uuid == user_uuid))
-                .cloned()
+                .map(game_to_summary)
                 .collect();
-            let total = games.len() as u64;
-            Ok((games, total))
+            let total = all.len() as u64;
+            let start = (page as usize).saturating_sub(1) * per_page as usize;
+            let items = all.into_iter().skip(start).take(per_page as usize).collect();
+            Ok((items, total))
+        }
+    }
+
+    fn game_to_summary(game: &Game) -> GameSummary {
+        GameSummary {
+            uuid: game.uuid,
+            game_number: game.game_number,
+            status: game.status,
+            next_update_at: game.next_update_at,
+            regulation: game.regulation.clone(),
+            player_count: game.players.len() as u64,
+            season_label: game.current_season_label(),
         }
     }
 

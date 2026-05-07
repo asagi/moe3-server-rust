@@ -1367,17 +1367,17 @@ where
             };
 
             GameListItem {
-                game_uuid: game.uuid.to_string(),
+                game_uuid: game.uuid,
                 game_number: game.game_number,
                 status: status.to_string(),
-                season: game.current_season_label(),
+                season: game.season_label.clone(),
                 next_update_at,
                 regulation: GameListItemRegulation {
                     face_type: face_type.to_string(),
                     progress_mode: progress_mode.to_string(),
                     duration_type: duration_type.to_string(),
                 },
-                player_count: game.players.len(),
+                player_count: game.player_count as usize,
             }
         })
         .collect();
@@ -1406,6 +1406,7 @@ mod tests {
     use chrono::Utc;
 
     use super::*;
+    use crate::GameSummary;
     use crate::api::GetGamesRequestValidationError;
     use crate::api::requests::UnitSpecBody;
     use crate::domain::Game;
@@ -1614,30 +1615,56 @@ mod tests {
 
         fn find_paginated_by_status(
             &self,
-            _filter: GameStatusFilter,
-            _page: u32,
-            _per_page: u32,
-        ) -> Result<(Vec<Game>, u64), RepositoryError> {
-            let games = self.games.borrow().clone();
-            let total = games.len() as u64;
-            Ok((games, total))
+            filter: GameStatusFilter,
+            page: u32,
+            per_page: u32,
+        ) -> Result<(Vec<GameSummary>, u64), RepositoryError> {
+            let all: Vec<GameSummary> = self
+                .games
+                .borrow()
+                .iter()
+                .filter(|g| match filter {
+                    GameStatusFilter::Active => !matches!(g.status, GameStatus::Closed | GameStatus::Aborted),
+                    GameStatusFilter::Closed => matches!(g.status, GameStatus::Closed),
+                    GameStatusFilter::Aborted => matches!(g.status, GameStatus::Aborted),
+                })
+                .map(game_to_summary_test)
+                .collect();
+            let total = all.len() as u64;
+            let start = (page as usize).saturating_sub(1) * per_page as usize;
+            let items = all.into_iter().skip(start).take(per_page as usize).collect();
+            Ok((items, total))
         }
 
         fn find_paginated_by_user_uuid(
             &self,
             user_uuid: uuid::Uuid,
-            _page: u32,
-            _per_page: u32,
-        ) -> Result<(Vec<Game>, u64), RepositoryError> {
-            let games: Vec<Game> = self
+            page: u32,
+            per_page: u32,
+        ) -> Result<(Vec<GameSummary>, u64), RepositoryError> {
+            let all: Vec<GameSummary> = self
                 .games
                 .borrow()
                 .iter()
                 .filter(|g| g.players.iter().any(|p| p.user_uuid == user_uuid))
-                .cloned()
+                .map(game_to_summary_test)
                 .collect();
-            let total = games.len() as u64;
-            Ok((games, total))
+            let total = all.len() as u64;
+            let start = (page as usize).saturating_sub(1) * per_page as usize;
+            let items = all.into_iter().skip(start).take(per_page as usize).collect();
+            Ok((items, total))
+        }
+    }
+
+    fn game_to_summary_test(game: &Game) -> GameSummary {
+        GameSummary {
+            uuid: game.uuid,
+            game_number: game.game_number,
+            status: game.status,
+            next_update_at: game.next_update_at,
+            regulation: game.regulation.clone(),
+            player_count: game.players.len() as u64,
+            season_label: game.current_season_label(),
         }
     }
 
@@ -3412,7 +3439,7 @@ mod tests {
         assert_eq!(response.page, 1);
         assert_eq!(response.per_page, 20);
         assert_eq!(response.games.len(), 1);
-        assert_eq!(response.games[0].game_uuid, game_uuid.to_string());
+        assert_eq!(response.games[0].game_uuid, game_uuid);
     }
 
     #[test]
@@ -3528,5 +3555,217 @@ mod tests {
         .expect_err("should fail");
 
         assert!(matches!(error, GetGamesHandlerError::Service(ListGamesError::Forbidden(_))));
+    }
+
+    #[test]
+    fn handle_get_games_returns_error_for_empty_user() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = handle_get_games(
+            &service,
+            GetGamesRequest {
+                authorization: Some("Bearer token".to_string()),
+                status: None,
+                user: Some("".to_string()),
+                page: 1,
+                per_page: 20,
+            },
+        )
+        .expect_err("should fail");
+
+        assert!(matches!(
+            error,
+            GetGamesHandlerError::InvalidRequest(GetGamesRequestValidationError::InvalidUser)
+        ));
+    }
+
+    #[test]
+    fn handle_get_games_returns_error_when_user_specified_without_auth() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = handle_get_games(
+            &service,
+            GetGamesRequest {
+                authorization: None,
+                status: None,
+                user: Some("1001".to_string()),
+                page: 1,
+                per_page: 20,
+            },
+        )
+        .expect_err("should fail");
+
+        assert!(matches!(
+            error,
+            GetGamesHandlerError::InvalidRequest(GetGamesRequestValidationError::MissingAuthorization)
+        ));
+    }
+
+    #[test]
+    fn handle_get_games_returns_error_for_invalid_auth_scheme() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = handle_get_games(
+            &service,
+            GetGamesRequest {
+                authorization: Some("Basic abc".to_string()),
+                status: None,
+                user: Some("1001".to_string()),
+                page: 1,
+                per_page: 20,
+            },
+        )
+        .expect_err("should fail");
+
+        assert!(matches!(
+            error,
+            GetGamesHandlerError::InvalidRequest(GetGamesRequestValidationError::InvalidAuthorizationScheme)
+        ));
+    }
+
+    #[test]
+    fn handle_get_games_returns_error_for_missing_access_token() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = handle_get_games(
+            &service,
+            GetGamesRequest {
+                authorization: Some("Bearer ".to_string()),
+                status: None,
+                user: Some("1001".to_string()),
+                page: 1,
+                per_page: 20,
+            },
+        )
+        .expect_err("should fail");
+
+        assert!(matches!(
+            error,
+            GetGamesHandlerError::InvalidRequest(GetGamesRequestValidationError::MissingAccessToken)
+        ));
+    }
+
+    #[test]
+    fn handle_get_games_returns_error_for_invalid_page() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = handle_get_games(
+            &service,
+            GetGamesRequest {
+                authorization: None,
+                status: None,
+                user: None,
+                page: 0,
+                per_page: 20,
+            },
+        )
+        .expect_err("should fail");
+
+        assert!(matches!(
+            error,
+            GetGamesHandlerError::InvalidRequest(GetGamesRequestValidationError::InvalidPage)
+        ));
+    }
+
+    #[test]
+    fn handle_get_games_returns_error_for_invalid_per_page() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = handle_get_games(
+            &service,
+            GetGamesRequest {
+                authorization: None,
+                status: None,
+                user: None,
+                page: 1,
+                per_page: 101,
+            },
+        )
+        .expect_err("should fail");
+
+        assert!(matches!(
+            error,
+            GetGamesHandlerError::InvalidRequest(GetGamesRequestValidationError::InvalidPerPage)
+        ));
+    }
+
+    #[test]
+    fn handle_get_games_filters_by_closed_status() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let active_game = build_game_for_get_games_tests(uuid::Uuid::now_v7(), owner_uuid, GameStatus::InProgress);
+        let closed_game = build_game_for_get_games_tests(uuid::Uuid::now_v7(), owner_uuid, GameStatus::Closed);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![active_game, closed_game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let response = handle_get_games(
+            &service,
+            GetGamesRequest {
+                authorization: None,
+                status: Some("closed".to_string()),
+                user: None,
+                page: 1,
+                per_page: 20,
+            },
+        )
+        .expect("should succeed");
+
+        assert_eq!(response.games.len(), 1);
+        assert_eq!(response.games[0].status, "closed");
+        assert_eq!(response.total, 1);
+    }
+
+    #[test]
+    fn handle_get_games_paginates_correctly() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let games: Vec<Game> = (0..5)
+            .map(|_| build_game_for_get_games_tests(uuid::Uuid::now_v7(), owner_uuid, GameStatus::InProgress))
+            .collect();
+        let game_repository = InMemoryGameRepository::new_with_games(games);
+        let service = GameService::new(user_repository, game_repository);
+
+        let response = handle_get_games(
+            &service,
+            GetGamesRequest {
+                authorization: None,
+                status: None,
+                user: None,
+                page: 1,
+                per_page: 3,
+            },
+        )
+        .expect("should succeed");
+
+        assert_eq!(response.games.len(), 3);
+        assert_eq!(response.total, 5);
+        assert_eq!(response.per_page, 3);
+
+        let page2 = handle_get_games(
+            &service,
+            GetGamesRequest {
+                authorization: None,
+                status: None,
+                user: None,
+                page: 2,
+                per_page: 3,
+            },
+        )
+        .expect("should succeed");
+
+        assert_eq!(page2.games.len(), 2);
+        assert_eq!(page2.total, 5);
     }
 }

@@ -576,6 +576,9 @@ impl GetGamesHandlerError {
             Self::InvalidRequest(GetGamesRequestValidationError::InvalidStatus) => {
                 "status must be 'active', 'closed', or 'aborted'".to_string()
             }
+            Self::InvalidRequest(GetGamesRequestValidationError::InvalidUser) => {
+                "user must be a non-empty Discord user id".to_string()
+            }
             Self::InvalidRequest(GetGamesRequestValidationError::MissingAuthorization) => {
                 "authorization header is required".to_string()
             }

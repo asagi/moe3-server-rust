@@ -89,15 +89,15 @@ Authorization: Bearer <access_token>
 
 #### ゲームオブジェクト
 
-| フィールド       | 型               | 説明                                              |
-| ---------------- | ---------------- | ------------------------------------------------- |
-| `game_uuid`      | `string`         | 卓の UUID                                         |
-| `game_number`    | `number \| null` | 卓番号（採番前は `null`）                         |
-| `status`         | `string`         | 卓のステータス（下表参照）                        |
+| フィールド       | 型               | 説明                                                 |
+| ---------------- | ---------------- | ---------------------------------------------------- |
+| `game_uuid`      | `string`         | 卓の UUID                                            |
+| `game_number`    | `number \| null` | 卓番号（採番前は `null`）                            |
+| `status`         | `string`         | 卓のステータス（下表参照）                           |
 | `season`         | `string \| null` | 現在のシーズン（例: `"1901 年春"`）。開始前は `null` |
-| `next_update_at` | `string \| null` | 次回更新日時（JST、`"YYYY-MM-DD HH:mm"` 形式）    |
-| `regulation`     | `object`         | レギュレーション情報                              |
-| `player_count`   | `number`         | 現在の参加人数                                    |
+| `next_update_at` | `string \| null` | 次回更新日時（JST、`"YYYY-MM-DD HH:mm"` 形式）       |
+| `regulation`     | `object`         | レギュレーション情報                                 |
+| `player_count`   | `number`         | 現在の参加人数                                       |
 
 #### `status` の値
 
@@ -145,6 +145,7 @@ Authorization: Bearer <access_token>
 | --------------------------------- | -------------------------------------------------------- |
 | `status` と `user` を同時指定     | `"status and user cannot be specified at the same time"` |
 | `status` に無効な値を指定         | `"status must be 'active', 'closed', or 'aborted'"`      |
+| `user` が空文字                   | `"user must be a non-empty Discord user id"`             |
 | `page` が 1 未満                  | `"page must be 1 or greater"`                            |
 | `per_page` が 1 未満または 100 超 | `"per_page must be between 1 and 100"`                   |
 

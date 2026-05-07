@@ -6,7 +6,9 @@ use chrono::NaiveDateTime;
 use uuid::Uuid;
 
 use super::Game;
+use super::GameStatus;
 use super::Power;
+use super::Regulation;
 use super::RepositoryError;
 
 // ============================================================================
@@ -30,6 +32,20 @@ pub(crate) enum GameStatusFilter {
     Active,
     Closed,
     Aborted,
+}
+
+///
+/// 卓一覧取得用の軽量サマリ構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct GameSummary {
+    pub uuid: Uuid,
+    pub game_number: Option<i32>,
+    pub status: GameStatus,
+    pub next_update_at: Option<NaiveDateTime>,
+    pub regulation: Regulation,
+    pub player_count: u64,
+    pub season_label: Option<String>,
 }
 
 ///
@@ -57,15 +73,19 @@ pub(crate) trait GameRepository {
     /// すでに卓番号が割り当てられている場合はそのまま返す。
     fn assign_game_number(&self, game_uuid: Uuid) -> Result<i32, RepositoryError>;
 
-    /// ステータスフィルタでページネーションして卓一覧と総件数を返す。
+    /// ステータスフィルタでページネーションして卓サマリ一覧と総件数を返す。
     fn find_paginated_by_status(
         &self,
         filter: GameStatusFilter,
         page: u32,
         per_page: u32,
-    ) -> Result<(Vec<Game>, u64), RepositoryError>;
+    ) -> Result<(Vec<GameSummary>, u64), RepositoryError>;
 
-    /// 指定ユーザーが参加している卓一覧と総件数をページネーションして返す。
-    fn find_paginated_by_user_uuid(&self, user_uuid: Uuid, page: u32, per_page: u32)
-    -> Result<(Vec<Game>, u64), RepositoryError>;
+    /// 指定ユーザーが参加している卓サマリ一覧と総件数をページネーションして返す。
+    fn find_paginated_by_user_uuid(
+        &self,
+        user_uuid: Uuid,
+        page: u32,
+        per_page: u32,
+    ) -> Result<(Vec<GameSummary>, u64), RepositoryError>;
 }

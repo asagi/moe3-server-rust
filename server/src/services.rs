@@ -51,6 +51,7 @@ pub(crate) use super::Game;
 pub(crate) use super::GameRepository;
 pub(crate) use super::GameStatus;
 pub(crate) use super::GameStatusFilter;
+pub(crate) use super::GameSummary;
 pub(crate) use super::NewGame;
 pub(crate) use super::NewUser;
 pub(crate) use super::Phase;

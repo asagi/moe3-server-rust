@@ -601,7 +601,7 @@ mod tests {
             _filter: super::super::GameStatusFilter,
             _page: u32,
             _per_page: u32,
-        ) -> Result<(Vec<Game>, u64), RepositoryError> {
+        ) -> Result<(Vec<super::super::GameSummary>, u64), RepositoryError> {
             Err(RepositoryError::Unavailable("not used".to_string()))
         }
 
@@ -610,7 +610,7 @@ mod tests {
             _user_uuid: uuid::Uuid,
             _page: u32,
             _per_page: u32,
-        ) -> Result<(Vec<Game>, u64), RepositoryError> {
+        ) -> Result<(Vec<super::super::GameSummary>, u64), RepositoryError> {
             Err(RepositoryError::Unavailable("not used".to_string()))
         }
     }
