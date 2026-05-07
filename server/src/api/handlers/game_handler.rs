@@ -1293,7 +1293,7 @@ where
                 StatusCode::INTERNAL_SERVER_ERROR,
                 axum::Json(ApiErrorResponse {
                     code: "internal_error",
-                    message: format!("internal server error: {}", join_err),
+                    message: "internal server error".to_string(),
                 }),
             )
                 .into_response()

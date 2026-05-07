@@ -1161,27 +1161,21 @@ impl GameRepository for SqliteGameRepository {
             .lock()
             .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
 
-        let (where_clause, status_param) = match filter {
-            GameStatusFilter::Active => ("WHERE status NOT IN ('closed', 'aborted')", None),
-            GameStatusFilter::Closed => ("WHERE status = 'closed'", Some("closed")),
-            GameStatusFilter::Aborted => ("WHERE status = 'aborted'", Some("aborted")),
+        let where_clause = match filter {
+            GameStatusFilter::Active => "WHERE status NOT IN ('closed', 'aborted')",
+            GameStatusFilter::Closed => "WHERE status = 'closed'",
+            GameStatusFilter::Aborted => "WHERE status = 'aborted'",
         };
 
         let total: u64 = {
             let sql = format!("SELECT COUNT(*) FROM games {}", where_clause);
-            let count: i64 = if let Some(s) = status_param {
-                connection
-                    .query_row(&sql, rusqlite::params![s], |row| row.get(0))
-                    .map_err(|error| RepositoryError::Unavailable(format!("count games by status: {}", error)))?
-            } else {
-                connection
-                    .query_row(&sql, [], |row| row.get(0))
-                    .map_err(|error| RepositoryError::Unavailable(format!("count games by status: {}", error)))?
-            };
+            let count: i64 = connection
+                .query_row(&sql, [], |row| row.get(0))
+                .map_err(|error| RepositoryError::Unavailable(format!("count games by status: {}", error)))?;
             count as u64
         };
 
-        let offset = (page - 1) as i64 * per_page as i64;
+        let offset = (page as i64 - 1) * per_page as i64;
         let sql = format!(
             r#"
             SELECT uuid, game_number, keyword, regulation_face_type, regulation_progress_mode,
@@ -1195,11 +1189,7 @@ impl GameRepository for SqliteGameRepository {
             where_clause
         );
 
-        let games = if let Some(s) = status_param {
-            Self::load_games_by_query(&connection, &sql, rusqlite::params![s, per_page as i64, offset])?
-        } else {
-            Self::load_games_by_query(&connection, &sql, rusqlite::params![per_page as i64, offset])?
-        };
+        let games = Self::load_games_by_query(&connection, &sql, rusqlite::params![per_page as i64, offset])?;
 
         Ok((games, total))
     }
@@ -1233,7 +1223,7 @@ impl GameRepository for SqliteGameRepository {
             count as u64
         };
 
-        let offset = (page - 1) as i64 * per_page as i64;
+        let offset = (page as i64 - 1) * per_page as i64;
         let games = Self::load_games_by_query(
             &connection,
             r#"

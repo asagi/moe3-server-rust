@@ -68,8 +68,8 @@ Authorization: Bearer <access_token>
     {
       "game_uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
       "game_number": 42,
-      "status": "recruiting",
-      "season": "1901春",
+      "status": "preparing",
+      "season": "1901 年春",
       "next_update_at": "2026-05-10 20:00",
       "regulation": {
         "face_type": "girls",
@@ -94,7 +94,7 @@ Authorization: Bearer <access_token>
 | `game_uuid`      | `string`         | 卓の UUID                                         |
 | `game_number`    | `number \| null` | 卓番号（採番前は `null`）                         |
 | `status`         | `string`         | 卓のステータス（下表参照）                        |
-| `season`         | `string \| null` | 現在のシーズン（例: `"1901春"`）。開始前は `null` |
+| `season`         | `string \| null` | 現在のシーズン（例: `"1901 年春"`）。開始前は `null` |
 | `next_update_at` | `string \| null` | 次回更新日時（JST、`"YYYY-MM-DD HH:mm"` 形式）    |
 | `regulation`     | `object`         | レギュレーション情報                              |
 | `player_count`   | `number`         | 現在の参加人数                                    |
@@ -103,7 +103,8 @@ Authorization: Bearer <access_token>
 
 | 値            | 意味         |
 | ------------- | ------------ |
-| `recruiting`  | 募集中       |
+| `preparing`   | 準備中       |
+| `ready`       | 開始待ち     |
 | `in_progress` | 進行中       |
 | `finished`    | 終了         |
 | `closed`      | クローズ済み |
@@ -167,7 +168,7 @@ Authorization: Bearer <access_token>
 | ----------------------------------------------- | --------------------- |
 | 他ユーザーの `discord_user_id` を `user` に指定 | `"forbidden: <詳細>"` |
 
-### `500 Internal Server Error` — `code: repository_error`
+### `503 Service Unavailable` — `code: repository_error`
 
 | 条件             | message                                              |
 | ---------------- | ---------------------------------------------------- |
