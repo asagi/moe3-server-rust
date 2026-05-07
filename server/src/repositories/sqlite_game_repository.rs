@@ -714,7 +714,7 @@ impl SqliteGameRepository {
 
             let next_update_at = row.next_update.as_deref().map(Self::parse_next_update).transpose()?;
 
-            let season_label = Self::season_label_from_last_phase(row.last_phase_kind.as_deref(), row.last_phase_year);
+            let season_label = Self::season_label_from_last_phase(row.last_phase_kind.as_deref(), row.last_phase_year)?;
 
             summaries.push(GameSummary {
                 uuid,
@@ -731,16 +731,22 @@ impl SqliteGameRepository {
     }
 
     /// 最終フェイズの kind JSON と year からシーズン表記を生成する
-    fn season_label_from_last_phase(kind_json: Option<&str>, year: Option<i32>) -> Option<String> {
-        let json = kind_json?;
-        let year = year?;
-        let value: serde_json::Value = serde_json::from_str(json).ok()?;
-        let kind = value.get("kind")?.as_str()?;
-        match kind {
+    fn season_label_from_last_phase(kind_json: Option<&str>, year: Option<i32>) -> Result<Option<String>, RepositoryError> {
+        let (json, year) = match (kind_json, year) {
+            (Some(j), Some(y)) => (j, y),
+            _ => return Ok(None),
+        };
+        let value: serde_json::Value =
+            serde_json::from_str(json).map_err(|e| RepositoryError::Unavailable(format!("parse phase_kind JSON: {}", e)))?;
+        let kind = value
+            .get("kind")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| RepositoryError::Unavailable(format!("missing 'kind' in phase_kind: {}", json)))?;
+        Ok(match kind {
             "spring_main" | "spring_retreat" => Some(format!("{} 年春", year)),
             "fall_main" | "fall_retreat" | "adjustment" => Some(format!("{} 年秋", year)),
             _ => None,
-        }
+        })
     }
 
     /// ゲームを挿入するトランザクション内でフェイズの命令を挿入する

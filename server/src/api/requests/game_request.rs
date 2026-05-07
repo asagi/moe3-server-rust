@@ -434,7 +434,7 @@ impl GetGamesRequest {
             if user.trim().is_empty() {
                 return Err(GetGamesRequestValidationError::InvalidUser);
             }
-            let auth = self.authorization.as_deref().unwrap_or("");
+            let auth = self.authorization.as_deref().unwrap_or("").trim_start();
             if auth.trim().is_empty() {
                 return Err(GetGamesRequestValidationError::MissingAuthorization);
             }
