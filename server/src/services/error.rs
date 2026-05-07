@@ -39,6 +39,7 @@ impl fmt::Display for DiscordClientError {
 #[derive(Debug, Clone)]
 pub(crate) enum AuthError {
     InvalidRequest(String),
+    Unauthorized,
     DiscordClient(DiscordClientError),
     Repository(RepositoryError),
 }
@@ -51,6 +52,7 @@ impl fmt::Display for AuthError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidRequest(message) => write!(f, "invalid request: {}", message),
+            Self::Unauthorized => write!(f, "unauthorized"),
             Self::DiscordClient(error) => write!(f, "discord client error: {}", error),
             Self::Repository(error) => write!(f, "repository error: {}", error),
         }

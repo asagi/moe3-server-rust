@@ -11,6 +11,16 @@ pub(crate) enum AuthRequestValidationError {
 }
 
 ///
+/// トークンリセットリクエストのバリデーションエラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum AuthResetTokenRequestValidationError {
+    MissingAuthorization,
+    InvalidAuthorizationScheme,
+    MissingAccessToken,
+}
+
+///
 /// 卓作成リクエストのバリデーションエラーの列挙体
 ///
 #[derive(Debug, Clone, PartialEq, Eq)]

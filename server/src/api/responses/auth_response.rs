@@ -46,3 +46,11 @@ impl From<LoginUser> for AuthLoginResponseUser {
         }
     }
 }
+
+///
+/// トークンリセットレスポンスの構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(crate) struct AuthResetTokenResponse {
+    pub access_token: String,
+}

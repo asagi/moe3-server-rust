@@ -204,6 +204,39 @@ impl UserRepository for SqliteUserRepository {
         Ok(affected > 0)
     }
 
+    /// アクセストークンを更新する
+    fn update_access_token(&self, id: UserId, current_token: &str, new_token: &str) -> Result<UserRecord, RepositoryError> {
+        let now = Utc::now().to_rfc3339();
+
+        let sql = r#"
+            UPDATE users
+            SET access_token = ?1,
+                updated_at = ?2
+            WHERE id = ?3
+            AND access_token = ?4
+        "#;
+
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
+        let affected = connection.execute(sql, params![new_token, now, id, current_token]).map_err(|error| {
+            let message = error.to_string();
+            if message.contains("UNIQUE") {
+                RepositoryError::Conflict
+            } else {
+                RepositoryError::Unavailable(format!("update user access_token: {}", error))
+            }
+        })?;
+
+        if affected == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+
+        drop(connection);
+        self.load_by_id(id)
+    }
+
     /// 新規ユーザを挿入する
     fn insert(&self, new_user: NewUser) -> Result<UserRecord, RepositoryError> {
         let now = Utc::now().to_rfc3339();
@@ -435,5 +468,47 @@ mod tests {
             .expect("update should succeed");
 
         assert!(!updated);
+    }
+
+    #[test]
+    fn update_access_token_replaces_token() {
+        let repository = SqliteUserRepository::new_in_memory().expect("repository should initialize");
+
+        let inserted = repository
+            .insert(NewUser {
+                uuid: uuid::Uuid::now_v7(),
+                discord_user_id: "1001".to_string(),
+                username: "nemu".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+                access_token: "old-token".to_string(),
+            })
+            .expect("insert should succeed");
+
+        let updated = repository
+            .update_access_token(inserted.id, "old-token", "new-token")
+            .expect("update should succeed");
+
+        assert_eq!(updated.access_token, "new-token");
+        assert_eq!(updated.id, inserted.id);
+
+        let old_lookup = repository.find_by_access_token("old-token").expect("find should succeed");
+        assert!(old_lookup.is_none());
+
+        let new_lookup = repository
+            .find_by_access_token("new-token")
+            .expect("find should succeed")
+            .expect("user should exist");
+        assert_eq!(new_lookup.access_token, "new-token");
+    }
+
+    #[test]
+    fn update_access_token_returns_not_found_for_missing_user() {
+        let repository = SqliteUserRepository::new_in_memory().expect("repository should initialize");
+
+        let result = repository.update_access_token(-1, "old-token", "new-token");
+
+        assert!(matches!(result, Err(RepositoryError::NotFound)));
     }
 }

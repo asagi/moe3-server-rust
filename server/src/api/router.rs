@@ -40,6 +40,7 @@ use super::UserRepository;
 use super::handlers::delete_admin_games_territories;
 use super::handlers::delete_admin_games_units;
 use super::handlers::post_auth_login;
+use super::handlers::post_auth_reset_token;
 use super::handlers::post_games;
 use super::handlers::post_games_players;
 use super::handlers::put_admin_games_draw_proposal;
@@ -305,6 +306,7 @@ where
             put(put_admin_games_progress_mode::<U, G, D>),
         )
         .route("/auth/login", post(post_auth_login::<U, G, D>))
+        .route("/auth/token", post(post_auth_reset_token::<U, G, D>))
         .with_state(state.clone())
         .layer(from_fn_with_state(state, run_global_pre_handler::<U, G, D>))
 }
@@ -371,6 +373,16 @@ mod tests {
 
             row.last_access_at = last_access_at;
             Ok(true)
+        }
+
+        fn update_access_token(&self, id: UserId, current_token: &str, new_token: &str) -> Result<UserRecord, super::super::RepositoryError> {
+            let mut user = self.user.lock().expect("lock should succeed");
+            let row = user
+                .as_mut()
+                .filter(|r| r.id == id && r.access_token == current_token)
+                .ok_or(super::super::RepositoryError::NotFound)?;
+            row.access_token = new_token.to_string();
+            Ok(row.clone())
         }
 
         fn insert(&self, _new_user: NewUser) -> Result<UserRecord, super::super::RepositoryError> {

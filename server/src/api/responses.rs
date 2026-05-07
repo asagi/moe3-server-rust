@@ -12,6 +12,7 @@ mod game_response;
 
 pub(crate) use auth_response::AuthLoginResponse;
 pub(crate) use auth_response::AuthLoginResponseUser;
+pub(crate) use auth_response::AuthResetTokenResponse;
 pub(crate) use error::ApiErrorResponse;
 pub(crate) use game_response::CreateGameResponse;
 pub(crate) use game_response::JoinGameResponse;

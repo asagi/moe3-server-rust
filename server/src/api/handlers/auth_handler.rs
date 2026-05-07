@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use axum::extract::Json;
 use axum::extract::State;
+use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 
@@ -15,12 +16,15 @@ use super::AuthHandlerError;
 use super::AuthLoginRequest;
 use super::AuthLoginResponse;
 use super::AuthLoginResponseUser;
+use super::AuthResetTokenRequest;
+use super::AuthResetTokenResponse;
 use super::AuthService;
 use super::DiscordClientError;
 use super::DiscordIdentityProvider;
 use super::GameRepository;
 use super::LoginCommand;
 use super::RepositoryError;
+use super::ResetTokenHandlerError;
 use super::UserRepository;
 
 // ============================================================================
@@ -83,6 +87,67 @@ where
     Ok(AuthLoginResponse {
         access_token: result.access_token,
         user: AuthLoginResponseUser::from(result.user),
+    })
+}
+
+///
+/// トークンリセットリクエスト Axum ハンドラ
+///
+pub(crate) async fn post_auth_reset_token<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    headers: HeaderMap,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    let authorization = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
+    let request = AuthResetTokenRequest { authorization };
+    let auth_service = Arc::clone(&state.auth_service);
+
+    match tokio::task::spawn_blocking(move || handle_auth_reset_token(&auth_service, request)).await {
+        Ok(Ok(response)) => (StatusCode::OK, Json(response)).into_response(),
+        Ok(Err(error)) => {
+            let status = match &error {
+                ResetTokenHandlerError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+                ResetTokenHandlerError::Service(AuthError::Unauthorized) => StatusCode::UNAUTHORIZED,
+                ResetTokenHandlerError::Service(AuthError::Repository(RepositoryError::Conflict)) => StatusCode::CONFLICT,
+                ResetTokenHandlerError::Service(AuthError::Repository(RepositoryError::Unavailable(_))) => {
+                    StatusCode::SERVICE_UNAVAILABLE
+                }
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            };
+            (status, Json(error.to_api_error_response())).into_response()
+        }
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+///
+/// トークンリセットリクエストハンドラ
+///
+pub(crate) fn handle_auth_reset_token<U, D>(
+    service: &AuthService<U, D>,
+    request: AuthResetTokenRequest,
+) -> Result<AuthResetTokenResponse, ResetTokenHandlerError>
+where
+    U: UserRepository,
+    D: DiscordIdentityProvider,
+{
+    request.validate().map_err(ResetTokenHandlerError::InvalidRequest)?;
+
+    let result = service
+        .reset_token(request.access_token())
+        .map_err(ResetTokenHandlerError::Service)?;
+
+    Ok(AuthResetTokenResponse {
+        access_token: result.access_token,
     })
 }
 
@@ -169,6 +234,17 @@ mod tests {
 
             row.last_access_at = last_access_at;
             Ok(true)
+        }
+
+        fn update_access_token(&self, id: UserId, current_token: &str, new_token: &str) -> Result<UserRecord, RepositoryError> {
+            let mut state = self.state.borrow_mut();
+            let row = state
+                .rows
+                .values_mut()
+                .find(|r| r.id == id && r.access_token == current_token)
+                .ok_or(RepositoryError::NotFound)?;
+            row.access_token = new_token.to_string();
+            Ok(row.clone())
         }
 
         fn insert(&self, new_user: NewUser) -> Result<UserRecord, RepositoryError> {
@@ -292,5 +368,91 @@ mod tests {
 
         assert_eq!(response.code, "invalid_request");
         assert_eq!(response.message, "discord_access_token is required");
+    }
+
+    #[test]
+    fn handle_auth_reset_token_returns_new_token() {
+        let repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: uuid::Uuid::now_v7(),
+            discord_user_id: "1001".to_string(),
+            username: "nemu".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "old-token".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+        let discord = FakeDiscordIdentityProvider {
+            profile: DiscordProfile {
+                discord_user_id: "1001".to_string(),
+                username: "nemu".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+            },
+        };
+        let service = AuthService::new(repository, discord);
+
+        let response = handle_auth_reset_token(
+            &service,
+            AuthResetTokenRequest {
+                authorization: "Bearer old-token".to_string(),
+            },
+        )
+        .expect("handler should succeed");
+
+        assert_ne!(response.access_token, "old-token");
+        assert!(!response.access_token.is_empty());
+    }
+
+    #[test]
+    fn handle_auth_reset_token_rejects_missing_authorization() {
+        let repository = InMemoryUserRepository::new(Vec::new());
+        let discord = FakeDiscordIdentityProvider {
+            profile: DiscordProfile {
+                discord_user_id: "1001".to_string(),
+                username: "nemu".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+            },
+        };
+        let service = AuthService::new(repository, discord);
+
+        let error = handle_auth_reset_token(
+            &service,
+            AuthResetTokenRequest {
+                authorization: "".to_string(),
+            },
+        )
+        .expect_err("handler should fail");
+
+        assert_eq!(error.code(), "invalid_request");
+    }
+
+    #[test]
+    fn handle_auth_reset_token_returns_unauthorized_for_unknown_token() {
+        let repository = InMemoryUserRepository::new(Vec::new());
+        let discord = FakeDiscordIdentityProvider {
+            profile: DiscordProfile {
+                discord_user_id: "1001".to_string(),
+                username: "nemu".to_string(),
+                global_name: None,
+                avatar_hash: None,
+                avatar_url: None,
+            },
+        };
+        let service = AuthService::new(repository, discord);
+
+        let error = handle_auth_reset_token(
+            &service,
+            AuthResetTokenRequest {
+                authorization: "Bearer unknown-token".to_string(),
+            },
+        )
+        .expect_err("handler should fail");
+
+        assert_eq!(error.code(), "unauthorized");
     }
 }
