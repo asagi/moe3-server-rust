@@ -65,7 +65,6 @@ pub(crate) struct GetMeResult {
     pub username: String,
     pub global_name: Option<String>,
     pub avatar_url: Option<String>,
-    pub access_token: String,
 }
 
 ///
@@ -176,7 +175,6 @@ where
             username: user.username,
             global_name: user.global_name,
             avatar_url: user.avatar_url,
-            access_token: user.access_token,
         })
     }
 

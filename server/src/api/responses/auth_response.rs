@@ -64,5 +64,4 @@ pub(crate) struct GetMeResponse {
     pub username: String,
     pub global_name: Option<String>,
     pub avatar_url: Option<String>,
-    pub access_token: String,
 }

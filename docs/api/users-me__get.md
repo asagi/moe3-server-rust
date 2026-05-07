@@ -27,8 +27,7 @@ HTTP:
   "discord_user_id": "123456789012345678",
   "username": "alice",
   "global_name": "Alice",
-  "avatar_url": "https://cdn.discordapp.com/avatars/123456789012345678/a_0123456789abcdef.png",
-  "access_token": "2f5fa1cf-f106-49a4-b892-1f6af8ca7f59"
+  "avatar_url": "https://cdn.discordapp.com/avatars/123456789012345678/a_0123456789abcdef.png"
 }
 ```
 
@@ -69,7 +68,6 @@ curl -X GET '{base_path}/users/me' \
 
 互換性 / 注意点:
 
-- レスポンスに含まれる `access_token` は現在有効なトークンそのものを返す（新規発行ではない）。
 - `global_name` は Discord 側で未設定の場合 `null` になる。
 - `avatar_url` は Discord 側でアバター未設定の場合 `null` になる。
 

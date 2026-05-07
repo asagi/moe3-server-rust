@@ -10,6 +10,7 @@ use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 
+use super::ApiErrorResponse;
 use super::AppState;
 use super::AuthError;
 use super::AuthHandlerError;
@@ -184,7 +185,17 @@ where
             };
             (status, Json(error.to_api_error_response())).into_response()
         }
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Err(join_err) => {
+            eprintln!("get_users_me task failed: {}", join_err);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiErrorResponse {
+                    code: "internal_error",
+                    message: format!("internal server error: {}", join_err),
+                }),
+            )
+                .into_response()
+        }
     }
 }
 
@@ -208,7 +219,6 @@ where
         username: result.username,
         global_name: result.global_name,
         avatar_url: result.avatar_url,
-        access_token: result.access_token,
     })
 }
 
@@ -528,7 +538,6 @@ mod tests {
         assert_eq!(response.username, "nemu");
         assert_eq!(response.global_name.as_deref(), Some("asagi"));
         assert_eq!(response.avatar_url.as_deref(), Some("https://cdn.discordapp.com/avatar.png"));
-        assert_eq!(response.access_token, "my-token");
     }
 
     #[test]
