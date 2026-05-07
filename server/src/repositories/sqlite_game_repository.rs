@@ -133,6 +133,10 @@ impl SqliteGameRepository {
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
+
+            CREATE INDEX IF NOT EXISTS idx_game_players_game_uuid ON game_players(game_uuid);
+            CREATE INDEX IF NOT EXISTS idx_game_players_user_uuid ON game_players(user_uuid);
+            CREATE INDEX IF NOT EXISTS idx_game_phases_game_uuid_phase_index ON game_phases(game_uuid, phase_index);
         "#;
 
         self.connection
@@ -1268,7 +1272,7 @@ impl GameRepository for SqliteGameRepository {
             count as u64
         };
 
-        let offset = (page as i64 - 1) * per_page as i64;
+        let offset = (page as i64).saturating_sub(1) * per_page as i64;
         let sql = format!(
             r#"
             SELECT
@@ -1310,7 +1314,9 @@ impl GameRepository for SqliteGameRepository {
                     r#"
                     SELECT COUNT(*)
                     FROM games g
-                    INNER JOIN game_players gp ON gp.game_uuid = g.uuid AND gp.user_uuid = ?1
+                    WHERE EXISTS (
+                        SELECT 1 FROM game_players WHERE game_uuid = g.uuid AND user_uuid = ?1
+                    )
                     "#,
                     params![user_uuid_str],
                     |row| row.get(0),
@@ -1319,7 +1325,7 @@ impl GameRepository for SqliteGameRepository {
             count as u64
         };
 
-        let offset = (page as i64 - 1) * per_page as i64;
+        let offset = (page as i64).saturating_sub(1) * per_page as i64;
         let summaries = Self::load_game_summaries(
             &connection,
             r#"
@@ -1331,7 +1337,9 @@ impl GameRepository for SqliteGameRepository {
                 (SELECT phase_kind FROM game_phases WHERE game_uuid = g.uuid ORDER BY phase_index DESC LIMIT 1) AS last_phase_kind,
                 (SELECT phase_year FROM game_phases WHERE game_uuid = g.uuid ORDER BY phase_index DESC LIMIT 1) AS last_phase_year
             FROM games g
-            INNER JOIN game_players gp ON gp.game_uuid = g.uuid AND gp.user_uuid = ?1
+            WHERE EXISTS (
+                SELECT 1 FROM game_players WHERE game_uuid = g.uuid AND user_uuid = ?1
+            )
             ORDER BY g.created_at DESC, g.uuid ASC
             LIMIT ?2 OFFSET ?3
             "#,
@@ -1866,6 +1874,138 @@ mod transaction_tests {
 
         let active_games = repository.find_all_active().expect("find_all_active should succeed");
         assert!(active_games.is_empty(), "aborted game should not appear in find_all_active");
+    }
+
+    fn sample_game(uuid: uuid::Uuid, owner_uuid: uuid::Uuid, status: GameStatus) -> Game {
+        let regulation = Regulation::new(
+            FaceType::Girls,
+            ProgressMode::Scheduled,
+            DurationType::Short,
+            chrono::NaiveDate::from_ymd_opt(2026, 4, 19).expect("valid date"),
+            12,
+        )
+        .expect("valid regulation");
+        Game {
+            uuid,
+            game_number: None,
+            keyword: None,
+            regulation,
+            players: vec![Player {
+                user_uuid: owner_uuid,
+                power: None,
+                is_accepting_draw: false,
+                progress_consented: false,
+                is_owner: true,
+                requested_power: None,
+            }],
+            phases: vec![Phase::new_ready()],
+            status,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        }
+    }
+
+    #[test]
+    fn find_paginated_by_status_returns_active_games() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+        let owner = uuid::Uuid::now_v7();
+        let active = sample_game(uuid::Uuid::now_v7(), owner, GameStatus::Preparing);
+        let closed = sample_game(uuid::Uuid::now_v7(), owner, GameStatus::Closed);
+        repository.insert(NewGame { game: active.clone() }).expect("insert active");
+        repository.insert(NewGame { game: closed }).expect("insert closed");
+
+        let (summaries, total) = repository
+            .find_paginated_by_status(GameStatusFilter::Active, 1, 20)
+            .expect("should succeed");
+
+        assert_eq!(total, 1);
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].uuid, active.uuid);
+        assert!(matches!(summaries[0].status, GameStatus::Preparing));
+        assert_eq!(summaries[0].player_count, 1);
+    }
+
+    #[test]
+    fn find_paginated_by_status_returns_closed_games() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+        let owner = uuid::Uuid::now_v7();
+        let active = sample_game(uuid::Uuid::now_v7(), owner, GameStatus::InProgress);
+        let closed = sample_game(uuid::Uuid::now_v7(), owner, GameStatus::Closed);
+        repository.insert(NewGame { game: active }).expect("insert active");
+        repository.insert(NewGame { game: closed.clone() }).expect("insert closed");
+
+        let (summaries, total) = repository
+            .find_paginated_by_status(GameStatusFilter::Closed, 1, 20)
+            .expect("should succeed");
+
+        assert_eq!(total, 1);
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].uuid, closed.uuid);
+    }
+
+    #[test]
+    fn find_paginated_by_status_paginates_correctly() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+        let owner = uuid::Uuid::now_v7();
+        for _ in 0..5 {
+            let g = sample_game(uuid::Uuid::now_v7(), owner, GameStatus::Preparing);
+            repository.insert(NewGame { game: g }).expect("insert");
+        }
+
+        let (page1, total) = repository
+            .find_paginated_by_status(GameStatusFilter::Active, 1, 3)
+            .expect("page 1");
+        assert_eq!(total, 5);
+        assert_eq!(page1.len(), 3);
+
+        let (page2, _) = repository
+            .find_paginated_by_status(GameStatusFilter::Active, 2, 3)
+            .expect("page 2");
+        assert_eq!(page2.len(), 2);
+
+        let uuids1: std::collections::HashSet<_> = page1.iter().map(|s| s.uuid).collect();
+        let uuids2: std::collections::HashSet<_> = page2.iter().map(|s| s.uuid).collect();
+        assert!(uuids1.is_disjoint(&uuids2), "pages must not overlap");
+    }
+
+    #[test]
+    fn find_paginated_by_user_uuid_returns_games_for_user() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+        let user_a = uuid::Uuid::now_v7();
+        let user_b = uuid::Uuid::now_v7();
+        let game_a = sample_game(uuid::Uuid::now_v7(), user_a, GameStatus::InProgress);
+        let game_b = sample_game(uuid::Uuid::now_v7(), user_b, GameStatus::InProgress);
+        repository.insert(NewGame { game: game_a.clone() }).expect("insert a");
+        repository.insert(NewGame { game: game_b }).expect("insert b");
+
+        let (summaries, total) = repository.find_paginated_by_user_uuid(user_a, 1, 20).expect("should succeed");
+
+        assert_eq!(total, 1);
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].uuid, game_a.uuid);
+    }
+
+    #[test]
+    fn find_paginated_by_user_uuid_is_stable_regardless_of_duplicate_player_rows() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+        let owner = uuid::Uuid::now_v7();
+        let game = sample_game(uuid::Uuid::now_v7(), owner, GameStatus::Preparing);
+        repository.insert(NewGame { game: game.clone() }).expect("insert");
+
+        // game_players に同一行を直接挿入して重複を再現
+        {
+            let conn = repository.connection.lock().expect("lock");
+            conn.execute(
+                "INSERT INTO game_players (game_uuid, user_uuid, power, is_accepting_draw, progress_consented, is_owner, requested_power) VALUES (?1, ?2, NULL, 0, 0, 0, NULL)",
+                rusqlite::params![game.uuid.to_string(), owner.to_string()],
+            ).expect("insert duplicate");
+        }
+
+        let (summaries, total) = repository.find_paginated_by_user_uuid(owner, 1, 20).expect("should succeed");
+
+        assert_eq!(total, 1, "duplicate rows must not inflate total");
+        assert_eq!(summaries.len(), 1, "duplicate rows must not produce duplicate results");
     }
 
     #[test]
