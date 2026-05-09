@@ -1663,7 +1663,7 @@ mod tests {
             game_number: game.game_number,
             status: game.status,
             next_update_at: game.next_update_at,
-            regulation: game.regulation.clone(),
+            regulation: game.regulation,
             player_count: game.players.len() as u64,
             season_label: game.current_season_label(),
         }

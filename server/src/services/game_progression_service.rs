@@ -520,6 +520,7 @@ mod tests {
     use crate::domain::Power;
     use crate::domain::ProgressMode;
     use crate::domain::Regulation;
+    use crate::domain::Territory;
     use crate::repositories::NewGame;
     use crate::repositories::NewUser;
     use crate::repositories::RepositoryError;
@@ -962,6 +963,53 @@ mod tests {
         assert!(updated.is_draw);
         assert!(!updated.is_solo);
         assert_eq!(updated.status, GameStatus::Draw);
+        assert!(updated.next_update_at.is_some());
+        assert!(matches!(
+            updated.phases.last().expect("phase should exist").kind,
+            crate::domain::PhaseKind::Debrief(_)
+        ));
+    }
+
+    #[test]
+    fn progress_games_finishes_with_solo_when_power_reaches_18_supply_centers() {
+        let past = chrono::Utc::now().naive_utc() - chrono::Duration::minutes(1);
+
+        let mut game = sample_game(Some(past));
+        let mut fall_retreat = Phase::new_fall_retreat(1900, 0);
+        fall_retreat.territories = vec![
+            Territory::new(Power::France, "par"),
+            Territory::new(Power::France, "mar"),
+            Territory::new(Power::France, "bre"),
+            Territory::new(Power::France, "bel"),
+            Territory::new(Power::France, "hol"),
+            Territory::new(Power::France, "den"),
+            Territory::new(Power::France, "nwy"),
+            Territory::new(Power::France, "swe"),
+            Territory::new(Power::France, "spa"),
+            Territory::new(Power::France, "por"),
+            Territory::new(Power::France, "tun"),
+            Territory::new(Power::France, "ser"),
+            Territory::new(Power::France, "rum"),
+            Territory::new(Power::France, "bul"),
+            Territory::new(Power::France, "gre"),
+            Territory::new(Power::France, "ber"),
+            Territory::new(Power::France, "mun"),
+            Territory::new(Power::France, "kie"),
+        ];
+        game.phases = vec![fall_retreat];
+        game.status = GameStatus::InProgress;
+
+        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, chrono::Utc::now())]);
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        service.progress_games().expect("progress should succeed");
+
+        assert_eq!(repository.updated_len(), 1);
+        let updated = repository.updated_first().expect("updated game should exist");
+        assert!(updated.is_solo);
+        assert!(!updated.is_draw);
+        assert_eq!(updated.status, GameStatus::Solo);
         assert!(updated.next_update_at.is_some());
         assert!(matches!(
             updated.phases.last().expect("phase should exist").kind,
