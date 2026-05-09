@@ -30,7 +30,8 @@ pub(crate) enum GameStatus {
     Preparing,
     Ready,
     InProgress,
-    Finished,
+    Solo,
+    Draw,
     Aborted,
     Closed,
 }

@@ -1279,7 +1279,8 @@ mod tests {
         fn exists_active_game_for_user(&self, user_uuid: Uuid) -> Result<bool, RepositoryError> {
             let exists = self.active_games.borrow().iter().any(|game| {
                 game.players.iter().any(|player| player.user_uuid == user_uuid)
-                    && game.status != GameStatus::Finished
+                    && game.status != GameStatus::Solo
+                    && game.status != GameStatus::Draw
                     && game.status != GameStatus::Closed
                     && game.status != GameStatus::Aborted
             });
@@ -1565,7 +1566,7 @@ mod tests {
     }
 
     #[test]
-    fn create_game_allows_when_participating_game_is_finished() {
+    fn create_game_allows_when_participating_game_is_solo_or_draw() {
         let user_uuid = Uuid::now_v7();
         let user_repository = InMemoryUserRepository::new(vec![UserRecord {
             id: 1,
@@ -1593,9 +1594,9 @@ mod tests {
                 requested_power: Some(Power::France),
             }],
             phases: vec![Phase::new_ready()],
-            status: GameStatus::Finished,
+            status: GameStatus::Solo,
             is_draw: false,
-            is_solo: false,
+            is_solo: true,
             next_update_at: None,
         };
 

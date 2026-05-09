@@ -176,7 +176,7 @@ where
         game.status = if is_debrief_closed {
             GameStatus::Closed
         } else if is_finished {
-            GameStatus::Finished
+            if game.is_solo { GameStatus::Solo } else { GameStatus::Draw }
         } else {
             GameStatus::InProgress
         };
@@ -961,7 +961,7 @@ mod tests {
         let updated = repository.updated_first().expect("updated game should exist");
         assert!(updated.is_draw);
         assert!(!updated.is_solo);
-        assert_eq!(updated.status, GameStatus::Finished);
+        assert_eq!(updated.status, GameStatus::Draw);
         assert!(updated.next_update_at.is_some());
         assert!(matches!(
             updated.phases.last().expect("phase should exist").kind,

@@ -1346,7 +1346,8 @@ where
                 GameStatus::Preparing => "preparing",
                 GameStatus::Ready => "ready",
                 GameStatus::InProgress => "in_progress",
-                GameStatus::Finished => "finished",
+                GameStatus::Solo => "solo",
+                GameStatus::Draw => "draw",
                 GameStatus::Aborted => "aborted",
                 GameStatus::Closed => "closed",
             };
@@ -3505,7 +3506,7 @@ mod tests {
             access_token: "token-alice".to_string(),
             last_access_at: Utc::now(),
         }]);
-        let game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::Finished);
+        let game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::Solo);
         let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
         let service = GameService::new(user_repository, game_repository);
 
@@ -3522,7 +3523,7 @@ mod tests {
         .expect("should succeed");
 
         assert_eq!(response.games.len(), 1);
-        assert_eq!(response.games[0].status, "finished");
+        assert_eq!(response.games[0].status, "solo");
     }
 
     #[test]
