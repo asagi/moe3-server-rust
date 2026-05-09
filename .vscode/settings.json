@@ -3,5 +3,17 @@
     "scss.validate": false,
     "[scss]": {
         "editor.formatOnSave": false
+    },
+    "[markdown]": {
+        "editor.tabSize": 2,
+        "editor.unicodeHighlight.ambiguousCharacters": false,
+        "editor.unicodeHighlight.invisibleCharacters": false,
+        "diffEditor.ignoreTrimWhitespace": false,
+        "editor.wordWrap": "on",
+        "editor.quickSuggestions": {
+            "comments": "off",
+            "strings": "off",
+            "other": "off",
+        }
     }
 }
