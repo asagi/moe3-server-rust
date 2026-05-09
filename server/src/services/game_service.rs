@@ -1279,7 +1279,8 @@ mod tests {
         fn exists_active_game_for_user(&self, user_uuid: Uuid) -> Result<bool, RepositoryError> {
             let exists = self.active_games.borrow().iter().any(|game| {
                 game.players.iter().any(|player| player.user_uuid == user_uuid)
-                    && game.status != GameStatus::Finished
+                    && game.status != GameStatus::Solo
+                    && game.status != GameStatus::Draw
                     && game.status != GameStatus::Closed
                     && game.status != GameStatus::Aborted
             });
@@ -1374,7 +1375,7 @@ mod tests {
             game_number: game.game_number,
             status: game.status,
             next_update_at: game.next_update_at,
-            regulation: game.regulation.clone(),
+            regulation: game.regulation,
             player_count: game.players.len() as u64,
             season_label: game.current_season_label(),
         }
@@ -1565,7 +1566,7 @@ mod tests {
     }
 
     #[test]
-    fn create_game_allows_when_participating_game_is_finished() {
+    fn create_game_allows_when_participating_game_is_solo_or_draw() {
         let user_uuid = Uuid::now_v7();
         let user_repository = InMemoryUserRepository::new(vec![UserRecord {
             id: 1,
@@ -1579,7 +1580,7 @@ mod tests {
             last_access_at: Utc::now(),
         }]);
 
-        let finished_game = Game {
+        let solo_game = Game {
             uuid: Uuid::now_v7(),
             game_number: Some(1),
             keyword: None,
@@ -1593,13 +1594,62 @@ mod tests {
                 requested_power: Some(Power::France),
             }],
             phases: vec![Phase::new_ready()],
-            status: GameStatus::Finished,
+            status: GameStatus::Solo,
             is_draw: false,
+            is_solo: true,
+            next_update_at: None,
+        };
+
+        let game_repository = InMemoryGameRepository::new(vec![solo_game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let result = service.create_game(CreateGameCommand {
+            access_token: "token-1".to_string(),
+            regulation: sample_regulation(),
+            requested_power: None,
+            keyword: None,
+        });
+
+        assert!(result.is_ok());
+        assert_eq!(game_repository.created_len(), 1);
+    }
+
+    #[test]
+    fn create_game_allows_when_participating_game_is_draw() {
+        let user_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: user_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "asagi".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-1".to_string(),
+            last_access_at: Utc::now(),
+        }]);
+
+        let draw_game = Game {
+            uuid: Uuid::now_v7(),
+            game_number: Some(1),
+            keyword: None,
+            regulation: sample_regulation(),
+            players: vec![Player {
+                user_uuid,
+                power: Some(Power::France),
+                is_accepting_draw: true,
+                progress_consented: false,
+                is_owner: false,
+                requested_power: Some(Power::France),
+            }],
+            phases: vec![Phase::new_ready()],
+            status: GameStatus::Draw,
+            is_draw: true,
             is_solo: false,
             next_update_at: None,
         };
 
-        let game_repository = InMemoryGameRepository::new(vec![finished_game]);
+        let game_repository = InMemoryGameRepository::new(vec![draw_game]);
         let service = GameService::new(user_repository, game_repository.clone());
 
         let result = service.create_game(CreateGameCommand {

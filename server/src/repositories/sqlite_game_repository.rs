@@ -154,7 +154,8 @@ impl SqliteGameRepository {
             GameStatus::Preparing => "preparing",
             GameStatus::Ready => "ready",
             GameStatus::InProgress => "in_progress",
-            GameStatus::Finished => "finished",
+            GameStatus::Solo => "solo",
+            GameStatus::Draw => "draw",
             GameStatus::Aborted => "aborted",
             GameStatus::Closed => "closed",
         }
@@ -166,7 +167,8 @@ impl SqliteGameRepository {
             "preparing" => Ok(GameStatus::Preparing),
             "ready" => Ok(GameStatus::Ready),
             "in_progress" => Ok(GameStatus::InProgress),
-            "finished" => Ok(GameStatus::Finished),
+            "solo" => Ok(GameStatus::Solo),
+            "draw" => Ok(GameStatus::Draw),
             "aborted" => Ok(GameStatus::Aborted),
             "closed" => Ok(GameStatus::Closed),
             _ => Err(RepositoryError::Unavailable(format!("unknown game status: {}", text))),
@@ -1046,7 +1048,7 @@ impl GameRepository for SqliteGameRepository {
                 FROM games
                 INNER JOIN game_players ON game_players.game_uuid = games.uuid
                 WHERE game_players.user_uuid = ?1
-                  AND games.status NOT IN ('finished', 'closed', 'aborted')
+                  AND games.status NOT IN ('solo', 'draw', 'closed', 'aborted')
                 "#,
                 params![user_uuid.to_string()],
                 |row| row.get(0),
