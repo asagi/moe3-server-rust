@@ -14,7 +14,7 @@
 | -------- | ---------------------------------------------------------- | ---------------- |
 | `GET`    | [`/games` 🔗](./games__get.md)                             | 卓一覧取得       |
 | `POST`   | [`/games` 🔗](./games__post.md)                            | 新規卓作成       |
-| `GET`    | `/games/:game_uuid`                                        | 卓情報取得       |
+| `GET`    | [`/games/:game_uuid` 🔗](./games-game-uuid__get.md)        | 卓情報取得       |
 | `GET`    | `/games/:game_uuid/logs/:turn`                             | 外交履歴取得     |
 | `GET`    | `/games/:game_uuid/result/:turn`                           | 命令解決履歴取得 |
 | `POST`   | [`/games/:game_uuid/players` 🔗](./games-players__post.md) | ゲームへの参加   |
