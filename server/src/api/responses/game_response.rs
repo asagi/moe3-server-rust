@@ -10,6 +10,28 @@ use uuid::Uuid;
 // ============================================================================
 
 ///
+/// 卓情報取得レスポンスの構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(crate) struct GetGameResponse {
+    pub game: GetGameResponseGame,
+}
+
+///
+/// 卓情報取得レスポンスのゲーム詳細構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(crate) struct GetGameResponseGame {
+    pub game_uuid: Uuid,
+    pub game_number: Option<i32>,
+    pub status: String,
+    pub seasons: Vec<String>,
+    pub phase_kind: String,
+    pub next_update_at: Option<String>,
+    pub is_private: bool,
+}
+
+///
 /// 卓作成レスポンスの構造体
 ///
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]

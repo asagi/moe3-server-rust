@@ -21,6 +21,7 @@ pub(crate) use error::AuthError;
 pub(crate) use error::CreateGameError;
 pub(crate) use error::DiscordClientError;
 pub(crate) use error::GameProgressionError;
+pub(crate) use error::GetGameError;
 pub(crate) use error::JoinGameError;
 pub(crate) use error::ListGamesError;
 pub(crate) use error::SetDrawProposalError;

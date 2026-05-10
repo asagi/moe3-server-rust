@@ -31,9 +31,9 @@
 
 ## その他
 
-- `status` が `"preparing"` または `"ready"` の場合、`"season"` は `"ready"` とする。
-- `status` が `"solo"` または `"draw"` の場合、`"season"` は `"debrief"` とする。
+- `status` が `"preparing"` または `"ready"` の場合、シーズンは `"ready"` とする。
+- `status` が `"solo"` または `"draw"` の場合、シーズンは `"debrief"` とする。
 - 例： `["ready", "1901s", "1901f", ..., "1907f", "debrief"]`
-- `status` が `"closed"` または `"aborted"` の場合、`season` は追加不要。
+- `status` が `"closed"` または `"aborted"` の場合、シーズンは追加不要。
   - closed と aborted は卓が閉じた状態を示すだけでシーズンとして固有の情報を持たないため。
 - 既存処理を修正する際には DB の後方互換は考慮しなくて良い。

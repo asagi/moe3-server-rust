@@ -9,6 +9,7 @@ use super::AuthResetTokenRequestValidationError;
 use super::CreateGameError;
 use super::CreateGameRequestValidationError;
 use super::DiscordClientError;
+use super::GetGameError;
 use super::GetGamesRequestValidationError;
 use super::JoinGameError;
 use super::JoinGameRequestValidationError;
@@ -536,6 +537,37 @@ impl SetProgressConsensusHandlerError {
                 "game_uuid is invalid".to_string()
             }
             Self::Service(SetProgressConsensusError::Forbidden(message)) => message.clone(),
+            Self::Service(error) => error.to_string(),
+        }
+    }
+}
+
+///
+/// 卓情報取得リクエストハンドラのエラーの列挙体
+///
+#[derive(Debug)]
+pub(crate) enum GetGameHandlerError {
+    Service(GetGameError),
+}
+
+/// 卓情報取得リクエストハンドラのエラーの列挙体の実装
+impl GetGameHandlerError {
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Self::Service(GetGameError::NotFound) => "not_found",
+            Self::Service(GetGameError::Repository(_)) => "repository_error",
+        }
+    }
+
+    pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
+        ApiErrorResponse {
+            code: self.code(),
+            message: self.message(),
+        }
+    }
+
+    fn message(&self) -> String {
+        match self {
             Self::Service(error) => error.to_string(),
         }
     }
