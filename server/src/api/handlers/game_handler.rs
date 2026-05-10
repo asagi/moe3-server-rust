@@ -1407,10 +1407,10 @@ where
         Ok(uuid) => uuid,
         Err(_) => {
             return (
-                StatusCode::NOT_FOUND,
+                StatusCode::BAD_REQUEST,
                 axum::Json(ApiErrorResponse {
-                    code: "not_found",
-                    message: "game not found".to_string(),
+                    code: "invalid_request",
+                    message: "game_uuid is invalid".to_string(),
                 }),
             )
                 .into_response();
@@ -1498,14 +1498,11 @@ fn build_seasons(game: &crate::Game) -> Vec<String> {
             crate::PhaseKind::FallMain(_) | crate::PhaseKind::FallRetreat(_) | crate::PhaseKind::Adjustment(_) => {
                 format!("{}f", phase.year)
             }
-            crate::PhaseKind::Debrief(_) => continue,
+            crate::PhaseKind::Debrief(_) => "debrief".to_string(),
         };
         if seasons.last() != Some(&turn) {
             seasons.push(turn);
         }
-    }
-    if matches!(game.status, GameStatus::Solo | GameStatus::Draw) {
-        seasons.push("debrief".to_string());
     }
     seasons
 }
