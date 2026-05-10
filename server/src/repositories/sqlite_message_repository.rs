@@ -5,7 +5,6 @@
 use chrono::Utc;
 use rusqlite::Connection;
 use rusqlite::params;
-use serde_json::json;
 use uuid::Uuid;
 
 use super::Message;
@@ -60,7 +59,7 @@ impl SqliteMessageRepository {
             kind: MessageKind::System(SystemNotice {}),
         };
 
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -80,7 +79,7 @@ impl SqliteMessageRepository {
             kind: MessageKind::System(SystemNotice {}),
         };
 
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -100,7 +99,7 @@ impl SqliteMessageRepository {
             kind: MessageKind::System(SystemNotice {}),
         };
 
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -120,7 +119,7 @@ impl SqliteMessageRepository {
             kind: MessageKind::System(SystemNotice {}),
         };
 
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -142,7 +141,7 @@ impl SqliteMessageRepository {
             kind: MessageKind::System(SystemNotice {}),
         };
 
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -162,7 +161,7 @@ impl SqliteMessageRepository {
             kind: MessageKind::System(SystemNotice {}),
         };
 
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -182,7 +181,7 @@ impl SqliteMessageRepository {
             kind: MessageKind::System(SystemNotice {}),
         };
 
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -202,7 +201,7 @@ impl SqliteMessageRepository {
             kind: MessageKind::System(SystemNotice {}),
         };
 
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -222,7 +221,7 @@ impl SqliteMessageRepository {
             kind: MessageKind::System(SystemNotice {}),
         };
 
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -242,7 +241,7 @@ impl SqliteMessageRepository {
             kind: MessageKind::System(SystemNotice {}),
         };
 
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -262,7 +261,7 @@ impl SqliteMessageRepository {
             kind: MessageKind::System(SystemNotice {}),
         };
 
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -284,7 +283,7 @@ impl SqliteMessageRepository {
             context: catalog.to_string(),
             kind: MessageKind::System(SystemNotice {}),
         };
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -306,7 +305,7 @@ impl SqliteMessageRepository {
             context: catalog.to_string(),
             kind: MessageKind::System(SystemNotice {}),
         };
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -323,7 +322,7 @@ impl SqliteMessageRepository {
             context: catalog.to_string(),
             kind: MessageKind::System(SystemNotice {}),
         };
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -340,7 +339,7 @@ impl SqliteMessageRepository {
             context: catalog.to_string(),
             kind: MessageKind::System(SystemNotice {}),
         };
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -363,7 +362,7 @@ impl SqliteMessageRepository {
             context: catalog.to_string(),
             kind: MessageKind::System(SystemNotice {}),
         };
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -380,7 +379,7 @@ impl SqliteMessageRepository {
             context: catalog.to_string(),
             kind: MessageKind::System(SystemNotice {}),
         };
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -403,7 +402,7 @@ impl SqliteMessageRepository {
             context: catalog.to_string(),
             kind: MessageKind::System(SystemNotice {}),
         };
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -431,7 +430,7 @@ impl SqliteMessageRepository {
             context: catalog.to_string(),
             kind: MessageKind::System(SystemNotice {}),
         };
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -454,7 +453,7 @@ impl SqliteMessageRepository {
             context: catalog.to_string(),
             kind: MessageKind::System(SystemNotice {}),
         };
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -474,8 +473,6 @@ impl SqliteMessageRepository {
                 turn TEXT NOT NULL,
                 context TEXT NOT NULL,
                 kind TEXT NOT NULL,
-                system_notice_catalog TEXT,
-                kind_payload TEXT,
                 created_at TEXT NOT NULL,
                 is_deleted INTEGER NOT NULL DEFAULT 0,
                 deleted_at TEXT
@@ -496,20 +493,12 @@ impl SqliteMessageRepository {
     }
 
     /// システムメッセージを挿入する
-    fn insert_system_message(
-        &self,
-        connection: &Connection,
-        game_uuid: Uuid,
-        message: &Message,
-        catalog: &SystemNoticeCatalog,
-    ) -> Result<(), RepositoryError> {
+    fn insert_system_message(&self, connection: &Connection, game_uuid: Uuid, message: &Message) -> Result<(), RepositoryError> {
         let now = Utc::now().to_rfc3339();
         let message_uuid = Uuid::now_v7();
 
         let sender_power = message.sender.map(Self::power_to_symbol);
         let kind = Self::kind_to_text(&message.kind);
-        let system_notice_catalog = Self::catalog_to_text(catalog);
-        let kind_payload = Self::catalog_payload(catalog).to_string();
 
         connection
             .execute(
@@ -521,11 +510,9 @@ impl SqliteMessageRepository {
                     turn,
                     context,
                     kind,
-                    system_notice_catalog,
-                    kind_payload,
                     created_at,
                     is_deleted
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0)
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0)
                 "#,
                 params![
                     message_uuid.to_string(),
@@ -534,8 +521,6 @@ impl SqliteMessageRepository {
                     message.turn,
                     message.context,
                     kind,
-                    system_notice_catalog,
-                    kind_payload,
                     now,
                 ],
             )
@@ -558,100 +543,6 @@ impl SqliteMessageRepository {
         }
     }
 
-    fn catalog_to_text(catalog: &SystemNoticeCatalog) -> &'static str {
-        match catalog {
-            SystemNoticeCatalog::GameCreated { .. } => "game_created",
-            SystemNoticeCatalog::PlayerJoined { .. } => "player_joined",
-            SystemNoticeCatalog::Ready => "ready",
-            SystemNoticeCatalog::Aborted => "aborted",
-            SystemNoticeCatalog::StartSeason { .. } => "start_season",
-            SystemNoticeCatalog::DrawProposed => "draw_proposed",
-            SystemNoticeCatalog::OwnerAbsent => "owner_absent",
-            SystemNoticeCatalog::DrawRescinded => "draw_rescinded",
-            SystemNoticeCatalog::Solo { .. } => "solo",
-            SystemNoticeCatalog::Draw => "draw",
-            SystemNoticeCatalog::Closed => "closed",
-            SystemNoticeCatalog::UnitPlaced { .. } => "unit_placed",
-            SystemNoticeCatalog::UnitReplaced { .. } => "unit_replaced",
-            SystemNoticeCatalog::UnitRemoved { .. } => "unit_removed",
-            SystemNoticeCatalog::TerritorySet { .. } => "territory_set",
-            SystemNoticeCatalog::TerritoryReplaced { .. } => "territory_replaced",
-            SystemNoticeCatalog::TerritoryReleased { .. } => "territory_released",
-            SystemNoticeCatalog::ProgressModeChanged => "progress_mode_changed",
-            SystemNoticeCatalog::ProgressConsented { .. } => "progress_consented",
-            SystemNoticeCatalog::ProgressConsensusRescinded { .. } => "progress_consensus_rescinded",
-            SystemNoticeCatalog::ProgressConsensusReached => "progress_consensus_reached",
-            SystemNoticeCatalog::NextUpdateAtChanged { .. } => "next_update_at_changed",
-        }
-    }
-
-    fn catalog_payload(catalog: &SystemNoticeCatalog) -> serde_json::Value {
-        match catalog {
-            SystemNoticeCatalog::GameCreated { user } | SystemNoticeCatalog::PlayerJoined { user } => json!({
-                "user": {
-                    "uuid": user.uuid.to_string(),
-                    "discord_user_id": user.discord_user_id,
-                    "username": user.username,
-                    "global_name": user.global_name,
-                    "avatar_hash": user.avatar_hash,
-                    "avatar_url": user.avatar_url,
-                }
-            }),
-            SystemNoticeCatalog::StartSeason { season } => json!({ "season": season }),
-            SystemNoticeCatalog::Solo { power } => {
-                json!({ "power": power.symbol() })
-            }
-            SystemNoticeCatalog::UnitPlaced { unit } => json!({
-                "power": unit.power.symbol(),
-                "unit_label": unit.label(),
-            }),
-            SystemNoticeCatalog::UnitReplaced { old_unit, new_unit } => json!({
-                "old_power": old_unit.power.symbol(),
-                "old_unit_label": old_unit.label(),
-                "new_power": new_unit.power.symbol(),
-                "new_unit_label": new_unit.label(),
-            }),
-            SystemNoticeCatalog::UnitRemoved { unit } => json!({
-                "power": unit.power.symbol(),
-                "unit_label": unit.label(),
-            }),
-            SystemNoticeCatalog::TerritorySet { province, power } => json!({
-                "province": province.code(),
-                "power": power.symbol(),
-            }),
-            SystemNoticeCatalog::TerritoryReplaced {
-                province,
-                old_power,
-                new_power,
-            } => json!({
-                "province": province.code(),
-                "old_power": old_power.symbol(),
-                "new_power": new_power.symbol(),
-            }),
-            SystemNoticeCatalog::TerritoryReleased { province, old_power } => json!({
-                "province": province.code(),
-                "old_power": old_power.symbol(),
-            }),
-            SystemNoticeCatalog::ProgressConsented { power } | SystemNoticeCatalog::ProgressConsensusRescinded { power } => {
-                json!({
-                    "power": power.symbol(),
-                })
-            }
-            SystemNoticeCatalog::Ready
-            | SystemNoticeCatalog::Aborted
-            | SystemNoticeCatalog::DrawProposed
-            | SystemNoticeCatalog::OwnerAbsent
-            | SystemNoticeCatalog::DrawRescinded
-            | SystemNoticeCatalog::Draw
-            | SystemNoticeCatalog::Closed
-            | SystemNoticeCatalog::ProgressModeChanged
-            | SystemNoticeCatalog::ProgressConsensusReached => json!({}),
-            SystemNoticeCatalog::NextUpdateAtChanged { next_update_at } => {
-                json!({ "next_update_at": next_update_at })
-            }
-        }
-    }
-
     pub(crate) fn append_progress_mode_changed_message(&self, game_uuid: Uuid, turn: &str) -> Result<(), RepositoryError> {
         let connection = self.open_connection()?;
         self.init_schema(&connection)?;
@@ -662,7 +553,7 @@ impl SqliteMessageRepository {
             context: catalog.to_string(),
             kind: MessageKind::System(SystemNotice {}),
         };
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 
@@ -683,7 +574,7 @@ impl SqliteMessageRepository {
             context: catalog.to_string(),
             kind: MessageKind::System(SystemNotice {}),
         };
-        self.insert_system_message(&connection, game_uuid, &message, &catalog)?;
+        self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
     }
 }
@@ -725,18 +616,15 @@ mod tests {
             .expect("append player joined message should succeed");
 
         let connection = Connection::open(&db_path).expect("open message db");
-        let (sender_power, turn, context, kind, catalog): (Option<String>, String, String, String, String) = connection
-            .query_row(
-                "SELECT sender_power, turn, context, kind, system_notice_catalog FROM messages LIMIT 1",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
-            )
+        let (sender_power, turn, context, kind): (Option<String>, String, String, String) = connection
+            .query_row("SELECT sender_power, turn, context, kind FROM messages LIMIT 1", [], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
             .expect("read inserted message");
 
         assert_eq!(sender_power, None);
         assert_eq!(turn, "ready");
         assert_eq!(kind, "system");
-        assert_eq!(catalog, "player_joined");
         assert_eq!(
             context,
             format!("{} ({}) が参加を表明しました。", user.username, user.discord_user_id)
@@ -753,18 +641,15 @@ mod tests {
             .expect("append draw proposed message should succeed");
 
         let connection = Connection::open(&db_path).expect("open message db");
-        let (sender_power, turn, context, kind, catalog): (Option<String>, String, String, String, String) = connection
-            .query_row(
-                "SELECT sender_power, turn, context, kind, system_notice_catalog FROM messages LIMIT 1",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
-            )
+        let (sender_power, turn, context, kind): (Option<String>, String, String, String) = connection
+            .query_row("SELECT sender_power, turn, context, kind FROM messages LIMIT 1", [], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
             .expect("read inserted message");
 
         assert_eq!(sender_power, None);
         assert_eq!(turn, "1901s");
         assert_eq!(kind, "system");
-        assert_eq!(catalog, "draw_proposed");
         assert_eq!(context, "卓主によって講和が宣言されました。");
     }
 
@@ -778,52 +663,42 @@ mod tests {
             .expect("append draw rescinded message should succeed");
 
         let connection = Connection::open(&db_path).expect("open message db");
-        let (sender_power, turn, context, kind, catalog): (Option<String>, String, String, String, String) = connection
-            .query_row(
-                "SELECT sender_power, turn, context, kind, system_notice_catalog FROM messages LIMIT 1",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
-            )
+        let (sender_power, turn, context, kind): (Option<String>, String, String, String) = connection
+            .query_row("SELECT sender_power, turn, context, kind FROM messages LIMIT 1", [], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
             .expect("read inserted message");
 
         assert_eq!(sender_power, None);
         assert_eq!(turn, "1901s");
         assert_eq!(kind, "system");
-        assert_eq!(catalog, "draw_rescinded");
         assert_eq!(context, "卓主によって講和が撤回されました。");
     }
 
     #[test]
-    fn append_territory_set_message_persists_correct_catalog_and_payload() {
+    fn append_territory_set_message_persists_system_message() {
         let (repository, db_path) = new_test_repository();
         let game_uuid = Uuid::now_v7();
         let province = Province::from_code("par").expect("par should be valid");
-        let power = Power::France;
 
         repository
-            .append_territory_set_message(game_uuid, "1901s", province, power)
+            .append_territory_set_message(game_uuid, "1901s", province, Power::France)
             .expect("append territory set message should succeed");
 
         let connection = Connection::open(&db_path).expect("open message db");
-        let (turn, context, kind, catalog, payload): (String, String, String, String, String) = connection
-            .query_row(
-                "SELECT turn, context, kind, system_notice_catalog, kind_payload FROM messages LIMIT 1",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
-            )
+        let (turn, context, kind): (String, String, String) = connection
+            .query_row("SELECT turn, context, kind FROM messages LIMIT 1", [], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
             .expect("read inserted message");
 
         assert_eq!(turn, "1901s");
         assert_eq!(kind, "system");
-        assert_eq!(catalog, "territory_set");
         assert_eq!(context, "パリ の保有国が France に変更されました。");
-        let payload: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
-        assert_eq!(payload["province"], "par");
-        assert_eq!(payload["power"], "f");
     }
 
     #[test]
-    fn append_territory_replaced_message_persists_correct_catalog_and_payload() {
+    fn append_territory_replaced_message_persists_system_message() {
         let (repository, db_path) = new_test_repository();
         let game_uuid = Uuid::now_v7();
         let province = Province::from_code("par").expect("par should be valid");
@@ -833,26 +708,19 @@ mod tests {
             .expect("append territory replaced message should succeed");
 
         let connection = Connection::open(&db_path).expect("open message db");
-        let (turn, context, kind, catalog, payload): (String, String, String, String, String) = connection
-            .query_row(
-                "SELECT turn, context, kind, system_notice_catalog, kind_payload FROM messages LIMIT 1",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
-            )
+        let (turn, context, kind): (String, String, String) = connection
+            .query_row("SELECT turn, context, kind FROM messages LIMIT 1", [], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
             .expect("read inserted message");
 
         assert_eq!(turn, "1901s");
         assert_eq!(kind, "system");
-        assert_eq!(catalog, "territory_replaced");
         assert_eq!(context, "パリ の保有国が France から England に変更されました。");
-        let payload: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
-        assert_eq!(payload["province"], "par");
-        assert_eq!(payload["old_power"], "f");
-        assert_eq!(payload["new_power"], "e");
     }
 
     #[test]
-    fn append_territory_released_message_persists_correct_catalog_and_payload() {
+    fn append_territory_released_message_persists_system_message() {
         let (repository, db_path) = new_test_repository();
         let game_uuid = Uuid::now_v7();
         let province = Province::from_code("par").expect("par should be valid");
@@ -862,21 +730,15 @@ mod tests {
             .expect("append territory released message should succeed");
 
         let connection = Connection::open(&db_path).expect("open message db");
-        let (turn, context, kind, catalog, payload): (String, String, String, String, String) = connection
-            .query_row(
-                "SELECT turn, context, kind, system_notice_catalog, kind_payload FROM messages LIMIT 1",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
-            )
+        let (turn, context, kind): (String, String, String) = connection
+            .query_row("SELECT turn, context, kind FROM messages LIMIT 1", [], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
             .expect("read inserted message");
 
         assert_eq!(turn, "1901s");
         assert_eq!(kind, "system");
-        assert_eq!(catalog, "territory_released");
         assert_eq!(context, "France が保有していた パリ が解放されました。");
-        let payload: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
-        assert_eq!(payload["province"], "par");
-        assert_eq!(payload["old_power"], "f");
     }
 
     #[test]
@@ -889,23 +751,20 @@ mod tests {
             .expect("append progress mode changed message should succeed");
 
         let connection = Connection::open(&db_path).expect("open message db");
-        let (sender_power, turn, context, kind, catalog): (Option<String>, String, String, String, String) = connection
-            .query_row(
-                "SELECT sender_power, turn, context, kind, system_notice_catalog FROM messages LIMIT 1",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
-            )
+        let (sender_power, turn, context, kind): (Option<String>, String, String, String) = connection
+            .query_row("SELECT sender_power, turn, context, kind FROM messages LIMIT 1", [], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
             .expect("read inserted message");
 
         assert_eq!(sender_power, None);
         assert_eq!(turn, "1901s");
         assert_eq!(kind, "system");
-        assert_eq!(catalog, "progress_mode_changed");
         assert_eq!(context, "進行モードが定時進行から合意進行に変更されました。");
     }
 
     #[test]
-    fn append_progress_consented_message_persists_correct_catalog_and_payload() {
+    fn append_progress_consented_message_persists_system_message() {
         let (repository, db_path) = new_test_repository();
         let game_uuid = Uuid::now_v7();
 
@@ -914,24 +773,19 @@ mod tests {
             .expect("append progress consented message should succeed");
 
         let connection = Connection::open(&db_path).expect("open message db");
-        let (turn, context, kind, catalog, payload): (String, String, String, String, String) = connection
-            .query_row(
-                "SELECT turn, context, kind, system_notice_catalog, kind_payload FROM messages LIMIT 1",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
-            )
+        let (turn, context, kind): (String, String, String) = connection
+            .query_row("SELECT turn, context, kind FROM messages LIMIT 1", [], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
             .expect("read inserted message");
 
         assert_eq!(turn, "1901s");
         assert_eq!(kind, "system");
-        assert_eq!(catalog, "progress_consented");
         assert_eq!(context, "France が即時進行に合意しました。");
-        let payload: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
-        assert_eq!(payload["power"], "f");
     }
 
     #[test]
-    fn append_progress_consensus_rescinded_message_persists_correct_catalog_and_payload() {
+    fn append_progress_consensus_rescinded_message_persists_system_message() {
         let (repository, db_path) = new_test_repository();
         let game_uuid = Uuid::now_v7();
 
@@ -940,20 +794,15 @@ mod tests {
             .expect("append progress consensus rescinded message should succeed");
 
         let connection = Connection::open(&db_path).expect("open message db");
-        let (turn, context, kind, catalog, payload): (String, String, String, String, String) = connection
-            .query_row(
-                "SELECT turn, context, kind, system_notice_catalog, kind_payload FROM messages LIMIT 1",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
-            )
+        let (turn, context, kind): (String, String, String) = connection
+            .query_row("SELECT turn, context, kind FROM messages LIMIT 1", [], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
             .expect("read inserted message");
 
         assert_eq!(turn, "1901s");
         assert_eq!(kind, "system");
-        assert_eq!(catalog, "progress_consensus_rescinded");
         assert_eq!(context, "England が即時進行への合意を撤回しました。");
-        let payload: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
-        assert_eq!(payload["power"], "e");
     }
 
     #[test]
@@ -966,22 +815,17 @@ mod tests {
             .expect("append progress consensus reached message should succeed");
 
         let connection = Connection::open(&db_path).expect("open message db");
-        let (turn, context, kind, catalog, payload): (String, String, String, String, String) = connection
-            .query_row(
-                "SELECT turn, context, kind, system_notice_catalog, kind_payload FROM messages LIMIT 1",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
-            )
+        let (turn, context, kind): (String, String, String) = connection
+            .query_row("SELECT turn, context, kind FROM messages LIMIT 1", [], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
             .expect("read inserted message");
 
         assert_eq!(turn, "1901s");
         assert_eq!(kind, "system");
-        assert_eq!(catalog, "progress_consensus_reached");
         assert_eq!(
             context,
             "全ての生存国の合意を確認しました。メインフェイズをただちに終了します。"
         );
-        let payload: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
-        assert_eq!(payload, serde_json::json!({}));
     }
 }
