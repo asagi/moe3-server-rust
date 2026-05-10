@@ -40,6 +40,7 @@ use super::SqliteUserRepository;
 use super::UserRepository;
 use super::handlers::delete_admin_games_territories;
 use super::handlers::delete_admin_games_units;
+use super::handlers::get_game;
 use super::handlers::get_games;
 use super::handlers::get_users_me;
 use super::handlers::post_auth_login;
@@ -283,6 +284,7 @@ where
 {
     Router::new()
         .route("/games", get(get_games::<U, G, D>).post(post_games::<U, G, D>))
+        .route("/games/:game_uuid", get(get_game::<U, G, D>))
         .route("/games/:game_uuid/players", post(post_games_players::<U, G, D>))
         .route(
             "/games/:game_uuid/progress-consensus",

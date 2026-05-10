@@ -1391,6 +1391,136 @@ where
     })
 }
 
+///
+/// 卓情報取得リクエスト Axum ハンドラ関数
+///
+pub(crate) async fn get_game<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    Path(game_uuid_str): Path<String>,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    let game_uuid = match Uuid::parse_str(&game_uuid_str) {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                axum::Json(ApiErrorResponse {
+                    code: "not_found",
+                    message: "game not found".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    let game_service = std::sync::Arc::clone(&state.game_service);
+    let result = tokio::task::spawn_blocking(move || handle_get_game(&game_service, game_uuid)).await;
+
+    match result {
+        Ok(Ok(response)) => (StatusCode::OK, axum::Json(response)).into_response(),
+        Ok(Err(error)) => {
+            let status = match &error {
+                super::GetGameHandlerError::Service(super::GetGameError::NotFound) => StatusCode::NOT_FOUND,
+                super::GetGameHandlerError::Service(super::GetGameError::Repository(_)) => StatusCode::SERVICE_UNAVAILABLE,
+            };
+            (status, axum::Json(error.to_api_error_response())).into_response()
+        }
+        Err(join_err) => {
+            eprintln!("get_game task failed: {}", join_err);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                axum::Json(ApiErrorResponse {
+                    code: "internal_error",
+                    message: "internal server error".to_string(),
+                }),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// 卓情報取得の純粋関数（テスト可能）
+pub(crate) fn handle_get_game<U, G>(
+    service: &GameService<U, G>,
+    game_uuid: Uuid,
+) -> Result<super::GetGameResponse, super::GetGameHandlerError>
+where
+    U: UserRepository,
+    G: GameRepository,
+{
+    let game = service.get_game(game_uuid).map_err(super::GetGameHandlerError::Service)?;
+
+    let status = match game.status {
+        GameStatus::Preparing => "preparing",
+        GameStatus::Ready => "ready",
+        GameStatus::InProgress => "in_progress",
+        GameStatus::Solo => "solo",
+        GameStatus::Draw => "draw",
+        GameStatus::Aborted => "aborted",
+        GameStatus::Closed => "closed",
+    };
+
+    let seasons = build_seasons(&game);
+    let phase_kind = phase_kind_str(&game);
+
+    let jst = chrono::FixedOffset::east_opt(9 * 60 * 60).expect("JST offset");
+    let next_update_at = game.next_update_at.map(|naive_utc| {
+        chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(naive_utc, chrono::Utc)
+            .with_timezone(&jst)
+            .format("%Y-%m-%d %H:%M")
+            .to_string()
+    });
+
+    Ok(super::GetGameResponse {
+        game: super::GetGameResponseGame {
+            game_uuid: game.uuid,
+            game_number: game.game_number,
+            status: status.to_string(),
+            seasons,
+            phase_kind: phase_kind.to_string(),
+            next_update_at,
+            is_private: game.keyword.is_some(),
+        },
+    })
+}
+
+/// フェイズ履歴からシーズン配列を生成する
+fn build_seasons(game: &crate::Game) -> Vec<String> {
+    let mut seasons: Vec<String> = Vec::new();
+    for phase in &game.phases {
+        let turn = match &phase.kind {
+            crate::PhaseKind::Ready(_) => "ready".to_string(),
+            crate::PhaseKind::SpringMain(_) | crate::PhaseKind::SpringRetreat(_) => format!("{}s", phase.year),
+            crate::PhaseKind::FallMain(_) | crate::PhaseKind::FallRetreat(_) | crate::PhaseKind::Adjustment(_) => {
+                format!("{}f", phase.year)
+            }
+            crate::PhaseKind::Debrief(_) => continue,
+        };
+        if seasons.last() != Some(&turn) {
+            seasons.push(turn);
+        }
+    }
+    if matches!(game.status, GameStatus::Solo | GameStatus::Draw) {
+        seasons.push("debrief".to_string());
+    }
+    seasons
+}
+
+/// 現在のフェイズ種別文字列を返す
+fn phase_kind_str(game: &crate::Game) -> &'static str {
+    match game.phases.last().map(|p| &p.kind) {
+        Some(crate::PhaseKind::Ready(_)) | None => "ready",
+        Some(crate::PhaseKind::SpringMain(_)) | Some(crate::PhaseKind::FallMain(_)) => "main",
+        Some(crate::PhaseKind::SpringRetreat(_)) | Some(crate::PhaseKind::FallRetreat(_)) => "retreat",
+        Some(crate::PhaseKind::Adjustment(_)) => "adjustment",
+        Some(crate::PhaseKind::Debrief(_)) => "debrief",
+    }
+}
+
 // ============================================================================
 // tests
 // ============================================================================
@@ -3768,5 +3898,79 @@ mod tests {
 
         assert_eq!(page2.games.len(), 2);
         assert_eq!(page2.total, 5);
+    }
+
+    #[test]
+    fn handle_get_game_returns_game_for_existing_uuid() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let game_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::InProgress);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let response = handle_get_game(&service, game_uuid).expect("should succeed");
+
+        assert_eq!(response.game.game_uuid, game_uuid);
+        assert_eq!(response.game.status, "in_progress");
+        assert!(!response.game.seasons.is_empty());
+        assert_eq!(response.game.seasons[0], "ready");
+    }
+
+    #[test]
+    fn handle_get_game_returns_not_found_for_missing_uuid() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = handle_get_game(&service, uuid::Uuid::now_v7()).expect_err("should fail");
+
+        assert_eq!(error.code(), "not_found");
+    }
+
+    #[test]
+    fn handle_get_game_seasons_ends_with_debrief_for_solo() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let game_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let mut game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::Solo);
+        game.phases.push(crate::domain::Phase::new_debrief(1901, 10));
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let response = handle_get_game(&service, game_uuid).expect("should succeed");
+
+        assert_eq!(response.game.status, "solo");
+        assert_eq!(response.game.seasons.last().map(|s| s.as_str()), Some("debrief"));
+    }
+
+    #[test]
+    fn handle_get_game_is_private_when_keyword_is_set() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let game_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let mut game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::Preparing);
+        game.keyword = Some("secret".to_string());
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let response = handle_get_game(&service, game_uuid).expect("should succeed");
+
+        assert!(response.game.is_private);
+    }
+
+    #[test]
+    fn handle_get_game_is_not_private_when_keyword_is_none() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let game_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let mut game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::Preparing);
+        game.keyword = None;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let response = handle_get_game(&service, game_uuid).expect("should succeed");
+
+        assert!(!response.game.is_private);
     }
 }

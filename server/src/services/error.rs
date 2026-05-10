@@ -278,6 +278,28 @@ impl fmt::Display for SetProgressConsensusError {
 }
 
 ///
+/// 卓情報取得エラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum GetGameError {
+    NotFound,
+    Repository(RepositoryError),
+}
+
+/// 卓情報取得エラーの列挙体の実装（Error トレイト）
+impl Error for GetGameError {}
+
+/// 卓情報取得エラーの列挙体の実装（fmt::Display トレイト）
+impl fmt::Display for GetGameError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NotFound => write!(f, "game not found"),
+            Self::Repository(error) => write!(f, "repository error: {}", error),
+        }
+    }
+}
+
+///
 /// 卓一覧取得エラーの列挙体
 ///
 #[derive(Debug, Clone, PartialEq, Eq)]

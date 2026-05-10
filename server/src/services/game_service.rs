@@ -14,6 +14,7 @@ use super::GameRepository;
 use super::GameStatus;
 use super::GameStatusFilter;
 use super::GameSummary;
+use super::GetGameError;
 use super::JoinGameError;
 use super::ListGamesError;
 use super::NewGame;
@@ -1081,6 +1082,16 @@ where
                 .collect(),
             crate::domain::PhaseKind::Ready(_) | crate::domain::PhaseKind::Debrief(_) => std::collections::HashSet::new(),
         }
+    }
+
+    ///
+    /// 指定した UUID の卓を取得する
+    ///
+    pub(crate) fn get_game(&self, game_uuid: Uuid) -> Result<Game, GetGameError> {
+        self.game_repository
+            .find_by_uuid(game_uuid)
+            .map_err(GetGameError::Repository)?
+            .ok_or(GetGameError::NotFound)
     }
 
     ///

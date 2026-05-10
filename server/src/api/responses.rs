@@ -18,6 +18,8 @@ pub(crate) use error::ApiErrorResponse;
 pub(crate) use game_response::CreateGameResponse;
 pub(crate) use game_response::GameListItem;
 pub(crate) use game_response::GameListItemRegulation;
+pub(crate) use game_response::GetGameResponse;
+pub(crate) use game_response::GetGameResponseGame;
 pub(crate) use game_response::GetGamesResponse;
 pub(crate) use game_response::JoinGameResponse;
 pub(crate) use game_response::SetDrawProposalResponse;
