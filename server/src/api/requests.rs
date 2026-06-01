@@ -27,6 +27,7 @@ pub(crate) use game_request::CreateGameRequest;
 pub(crate) use game_request::CreateGameRequestBody;
 pub(crate) use game_request::DeleteTerritoryQueryParams;
 pub(crate) use game_request::DeleteUnitQueryParams;
+pub(crate) use game_request::GetGameLogsQueryParams;
 pub(crate) use game_request::GetGamesQueryParams;
 pub(crate) use game_request::GetGamesRequest;
 pub(crate) use game_request::JoinGameRequest;

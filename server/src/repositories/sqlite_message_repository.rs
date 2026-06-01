@@ -22,6 +22,20 @@ use super::User;
 // ============================================================================
 
 ///
+/// メッセージクエリ結果の構造体
+///
+#[derive(Debug, Clone)]
+pub(crate) struct MessageRecord {
+    pub message_uuid: Uuid,
+    pub sender_power: Option<Power>,
+    pub turn: String,
+    pub context: String,
+    pub kind: String,
+    pub recipients: Vec<Power>,
+    pub created_at: String,
+}
+
+///
 /// SQLite 用のメッセージリポジトリ構造体
 ///
 #[derive(Debug, Clone)]
@@ -473,6 +487,7 @@ impl SqliteMessageRepository {
                 turn TEXT NOT NULL,
                 context TEXT NOT NULL,
                 kind TEXT NOT NULL,
+                recipients TEXT,
                 created_at TEXT NOT NULL,
                 is_deleted INTEGER NOT NULL DEFAULT 0,
                 deleted_at TEXT
@@ -541,6 +556,77 @@ impl SqliteMessageRepository {
             MessageKind::Ghost(_) => "ghost",
             MessageKind::System(_) => "system",
         }
+    }
+
+    ///
+    /// 指定した卓・シーズンのメッセージ一覧を返す
+    ///
+    pub(crate) fn find_by_game_and_season(
+        &self,
+        game_uuid: Uuid,
+        season: &str,
+        after_uuid: Option<Uuid>,
+    ) -> Result<Vec<MessageRecord>, RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+
+        let after_str = after_uuid.map(|u| u.to_string());
+
+        let mut stmt = connection
+            .prepare(
+                r#"
+                SELECT message_uuid, sender_power, turn, context, kind, recipients, created_at
+                FROM messages
+                WHERE game_uuid = ?1
+                  AND turn = ?2
+                  AND is_deleted = 0
+                  AND (?3 IS NULL OR message_uuid > ?3)
+                ORDER BY message_uuid ASC
+                "#,
+            )
+            .map_err(|e| RepositoryError::Unavailable(format!("prepare find_by_game_and_season: {}", e)))?;
+
+        let records = stmt
+            .query_map(params![game_uuid.to_string(), season, after_str], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, Option<String>>(5)?,
+                    row.get::<_, String>(6)?,
+                ))
+            })
+            .map_err(|e| RepositoryError::Unavailable(format!("query find_by_game_and_season: {}", e)))?;
+
+        let mut result = Vec::new();
+        for row in records {
+            let (message_uuid_str, sender_power_str, turn, context, kind, recipients_str, created_at) =
+                row.map_err(|e| RepositoryError::Unavailable(format!("row find_by_game_and_season: {}", e)))?;
+
+            let message_uuid = Uuid::parse_str(&message_uuid_str)
+                .map_err(|e| RepositoryError::Unavailable(format!("parse message_uuid: {}", e)))?;
+
+            let sender_power = sender_power_str.as_deref().and_then(Power::from_symbol);
+
+            let recipients = recipients_str
+                .as_deref()
+                .map(|s| s.split(',').filter_map(Power::from_symbol).collect())
+                .unwrap_or_default();
+
+            result.push(MessageRecord {
+                message_uuid,
+                sender_power,
+                turn,
+                context,
+                kind,
+                recipients,
+                created_at,
+            });
+        }
+
+        Ok(result)
     }
 
     pub(crate) fn append_progress_mode_changed_message(&self, game_uuid: Uuid, turn: &str) -> Result<(), RepositoryError> {

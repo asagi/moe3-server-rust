@@ -14,6 +14,7 @@ use super::GetGamesRequestValidationError;
 use super::JoinGameError;
 use super::JoinGameRequestValidationError;
 use super::ListGamesError;
+use super::RepositoryError;
 use super::SetDrawProposalError;
 use super::SetDrawProposalRequestValidationError;
 use super::SetNextUpdateAtError;
@@ -675,6 +676,41 @@ impl SetNextUpdateAtHandlerError {
             Self::Service(SetNextUpdateAtError::Forbidden(message))
             | Self::Service(SetNextUpdateAtError::InvalidRequest(message)) => message.clone(),
             Self::Service(error) => error.to_string(),
+        }
+    }
+}
+
+///
+/// 外交履歴取得リクエストハンドラのエラーの列挙体
+///
+#[derive(Debug)]
+pub(crate) enum GetGameLogsHandlerError {
+    GameNotFound,
+    SeasonNotFound,
+    Repository(RepositoryError),
+}
+
+/// 外交履歴取得リクエストハンドラのエラーの列挙体の実装
+impl GetGameLogsHandlerError {
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Self::GameNotFound | Self::SeasonNotFound => "not_found",
+            Self::Repository(_) => "repository_error",
+        }
+    }
+
+    pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
+        ApiErrorResponse {
+            code: self.code(),
+            message: self.message(),
+        }
+    }
+
+    fn message(&self) -> String {
+        match self {
+            Self::GameNotFound => "game not found".to_string(),
+            Self::SeasonNotFound => "season not found".to_string(),
+            Self::Repository(error) => error.to_string(),
         }
     }
 }

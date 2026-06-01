@@ -468,3 +468,11 @@ impl GetGamesRequest {
             .unwrap_or("")
     }
 }
+
+///
+/// 外交履歴取得クエリパラメータ構造体（Axum Query 抽出用）
+///
+#[derive(Debug, Deserialize)]
+pub(crate) struct GetGameLogsQueryParams {
+    pub after: Option<String>,
+}

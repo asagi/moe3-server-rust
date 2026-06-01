@@ -1518,6 +1518,239 @@ fn phase_kind_str(game: &crate::Game) -> &'static str {
     }
 }
 
+///
+/// 外交履歴取得リクエスト Axum ハンドラ関数
+///
+pub(crate) async fn get_games_logs<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    headers: HeaderMap,
+    Path((game_uuid_str, season)): Path<(String, String)>,
+    Query(query): Query<super::GetGameLogsQueryParams>,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    let game_uuid = match Uuid::parse_str(&game_uuid_str) {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                axum::Json(ApiErrorResponse {
+                    code: "invalid_request",
+                    message: "game_uuid is invalid".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    let after_uuid = match query.after.as_deref().map(Uuid::parse_str) {
+        Some(Ok(uuid)) => Some(uuid),
+        Some(Err(_)) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                axum::Json(ApiErrorResponse {
+                    code: "invalid_request",
+                    message: "after is invalid".to_string(),
+                }),
+            )
+                .into_response();
+        }
+        None => None,
+    };
+
+    let authorization = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+
+    let game_service = std::sync::Arc::clone(&state.game_service);
+    let user_repository = std::sync::Arc::clone(&state.user_repository);
+    let message_repository = std::sync::Arc::clone(&state.message_repository);
+
+    let result = tokio::task::spawn_blocking(move || {
+        handle_get_games_logs(
+            &game_service,
+            user_repository.as_ref(),
+            message_repository.as_ref(),
+            game_uuid,
+            &season,
+            after_uuid,
+            authorization.as_deref(),
+        )
+    })
+    .await;
+
+    match result {
+        Ok(Ok(response)) => (StatusCode::OK, axum::Json(response)).into_response(),
+        Ok(Err(error)) => {
+            let status = match &error {
+                super::GetGameLogsHandlerError::GameNotFound => StatusCode::NOT_FOUND,
+                super::GetGameLogsHandlerError::SeasonNotFound => StatusCode::NOT_FOUND,
+                super::GetGameLogsHandlerError::Repository(_) => StatusCode::SERVICE_UNAVAILABLE,
+            };
+            (status, axum::Json(error.to_api_error_response())).into_response()
+        }
+        Err(join_err) => {
+            eprintln!("get_games_logs task failed: {}", join_err);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                axum::Json(ApiErrorResponse {
+                    code: "internal_error",
+                    message: "internal server error".to_string(),
+                }),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// 外交履歴取得の純粋関数（テスト可能）
+pub(crate) fn handle_get_games_logs<U, G>(
+    service: &GameService<U, G>,
+    user_repository: &U,
+    message_repository: &SqliteMessageRepository,
+    game_uuid: Uuid,
+    season: &str,
+    after_uuid: Option<Uuid>,
+    authorization: Option<&str>,
+) -> Result<super::GetGameLogsResponse, super::GetGameLogsHandlerError>
+where
+    U: UserRepository,
+    G: GameRepository,
+{
+    let game = service.get_game(game_uuid).map_err(|e| match e {
+        super::GetGameError::NotFound => super::GetGameLogsHandlerError::GameNotFound,
+        super::GetGameError::Repository(r) => super::GetGameLogsHandlerError::Repository(r),
+    })?;
+
+    // 指定シーズンがゲームに存在するか確認
+    let valid_seasons = build_seasons(&game);
+    if !valid_seasons.contains(&season.to_string()) {
+        return Err(super::GetGameLogsHandlerError::SeasonNotFound);
+    }
+
+    // メッセージ取得
+    let records = message_repository
+        .find_by_game_and_season(game_uuid, season, after_uuid)
+        .map_err(super::GetGameLogsHandlerError::Repository)?;
+
+    // 認証トークンからリクエストユーザーの担当 Power を取得
+    let viewer_power = authorization
+        .and_then(|auth| {
+            let token = auth.trim().strip_prefix("Bearer ")?.trim();
+            if token.is_empty() {
+                return None;
+            }
+            user_repository.find_by_access_token(token).ok().flatten()
+        })
+        .and_then(|user| game.players.iter().find(|p| p.user_uuid == user.uuid).and_then(|p| p.power));
+
+    let messages = apply_log_access_control(records, &game, viewer_power);
+    Ok(super::GetGameLogsResponse { messages })
+}
+
+/// アクセス制御を適用してメッセージ一覧を返す
+fn apply_log_access_control(
+    records: Vec<crate::MessageRecord>,
+    game: &crate::Game,
+    viewer_power: Option<Power>,
+) -> Vec<super::GameLogMessage> {
+    if game.status != GameStatus::InProgress {
+        return records.into_iter().map(to_game_log_message_full).collect();
+    }
+
+    let viewer_is_eliminated = viewer_power.is_some_and(|p| is_power_eliminated(p, game));
+
+    records
+        .into_iter()
+        .filter_map(|r| match r.kind.as_str() {
+            "public" | "system" => Some(to_game_log_message_full(r)),
+            "personal" => {
+                if viewer_power.is_some() && r.sender_power == viewer_power {
+                    Some(to_game_log_message_full(r))
+                } else {
+                    None
+                }
+            }
+            "ghost" => {
+                if viewer_is_eliminated {
+                    Some(to_game_log_message_full(r))
+                } else {
+                    None
+                }
+            }
+            "confidential" => {
+                if let Some(vp) = viewer_power {
+                    if r.sender_power == Some(vp) || r.recipients.contains(&vp) {
+                        Some(to_game_log_message_full(r))
+                    } else {
+                        Some(to_game_log_message_masked(r))
+                    }
+                } else {
+                    Some(to_game_log_message_masked(r))
+                }
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+/// 担当 Power が滅亡しているかを判定する（最新フェイズにユニットが存在しない場合）
+fn is_power_eliminated(power: Power, game: &crate::Game) -> bool {
+    let latest = match game.phases.last() {
+        Some(p) => p,
+        None => return false,
+    };
+    if matches!(latest.kind, crate::PhaseKind::Ready(_) | crate::PhaseKind::Debrief(_)) {
+        return false;
+    }
+    !latest.units.iter().any(|u| u.power == power)
+}
+
+/// フルコンテンツのメッセージレスポンスを生成する
+fn to_game_log_message_full(r: crate::MessageRecord) -> super::GameLogMessage {
+    let is_confidential = r.kind == "confidential";
+    let recipients = if is_confidential {
+        Some(r.recipients.iter().map(|p| p.symbol().to_string()).collect())
+    } else {
+        None
+    };
+    super::GameLogMessage {
+        message_uuid: r.message_uuid,
+        sender: r.sender_power.map(|p| p.symbol().to_string()),
+        turn: r.turn,
+        context: Some(r.context),
+        kind: r.kind,
+        recipients,
+        created_at: utc_rfc3339_to_jst_string(&r.created_at),
+    }
+}
+
+/// マスクされたメッセージレスポンスを生成する（kind="masked"、context=null）
+fn to_game_log_message_masked(r: crate::MessageRecord) -> super::GameLogMessage {
+    let recipients = Some(r.recipients.iter().map(|p| p.symbol().to_string()).collect());
+    super::GameLogMessage {
+        message_uuid: r.message_uuid,
+        sender: r.sender_power.map(|p| p.symbol().to_string()),
+        turn: r.turn,
+        context: None,
+        kind: "masked".to_string(),
+        recipients,
+        created_at: utc_rfc3339_to_jst_string(&r.created_at),
+    }
+}
+
+/// UTC RFC3339 文字列を JST "YYYY-MM-DD HH:mm" 形式に変換する
+fn utc_rfc3339_to_jst_string(utc_rfc3339: &str) -> String {
+    let jst = chrono::FixedOffset::east_opt(9 * 60 * 60).expect("JST offset");
+    chrono::DateTime::parse_from_rfc3339(utc_rfc3339)
+        .map(|dt| dt.with_timezone(&jst).format("%Y-%m-%d %H:%M").to_string())
+        .unwrap_or_else(|_| utc_rfc3339.to_string())
+}
+
 // ============================================================================
 // tests
 // ============================================================================

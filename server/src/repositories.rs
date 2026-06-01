@@ -19,6 +19,7 @@ pub(crate) use game_repository::GameStatusFilter;
 pub(crate) use game_repository::GameSummary;
 pub(crate) use game_repository::NewGame;
 pub(crate) use sqlite_game_repository::SqliteGameRepository;
+pub(crate) use sqlite_message_repository::MessageRecord;
 pub(crate) use sqlite_message_repository::SqliteMessageRepository;
 pub(crate) use sqlite_user_repository::SqliteUserRepository;
 pub(crate) use user_repository::DiscordProfile;
