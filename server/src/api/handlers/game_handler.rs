@@ -4203,4 +4203,364 @@ mod tests {
 
         assert!(!response.game.is_private);
     }
+
+    // ============================================================================
+    // handle_get_games_logs tests
+    // ============================================================================
+
+    fn sample_in_progress_game_for_logs(owner_uuid: uuid::Uuid, player_uuid: uuid::Uuid) -> Game {
+        let jst = chrono::FixedOffset::east_opt(9 * 3600).unwrap();
+        let now_jst = Utc::now().with_timezone(&jst);
+        let start = now_jst + chrono::Duration::hours(2);
+        let regulation = crate::domain::Regulation::new(
+            crate::domain::FaceType::Girls,
+            crate::domain::ProgressMode::Scheduled,
+            crate::domain::DurationType::Short,
+            start.date_naive(),
+            start.hour() as u8,
+        )
+        .unwrap();
+        let ready = Phase::new_ready();
+        let spring_main = Phase::new_spring_main(ready.year, ready.index);
+        Game {
+            uuid: uuid::Uuid::now_v7(),
+            game_number: None,
+            keyword: None,
+            regulation,
+            players: vec![
+                Player {
+                    user_uuid: owner_uuid,
+                    power: Some(crate::domain::Power::France),
+                    is_accepting_draw: false,
+                    progress_consented: false,
+                    is_owner: true,
+                    requested_power: None,
+                },
+                Player {
+                    user_uuid: player_uuid,
+                    power: Some(crate::domain::Power::England),
+                    is_accepting_draw: false,
+                    progress_consented: false,
+                    is_owner: false,
+                    requested_power: None,
+                },
+            ],
+            phases: vec![ready, spring_main],
+            status: GameStatus::InProgress,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        }
+    }
+
+    fn make_message_record(
+        kind: &str,
+        sender: Option<crate::domain::Power>,
+        recipients: Vec<crate::domain::Power>,
+    ) -> crate::MessageRecord {
+        crate::MessageRecord {
+            message_uuid: uuid::Uuid::now_v7(),
+            sender_power: sender,
+            turn: "1901s".to_string(),
+            context: "test message".to_string(),
+            kind: kind.to_string(),
+            recipients,
+            created_at: "2026-05-10T11:00:00Z".to_string(),
+        }
+    }
+
+    #[test]
+    fn handle_get_games_logs_returns_not_found_for_missing_game() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository.clone(), game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_get_games_logs(
+            &service,
+            &user_repository,
+            &message_repository,
+            uuid::Uuid::now_v7(),
+            "1901s",
+            None,
+            None,
+        )
+        .expect_err("should fail");
+
+        assert_eq!(error.code(), "not_found");
+    }
+
+    #[test]
+    fn handle_get_games_logs_returns_not_found_for_invalid_season() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let player_uuid = uuid::Uuid::now_v7();
+        let game = sample_in_progress_game_for_logs(owner_uuid, player_uuid);
+        let game_uuid = game.uuid;
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository.clone(), game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_get_games_logs(
+            &service,
+            &user_repository,
+            &message_repository,
+            game_uuid,
+            "9999z",
+            None,
+            None,
+        )
+        .expect_err("should fail");
+
+        assert_eq!(error.code(), "not_found");
+    }
+
+    // ============================================================================
+    // apply_log_access_control tests
+    // ============================================================================
+
+    fn finished_game() -> Game {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let player_uuid = uuid::Uuid::now_v7();
+        let mut game = sample_in_progress_game_for_logs(owner_uuid, player_uuid);
+        game.status = GameStatus::Closed;
+        game
+    }
+
+    fn in_progress_game() -> Game {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let player_uuid = uuid::Uuid::now_v7();
+        sample_in_progress_game_for_logs(owner_uuid, player_uuid)
+    }
+
+    #[test]
+    fn access_control_finished_game_returns_all_messages() {
+        let game = finished_game();
+        let records = vec![
+            make_message_record("public", Some(crate::domain::Power::France), vec![]),
+            make_message_record(
+                "confidential",
+                Some(crate::domain::Power::France),
+                vec![crate::domain::Power::England],
+            ),
+            make_message_record("personal", Some(crate::domain::Power::England), vec![]),
+            make_message_record("ghost", Some(crate::domain::Power::Austria), vec![]),
+            make_message_record("system", None, vec![]),
+        ];
+
+        let result = apply_log_access_control(records, &game, None);
+
+        assert_eq!(result.len(), 5);
+    }
+
+    #[test]
+    fn access_control_in_progress_unauthenticated_public_system_visible() {
+        let game = in_progress_game();
+        let records = vec![
+            make_message_record("public", Some(crate::domain::Power::France), vec![]),
+            make_message_record("system", None, vec![]),
+        ];
+
+        let result = apply_log_access_control(records, &game, None);
+
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].kind, "public");
+        assert_eq!(result[1].kind, "system");
+    }
+
+    #[test]
+    fn access_control_in_progress_unauthenticated_personal_hidden() {
+        let game = in_progress_game();
+        let records = vec![make_message_record("personal", Some(crate::domain::Power::France), vec![])];
+
+        let result = apply_log_access_control(records, &game, None);
+
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn access_control_in_progress_unauthenticated_ghost_hidden() {
+        let game = in_progress_game();
+        let records = vec![make_message_record("ghost", Some(crate::domain::Power::France), vec![])];
+
+        let result = apply_log_access_control(records, &game, None);
+
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn access_control_in_progress_unauthenticated_confidential_masked() {
+        let game = in_progress_game();
+        let records = vec![make_message_record(
+            "confidential",
+            Some(crate::domain::Power::France),
+            vec![crate::domain::Power::England],
+        )];
+
+        let result = apply_log_access_control(records, &game, None);
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].kind, "masked");
+        assert!(result[0].context.is_none());
+        assert_eq!(result[0].recipients, Some(vec!["e".to_string()]));
+    }
+
+    #[test]
+    fn access_control_in_progress_participant_sees_own_personal() {
+        let game = in_progress_game();
+        let records = vec![make_message_record("personal", Some(crate::domain::Power::France), vec![])];
+
+        let result = apply_log_access_control(records, &game, Some(crate::domain::Power::France));
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].kind, "personal");
+    }
+
+    #[test]
+    fn access_control_in_progress_participant_cannot_see_others_personal() {
+        let game = in_progress_game();
+        let records = vec![make_message_record("personal", Some(crate::domain::Power::England), vec![])];
+
+        let result = apply_log_access_control(records, &game, Some(crate::domain::Power::France));
+
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn access_control_in_progress_sender_sees_confidential_full() {
+        let game = in_progress_game();
+        let records = vec![make_message_record(
+            "confidential",
+            Some(crate::domain::Power::France),
+            vec![crate::domain::Power::England],
+        )];
+
+        let result = apply_log_access_control(records, &game, Some(crate::domain::Power::France));
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].kind, "confidential");
+        assert!(result[0].context.is_some());
+    }
+
+    #[test]
+    fn access_control_in_progress_recipient_sees_confidential_full() {
+        let game = in_progress_game();
+        let records = vec![make_message_record(
+            "confidential",
+            Some(crate::domain::Power::France),
+            vec![crate::domain::Power::England],
+        )];
+
+        let result = apply_log_access_control(records, &game, Some(crate::domain::Power::England));
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].kind, "confidential");
+        assert!(result[0].context.is_some());
+    }
+
+    #[test]
+    fn access_control_in_progress_unrelated_power_sees_confidential_masked() {
+        let game = in_progress_game();
+        let records = vec![make_message_record(
+            "confidential",
+            Some(crate::domain::Power::France),
+            vec![crate::domain::Power::England],
+        )];
+
+        let result = apply_log_access_control(records, &game, Some(crate::domain::Power::Austria));
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].kind, "masked");
+        assert!(result[0].context.is_none());
+    }
+
+    #[test]
+    fn access_control_in_progress_participant_ghost_hidden_when_not_eliminated() {
+        // Austria にユニットを与えて「滅亡していない」状態にする
+        let game = game_with_units_for(crate::domain::Power::Austria);
+        let records = vec![make_message_record("ghost", Some(crate::domain::Power::France), vec![])];
+
+        let result = apply_log_access_control(records, &game, Some(crate::domain::Power::Austria));
+
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn access_control_in_progress_ghost_visible_when_eliminated() {
+        // England にユニットを与えるが France にはなし → France は滅亡扱い
+        let game = game_with_units_for(crate::domain::Power::England);
+        let records = vec![make_message_record("ghost", Some(crate::domain::Power::France), vec![])];
+
+        let result = apply_log_access_control(records, &game, Some(crate::domain::Power::France));
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].kind, "ghost");
+    }
+
+    // ============================================================================
+    // is_power_eliminated tests
+    // ============================================================================
+
+    fn game_with_units_for(power: crate::domain::Power) -> Game {
+        let mut game = in_progress_game();
+        let phase = game.phases.last_mut().unwrap();
+        let par = crate::domain::Province::from_code("par").unwrap();
+        phase.units.push(crate::domain::Unit::new_army(power, par));
+        game
+    }
+
+    #[test]
+    fn is_power_eliminated_false_when_unit_exists() {
+        let game = game_with_units_for(crate::domain::Power::France);
+
+        assert!(!is_power_eliminated(crate::domain::Power::France, &game));
+    }
+
+    #[test]
+    fn is_power_eliminated_true_when_no_unit() {
+        let game = game_with_units_for(crate::domain::Power::France);
+
+        assert!(is_power_eliminated(crate::domain::Power::England, &game));
+    }
+
+    #[test]
+    fn is_power_eliminated_false_when_last_phase_is_ready() {
+        let jst = chrono::FixedOffset::east_opt(9 * 3600).unwrap();
+        let now_jst = Utc::now().with_timezone(&jst);
+        let start = now_jst + chrono::Duration::hours(2);
+        let regulation = crate::domain::Regulation::new(
+            crate::domain::FaceType::Girls,
+            crate::domain::ProgressMode::Scheduled,
+            crate::domain::DurationType::Short,
+            start.date_naive(),
+            start.hour() as u8,
+        )
+        .unwrap();
+        let game = Game {
+            uuid: uuid::Uuid::now_v7(),
+            game_number: None,
+            keyword: None,
+            regulation,
+            players: vec![],
+            phases: vec![Phase::new_ready()],
+            status: GameStatus::Preparing,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        };
+
+        assert!(!is_power_eliminated(crate::domain::Power::France, &game));
+    }
+
+    #[test]
+    fn utc_rfc3339_to_jst_string_converts_correctly() {
+        let result = utc_rfc3339_to_jst_string("2026-05-10T11:00:00Z");
+        assert_eq!(result, "2026-05-10 20:00");
+    }
+
+    #[test]
+    fn utc_rfc3339_to_jst_string_returns_original_on_invalid_input() {
+        let result = utc_rfc3339_to_jst_string("not-a-date");
+        assert_eq!(result, "not-a-date");
+    }
 }
