@@ -1638,15 +1638,19 @@ where
         .map_err(super::GetGameLogsHandlerError::Repository)?;
 
     // 認証トークンからリクエストユーザーの担当 Power を取得
-    let viewer_power = authorization
-        .and_then(|auth| {
-            let token = auth.trim().strip_prefix("Bearer ")?.trim();
-            if token.is_empty() {
-                return None;
-            }
-            user_repository.find_by_access_token(token).ok().flatten()
-        })
-        .and_then(|user| game.players.iter().find(|p| p.user_uuid == user.uuid).and_then(|p| p.power));
+    let viewer_power = if let Some(auth) = authorization {
+        let token = auth.trim().trim_start_matches("Bearer ").trim();
+        if token.is_empty() {
+            None
+        } else {
+            let user = user_repository
+                .find_by_access_token(token)
+                .map_err(super::GetGameLogsHandlerError::Repository)?;
+            user.and_then(|u| game.players.iter().find(|p| p.user_uuid == u.uuid).and_then(|p| p.power))
+        }
+    } else {
+        None
+    };
 
     let messages = apply_log_access_control(records, &game, viewer_power);
     Ok(super::GetGameLogsResponse { messages })
