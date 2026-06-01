@@ -22,6 +22,20 @@ use super::User;
 // ============================================================================
 
 ///
+/// メッセージクエリ結果の構造体
+///
+#[derive(Debug, Clone)]
+pub(crate) struct MessageRecord {
+    pub message_uuid: Uuid,
+    pub sender_power: Option<Power>,
+    pub turn: String,
+    pub context: String,
+    pub kind: String,
+    pub recipients: Vec<Power>,
+    pub created_at: String,
+}
+
+///
 /// SQLite 用のメッセージリポジトリ構造体
 ///
 #[derive(Debug, Clone)]
@@ -473,6 +487,7 @@ impl SqliteMessageRepository {
                 turn TEXT NOT NULL,
                 context TEXT NOT NULL,
                 kind TEXT NOT NULL,
+                recipients TEXT,
                 created_at TEXT NOT NULL,
                 is_deleted INTEGER NOT NULL DEFAULT 0,
                 deleted_at TEXT
@@ -541,6 +556,77 @@ impl SqliteMessageRepository {
             MessageKind::Ghost(_) => "ghost",
             MessageKind::System(_) => "system",
         }
+    }
+
+    ///
+    /// 指定した卓・シーズンのメッセージ一覧を返す
+    ///
+    pub(crate) fn find_by_game_and_season(
+        &self,
+        game_uuid: Uuid,
+        season: &str,
+        after_uuid: Option<Uuid>,
+    ) -> Result<Vec<MessageRecord>, RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+
+        let after_str = after_uuid.map(|u| u.to_string());
+
+        let mut stmt = connection
+            .prepare(
+                r#"
+                SELECT message_uuid, sender_power, turn, context, kind, recipients, created_at
+                FROM messages
+                WHERE game_uuid = ?1
+                  AND turn = ?2
+                  AND is_deleted = 0
+                  AND (?3 IS NULL OR message_uuid > ?3)
+                ORDER BY message_uuid ASC
+                "#,
+            )
+            .map_err(|e| RepositoryError::Unavailable(format!("prepare find_by_game_and_season: {}", e)))?;
+
+        let records = stmt
+            .query_map(params![game_uuid.to_string(), season, after_str], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, Option<String>>(5)?,
+                    row.get::<_, String>(6)?,
+                ))
+            })
+            .map_err(|e| RepositoryError::Unavailable(format!("query find_by_game_and_season: {}", e)))?;
+
+        let mut result = Vec::new();
+        for row in records {
+            let (message_uuid_str, sender_power_str, turn, context, kind, recipients_str, created_at) =
+                row.map_err(|e| RepositoryError::Unavailable(format!("row find_by_game_and_season: {}", e)))?;
+
+            let message_uuid = Uuid::parse_str(&message_uuid_str)
+                .map_err(|e| RepositoryError::Unavailable(format!("parse message_uuid: {}", e)))?;
+
+            let sender_power = sender_power_str.as_deref().and_then(Power::from_symbol);
+
+            let recipients = recipients_str
+                .as_deref()
+                .map(|s| s.split(',').filter_map(Power::from_symbol).collect())
+                .unwrap_or_default();
+
+            result.push(MessageRecord {
+                message_uuid,
+                sender_power,
+                turn,
+                context,
+                kind,
+                recipients,
+                created_at,
+            });
+        }
+
+        Ok(result)
     }
 
     pub(crate) fn append_progress_mode_changed_message(&self, game_uuid: Uuid, turn: &str) -> Result<(), RepositoryError> {
@@ -827,5 +913,149 @@ mod tests {
             context,
             "全ての生存国の合意を確認しました。メインフェイズをただちに終了します。"
         );
+    }
+
+    // ============================================================================
+    // find_by_game_and_season tests
+    // ============================================================================
+
+    fn insert_message_row(
+        connection: &Connection,
+        game_uuid: Uuid,
+        turn: &str,
+        kind: &str,
+        sender_power: Option<&str>,
+        recipients: Option<&str>,
+        is_deleted: bool,
+    ) -> Uuid {
+        let message_uuid = Uuid::now_v7();
+        let now = chrono::Utc::now().to_rfc3339();
+        connection
+            .execute(
+                r#"INSERT INTO messages
+                   (message_uuid, game_uuid, sender_power, turn, context, kind, recipients, created_at, is_deleted)
+                   VALUES (?1, ?2, ?3, ?4, 'test context', ?5, ?6, ?7, ?8)"#,
+                rusqlite::params![
+                    message_uuid.to_string(),
+                    game_uuid.to_string(),
+                    sender_power,
+                    turn,
+                    kind,
+                    recipients,
+                    now,
+                    if is_deleted { 1 } else { 0 },
+                ],
+            )
+            .expect("insert test message");
+        message_uuid
+    }
+
+    fn setup_db(db_path: &str) -> Connection {
+        let conn = Connection::open(db_path).expect("open db");
+        conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS messages (
+                message_uuid TEXT PRIMARY KEY,
+                game_uuid TEXT NOT NULL,
+                sender_power TEXT,
+                turn TEXT NOT NULL,
+                context TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                recipients TEXT,
+                created_at TEXT NOT NULL,
+                is_deleted INTEGER NOT NULL DEFAULT 0,
+                deleted_at TEXT
+            );
+            "#,
+        )
+        .expect("create table");
+        conn
+    }
+
+    #[test]
+    fn find_by_game_and_season_returns_matching_season() {
+        let (repository, db_path) = new_test_repository();
+        let conn = setup_db(&db_path);
+        let game_uuid = Uuid::now_v7();
+
+        insert_message_row(&conn, game_uuid, "1901s", "public", Some("f"), None, false);
+        insert_message_row(&conn, game_uuid, "1901f", "public", Some("e"), None, false);
+
+        let result = repository
+            .find_by_game_and_season(game_uuid, "1901s", None)
+            .expect("should succeed");
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].turn, "1901s");
+    }
+
+    #[test]
+    fn find_by_game_and_season_excludes_deleted_rows() {
+        let (repository, db_path) = new_test_repository();
+        let conn = setup_db(&db_path);
+        let game_uuid = Uuid::now_v7();
+
+        insert_message_row(&conn, game_uuid, "1901s", "public", Some("f"), None, false);
+        insert_message_row(&conn, game_uuid, "1901s", "public", Some("e"), None, true);
+
+        let result = repository
+            .find_by_game_and_season(game_uuid, "1901s", None)
+            .expect("should succeed");
+
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn find_by_game_and_season_after_uuid_filters_correctly() {
+        let (repository, db_path) = new_test_repository();
+        let conn = setup_db(&db_path);
+        let game_uuid = Uuid::now_v7();
+
+        let uuid1 = insert_message_row(&conn, game_uuid, "1901s", "public", Some("f"), None, false);
+        // uuid2 は uuid1 より後のタイムスタンプになるよう少し待つ代わりに、
+        // UUID v7 は時刻単調増加なので now_v7() の連続呼び出しで十分大きい
+        let uuid2 = insert_message_row(&conn, game_uuid, "1901s", "system", None, None, false);
+
+        // uuid1 以降 (uuid1 より大きい) → uuid2 のみ返る
+        let result = repository
+            .find_by_game_and_season(game_uuid, "1901s", Some(uuid1))
+            .expect("should succeed");
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].message_uuid, uuid2);
+    }
+
+    #[test]
+    fn find_by_game_and_season_parses_confidential_recipients() {
+        let (repository, db_path) = new_test_repository();
+        let conn = setup_db(&db_path);
+        let game_uuid = Uuid::now_v7();
+
+        insert_message_row(&conn, game_uuid, "1901s", "confidential", Some("f"), Some("e,g"), false);
+
+        let result = repository
+            .find_by_game_and_season(game_uuid, "1901s", None)
+            .expect("should succeed");
+
+        assert_eq!(result.len(), 1);
+        let msg = &result[0];
+        assert_eq!(msg.sender_power, Some(Power::France));
+        assert_eq!(msg.recipients, vec![Power::England, Power::Germany]);
+    }
+
+    #[test]
+    fn find_by_game_and_season_returns_empty_for_different_game() {
+        let (repository, db_path) = new_test_repository();
+        let conn = setup_db(&db_path);
+        let game_uuid = Uuid::now_v7();
+        let other_game = Uuid::now_v7();
+
+        insert_message_row(&conn, other_game, "1901s", "public", Some("f"), None, false);
+
+        let result = repository
+            .find_by_game_and_season(game_uuid, "1901s", None)
+            .expect("should succeed");
+
+        assert!(result.is_empty());
     }
 }

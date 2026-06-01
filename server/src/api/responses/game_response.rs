@@ -150,3 +150,25 @@ pub(crate) struct GetGamesResponse {
     pub page: u32,
     pub per_page: u32,
 }
+
+///
+/// 外交履歴取得レスポンスのメッセージ構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub(crate) struct GameLogMessage {
+    pub message_uuid: Uuid,
+    pub sender: Option<String>,
+    pub turn: String,
+    pub context: Option<String>,
+    pub kind: String,
+    pub recipients: Option<Vec<String>>,
+    pub created_at: String,
+}
+
+///
+/// 外交履歴取得レスポンスの構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub(crate) struct GetGameLogsResponse {
+    pub messages: Vec<GameLogMessage>,
+}
