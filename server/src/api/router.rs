@@ -43,6 +43,7 @@ use super::handlers::delete_admin_games_units;
 use super::handlers::get_game;
 use super::handlers::get_games;
 use super::handlers::get_games_logs;
+use super::handlers::get_games_result;
 use super::handlers::get_users_me;
 use super::handlers::post_auth_login;
 use super::handlers::post_auth_reset_token;
@@ -287,6 +288,7 @@ where
         .route("/games", get(get_games::<U, G, D>).post(post_games::<U, G, D>))
         .route("/games/:game_uuid", get(get_game::<U, G, D>))
         .route("/games/:game_uuid/logs/:season", get(get_games_logs::<U, G, D>))
+        .route("/games/:game_uuid/result/:season", get(get_games_result::<U, G, D>))
         .route("/games/:game_uuid/players", post(post_games_players::<U, G, D>))
         .route(
             "/games/:game_uuid/progress-consensus",

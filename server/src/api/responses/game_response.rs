@@ -172,3 +172,53 @@ pub(crate) struct GameLogMessage {
 pub(crate) struct GetGameLogsResponse {
     pub messages: Vec<GameLogMessage>,
 }
+
+///
+/// 命令解決履歴取得レスポンスのユニット構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub(crate) struct GameResultUnitResponse {
+    pub power: String,
+    pub kind: String,
+    pub location: String,
+}
+
+///
+/// 命令解決履歴取得レスポンスの命令構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub(crate) struct GameResultOrderResponse {
+    pub power: String,
+    pub unit_kind: String,
+    pub location: String,
+    pub order_kind: String,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dest: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_location: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_dest: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub via_convoy: Option<bool>,
+}
+
+///
+/// 命令解決履歴取得レスポンスのフェイズ構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub(crate) struct GameResultPhaseResponse {
+    pub status: String,
+    pub orders: Vec<GameResultOrderResponse>,
+}
+
+///
+/// 命令解決履歴取得レスポンスの構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub(crate) struct GetGameResultResponse {
+    pub units: Vec<GameResultUnitResponse>,
+    pub main_phase: GameResultPhaseResponse,
+    pub retreat_phase: Option<GameResultPhaseResponse>,
+    pub adjustment_phase: Option<GameResultPhaseResponse>,
+}

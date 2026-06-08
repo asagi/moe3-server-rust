@@ -1755,6 +1755,218 @@ fn utc_rfc3339_to_jst_string(utc_rfc3339: &str) -> String {
         .unwrap_or_else(|_| utc_rfc3339.to_string())
 }
 
+///
+/// 命令解決履歴取得リクエスト Axum ハンドラ関数
+///
+pub(crate) async fn get_games_result<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    Path((game_uuid_str, season)): Path<(String, String)>,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    let game_uuid = match Uuid::parse_str(&game_uuid_str) {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                axum::Json(ApiErrorResponse {
+                    code: "invalid_request",
+                    message: "game_uuid is invalid".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    let game_service = std::sync::Arc::clone(&state.game_service);
+    let result = tokio::task::spawn_blocking(move || handle_get_games_result(&game_service, game_uuid, &season)).await;
+
+    match result {
+        Ok(Ok(response)) => (StatusCode::OK, axum::Json(response)).into_response(),
+        Ok(Err(error)) => {
+            let status = match &error {
+                super::GetGameResultHandlerError::GameNotFound | super::GetGameResultHandlerError::SeasonNotFound => {
+                    StatusCode::NOT_FOUND
+                }
+                super::GetGameResultHandlerError::Repository(_) => StatusCode::SERVICE_UNAVAILABLE,
+            };
+            (status, axum::Json(error.to_api_error_response())).into_response()
+        }
+        Err(join_err) => {
+            eprintln!("get_games_result task failed: {}", join_err);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                axum::Json(ApiErrorResponse {
+                    code: "internal_error",
+                    message: "internal server error".to_string(),
+                }),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// 命令解決履歴取得の純粋関数（テスト可能）
+pub(crate) fn handle_get_games_result<U, G>(
+    service: &GameService<U, G>,
+    game_uuid: Uuid,
+    season: &str,
+) -> Result<super::GetGameResultResponse, super::GetGameResultHandlerError>
+where
+    U: UserRepository,
+    G: GameRepository,
+{
+    let game = service.get_game(game_uuid).map_err(|e| match e {
+        super::GetGameError::NotFound => super::GetGameResultHandlerError::GameNotFound,
+        super::GetGameError::Repository(r) => super::GetGameResultHandlerError::Repository(r),
+    })?;
+
+    if season == "ready" || season == "debrief" {
+        return Err(super::GetGameResultHandlerError::SeasonNotFound);
+    }
+
+    let valid_seasons = build_seasons(&game);
+    if !valid_seasons.contains(&season.to_string()) {
+        return Err(super::GetGameResultHandlerError::SeasonNotFound);
+    }
+
+    let suffix = season.chars().last().unwrap_or(' ');
+    let is_spring = suffix == 's' || suffix == 'S';
+    let year: i32 = season[..season.len() - 1]
+        .parse()
+        .map_err(|_| super::GetGameResultHandlerError::SeasonNotFound)?;
+
+    let last_phase_index = game.phases.last().map(|p| p.index);
+
+    let season_phases: Vec<&crate::Phase> = game
+        .phases
+        .iter()
+        .filter(|p| {
+            p.year == year
+                && match &p.kind {
+                    crate::PhaseKind::SpringMain(_) | crate::PhaseKind::SpringRetreat(_) => is_spring,
+                    crate::PhaseKind::FallMain(_) | crate::PhaseKind::FallRetreat(_) | crate::PhaseKind::Adjustment(_) => {
+                        !is_spring
+                    }
+                    _ => false,
+                }
+        })
+        .collect();
+
+    let phase_status = |phase: &crate::Phase| -> &'static str {
+        if Some(phase.index) == last_phase_index {
+            "open"
+        } else {
+            "closed"
+        }
+    };
+
+    let build_orders = |phase: &crate::Phase| -> Vec<super::GameResultOrderResponse> {
+        phase
+            .orders
+            .iter()
+            .filter(|o| !o.is_assumed())
+            .map(|o| {
+                let (order_kind, dest, target_location, target_dest, via_convoy) = match &o.kind {
+                    crate::OrderKind::Hold(_) => ("hold", None, None, None, None),
+                    crate::OrderKind::Move(m) => ("move", Some(m.dest.short_name().to_string()), None, None, Some(m.via_convoy)),
+                    crate::OrderKind::Support(s) => (
+                        "support",
+                        None,
+                        Some(s.target_unit.location.short_name().to_string()),
+                        s.target_dest.map(|p| p.short_name().to_string()),
+                        None,
+                    ),
+                    crate::OrderKind::Convoy(c) => (
+                        "convoy",
+                        None,
+                        Some(c.target_unit.location.short_name().to_string()),
+                        Some(c.target_dest.short_name().to_string()),
+                        None,
+                    ),
+                    crate::OrderKind::Retreat(r) => ("retreat", Some(r.dest.short_name().to_string()), None, None, None),
+                    crate::OrderKind::Build(_) => ("build", None, None, None, None),
+                    crate::OrderKind::Disband(_) => ("disband", None, None, None, None),
+                };
+                let status = match o.status {
+                    crate::OrderStatus::Unresolved => "unresolved",
+                    crate::OrderStatus::Failure => "failure",
+                    crate::OrderStatus::Success => "success",
+                    crate::OrderStatus::Dislodged => "dislodged",
+                    crate::OrderStatus::Cut => "cut",
+                    crate::OrderStatus::Valid => "valid",
+                    crate::OrderStatus::Invalid => "invalid",
+                    crate::OrderStatus::Unreachable => "unreachable",
+                };
+                super::GameResultOrderResponse {
+                    power: o.power.symbol().to_string(),
+                    unit_kind: o.unit.symbol().to_string(),
+                    location: o.unit.location.short_name().to_string(),
+                    order_kind: order_kind.to_string(),
+                    status: status.to_string(),
+                    dest,
+                    target_location,
+                    target_dest,
+                    via_convoy,
+                }
+            })
+            .collect()
+    };
+
+    let main_phase = season_phases
+        .iter()
+        .find(|p| matches!(&p.kind, crate::PhaseKind::SpringMain(_) | crate::PhaseKind::FallMain(_)))
+        .copied()
+        .ok_or(super::GetGameResultHandlerError::SeasonNotFound)?;
+
+    let retreat_phase = season_phases
+        .iter()
+        .find(|p| matches!(&p.kind, crate::PhaseKind::SpringRetreat(_) | crate::PhaseKind::FallRetreat(_)))
+        .copied();
+
+    let adjustment_phase = if !is_spring {
+        season_phases
+            .iter()
+            .find(|p| matches!(&p.kind, crate::PhaseKind::Adjustment(_)))
+            .copied()
+    } else {
+        None
+    };
+
+    let units = season_phases
+        .last()
+        .map(|p| {
+            p.units
+                .iter()
+                .map(|u| super::GameResultUnitResponse {
+                    power: u.power.symbol().to_string(),
+                    kind: u.symbol().to_string(),
+                    location: u.location.short_name().to_string(),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Ok(super::GetGameResultResponse {
+        units,
+        main_phase: super::GameResultPhaseResponse {
+            status: phase_status(main_phase).to_string(),
+            orders: build_orders(main_phase),
+        },
+        retreat_phase: retreat_phase.map(|p| super::GameResultPhaseResponse {
+            status: phase_status(p).to_string(),
+            orders: build_orders(p),
+        }),
+        adjustment_phase: adjustment_phase.map(|p| super::GameResultPhaseResponse {
+            status: phase_status(p).to_string(),
+            orders: build_orders(p),
+        }),
+    })
+}
+
 // ============================================================================
 // tests
 // ============================================================================
@@ -4566,5 +4778,255 @@ mod tests {
     fn utc_rfc3339_to_jst_string_returns_original_on_invalid_input() {
         let result = utc_rfc3339_to_jst_string("not-a-date");
         assert_eq!(result, "not-a-date");
+    }
+
+    // ---- handle_get_games_result テスト ----
+
+    use crate::api::handlers::GetGameResultHandlerError;
+    use crate::domain::FaceType;
+    use crate::domain::ProgressMode;
+    use crate::domain::Regulation;
+
+    fn test_regulation() -> Regulation {
+        Regulation::new(
+            FaceType::Girls,
+            ProgressMode::Scheduled,
+            crate::domain::DurationType::Normal,
+            chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+            21,
+        )
+        .unwrap()
+    }
+
+    fn make_game_for_result(uuid: uuid::Uuid, phases: Vec<Phase>) -> Game {
+        Game {
+            uuid,
+            game_number: None,
+            keyword: None,
+            regulation: test_regulation(),
+            players: vec![],
+            phases,
+            status: GameStatus::InProgress,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        }
+    }
+
+    fn make_result_service(game: Game) -> (uuid::Uuid, GameService<InMemoryUserRepository, InMemoryGameRepository>) {
+        let uuid = game.uuid;
+        let service = GameService::new(
+            InMemoryUserRepository::new(vec![]),
+            InMemoryGameRepository::new_with_games(vec![game]),
+        );
+        (uuid, service)
+    }
+
+    fn army(power: crate::domain::Power, code: &str) -> crate::domain::Unit {
+        let province = crate::domain::Province::from_code(code).expect("valid province code");
+        crate::domain::Unit::new_army(power, province)
+    }
+
+    fn province(code: &str) -> crate::domain::Province {
+        crate::domain::Province::from_code(code).expect("valid province code")
+    }
+
+    #[test]
+    fn handle_get_games_result_returns_open_main_phase_for_current_spring_season() {
+        let ready = Phase::new_ready();
+        let mut spring_main = Phase::new_spring_main(ready.year, ready.index);
+        let eng_army = army(crate::domain::Power::England, "lon");
+        spring_main.units = vec![eng_army];
+        spring_main.orders = vec![crate::Order::new_hold(crate::domain::Power::England, eng_army)];
+
+        let game = make_game_for_result(uuid::Uuid::now_v7(), vec![ready, spring_main]);
+        let (uuid, service) = make_result_service(game);
+
+        let result = handle_get_games_result(&service, uuid, "1901s").unwrap();
+
+        assert_eq!(result.main_phase.status, "open");
+        assert!(result.retreat_phase.is_none());
+        assert!(result.adjustment_phase.is_none());
+        assert_eq!(result.main_phase.orders.len(), 1);
+        assert_eq!(result.main_phase.orders[0].order_kind, "hold");
+        assert_eq!(result.units.len(), 1);
+        assert_eq!(result.units[0].location, "Lon");
+    }
+
+    #[test]
+    fn handle_get_games_result_returns_closed_phases_for_historical_spring_season() {
+        let ready = Phase::new_ready();
+        let spring_main = Phase::new_spring_main(ready.year, ready.index);
+        let spring_retreat = Phase::new_spring_retreat(spring_main.year, spring_main.index);
+        let fall_main = Phase::new_fall_main(spring_retreat.year, spring_retreat.index);
+
+        let game = make_game_for_result(uuid::Uuid::now_v7(), vec![ready, spring_main, spring_retreat, fall_main]);
+        let (uuid, service) = make_result_service(game);
+
+        let result = handle_get_games_result(&service, uuid, "1901s").unwrap();
+
+        assert_eq!(result.main_phase.status, "closed");
+        assert_eq!(result.retreat_phase.as_ref().unwrap().status, "closed");
+        assert!(result.adjustment_phase.is_none());
+    }
+
+    #[test]
+    fn handle_get_games_result_returns_retreat_phase_as_open_when_current() {
+        let ready = Phase::new_ready();
+        let spring_main = Phase::new_spring_main(ready.year, ready.index);
+        let spring_retreat = Phase::new_spring_retreat(spring_main.year, spring_main.index);
+
+        let game = make_game_for_result(uuid::Uuid::now_v7(), vec![ready, spring_main, spring_retreat]);
+        let (uuid, service) = make_result_service(game);
+
+        let result = handle_get_games_result(&service, uuid, "1901s").unwrap();
+
+        assert_eq!(result.main_phase.status, "closed");
+        assert_eq!(result.retreat_phase.as_ref().unwrap().status, "open");
+        assert!(result.adjustment_phase.is_none());
+    }
+
+    #[test]
+    fn handle_get_games_result_includes_all_fall_phases_when_complete() {
+        let ready = Phase::new_ready();
+        let spring_main = Phase::new_spring_main(ready.year, ready.index);
+        let spring_retreat = Phase::new_spring_retreat(spring_main.year, spring_main.index);
+        let fall_main = Phase::new_fall_main(spring_retreat.year, spring_retreat.index);
+        let fall_retreat = Phase::new_fall_retreat(fall_main.year, fall_main.index);
+        let adjustment = Phase::new_adjustment(fall_retreat.year, fall_retreat.index);
+
+        let game = make_game_for_result(
+            uuid::Uuid::now_v7(),
+            vec![ready, spring_main, spring_retreat, fall_main, fall_retreat, adjustment],
+        );
+        let (uuid, service) = make_result_service(game);
+
+        let result = handle_get_games_result(&service, uuid, "1901f").unwrap();
+
+        assert_eq!(result.main_phase.status, "closed");
+        assert_eq!(result.retreat_phase.as_ref().unwrap().status, "closed");
+        assert_eq!(result.adjustment_phase.as_ref().unwrap().status, "open");
+    }
+
+    #[test]
+    fn handle_get_games_result_excludes_assumed_orders() {
+        let ready = Phase::new_ready();
+        let mut spring_main = Phase::new_spring_main(ready.year, ready.index);
+        let eng_army = army(crate::domain::Power::England, "lon");
+
+        let real_order = crate::Order::new_hold(crate::domain::Power::England, eng_army);
+        // France が England のユニットに仮想命令を持つ → is_assumed() = true
+        let assumed_order = crate::Order::new_hold(crate::domain::Power::France, eng_army);
+        spring_main.orders = vec![real_order, assumed_order];
+
+        let game = make_game_for_result(uuid::Uuid::now_v7(), vec![ready, spring_main]);
+        let (uuid, service) = make_result_service(game);
+
+        let result = handle_get_games_result(&service, uuid, "1901s").unwrap();
+
+        assert_eq!(result.main_phase.orders.len(), 1);
+        assert_eq!(result.main_phase.orders[0].power, "e");
+    }
+
+    #[test]
+    fn handle_get_games_result_returns_units_from_last_phase_of_season() {
+        let ready = Phase::new_ready();
+        let mut spring_main = Phase::new_spring_main(ready.year, ready.index);
+        let mut spring_retreat = Phase::new_spring_retreat(spring_main.year, spring_main.index);
+
+        spring_main.units = vec![army(crate::domain::Power::England, "lon")];
+        spring_retreat.units = vec![army(crate::domain::Power::England, "wal")]; // 撤退後にウェールズへ移動
+
+        let game = make_game_for_result(uuid::Uuid::now_v7(), vec![ready, spring_main, spring_retreat]);
+        let (uuid, service) = make_result_service(game);
+
+        let result = handle_get_games_result(&service, uuid, "1901s").unwrap();
+
+        assert_eq!(result.units.len(), 1);
+        assert_eq!(result.units[0].location, "Wal");
+    }
+
+    #[test]
+    fn handle_get_games_result_includes_move_order_fields() {
+        let ready = Phase::new_ready();
+        let mut spring_main = Phase::new_spring_main(ready.year, ready.index);
+        let eng_army = army(crate::domain::Power::England, "lon");
+        let dest = province("wal");
+        spring_main.orders = vec![crate::Order::new_move(crate::domain::Power::England, eng_army, dest)];
+
+        let game = make_game_for_result(uuid::Uuid::now_v7(), vec![ready, spring_main]);
+        let (uuid, service) = make_result_service(game);
+
+        let result = handle_get_games_result(&service, uuid, "1901s").unwrap();
+
+        let order = &result.main_phase.orders[0];
+        assert_eq!(order.order_kind, "move");
+        assert_eq!(order.dest.as_deref(), Some("Wal"));
+        assert_eq!(order.via_convoy, Some(false));
+    }
+
+    #[test]
+    fn handle_get_games_result_returns_not_found_for_missing_game() {
+        let service = GameService::new(InMemoryUserRepository::new(vec![]), InMemoryGameRepository::new());
+
+        let result = handle_get_games_result(&service, uuid::Uuid::now_v7(), "1901s");
+
+        assert!(matches!(result, Err(GetGameResultHandlerError::GameNotFound)));
+    }
+
+    #[test]
+    fn handle_get_games_result_returns_not_found_for_ready_season() {
+        let ready = Phase::new_ready();
+        let game = make_game_for_result(uuid::Uuid::now_v7(), vec![ready]);
+        let (uuid, service) = make_result_service(game);
+
+        let result = handle_get_games_result(&service, uuid, "ready");
+
+        assert!(matches!(result, Err(GetGameResultHandlerError::SeasonNotFound)));
+    }
+
+    #[test]
+    fn handle_get_games_result_returns_not_found_for_debrief_season() {
+        let ready = Phase::new_ready();
+        let spring_main = Phase::new_spring_main(ready.year, ready.index);
+        let debrief = Phase::new_debrief(spring_main.year, spring_main.index);
+        let game = make_game_for_result(uuid::Uuid::now_v7(), vec![ready, spring_main, debrief]);
+        let (uuid, service) = make_result_service(game);
+
+        let result = handle_get_games_result(&service, uuid, "debrief");
+
+        assert!(matches!(result, Err(GetGameResultHandlerError::SeasonNotFound)));
+    }
+
+    #[test]
+    fn handle_get_games_result_returns_not_found_for_unreached_season() {
+        let ready = Phase::new_ready();
+        let spring_main = Phase::new_spring_main(ready.year, ready.index);
+        let game = make_game_for_result(uuid::Uuid::now_v7(), vec![ready, spring_main]);
+        let (uuid, service) = make_result_service(game);
+
+        let result = handle_get_games_result(&service, uuid, "1901f");
+
+        assert!(matches!(result, Err(GetGameResultHandlerError::SeasonNotFound)));
+    }
+
+    #[test]
+    fn handle_get_games_result_spring_has_no_adjustment_phase() {
+        let ready = Phase::new_ready();
+        let spring_main = Phase::new_spring_main(ready.year, ready.index);
+        let spring_retreat = Phase::new_spring_retreat(spring_main.year, spring_main.index);
+        let fall_main = Phase::new_fall_main(spring_retreat.year, spring_retreat.index);
+        let fall_retreat = Phase::new_fall_retreat(fall_main.year, fall_main.index);
+        let adjustment = Phase::new_adjustment(fall_retreat.year, fall_retreat.index);
+
+        let game = make_game_for_result(
+            uuid::Uuid::now_v7(),
+            vec![ready, spring_main, spring_retreat, fall_main, fall_retreat, adjustment],
+        );
+        let (uuid, service) = make_result_service(game);
+
+        let result = handle_get_games_result(&service, uuid, "1901s").unwrap();
+
+        assert!(result.adjustment_phase.is_none());
     }
 }

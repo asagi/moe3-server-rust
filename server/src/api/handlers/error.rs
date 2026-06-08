@@ -681,6 +681,41 @@ impl SetNextUpdateAtHandlerError {
 }
 
 ///
+/// 命令解決履歴取得リクエストハンドラのエラーの列挙体
+///
+#[derive(Debug)]
+pub(crate) enum GetGameResultHandlerError {
+    GameNotFound,
+    SeasonNotFound,
+    Repository(RepositoryError),
+}
+
+/// 命令解決履歴取得リクエストハンドラのエラーの列挙体の実装
+impl GetGameResultHandlerError {
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Self::GameNotFound | Self::SeasonNotFound => "not_found",
+            Self::Repository(_) => "repository_error",
+        }
+    }
+
+    pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
+        ApiErrorResponse {
+            code: self.code(),
+            message: self.message(),
+        }
+    }
+
+    fn message(&self) -> String {
+        match self {
+            Self::GameNotFound => "game not found".to_string(),
+            Self::SeasonNotFound => "season not found".to_string(),
+            Self::Repository(error) => error.to_string(),
+        }
+    }
+}
+
+///
 /// 外交履歴取得リクエストハンドラのエラーの列挙体
 ///
 #[derive(Debug)]
