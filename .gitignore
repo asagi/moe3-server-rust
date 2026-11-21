@@ -26,5 +26,6 @@ target
 /target
 
 # ignore sqlite dbs
-server/*.db
 *.sqlite3
+*.db
+*.db.lock

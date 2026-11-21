@@ -14,7 +14,11 @@ use axum::Router;
 use axum::extract::Json;
 use axum::extract::Request;
 use axum::extract::State;
+use axum::http::HeaderValue;
+use axum::http::Method;
 use axum::http::StatusCode;
+use axum::http::header::AUTHORIZATION;
+use axum::http::header::CONTENT_TYPE;
 use axum::middleware::Next;
 use axum::middleware::from_fn_with_state;
 use axum::response::IntoResponse;
@@ -26,6 +30,8 @@ use chrono::DateTime;
 use chrono::Utc;
 use fs4::FileExt;
 use tokio::sync::Mutex as TokioMutex;
+use tower_http::cors::AllowOrigin;
+use tower_http::cors::CorsLayer;
 
 use super::ApiErrorResponse;
 use super::AuthService;
@@ -131,15 +137,23 @@ where
 ///
 /// API サーバーを起動する非同期関数
 ///
-pub async fn serve(addr: SocketAddr, main_db_path: &str, messages_db_path: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+pub async fn serve(
+    addr: SocketAddr,
+    main_db_path: &str,
+    messages_db_path: &str,
+    cors_allowed_origins: &[String],
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     // 複数起動防止インスタンスロック獲得
     acquire_instance_lock(main_db_path)?;
 
+    let cors_layer = create_cors_layer(cors_allowed_origins)?;
     let user_repository = SqliteUserRepository::new(main_db_path)?;
     let message_repository = SqliteMessageRepository::new(messages_db_path);
     let game_repository = SqliteGameRepository::new(main_db_path)?;
     let game_service = GameService::new(user_repository.clone(), game_repository.clone());
-    let auth_service = AuthService::new(user_repository.clone(), DiscordApiClient::new());
+    // reqwest の blocking クライアントは非同期コンテキスト内で生成すると panic するため、ブロッキングスレッドで生成する
+    let discord_api_client = tokio::task::spawn_blocking(DiscordApiClient::new).await?;
+    let auth_service = AuthService::new(user_repository.clone(), discord_api_client);
     let pre_handler = GlobalPreHandler::new(user_repository.clone(), game_repository, message_repository.clone());
     let state = AppState::new(
         user_repository.clone(),
@@ -148,11 +162,35 @@ pub async fn serve(addr: SocketAddr, main_db_path: &str, messages_db_path: &str)
         auth_service,
         pre_handler,
     );
-    let router = create_router(state);
+    // プリフライトリクエストがグローバルプリハンドラを通らないよう、CORS レイヤーは最外層に配置する
+    let router = create_router(state).layer(cors_layer);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, router).await?;
     Ok(())
+}
+
+///
+/// CORS レイヤー生成関数
+///
+/// `allowed_origins` に `*` が含まれる場合は全オリジンを許可する。
+/// 認証は Cookie ではなく Authorization ヘッダで行うため、クレデンシャルは許可しない。
+///
+fn create_cors_layer(allowed_origins: &[String]) -> Result<CorsLayer, Box<dyn Error + Send + Sync>> {
+    let allow_origin = if allowed_origins.iter().any(|origin| origin == "*") {
+        AllowOrigin::any()
+    } else {
+        let origins = allowed_origins
+            .iter()
+            .map(|origin| HeaderValue::from_str(origin).map_err(|e| format!("invalid CORS origin '{}': {}", origin, e)))
+            .collect::<Result<Vec<_>, _>>()?;
+        AllowOrigin::list(origins)
+    };
+
+    Ok(CorsLayer::new()
+        .allow_origin(allow_origin)
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+        .allow_headers([AUTHORIZATION, CONTENT_TYPE]))
 }
 
 ///
@@ -286,32 +324,32 @@ where
 {
     Router::new()
         .route("/games", get(get_games::<U, G, D>).post(post_games::<U, G, D>))
-        .route("/games/:game_uuid", get(get_game::<U, G, D>))
-        .route("/games/:game_uuid/logs/:season", get(get_games_logs::<U, G, D>))
-        .route("/games/:game_uuid/result/:season", get(get_games_result::<U, G, D>))
-        .route("/games/:game_uuid/players", post(post_games_players::<U, G, D>))
+        .route("/games/{game_uuid}", get(get_game::<U, G, D>))
+        .route("/games/{game_uuid}/logs/{season}", get(get_games_logs::<U, G, D>))
+        .route("/games/{game_uuid}/result/{season}", get(get_games_result::<U, G, D>))
+        .route("/games/{game_uuid}/players", post(post_games_players::<U, G, D>))
         .route(
-            "/games/:game_uuid/progress-consensus",
+            "/games/{game_uuid}/progress-consensus",
             put(put_games_progress_consensus::<U, G, D>),
         )
         .route(
-            "/admin/games/:game_uuid/draw-proposal",
+            "/admin/games/{game_uuid}/draw-proposal",
             put(put_admin_games_draw_proposal::<U, G, D>),
         )
         .route(
-            "/admin/games/:game_uuid/next-update-at",
+            "/admin/games/{game_uuid}/next-update-at",
             put(put_admin_games_next_update_at::<U, G, D>),
         )
         .route(
-            "/admin/games/:game_uuid/units/:location",
+            "/admin/games/{game_uuid}/units/{location}",
             put(put_admin_games_units::<U, G, D>).delete(delete_admin_games_units::<U, G, D>),
         )
         .route(
-            "/admin/games/:game_uuid/territories/:code",
+            "/admin/games/{game_uuid}/territories/{code}",
             put(put_admin_games_territories::<U, G, D>).delete(delete_admin_games_territories::<U, G, D>),
         )
         .route(
-            "/admin/games/:game_uuid/progress-mode",
+            "/admin/games/{game_uuid}/progress-mode",
             put(put_admin_games_progress_mode::<U, G, D>),
         )
         .route("/auth/login", post(post_auth_login::<U, G, D>))
