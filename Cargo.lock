@@ -1321,6 +1321,7 @@ dependencies = [
  "serde_json",
  "strum",
  "tokio",
+ "tower-http",
  "uuid",
 ]
 
