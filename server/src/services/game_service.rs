@@ -1112,11 +1112,13 @@ where
 
     ///
     /// 指定ユーザーが参加している卓一覧をページネーションして返す
+    /// `filter` が `None` の場合はステータスで絞り込まない
     ///
     pub(crate) fn list_games_by_user(
         &self,
         access_token: &str,
         target_discord_user_id: &str,
+        filter: Option<GameStatusFilter>,
         page: u32,
         per_page: u32,
     ) -> Result<ListGamesResult, ListGamesError> {
@@ -1132,7 +1134,7 @@ where
 
         let (games, total) = self
             .game_repository
-            .find_paginated_by_user_uuid(user.uuid, page, per_page)
+            .find_paginated_by_user_uuid(user.uuid, filter, page, per_page)
             .map_err(ListGamesError::Repository)?;
 
         Ok(ListGamesResult { games, total })
@@ -1363,6 +1365,7 @@ mod tests {
         fn find_paginated_by_user_uuid(
             &self,
             user_uuid: Uuid,
+            filter: Option<GameStatusFilter>,
             page: u32,
             per_page: u32,
         ) -> Result<(Vec<GameSummary>, u64), RepositoryError> {
@@ -1371,6 +1374,12 @@ mod tests {
                 .borrow()
                 .iter()
                 .filter(|g| g.players.iter().any(|p| p.user_uuid == user_uuid))
+                .filter(|g| match filter {
+                    None => true,
+                    Some(GameStatusFilter::Active) => !matches!(g.status, GameStatus::Closed | GameStatus::Aborted),
+                    Some(GameStatusFilter::Closed) => matches!(g.status, GameStatus::Closed),
+                    Some(GameStatusFilter::Aborted) => matches!(g.status, GameStatus::Aborted),
+                })
                 .map(game_to_summary)
                 .collect();
             let total = all.len() as u64;

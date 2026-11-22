@@ -5,6 +5,7 @@
 - 卓の一覧を取得する API
 - ステータス指定検索・ユーザー指定検索の 2 種類を提供する
 - ステータス指定検索は認証不要、ユーザー指定検索は認証必須
+- ユーザー指定検索は、指定ユーザーがプレイヤーとして参加している卓を返す（`status` を併用するとステータスでも絞り込む）
 
 ## HTTP
 
@@ -17,12 +18,12 @@
 
 ## クエリパラメータ
 
-| パラメータ | 型       | 必須 | デフォルト | 説明                                   |
-| ---------- | -------- | ---- | ---------- | -------------------------------------- |
-| `status`   | `string` | 任意 | —          | ステータスフィルタ（`user` と排他）    |
-| `user`     | `string` | 任意 | —          | Discord ユーザー ID（`status` と排他） |
-| `page`     | `number` | 任意 | `1`        | ページ番号（1 以上）                   |
-| `per_page` | `number` | 任意 | `20`       | 1 ページあたりの件数（1〜100）         |
+| パラメータ | 型       | 必須 | デフォルト | 説明                           |
+| ---------- | -------- | ---- | ---------- | ------------------------------ |
+| `status`   | `string` | 任意 | —          | ステータスフィルタ             |
+| `user`     | `string` | 任意 | —          | Discord ユーザー ID            |
+| `page`     | `number` | 任意 | `1`        | ページ番号（1 以上）           |
+| `per_page` | `number` | 任意 | `20`       | 1 ページあたりの件数（1〜100） |
 
 ### `status` の受理値
 
@@ -32,10 +33,14 @@
 | `closed`  | 終了済み                                 |
 | `aborted` | 中止済み                                 |
 
-### 検索モードの優先順位
+### 検索モード
 
-- `status` と `user` は同時指定不可（`400 Bad Request`）
-- どちらも未指定の場合は `status=active` として扱う
+| `user` | `status` | 動作                                                   |
+| ------ | -------- | ------------------------------------------------------ |
+| 未指定 | 未指定   | `status=active` として全卓を検索                       |
+| 未指定 | 指定     | 指定ステータスの全卓を検索                             |
+| 指定   | 未指定   | 指定ユーザーが参加している卓をステータスを問わず検索   |
+| 指定   | 指定     | 指定ユーザーが参加している卓のうち指定ステータスを検索 |
 
 ## リクエスト例
 
@@ -55,6 +60,13 @@ GET /games?status=closed&page=1&per_page=20
 
 ```
 GET /games?user=123456789012345678
+Authorization: Bearer <access_token>
+```
+
+### ユーザー指定 + ステータス指定（認証必須）
+
+```
+GET /games?user=123456789012345678&status=active
 Authorization: Bearer <access_token>
 ```
 
@@ -141,13 +153,12 @@ Authorization: Bearer <access_token>
 
 #### クエリパラメータ
 
-| 条件                              | message                                                  |
-| --------------------------------- | -------------------------------------------------------- |
-| `status` と `user` を同時指定     | `"status and user cannot be specified at the same time"` |
-| `status` に無効な値を指定         | `"status must be 'active', 'closed', or 'aborted'"`      |
-| `user` が空文字                   | `"user must be a non-empty Discord user id"`             |
-| `page` が 1 未満                  | `"page must be 1 or greater"`                            |
-| `per_page` が 1 未満または 100 超 | `"per_page must be between 1 and 100"`                   |
+| 条件                              | message                                             |
+| --------------------------------- | --------------------------------------------------- |
+| `status` に無効な値を指定         | `"status must be 'active', 'closed', or 'aborted'"` |
+| `user` が空文字                   | `"user must be a non-empty Discord user id"`        |
+| `page` が 1 未満                  | `"page must be 1 or greater"`                       |
+| `per_page` が 1 未満または 100 超 | `"per_page must be between 1 and 100"`              |
 
 #### `Authorization` ヘッダ関連（`user` 指定時のみ検証）
 
@@ -193,5 +204,12 @@ curl '{base_path}/games?status=closed&page=1&per_page=20'
 
 ```sh
 curl '{base_path}/games?user=123456789012345678' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+### ユーザー指定 + ステータス指定
+
+```sh
+curl '{base_path}/games?user=123456789012345678&status=active' \
   -H 'Authorization: Bearer <access_token>'
 ```

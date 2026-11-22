@@ -1315,18 +1315,20 @@ where
     let page = request.page;
     let per_page = request.per_page;
 
+    let filter = match request.status.as_deref() {
+        Some("active") => Some(GameStatusFilter::Active),
+        Some("closed") => Some(GameStatusFilter::Closed),
+        Some("aborted") => Some(GameStatusFilter::Aborted),
+        _ => None,
+    };
+
     let result: ListGamesResult = if let Some(ref discord_user_id) = request.user {
         service
-            .list_games_by_user(request.access_token(), discord_user_id, page, per_page)
+            .list_games_by_user(request.access_token(), discord_user_id, filter, page, per_page)
             .map_err(GetGamesHandlerError::Service)?
     } else {
-        let filter = match request.status.as_deref() {
-            Some("closed") => GameStatusFilter::Closed,
-            Some("aborted") => GameStatusFilter::Aborted,
-            _ => GameStatusFilter::Active,
-        };
         service
-            .list_games_by_status(filter, page, per_page)
+            .list_games_by_status(filter.unwrap_or(GameStatusFilter::Active), page, per_page)
             .map_err(GetGamesHandlerError::Service)?
     };
 
@@ -2216,6 +2218,7 @@ mod tests {
         fn find_paginated_by_user_uuid(
             &self,
             user_uuid: uuid::Uuid,
+            filter: Option<GameStatusFilter>,
             page: u32,
             per_page: u32,
         ) -> Result<(Vec<GameSummary>, u64), RepositoryError> {
@@ -2224,6 +2227,12 @@ mod tests {
                 .borrow()
                 .iter()
                 .filter(|g| g.players.iter().any(|p| p.user_uuid == user_uuid))
+                .filter(|g| match filter {
+                    None => true,
+                    Some(GameStatusFilter::Active) => !matches!(g.status, GameStatus::Closed | GameStatus::Aborted),
+                    Some(GameStatusFilter::Closed) => matches!(g.status, GameStatus::Closed),
+                    Some(GameStatusFilter::Aborted) => matches!(g.status, GameStatus::Aborted),
+                })
                 .map(game_to_summary_test)
                 .collect();
             let total = all.len() as u64;
@@ -4057,27 +4066,48 @@ mod tests {
     }
 
     #[test]
-    fn handle_get_games_returns_error_when_status_and_user_both_specified() {
-        let user_repository = InMemoryUserRepository::new(vec![]);
-        let game_repository = InMemoryGameRepository::new_with_games(vec![]);
+    fn handle_get_games_filters_own_user_games_by_status() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "alice".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-alice".to_string(),
+            last_access_at: Utc::now(),
+            is_admin: false,
+        }]);
+        let active = build_game_for_get_games_tests(uuid::Uuid::now_v7(), owner_uuid, GameStatus::Solo);
+        let closed = build_game_for_get_games_tests(uuid::Uuid::now_v7(), owner_uuid, GameStatus::Closed);
+        let closed_uuid = closed.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![active, closed]);
         let service = GameService::new(user_repository, game_repository);
 
-        let error = handle_get_games(
-            &service,
-            GetGamesRequest {
-                authorization: Some("Bearer token".to_string()),
-                status: Some("active".to_string()),
-                user: Some("1001".to_string()),
-                page: 1,
-                per_page: 20,
-            },
-        )
-        .expect_err("should fail");
+        let request = |status: Option<&str>| GetGamesRequest {
+            authorization: Some("Bearer token-alice".to_string()),
+            status: status.map(str::to_string),
+            user: Some("1001".to_string()),
+            page: 1,
+            per_page: 20,
+        };
 
-        assert!(matches!(
-            error,
-            GetGamesHandlerError::InvalidRequest(GetGamesRequestValidationError::ConflictingParams)
-        ));
+        let all = handle_get_games(&service, request(None)).expect("should succeed");
+        assert_eq!(all.total, 2);
+
+        let active_only = handle_get_games(&service, request(Some("active"))).expect("should succeed");
+        assert_eq!(active_only.total, 1);
+        assert_eq!(active_only.games[0].status, "solo");
+
+        let closed_only = handle_get_games(&service, request(Some("closed"))).expect("should succeed");
+        assert_eq!(closed_only.total, 1);
+        assert_eq!(closed_only.games[0].game_uuid, closed_uuid);
+
+        let aborted_only = handle_get_games(&service, request(Some("aborted"))).expect("should succeed");
+        assert_eq!(aborted_only.total, 0);
+        assert!(aborted_only.games.is_empty());
     }
 
     #[test]

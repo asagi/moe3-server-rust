@@ -603,9 +603,6 @@ impl GetGamesHandlerError {
 
     fn message(&self) -> String {
         match self {
-            Self::InvalidRequest(GetGamesRequestValidationError::ConflictingParams) => {
-                "status and user cannot be specified at the same time".to_string()
-            }
             Self::InvalidRequest(GetGamesRequestValidationError::InvalidStatus) => {
                 "status must be 'active', 'closed', or 'aborted'".to_string()
             }
