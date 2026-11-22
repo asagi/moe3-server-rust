@@ -609,6 +609,7 @@ mod tests {
         fn find_paginated_by_user_uuid(
             &self,
             _user_uuid: uuid::Uuid,
+            _filter: Option<super::super::GameStatusFilter>,
             _page: u32,
             _per_page: u32,
         ) -> Result<(Vec<super::super::GameSummary>, u64), RepositoryError> {

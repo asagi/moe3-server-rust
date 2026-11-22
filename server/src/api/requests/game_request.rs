@@ -419,10 +419,6 @@ pub(crate) struct GetGamesRequest {
 /// 卓一覧取得リクエストの構造体の実装
 impl GetGamesRequest {
     pub(crate) fn validate(&self) -> Result<(), GetGamesRequestValidationError> {
-        if self.status.is_some() && self.user.is_some() {
-            return Err(GetGamesRequestValidationError::ConflictingParams);
-        }
-
         if let Some(status) = &self.status {
             match status.as_str() {
                 "active" | "closed" | "aborted" => {}

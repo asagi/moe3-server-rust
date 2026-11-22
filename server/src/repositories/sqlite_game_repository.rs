@@ -1268,11 +1268,7 @@ impl GameRepository for SqliteGameRepository {
             .lock()
             .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
 
-        let where_clause = match filter {
-            GameStatusFilter::Active => "WHERE g.status NOT IN ('closed', 'aborted')",
-            GameStatusFilter::Closed => "WHERE g.status = 'closed'",
-            GameStatusFilter::Aborted => "WHERE g.status = 'aborted'",
-        };
+        let where_clause = format!("WHERE {}", status_filter_condition(filter));
 
         let total: u64 = {
             let sql = format!("SELECT COUNT(*) FROM games g {}", where_clause);
@@ -1308,9 +1304,11 @@ impl GameRepository for SqliteGameRepository {
     }
 
     /// 指定ユーザーが参加している卓サマリ一覧と総件数をページネーションして返す
+    /// `filter` が `None` の場合はステータスで絞り込まない
     fn find_paginated_by_user_uuid(
         &self,
         user_uuid: Uuid,
+        filter: Option<GameStatusFilter>,
         page: u32,
         per_page: u32,
     ) -> Result<(Vec<GameSummary>, u64), RepositoryError> {
@@ -1321,26 +1319,30 @@ impl GameRepository for SqliteGameRepository {
 
         let user_uuid_str = user_uuid.to_string();
 
+        let status_clause = filter
+            .map(|filter| format!("AND {}", status_filter_condition(filter)))
+            .unwrap_or_default();
+
         let total: u64 = {
-            let count: i64 = connection
-                .query_row(
-                    r#"
-                    SELECT COUNT(*)
-                    FROM games g
-                    WHERE EXISTS (
-                        SELECT 1 FROM game_players WHERE game_uuid = g.uuid AND user_uuid = ?1
-                    )
-                    "#,
-                    params![user_uuid_str],
-                    |row| row.get(0),
+            let sql = format!(
+                r#"
+                SELECT COUNT(*)
+                FROM games g
+                WHERE EXISTS (
+                    SELECT 1 FROM game_players WHERE game_uuid = g.uuid AND user_uuid = ?1
                 )
+                {}
+                "#,
+                status_clause
+            );
+            let count: i64 = connection
+                .query_row(&sql, params![user_uuid_str], |row| row.get(0))
                 .map_err(|error| RepositoryError::Unavailable(format!("count games by user: {}", error)))?;
             count as u64
         };
 
         let offset = (page as i64).saturating_sub(1).saturating_mul(per_page as i64);
-        let summaries = Self::load_game_summaries(
-            &connection,
+        let sql = format!(
             r#"
             SELECT
                 g.uuid, g.game_number, g.regulation_face_type, g.regulation_progress_mode,
@@ -1356,13 +1358,26 @@ impl GameRepository for SqliteGameRepository {
             WHERE EXISTS (
                 SELECT 1 FROM game_players WHERE game_uuid = g.uuid AND user_uuid = ?1
             )
+            {}
             ORDER BY g.created_at DESC, g.uuid ASC
             LIMIT ?2 OFFSET ?3
             "#,
-            params![user_uuid_str, per_page as i64, offset],
-        )?;
+            status_clause
+        );
+        let summaries = Self::load_game_summaries(&connection, &sql, params![user_uuid_str, per_page as i64, offset])?;
 
         Ok((summaries, total))
+    }
+}
+
+///
+/// ステータスフィルタに対応する SQL 条件式（`games` テーブルの別名 `g` 前提）を返す
+///
+fn status_filter_condition(filter: GameStatusFilter) -> &'static str {
+    match filter {
+        GameStatusFilter::Active => "g.status NOT IN ('closed', 'aborted')",
+        GameStatusFilter::Closed => "g.status = 'closed'",
+        GameStatusFilter::Aborted => "g.status = 'aborted'",
     }
 }
 
@@ -1995,11 +2010,53 @@ mod transaction_tests {
         repository.insert(NewGame { game: game_a.clone() }).expect("insert a");
         repository.insert(NewGame { game: game_b }).expect("insert b");
 
-        let (summaries, total) = repository.find_paginated_by_user_uuid(user_a, 1, 20).expect("should succeed");
+        let (summaries, total) = repository
+            .find_paginated_by_user_uuid(user_a, None, 1, 20)
+            .expect("should succeed");
 
         assert_eq!(total, 1);
         assert_eq!(summaries.len(), 1);
         assert_eq!(summaries[0].uuid, game_a.uuid);
+    }
+
+    #[test]
+    fn find_paginated_by_user_uuid_filters_by_status() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+        let user_a = uuid::Uuid::now_v7();
+        let user_b = uuid::Uuid::now_v7();
+        let active = sample_game(uuid::Uuid::now_v7(), user_a, GameStatus::InProgress);
+        let closed = sample_game(uuid::Uuid::now_v7(), user_a, GameStatus::Closed);
+        let aborted = sample_game(uuid::Uuid::now_v7(), user_a, GameStatus::Aborted);
+        let other_closed = sample_game(uuid::Uuid::now_v7(), user_b, GameStatus::Closed);
+        repository.insert(NewGame { game: active.clone() }).expect("insert active");
+        repository.insert(NewGame { game: closed.clone() }).expect("insert closed");
+        repository.insert(NewGame { game: aborted.clone() }).expect("insert aborted");
+        repository.insert(NewGame { game: other_closed }).expect("insert other");
+
+        let (all, total_all) = repository.find_paginated_by_user_uuid(user_a, None, 1, 20).expect("all");
+        assert_eq!(total_all, 3);
+        assert_eq!(all.len(), 3);
+
+        let (summaries, total) = repository
+            .find_paginated_by_user_uuid(user_a, Some(GameStatusFilter::Active), 1, 20)
+            .expect("active");
+        assert_eq!(total, 1);
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].uuid, active.uuid);
+
+        let (summaries, total) = repository
+            .find_paginated_by_user_uuid(user_a, Some(GameStatusFilter::Closed), 1, 20)
+            .expect("closed");
+        assert_eq!(total, 1);
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].uuid, closed.uuid);
+
+        let (summaries, total) = repository
+            .find_paginated_by_user_uuid(user_a, Some(GameStatusFilter::Aborted), 1, 20)
+            .expect("aborted");
+        assert_eq!(total, 1);
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].uuid, aborted.uuid);
     }
 
     #[test]

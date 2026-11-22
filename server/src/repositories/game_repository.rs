@@ -82,9 +82,11 @@ pub(crate) trait GameRepository {
     ) -> Result<(Vec<GameSummary>, u64), RepositoryError>;
 
     /// 指定ユーザーが参加している卓サマリ一覧と総件数をページネーションして返す。
+    /// `filter` が `None` の場合はステータスで絞り込まない。
     fn find_paginated_by_user_uuid(
         &self,
         user_uuid: Uuid,
+        filter: Option<GameStatusFilter>,
         page: u32,
         per_page: u32,
     ) -> Result<(Vec<GameSummary>, u64), RepositoryError>;
