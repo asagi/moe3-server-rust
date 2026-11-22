@@ -73,16 +73,33 @@ impl SqliteUserRepository {
                 avatar_url TEXT,
                 access_token TEXT NOT NULL UNIQUE,
                 last_access_at TEXT NOT NULL,
+                is_admin INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
         "#;
 
-        self.connection
+        let connection = self
+            .connection
             .lock()
-            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
+        connection
             .execute(sql, [])
             .map_err(|error| RepositoryError::Unavailable(format!("create users table: {}", error)))?;
+
+        // 既存 DB に is_admin 列が無い場合は追加する
+        let has_is_admin: bool = connection
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM pragma_table_info('users') WHERE name = 'is_admin'",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|error| RepositoryError::Unavailable(format!("inspect users table: {}", error)))?;
+        if !has_is_admin {
+            connection
+                .execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0", [])
+                .map_err(|error| RepositoryError::Unavailable(format!("add users.is_admin column: {}", error)))?;
+        }
 
         Ok(())
     }
@@ -107,13 +124,14 @@ impl SqliteUserRepository {
             avatar_url: row.get("avatar_url")?,
             access_token: row.get("access_token")?,
             last_access_at,
+            is_admin: row.get("is_admin")?,
         })
     }
 
     /// ID でユーザをロードする
     fn load_by_id(&self, user_id: UserId) -> Result<UserRecord, RepositoryError> {
         let sql = r#"
-            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at
+            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at, is_admin
             FROM users
             WHERE id = ?1
         "#;
@@ -134,7 +152,7 @@ impl UserRepository for SqliteUserRepository {
     /// ID でユーザをロードする
     fn find_by_uuid(&self, user_uuid: uuid::Uuid) -> Result<Option<UserRecord>, RepositoryError> {
         let sql = r#"
-            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at
+            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at, is_admin
             FROM users
             WHERE uuid = ?1
         "#;
@@ -150,7 +168,7 @@ impl UserRepository for SqliteUserRepository {
     /// Discord ユーザ ID でユーザをロードする
     fn find_by_discord_user_id(&self, discord_user_id: &str) -> Result<Option<UserRecord>, RepositoryError> {
         let sql = r#"
-            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at
+            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at, is_admin
             FROM users
             WHERE discord_user_id = ?1
         "#;
@@ -166,7 +184,7 @@ impl UserRepository for SqliteUserRepository {
     /// アクセストークンでユーザをロードする
     fn find_by_access_token(&self, access_token: &str) -> Result<Option<UserRecord>, RepositoryError> {
         let sql = r#"
-            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at
+            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at, is_admin
             FROM users
             WHERE access_token = ?1
         "#;
@@ -389,6 +407,47 @@ mod tests {
         assert_eq!(fetched.global_name.as_deref(), Some("nemu_global"));
         assert_eq!(fetched.access_token, "token-1");
         assert_eq!(created.last_access_at, fetched.last_access_at);
+        assert!(!fetched.is_admin);
+    }
+
+    #[test]
+    fn new_adds_is_admin_column_to_existing_users_table() {
+        let file_path = std::env::temp_dir().join(format!("moe3_server_test_{}.sqlite3", uuid::Uuid::new_v4()));
+        let path_string = file_path.to_str().expect("temp path should be valid unicode").to_string();
+        {
+            let connection = Connection::open(&path_string).expect("open should succeed");
+            connection
+                .execute_batch(
+                    r#"
+                    CREATE TABLE users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        uuid TEXT NOT NULL UNIQUE,
+                        discord_user_id TEXT NOT NULL UNIQUE,
+                        username TEXT NOT NULL,
+                        global_name TEXT,
+                        avatar_hash TEXT,
+                        avatar_url TEXT,
+                        access_token TEXT NOT NULL UNIQUE,
+                        last_access_at TEXT NOT NULL,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL
+                    );
+                    INSERT INTO users (uuid, discord_user_id, username, access_token, last_access_at, created_at, updated_at)
+                    VALUES ('0190b6c4-0000-7000-8000-000000000001', '1001', 'legacy', 'token-legacy',
+                            '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00');
+                    "#,
+                )
+                .expect("legacy schema should be created");
+        }
+
+        let repository = SqliteUserRepository::new(&path_string).expect("repository should initialize");
+        let found = repository
+            .find_by_access_token("token-legacy")
+            .expect("find should succeed")
+            .expect("user should exist");
+
+        assert!(!found.is_admin);
+        let _ = std::fs::remove_file(file_path);
     }
 
     #[test]

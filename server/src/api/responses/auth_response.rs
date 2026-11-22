@@ -31,6 +31,7 @@ pub(crate) struct AuthLoginResponseUser {
     pub global_name: Option<String>,
     pub avatar_hash: Option<String>,
     pub avatar_url: Option<String>,
+    pub is_admin: bool,
 }
 
 /// ログインレスポンスのユーザー構造体の実装
@@ -43,6 +44,7 @@ impl From<LoginUser> for AuthLoginResponseUser {
             global_name: user.global_name,
             avatar_hash: user.avatar_hash,
             avatar_url: user.avatar_url,
+            is_admin: user.is_admin,
         }
     }
 }

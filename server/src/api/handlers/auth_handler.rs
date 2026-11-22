@@ -334,6 +334,7 @@ mod tests {
                 avatar_url: new_user.avatar_url,
                 access_token: new_user.access_token,
                 last_access_at: Utc::now(),
+                is_admin: false,
             };
             state.rows.insert(row.discord_user_id.clone(), row.clone());
             Ok(row)
@@ -366,6 +367,7 @@ mod tests {
             avatar_url: Some("https://cdn.discordapp.com/old.png".to_string()),
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
 
         let discord = FakeDiscordIdentityProvider {
@@ -393,6 +395,7 @@ mod tests {
         assert_eq!(response.user.username, "nemu");
         assert_eq!(response.user.global_name.as_deref(), Some("asagi"));
         assert_eq!(response.user.avatar_hash.as_deref(), Some("hash"));
+        assert!(!response.user.is_admin);
         assert_eq!(
             response.user.avatar_url.as_deref(),
             Some("https://cdn.discordapp.com/avatar.png")
@@ -453,6 +456,7 @@ mod tests {
             avatar_url: None,
             access_token: "old-token".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let discord = FakeDiscordIdentityProvider {
             profile: DiscordProfile {
@@ -514,6 +518,7 @@ mod tests {
             avatar_url: Some("https://cdn.discordapp.com/avatar.png".to_string()),
             access_token: "my-token".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let discord = FakeDiscordIdentityProvider {
             profile: DiscordProfile {

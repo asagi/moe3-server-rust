@@ -1420,6 +1420,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game_repository = InMemoryGameRepository::new(vec![]);
 
@@ -1457,6 +1458,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game_repository = InMemoryGameRepository::new(vec![]);
         let service = GameService::new(user_repository, game_repository);
@@ -1500,6 +1502,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game_repository = InMemoryGameRepository::new(vec![]);
         let service = GameService::new(user_repository, game_repository);
@@ -1538,6 +1541,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
 
         let participating_game = Game {
@@ -1589,6 +1593,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
 
         let solo_game = Game {
@@ -1638,6 +1643,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
 
         let draw_game = Game {
@@ -1687,6 +1693,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
 
         let canceled_game = Game {
@@ -1783,6 +1790,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-2".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
 
         let game = sample_preparing_game(owner_uuid);
@@ -1848,6 +1856,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
 
         let active_game = Game {
@@ -1900,6 +1909,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
 
         let game_repository = InMemoryGameRepository::new(vec![]);
@@ -1930,6 +1940,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
 
         let in_progress_game = Game {
@@ -2004,6 +2015,7 @@ mod tests {
                 avatar_url: None,
                 access_token: format!("token-{}", uuid),
                 last_access_at: Utc::now(),
+                is_admin: false,
             });
             game.players.push(Player {
                 user_uuid: uuid,
@@ -2033,6 +2045,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }];
 
         let game = sample_six_player_game(owner_uuid, &mut extra_users);
@@ -2049,6 +2062,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-7".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         });
 
         let user_repository = InMemoryUserRepository::new(extra_users);
@@ -2095,6 +2109,7 @@ mod tests {
                 avatar_url: None,
                 access_token: "token-owner".to_string(),
                 last_access_at: Utc::now(),
+                is_admin: false,
             },
             UserRecord {
                 id: 2,
@@ -2106,6 +2121,7 @@ mod tests {
                 avatar_url: None,
                 access_token: "token-2".to_string(),
                 last_access_at: Utc::now(),
+                is_admin: false,
             },
         ]);
 
@@ -2144,6 +2160,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
 
         let owner_uuid = Uuid::now_v7();
@@ -2179,6 +2196,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
 
         let owner_uuid = Uuid::now_v7();
@@ -2214,6 +2232,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
 
         let owner_uuid = Uuid::now_v7();
@@ -2250,6 +2269,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
 
         let owner_uuid = Uuid::now_v7();
@@ -2297,6 +2317,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }
     }
 
@@ -2311,6 +2332,7 @@ mod tests {
             avatar_url: None,
             access_token: token.to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }
     }
 
@@ -2460,6 +2482,7 @@ mod tests {
                 avatar_url: None,
                 access_token: "token-other".to_string(),
                 last_access_at: Utc::now(),
+                is_admin: false,
             },
         ]);
         let game = sample_in_progress_game(owner_uuid);
@@ -2632,6 +2655,7 @@ mod tests {
                 avatar_url: None,
                 access_token: "token-other".to_string(),
                 last_access_at: Utc::now(),
+                is_admin: false,
             },
         ]);
         let game = sample_in_progress_game(owner_uuid);
@@ -3121,6 +3145,7 @@ mod tests {
                 avatar_url: None,
                 access_token: "token-other".to_string(),
                 last_access_at: Utc::now(),
+                is_admin: false,
             },
         ]);
         let game = sample_in_progress_game(owner_uuid);
