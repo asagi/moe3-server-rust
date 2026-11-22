@@ -2260,6 +2260,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game_repository = InMemoryGameRepository::new();
         let service = GameService::new(user_repository.clone(), game_repository);
@@ -2300,6 +2301,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-1".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game_repository = InMemoryGameRepository::new();
         let repo_clone = game_repository.clone();
@@ -2366,6 +2368,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-2".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
 
         let game = Game {
@@ -2639,6 +2642,7 @@ mod tests {
                 avatar_url: None,
                 access_token: "token-owner".to_string(),
                 last_access_at: Utc::now(),
+                is_admin: false,
             },
             UserRecord {
                 id: 2,
@@ -2650,6 +2654,7 @@ mod tests {
                 avatar_url: None,
                 access_token: "token-other".to_string(),
                 last_access_at: Utc::now(),
+                is_admin: false,
             },
         ]);
         let game = sample_in_progress_game_for_handler(owner_uuid);
@@ -2685,6 +2690,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let mut game = sample_in_progress_game_for_handler(owner_uuid);
         game.players.iter_mut().find(|p| p.is_owner).unwrap().is_accepting_draw = false;
@@ -2721,6 +2727,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game = sample_in_progress_game_for_handler(owner_uuid);
         let game_uuid = game.uuid;
@@ -2795,6 +2802,7 @@ mod tests {
                 avatar_url: None,
                 access_token: "token-owner".to_string(),
                 last_access_at: Utc::now(),
+                is_admin: false,
             },
             UserRecord {
                 id: 2,
@@ -2806,6 +2814,7 @@ mod tests {
                 avatar_url: None,
                 access_token: "token-other".to_string(),
                 last_access_at: Utc::now(),
+                is_admin: false,
             },
         ]);
         let game = sample_in_progress_game_with_next_update(owner_uuid);
@@ -2842,6 +2851,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let mut game = sample_in_progress_game_with_next_update(owner_uuid);
         // 撤退フェーズに変更
@@ -2880,6 +2890,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let mut game = sample_in_progress_game_with_next_update(owner_uuid);
         // next_update_at を未来にセット（パスト判定のため、リクエストは現在より過去）
@@ -2927,6 +2938,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game = sample_in_progress_game_with_next_update(owner_uuid);
         let game_uuid = game.uuid;
@@ -2963,6 +2975,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
 
         let mut game = sample_in_progress_game_for_handler(owner_uuid);
@@ -3036,6 +3049,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game = sample_in_progress_game_for_handler(owner_uuid);
         let game_uuid = game.uuid;
@@ -3077,6 +3091,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game = sample_in_progress_game_for_handler(owner_uuid);
         let game_uuid = game.uuid;
@@ -3119,6 +3134,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let mut game = sample_in_progress_game_for_handler(owner_uuid);
         let paris = crate::domain::Province::from_code("par").unwrap();
@@ -3184,6 +3200,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game = sample_in_progress_game_for_handler(owner_uuid);
         let game_uuid = game.uuid;
@@ -3222,6 +3239,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let mut game = sample_in_progress_game_for_handler(owner_uuid);
         // 事前に France が par を保有
@@ -3265,6 +3283,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let mut game = sample_in_progress_game_for_handler(owner_uuid);
         game.phases
@@ -3307,6 +3326,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let mut game = sample_in_progress_game_for_handler(owner_uuid);
         game.phases
@@ -3351,6 +3371,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game = sample_in_progress_game_for_handler(owner_uuid);
         let game_uuid = game.uuid;
@@ -3387,6 +3408,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game = sample_in_progress_game_for_handler(owner_uuid);
         let game_uuid = game.uuid;
@@ -3423,6 +3445,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game = sample_in_progress_game_for_handler(owner_uuid);
         let game_uuid = game.uuid;
@@ -3484,6 +3507,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game = sample_in_progress_game_for_handler(owner_uuid);
         let game_uuid = game.uuid;
@@ -3591,6 +3615,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game = sample_in_progress_game_for_handler(owner_uuid);
         let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
@@ -3624,6 +3649,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game_repository = InMemoryGameRepository::new();
         let service = GameService::new(user_repository, game_repository);
@@ -3658,6 +3684,7 @@ mod tests {
                 avatar_url: None,
                 access_token: "token-owner".to_string(),
                 last_access_at: Utc::now(),
+                is_admin: false,
             },
             UserRecord {
                 id: 2,
@@ -3669,6 +3696,7 @@ mod tests {
                 avatar_url: None,
                 access_token: "token-other".to_string(),
                 last_access_at: Utc::now(),
+                is_admin: false,
             },
         ]);
         let game = sample_in_progress_game_for_handler(owner_uuid);
@@ -3704,6 +3732,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game = sample_in_progress_game_for_handler(owner_uuid);
         let game_uuid = game.uuid;
@@ -3738,6 +3767,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let mut game = sample_in_progress_game_for_handler(owner_uuid);
         game.regulation.progress_mode = crate::domain::ProgressMode::Consensus;
@@ -3778,6 +3808,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game = sample_in_progress_game_for_handler(owner_uuid);
         let game_uuid = game.uuid;
@@ -3840,6 +3871,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-owner".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let mut game = sample_in_progress_game_for_handler(owner_uuid);
         game.players[0].power = Some(crate::domain::Power::France);
@@ -3877,6 +3909,7 @@ mod tests {
                 avatar_url: None,
                 access_token: "token-owner".to_string(),
                 last_access_at: Utc::now(),
+                is_admin: false,
             },
             UserRecord {
                 id: 2,
@@ -3888,6 +3921,7 @@ mod tests {
                 avatar_url: None,
                 access_token: "token-player".to_string(),
                 last_access_at: Utc::now(),
+                is_admin: false,
             },
         ]);
         let mut game = sample_consensus_game_for_handler(owner_uuid, player_uuid);
@@ -3931,6 +3965,7 @@ mod tests {
                 avatar_url: None,
                 access_token: "token-owner".to_string(),
                 last_access_at: Utc::now(),
+                is_admin: false,
             },
             UserRecord {
                 id: 2,
@@ -3942,6 +3977,7 @@ mod tests {
                 avatar_url: None,
                 access_token: "token-player".to_string(),
                 last_access_at: Utc::now(),
+                is_admin: false,
             },
         ]);
         let game = sample_consensus_game_for_handler(owner_uuid, player_uuid);
@@ -3996,6 +4032,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-alice".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::InProgress);
         let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
@@ -4081,6 +4118,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-alice".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::Solo);
         let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
@@ -4115,6 +4153,7 @@ mod tests {
             avatar_url: None,
             access_token: "token-alice".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let game_repository = InMemoryGameRepository::new_with_games(vec![]);
         let service = GameService::new(user_repository, game_repository);

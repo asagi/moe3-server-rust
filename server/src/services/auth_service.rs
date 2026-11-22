@@ -45,6 +45,7 @@ pub(crate) struct LoginUser {
     pub global_name: Option<String>,
     pub avatar_hash: Option<String>,
     pub avatar_url: Option<String>,
+    pub is_admin: bool,
 }
 
 ///
@@ -156,6 +157,7 @@ where
                 global_name: record.global_name,
                 avatar_hash: record.avatar_hash,
                 avatar_url: record.avatar_url,
+                is_admin: record.is_admin,
             },
         }
     }
@@ -314,6 +316,7 @@ mod tests {
                 avatar_url: new_user.avatar_url,
                 access_token: new_user.access_token,
                 last_access_at: Utc::now(),
+                is_admin: false,
             };
             state.next_id += 1;
             state.rows.insert(row.discord_user_id.clone(), row.clone());
@@ -363,6 +366,7 @@ mod tests {
             "asagi"
         );
         assert!(!result.access_token.is_empty());
+        assert!(!result.user.is_admin);
 
         let saved = repository
             .find_by_discord_user_id("1001")
@@ -385,6 +389,7 @@ mod tests {
             avatar_url: Some("https://cdn.discordapp.com/old.png".to_string()),
             access_token: "persisted-token".to_string(),
             last_access_at: Utc::now(),
+            is_admin: true,
         }]);
 
         let discord = FakeDiscordIdentityProvider {
@@ -406,6 +411,7 @@ mod tests {
             .expect("login should succeed");
 
         assert_eq!(result.access_token, "persisted-token");
+        assert!(result.user.is_admin);
         assert_eq!(result.user.username, "new_user");
         assert_eq!(result.user.global_name.as_deref(), Some("new_name"));
         assert_eq!(
@@ -497,6 +503,7 @@ mod tests {
             avatar_url: None,
             access_token: "old-token".to_string(),
             last_access_at: Utc::now(),
+            is_admin: false,
         }]);
         let discord = FakeDiscordIdentityProvider {
             profile: DiscordProfile {

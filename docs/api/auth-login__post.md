@@ -45,7 +45,8 @@ HTTP:
     "username": "alice",
     "global_name": "Alice",
     "avatar_hash": "a_0123456789abcdef",
-    "avatar_url": "https://cdn.discordapp.com/avatars/123456789012345678/a_0123456789abcdef.png"
+    "avatar_url": "https://cdn.discordapp.com/avatars/123456789012345678/a_0123456789abcdef.png",
+    "is_admin": false
   }
 }
 ```

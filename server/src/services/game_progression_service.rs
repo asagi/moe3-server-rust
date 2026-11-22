@@ -766,6 +766,7 @@ mod tests {
                 avatar_url: None,
                 access_token: format!("token-{}", p.user_uuid),
                 last_access_at,
+                is_admin: false,
             })
             .collect()
     }
@@ -788,6 +789,7 @@ mod tests {
             avatar_url: None,
             access_token: format!("token-{}", power.symbol()),
             last_access_at,
+            is_admin: false,
         }
     }
 
@@ -917,6 +919,7 @@ mod tests {
                 avatar_url: None,
                 access_token: "token-f".to_string(),
                 last_access_at: chrono::Utc::now(),
+                is_admin: false,
             },
             UserRecord {
                 id: 2,
@@ -929,6 +932,7 @@ mod tests {
                 access_token: "token-g".to_string(),
                 last_access_at: chrono::Utc::now()
                     - chrono::Duration::minutes(i64::from(game.regulation.duration_type.idle_limit_minutes() + 1)),
+                is_admin: false,
             },
         ]);
         let repository = InMemoryGameRepository::new(vec![game]);

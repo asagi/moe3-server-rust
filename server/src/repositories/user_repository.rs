@@ -39,6 +39,7 @@ pub(crate) struct UserRecord {
     pub avatar_url: Option<String>,
     pub access_token: String,
     pub last_access_at: DateTime<Utc>,
+    pub is_admin: bool,
 }
 
 ///
