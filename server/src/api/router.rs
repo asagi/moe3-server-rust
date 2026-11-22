@@ -33,7 +33,6 @@ use fs4::FileExt;
 use tokio::sync::Mutex as TokioMutex;
 use tower_http::cors::AllowOrigin;
 use tower_http::cors::CorsLayer;
-use uuid::Uuid;
 
 use super::ApiErrorResponse;
 use super::AuthService;
@@ -283,7 +282,7 @@ where
             Ok(Err(ImpersonationError::InvalidUserId)) => Some((
                 StatusCode::BAD_REQUEST,
                 "invalid_impersonate_user_id",
-                "X-Impersonate-User-Id must be a valid user uuid".to_string(),
+                "X-Impersonate-User-Id must be a valid discord user id".to_string(),
             )),
             Ok(Err(ImpersonationError::UserNotFound)) => Some((
                 StatusCode::NOT_FOUND,
@@ -392,9 +391,12 @@ where
         return Ok(None);
     }
 
-    let target_uuid = Uuid::parse_str(impersonate_user_id).map_err(|_| ImpersonationError::InvalidUserId)?;
+    // Discord ユーザー ID（snowflake）は数字のみで構成される
+    if !impersonate_user_id.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(ImpersonationError::InvalidUserId);
+    }
     let target = user_repository
-        .find_by_uuid(target_uuid)
+        .find_by_discord_user_id(impersonate_user_id)
         .map_err(ImpersonationError::Repository)?
         .ok_or(ImpersonationError::UserNotFound)?;
 
@@ -613,7 +615,7 @@ mod tests {
         UserRecord {
             id,
             uuid: uuid::Uuid::now_v7(),
-            discord_user_id: format!("discord-{}", id),
+            discord_user_id: format!("{}", 1000 + id),
             username: format!("user-{}", id),
             global_name: None,
             avatar_hash: None,
@@ -628,11 +630,11 @@ mod tests {
     fn resolve_impersonated_access_token_returns_target_token_for_admin() {
         let admin = user_record(1, "admin-token", true);
         let target = user_record(2, "target-token", false);
-        let target_uuid = target.uuid.to_string();
+        let target_discord_user_id = target.discord_user_id.clone();
         let repository = InMemoryUserRepository::new(vec![admin, target]);
 
-        let resolved =
-            resolve_impersonated_access_token(&repository, "admin-token", Some(&target_uuid)).expect("resolve should succeed");
+        let resolved = resolve_impersonated_access_token(&repository, "admin-token", Some(&target_discord_user_id))
+            .expect("resolve should succeed");
 
         assert_eq!(resolved, Some("target-token".to_string()));
     }
@@ -650,11 +652,11 @@ mod tests {
     fn resolve_impersonated_access_token_ignores_header_for_non_admin() {
         let requester = user_record(1, "user-token", false);
         let target = user_record(2, "target-token", false);
-        let target_uuid = target.uuid.to_string();
+        let target_discord_user_id = target.discord_user_id.clone();
         let repository = InMemoryUserRepository::new(vec![requester, target]);
 
-        let resolved =
-            resolve_impersonated_access_token(&repository, "user-token", Some(&target_uuid)).expect("resolve should succeed");
+        let resolved = resolve_impersonated_access_token(&repository, "user-token", Some(&target_discord_user_id))
+            .expect("resolve should succeed");
 
         assert_eq!(resolved, None);
     }
@@ -662,20 +664,20 @@ mod tests {
     #[test]
     fn resolve_impersonated_access_token_ignores_header_for_unknown_token() {
         let target = user_record(2, "target-token", false);
-        let target_uuid = target.uuid.to_string();
+        let target_discord_user_id = target.discord_user_id.clone();
         let repository = InMemoryUserRepository::new(vec![target]);
 
-        let resolved =
-            resolve_impersonated_access_token(&repository, "unknown-token", Some(&target_uuid)).expect("resolve should succeed");
+        let resolved = resolve_impersonated_access_token(&repository, "unknown-token", Some(&target_discord_user_id))
+            .expect("resolve should succeed");
 
         assert_eq!(resolved, None);
     }
 
     #[test]
-    fn resolve_impersonated_access_token_rejects_invalid_uuid_for_admin() {
+    fn resolve_impersonated_access_token_rejects_invalid_discord_user_id_for_admin() {
         let repository = InMemoryUserRepository::new(vec![user_record(1, "admin-token", true)]);
 
-        let result = resolve_impersonated_access_token(&repository, "admin-token", Some("not-a-uuid"));
+        let result = resolve_impersonated_access_token(&repository, "admin-token", Some("not-a-discord-id"));
 
         assert!(matches!(result, Err(ImpersonationError::InvalidUserId)));
     }
@@ -683,9 +685,7 @@ mod tests {
     #[test]
     fn resolve_impersonated_access_token_rejects_unknown_target_for_admin() {
         let repository = InMemoryUserRepository::new(vec![user_record(1, "admin-token", true)]);
-        let missing_uuid = uuid::Uuid::now_v7().to_string();
-
-        let result = resolve_impersonated_access_token(&repository, "admin-token", Some(&missing_uuid));
+        let result = resolve_impersonated_access_token(&repository, "admin-token", Some("9999"));
 
         assert!(matches!(result, Err(ImpersonationError::UserNotFound)));
     }
