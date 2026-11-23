@@ -124,6 +124,7 @@ where
     let request = CreateGameRequest {
         authorization,
         face_type: body.face_type,
+        progress_mode: body.progress_mode,
         duration_type: body.duration_type,
         start_date: body.start_date,
         first_period_hour: body.first_period_hour,
@@ -234,18 +235,16 @@ where
 /// 卓作成リクエストパラメータのレギュレーションをパースする
 fn parse_regulation(request: &CreateGameRequest) -> Result<Regulation, CreateGameHandlerError> {
     let face_type = parse_enum(request.face_type, CreateGameRequestValidationError::InvalidFaceType)?;
+    let progress_mode = match request.progress_mode {
+        Some(value) => parse_enum(value, CreateGameRequestValidationError::InvalidProgressMode)?,
+        None => ProgressMode::Scheduled,
+    };
     let duration_type = parse_enum(request.duration_type, CreateGameRequestValidationError::InvalidDurationType)?;
     let start_date = NaiveDate::parse_from_str(&request.start_date, "%Y-%m-%d")
         .map_err(|_| invalid_request(CreateGameRequestValidationError::InvalidStartDate))?;
 
-    Regulation::new(
-        face_type,
-        ProgressMode::Scheduled,
-        duration_type,
-        start_date,
-        request.first_period_hour,
-    )
-    .map_err(|_| invalid_request(CreateGameRequestValidationError::InvalidFirstPeriodHour))
+    Regulation::new(face_type, progress_mode, duration_type, start_date, request.first_period_hour)
+        .map_err(|_| invalid_request(CreateGameRequestValidationError::InvalidFirstPeriodHour))
 }
 
 /// 卓作成リクエストパラメータの担当希望国をパースする
@@ -1332,6 +1331,10 @@ where
             .map_err(GetGamesHandlerError::Service)?
     };
 
+    let viewer_user_uuid = service
+        .find_viewer_user_uuid(optional_bearer_token(request.authorization.as_deref()))
+        .map_err(|error| GetGamesHandlerError::Service(ListGamesError::Repository(error)))?;
+
     let jst = chrono::FixedOffset::east_opt(9 * 60 * 60).expect("JST offset");
 
     let games = result
@@ -1381,6 +1384,7 @@ where
                     duration_type: duration_type.to_string(),
                 },
                 player_count: game.player_count,
+                is_owner: viewer_user_uuid.is_some() && game.owner_user_uuid == viewer_user_uuid,
             }
         })
         .collect();
@@ -1398,6 +1402,7 @@ where
 ///
 pub(crate) async fn get_game<U, G, D>(
     State(state): State<AppState<U, G, D>>,
+    headers: HeaderMap,
     Path(game_uuid_str): Path<String>,
 ) -> impl IntoResponse
 where
@@ -1420,7 +1425,11 @@ where
     };
 
     let game_service = std::sync::Arc::clone(&state.game_service);
-    let result = tokio::task::spawn_blocking(move || handle_get_game(&game_service, game_uuid)).await;
+    let authorization = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+    let result = tokio::task::spawn_blocking(move || handle_get_game(&game_service, game_uuid, authorization.as_deref())).await;
 
     match result {
         Ok(Ok(response)) => (StatusCode::OK, axum::Json(response)).into_response(),
@@ -1449,12 +1458,22 @@ where
 pub(crate) fn handle_get_game<U, G>(
     service: &GameService<U, G>,
     game_uuid: Uuid,
+    authorization: Option<&str>,
 ) -> Result<super::GetGameResponse, super::GetGameHandlerError>
 where
     U: UserRepository,
     G: GameRepository,
 {
     let game = service.get_game(game_uuid).map_err(super::GetGameHandlerError::Service)?;
+
+    let viewer_user_uuid = service
+        .find_viewer_user_uuid(optional_bearer_token(authorization))
+        .map_err(|error| super::GetGameHandlerError::Service(super::GetGameError::Repository(error)))?;
+    let is_owner = viewer_user_uuid.is_some_and(|viewer| {
+        game.players
+            .iter()
+            .any(|player| player.is_owner && player.user_uuid == viewer)
+    });
 
     let status = match game.status {
         GameStatus::Preparing => "preparing",
@@ -1486,8 +1505,20 @@ where
             phase_kind: phase_kind.to_string(),
             next_update_at,
             is_private: game.keyword.is_some(),
+            is_owner,
         },
     })
+}
+
+/// 認証任意の API 向けに Authorization ヘッダから Bearer トークンを取り出す
+///
+/// ヘッダ欠落・形式不正の場合は空文字を返す（＝未ログイン扱い）。
+fn optional_bearer_token(authorization: Option<&str>) -> &str {
+    let auth = authorization.unwrap_or("").trim();
+    match auth.get(..7) {
+        Some(prefix) if prefix.eq_ignore_ascii_case("Bearer ") => auth.get(7..).unwrap_or("").trim(),
+        _ => "",
+    }
 }
 
 /// フェイズ履歴からシーズン配列を生成する
@@ -2251,6 +2282,7 @@ mod tests {
             regulation: game.regulation,
             player_count: game.players.len() as u64,
             season_label: game.current_season_label(),
+            owner_user_uuid: game.players.iter().find(|p| p.is_owner).map(|p| p.user_uuid),
         }
     }
 
@@ -2282,6 +2314,7 @@ mod tests {
             CreateGameRequest {
                 authorization: "Bearer token-1".to_string(),
                 face_type: 1,
+                progress_mode: None,
                 duration_type: 1,
                 start_date,
                 first_period_hour,
@@ -2296,7 +2329,7 @@ mod tests {
     }
 
     #[test]
-    fn handle_create_game_uses_scheduled_progress_mode() {
+    fn handle_create_game_defaults_to_scheduled_progress_mode() {
         let (start_date, first_period_hour) = future_start_params();
 
         let owner_uuid = uuid::Uuid::now_v7();
@@ -2324,6 +2357,7 @@ mod tests {
             CreateGameRequest {
                 authorization: "Bearer token-1".to_string(),
                 face_type: 1,
+                progress_mode: None,
                 duration_type: 1,
                 start_date,
                 first_period_hour,
@@ -2335,6 +2369,81 @@ mod tests {
 
         let game = repo_clone.last_inserted().expect("a game should have been inserted");
         assert_eq!(game.regulation.progress_mode, ProgressMode::Scheduled);
+    }
+
+    #[test]
+    fn handle_create_game_accepts_consensus_progress_mode() {
+        let (start_date, first_period_hour) = future_start_params();
+
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "1001".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-1".to_string(),
+            last_access_at: Utc::now(),
+            is_admin: false,
+        }]);
+        let game_repository = InMemoryGameRepository::new();
+        let repo_clone = game_repository.clone();
+        let service = GameService::new(user_repository.clone(), game_repository);
+        let message_repository = new_test_message_repository();
+
+        handle_create_game(
+            &service,
+            &user_repository,
+            &message_repository,
+            CreateGameRequest {
+                authorization: "Bearer token-1".to_string(),
+                face_type: 1,
+                progress_mode: Some(2),
+                duration_type: 1,
+                start_date,
+                first_period_hour,
+                requested_power: None,
+                keyword: None,
+            },
+        )
+        .expect("create should succeed");
+
+        let game = repo_clone.last_inserted().expect("a game should have been inserted");
+        assert_eq!(game.regulation.progress_mode, ProgressMode::Consensus);
+    }
+
+    #[test]
+    fn handle_create_game_rejects_invalid_progress_mode() {
+        let (start_date, first_period_hour) = future_start_params();
+        let user_repository = InMemoryUserRepository::new(Vec::new());
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository.clone(), game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_create_game(
+            &service,
+            &user_repository,
+            &message_repository,
+            CreateGameRequest {
+                authorization: "Bearer token-1".to_string(),
+                face_type: 1,
+                progress_mode: Some(3),
+                duration_type: 1,
+                start_date,
+                first_period_hour,
+                requested_power: None,
+                keyword: None,
+            },
+        )
+        .expect_err("create should fail");
+
+        assert_eq!(error.code(), "invalid_request");
+        assert!(matches!(
+            error,
+            CreateGameHandlerError::InvalidRequest(CreateGameRequestValidationError::InvalidProgressMode)
+        ));
     }
 
     #[test]
@@ -2351,6 +2460,7 @@ mod tests {
             CreateGameRequest {
                 authorization: "token-1".to_string(),
                 face_type: 1,
+                progress_mode: None,
                 duration_type: 1,
                 start_date: "2026-04-19".to_string(),
                 first_period_hour: 12,
@@ -2516,6 +2626,7 @@ mod tests {
             CreateGameRequest {
                 authorization: "Bearer token-1".to_string(),
                 face_type: 1,
+                progress_mode: None,
                 duration_type: 1,
                 start_date,
                 first_period_hour,
@@ -4027,6 +4138,128 @@ mod tests {
         game
     }
 
+    fn user_record_for_is_owner_tests(id: i64, uuid: uuid::Uuid, name: &str) -> UserRecord {
+        UserRecord {
+            id,
+            uuid,
+            discord_user_id: format!("{}", 1000 + id),
+            username: name.to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: format!("token-{}", name),
+            last_access_at: Utc::now(),
+            is_admin: false,
+        }
+    }
+
+    fn get_games_is_owner_for(authorization: Option<&str>) -> bool {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let other_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            user_record_for_is_owner_tests(1, owner_uuid, "alice"),
+            user_record_for_is_owner_tests(2, other_uuid, "bob"),
+        ]);
+        let game = build_game_for_get_games_tests(uuid::Uuid::now_v7(), owner_uuid, GameStatus::InProgress);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let response = handle_get_games(
+            &service,
+            GetGamesRequest {
+                authorization: authorization.map(|s| s.to_string()),
+                status: None,
+                user: None,
+                page: 1,
+                per_page: 20,
+            },
+        )
+        .expect("should succeed");
+
+        assert_eq!(response.games.len(), 1);
+        response.games[0].is_owner
+    }
+
+    #[test]
+    fn handle_get_games_is_owner_true_for_owner() {
+        assert!(get_games_is_owner_for(Some("Bearer token-alice")));
+    }
+
+    #[test]
+    fn handle_get_games_is_owner_false_for_non_owner() {
+        assert!(!get_games_is_owner_for(Some("Bearer token-bob")));
+    }
+
+    #[test]
+    fn handle_get_games_is_owner_false_without_authorization() {
+        assert!(!get_games_is_owner_for(None));
+    }
+
+    #[test]
+    fn handle_get_games_is_owner_false_for_unknown_or_malformed_token() {
+        assert!(!get_games_is_owner_for(Some("Bearer token-unknown")));
+        assert!(!get_games_is_owner_for(Some("token-alice")));
+        assert!(!get_games_is_owner_for(Some("Bearer ")));
+    }
+
+    #[test]
+    fn handle_get_games_is_owner_true_for_own_user_search() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![user_record_for_is_owner_tests(1, owner_uuid, "alice")]);
+        let game = build_game_for_get_games_tests(uuid::Uuid::now_v7(), owner_uuid, GameStatus::InProgress);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let response = handle_get_games(
+            &service,
+            GetGamesRequest {
+                authorization: Some("Bearer token-alice".to_string()),
+                status: None,
+                user: Some("1001".to_string()),
+                page: 1,
+                per_page: 20,
+            },
+        )
+        .expect("should succeed");
+
+        assert_eq!(response.games.len(), 1);
+        assert!(response.games[0].is_owner);
+    }
+
+    fn get_game_is_owner_for(authorization: Option<&str>) -> bool {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let other_uuid = uuid::Uuid::now_v7();
+        let game_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            user_record_for_is_owner_tests(1, owner_uuid, "alice"),
+            user_record_for_is_owner_tests(2, other_uuid, "bob"),
+        ]);
+        let game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::InProgress);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        handle_get_game(&service, game_uuid, authorization)
+            .expect("should succeed")
+            .game
+            .is_owner
+    }
+
+    #[test]
+    fn handle_get_game_is_owner_true_for_owner() {
+        assert!(get_game_is_owner_for(Some("Bearer token-alice")));
+    }
+
+    #[test]
+    fn handle_get_game_is_owner_false_for_non_owner() {
+        assert!(!get_game_is_owner_for(Some("Bearer token-bob")));
+    }
+
+    #[test]
+    fn handle_get_game_is_owner_false_without_authorization() {
+        assert!(!get_game_is_owner_for(None));
+        assert!(!get_game_is_owner_for(Some("Bearer token-unknown")));
+    }
+
     #[test]
     fn handle_get_games_returns_active_games_by_default() {
         let owner_uuid = uuid::Uuid::now_v7();
@@ -4424,7 +4657,7 @@ mod tests {
         let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
         let service = GameService::new(user_repository, game_repository);
 
-        let response = handle_get_game(&service, game_uuid).expect("should succeed");
+        let response = handle_get_game(&service, game_uuid, None).expect("should succeed");
 
         assert_eq!(response.game.game_uuid, game_uuid);
         assert_eq!(response.game.status, "in_progress");
@@ -4438,7 +4671,7 @@ mod tests {
         let game_repository = InMemoryGameRepository::new();
         let service = GameService::new(user_repository, game_repository);
 
-        let error = handle_get_game(&service, uuid::Uuid::now_v7()).expect_err("should fail");
+        let error = handle_get_game(&service, uuid::Uuid::now_v7(), None).expect_err("should fail");
 
         assert_eq!(error.code(), "not_found");
     }
@@ -4453,7 +4686,7 @@ mod tests {
         let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
         let service = GameService::new(user_repository, game_repository);
 
-        let response = handle_get_game(&service, game_uuid).expect("should succeed");
+        let response = handle_get_game(&service, game_uuid, None).expect("should succeed");
 
         assert_eq!(response.game.status, "solo");
         assert_eq!(response.game.seasons.last().map(|s| s.as_str()), Some("debrief"));
@@ -4469,7 +4702,7 @@ mod tests {
         let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
         let service = GameService::new(user_repository, game_repository);
 
-        let response = handle_get_game(&service, game_uuid).expect("should succeed");
+        let response = handle_get_game(&service, game_uuid, None).expect("should succeed");
 
         assert!(response.game.is_private);
     }
@@ -4484,7 +4717,7 @@ mod tests {
         let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
         let service = GameService::new(user_repository, game_repository);
 
-        let response = handle_get_game(&service, game_uuid).expect("should succeed");
+        let response = handle_get_game(&service, game_uuid, None).expect("should succeed");
 
         assert!(!response.game.is_private);
     }

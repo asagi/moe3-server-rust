@@ -4,7 +4,8 @@
 
 - 新しい卓（募集）を作成する API
 - リクエスト送信者は卓主権限を持つプレイヤーになる
-- 新卓の初期進行タイプは常に定時更新になる（卓主権限で合意進行に変更可能）
+- 新卓の進行モードは `progress_mode` で指定できる（省略時は定時更新）
+- 定時更新で作成した卓も、卓主権限で後から合意進行に変更できる
 
 ## HTTP
 
@@ -32,6 +33,7 @@
 
 ### 任意パラメータ
 
+- `progress_mode` (`integer | null`)
 - `requested_power` (`string | null`)
 - `keyword` (`string | null`)
 
@@ -41,6 +43,13 @@
 
 - `1` = `FaceType::Girls`
 - `2` = `FaceType::Flags`
+
+#### `progress_mode`
+
+- `1` = `ProgressMode::Scheduled`（定時更新）
+- `2` = `ProgressMode::Consensus`（合意進行）
+- 未指定または `null` は `1`（定時更新）
+- 上記以外は `400 Bad Request`
 
 #### `duration_type`
 
@@ -79,6 +88,19 @@
 ```json
 {
   "face_type": 1,
+  "duration_type": 1,
+  "start_date": "2026-04-19",
+  "first_period_hour": 12,
+  "requested_power": null
+}
+```
+
+### progress_mode 指定（合意進行）
+
+```json
+{
+  "face_type": 1,
+  "progress_mode": 2,
   "duration_type": 1,
   "start_date": "2026-04-19",
   "first_period_hour": 12,
@@ -166,6 +188,7 @@
 | 条件                     | message                      |
 | ------------------------ | ---------------------------- |
 | face_type が無効な値     | `"face_type is invalid"`     |
+| progress_mode が無効な値 | `"progress_mode is invalid"` |
 | duration_type が無効な値 | `"duration_type is invalid"` |
 
 #### リクエストボディ検証 — 日時
@@ -223,6 +246,15 @@ curl -X POST '{base_path}/games' \
   -H 'Authorization: Bearer token-1' \
   -H 'Content-Type: application/json' \
   -d '{"face_type":1,"duration_type":1,"start_date":"2026-04-19","first_period_hour":12,"requested_power":"f"}'
+```
+
+### progress_mode 指定（合意進行）
+
+```sh
+curl -X POST '{base_path}/games' \
+  -H 'Authorization: Bearer token-1' \
+  -H 'Content-Type: application/json' \
+  -d '{"face_type":1,"progress_mode":2,"duration_type":1,"start_date":"2026-04-19","first_period_hour":12,"requested_power":null}'
 ```
 
 ### keyword 指定（鍵卓）
