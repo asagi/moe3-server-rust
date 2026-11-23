@@ -25,6 +25,7 @@ use super::SetUnitRequestValidationError;
 #[derive(Debug, Deserialize)]
 pub(crate) struct CreateGameRequestBody {
     pub face_type: i32,
+    pub progress_mode: Option<i32>,
     pub duration_type: i32,
     pub start_date: String,
     pub first_period_hour: u8,
@@ -39,6 +40,7 @@ pub(crate) struct CreateGameRequestBody {
 pub(crate) struct CreateGameRequest {
     pub authorization: String,
     pub face_type: i32,
+    pub progress_mode: Option<i32>,
     pub duration_type: i32,
     pub start_date: String,
     pub first_period_hour: u8,

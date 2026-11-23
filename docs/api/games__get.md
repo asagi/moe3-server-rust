@@ -6,6 +6,7 @@
 - ステータス指定検索・ユーザー指定検索の 2 種類を提供する
 - ステータス指定検索は認証不要、ユーザー指定検索は認証必須
 - ユーザー指定検索は、指定ユーザーがプレイヤーとして参加している卓を返す（`status` を併用するとステータスでも絞り込む）
+- ステータス指定検索でも `Authorization` を付与すると、各卓の `is_owner` にリクエスト者が卓主かどうかが反映される
 
 ## HTTP
 
@@ -15,6 +16,7 @@
 ## ヘッダ
 
 - Authorization: ユーザー指定検索時のみ必須（`Bearer <access_token>`）
+  - ステータス指定検索では任意。付与した場合は `is_owner` の判定に使用する（未登録トークン・形式不正の場合はエラーにせず未ログイン扱い）
 
 ## クエリパラメータ
 
@@ -88,7 +90,8 @@ Authorization: Bearer <access_token>
         "progress_mode": "scheduled",
         "duration_type": "normal"
       },
-      "player_count": 3
+      "player_count": 3,
+      "is_owner": false
     }
   ],
   "total": 1,
@@ -110,6 +113,7 @@ Authorization: Bearer <access_token>
 | `next_update_at` | `string \| null` | 次回更新日時（JST、`"YYYY-MM-DD HH:mm"` 形式）       |
 | `regulation`     | `object`         | レギュレーション情報                                 |
 | `player_count`   | `number`         | 現在の参加人数                                       |
+| `is_owner`       | `boolean`        | リクエスト者がその卓の卓主か（未認証時は `false`）   |
 
 #### `status` の値
 

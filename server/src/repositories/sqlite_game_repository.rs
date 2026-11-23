@@ -671,6 +671,7 @@ impl SqliteGameRepository {
             player_count: i64,
             last_phase_kind: Option<String>,
             last_phase_year: Option<i32>,
+            owner_user_uuid: Option<String>,
         }
 
         let rows: Vec<SummaryRow> = {
@@ -692,6 +693,7 @@ impl SqliteGameRepository {
                     player_count: row.get(9)?,
                     last_phase_kind: row.get(10)?,
                     last_phase_year: row.get(11)?,
+                    owner_user_uuid: row.get(12)?,
                 })
             })
             .map_err(|error| RepositoryError::Unavailable(format!("query load summaries: {}", error)))?
@@ -719,6 +721,13 @@ impl SqliteGameRepository {
 
             let season_label = Self::season_label_from_last_phase(row.last_phase_kind.as_deref(), row.last_phase_year)?;
 
+            let owner_user_uuid = row
+                .owner_user_uuid
+                .as_deref()
+                .map(Uuid::parse_str)
+                .transpose()
+                .map_err(|error| RepositoryError::Unavailable(format!("parse owner user uuid: {}", error)))?;
+
             summaries.push(GameSummary {
                 uuid,
                 game_number: row.game_number,
@@ -727,6 +736,7 @@ impl SqliteGameRepository {
                 regulation,
                 player_count: row.player_count as u64,
                 season_label,
+                owner_user_uuid,
             });
         }
 
@@ -1287,7 +1297,9 @@ impl GameRepository for SqliteGameRepository {
                 g.status, g.next_update,
                 (SELECT COUNT(*) FROM game_players WHERE game_uuid = g.uuid) AS player_count,
                 lp.phase_kind AS last_phase_kind,
-                lp.phase_year AS last_phase_year
+                lp.phase_year AS last_phase_year,
+                (SELECT user_uuid FROM game_players WHERE game_uuid = g.uuid AND is_owner != 0 ORDER BY id ASC LIMIT 1)
+                    AS owner_user_uuid
             FROM games g
             LEFT JOIN game_phases AS lp
                 ON lp.game_uuid = g.uuid
@@ -1350,7 +1362,9 @@ impl GameRepository for SqliteGameRepository {
                 g.status, g.next_update,
                 (SELECT COUNT(*) FROM game_players WHERE game_uuid = g.uuid) AS player_count,
                 lp.phase_kind AS last_phase_kind,
-                lp.phase_year AS last_phase_year
+                lp.phase_year AS last_phase_year,
+                (SELECT user_uuid FROM game_players WHERE game_uuid = g.uuid AND is_owner != 0 ORDER BY id ASC LIMIT 1)
+                    AS owner_user_uuid
             FROM games g
             LEFT JOIN game_phases AS lp
                 ON lp.game_uuid = g.uuid
@@ -1955,6 +1969,7 @@ mod transaction_tests {
         assert_eq!(summaries[0].uuid, active.uuid);
         assert!(matches!(summaries[0].status, GameStatus::Preparing));
         assert_eq!(summaries[0].player_count, 1);
+        assert_eq!(summaries[0].owner_user_uuid, Some(owner));
     }
 
     #[test]
@@ -2017,6 +2032,7 @@ mod transaction_tests {
         assert_eq!(total, 1);
         assert_eq!(summaries.len(), 1);
         assert_eq!(summaries[0].uuid, game_a.uuid);
+        assert_eq!(summaries[0].owner_user_uuid, Some(user_a));
     }
 
     #[test]

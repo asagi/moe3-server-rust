@@ -29,6 +29,7 @@ pub(crate) enum CreateGameRequestValidationError {
     InvalidAuthorizationScheme,
     MissingAccessToken,
     InvalidFaceType,
+    InvalidProgressMode,
     InvalidDurationType,
     InvalidStartDate,
     InvalidRequestedPower,

@@ -3,12 +3,17 @@
 ## 概要
 
 - 指定した卓の情報を取得する API
-- 認証不要
+- 認証不要（`Authorization` を付与すると `is_owner` にリクエスト者が卓主かどうかが反映される）
 
 ## HTTP
 
 - Method: `GET`
 - Path: `/games/:game_uuid`
+
+## ヘッダ
+
+- Authorization: 任意（`Bearer <access_token>`）
+  - `is_owner` の判定にのみ使用する。未登録トークン・形式不正の場合はエラーにせず未ログイン扱い
 
 ## パスパラメータ
 
@@ -27,7 +32,8 @@
     "seasons": ["ready", "1901s", "1901f", "1902s"],
     "phase_kind": "main",
     "next_update_at": "2026-05-10 20:00",
-    "is_private": false
+    "is_private": false,
+    "is_owner": false
   }
 }
 ```
@@ -43,6 +49,7 @@
 | `phase_kind`     | `string`         | 最新フェイズの種別（下表参照）                                  |
 | `next_update_at` | `string \| null` | 次回更新日時（JST、`"YYYY-MM-DD HH:mm"` 形式）。未設定は `null` |
 | `is_private`     | `boolean`        | キーワード設定済みの鍵卓かどうか                                |
+| `is_owner`       | `boolean`        | リクエスト者がその卓の卓主か（未認証時は `false`）              |
 
 #### `status` の値
 
@@ -112,4 +119,8 @@
 
 ```sh
 curl '{base_path}/games/{game_uuid}'
+
+# 卓主判定付き
+curl '{base_path}/games/{game_uuid}' \
+  -H 'Authorization: Bearer <access_token>'
 ```

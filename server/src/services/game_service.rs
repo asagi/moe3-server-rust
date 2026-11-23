@@ -1095,6 +1095,20 @@ where
     }
 
     ///
+    /// アクセストークンからリクエスト者のユーザー UUID を解決する
+    ///
+    /// 認証が任意の API 向け。トークンが空・未登録の場合はエラーにせず `None` を返す。
+    ///
+    pub(crate) fn find_viewer_user_uuid(&self, access_token: &str) -> Result<Option<Uuid>, RepositoryError> {
+        let access_token = access_token.trim();
+        if access_token.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(self.user_repository.find_by_access_token(access_token)?.map(|user| user.uuid))
+    }
+
+    ///
     /// ステータスフィルタで卓一覧をページネーションして返す
     ///
     pub(crate) fn list_games_by_status(
@@ -1398,6 +1412,7 @@ mod tests {
             regulation: game.regulation,
             player_count: game.players.len() as u64,
             season_label: game.current_season_label(),
+            owner_user_uuid: game.players.iter().find(|p| p.is_owner).map(|p| p.user_uuid),
         }
     }
 

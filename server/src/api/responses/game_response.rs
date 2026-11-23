@@ -29,6 +29,7 @@ pub(crate) struct GetGameResponseGame {
     pub phase_kind: String,
     pub next_update_at: Option<String>,
     pub is_private: bool,
+    pub is_owner: bool,
 }
 
 ///
@@ -138,6 +139,7 @@ pub(crate) struct GameListItem {
     pub next_update_at: Option<String>,
     pub regulation: GameListItemRegulation,
     pub player_count: u64,
+    pub is_owner: bool,
 }
 
 ///

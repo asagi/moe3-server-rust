@@ -46,6 +46,8 @@ pub(crate) struct GameSummary {
     pub regulation: Regulation,
     pub player_count: u64,
     pub season_label: Option<String>,
+    /// 卓主のユーザー UUID（卓主が存在しない場合は `None`）
+    pub owner_user_uuid: Option<Uuid>,
 }
 
 ///
