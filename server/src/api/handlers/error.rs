@@ -243,7 +243,7 @@ impl JoinGameHandlerError {
             Self::Service(JoinGameError::InvalidRequest(_)) => "invalid_request",
             Self::Service(JoinGameError::Unauthorized) => "unauthorized",
             Self::Service(JoinGameError::NotFound) => "not_found",
-            Self::Service(JoinGameError::Forbidden(_)) => "forbidden",
+            Self::Service(JoinGameError::Forbidden(reason)) => reason.code(),
             Self::Service(JoinGameError::Repository(_)) => "repository_error",
         }
     }
@@ -275,7 +275,7 @@ impl JoinGameHandlerError {
             Self::InvalidRequest(JoinGameRequestValidationError::InvalidKeyword) => {
                 "keyword must contain only alphanumeric characters".to_string()
             }
-            Self::Service(JoinGameError::Forbidden(message)) => message.clone(),
+            Self::Service(JoinGameError::Forbidden(reason)) => reason.message().to_string(),
             Self::Service(error) => error.to_string(),
         }
     }

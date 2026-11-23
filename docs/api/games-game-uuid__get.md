@@ -3,7 +3,7 @@
 ## 概要
 
 - 指定した卓の情報を取得する API
-- 認証不要（`Authorization` を付与すると `is_owner` にリクエスト者が卓主かどうかが反映される）
+- 認証不要（`Authorization` を付与すると `is_owner` / `is_joined` / 本人の `requested_power` にリクエスト者の情報が反映される）
 
 ## HTTP
 
@@ -13,7 +13,7 @@
 ## ヘッダ
 
 - Authorization: 任意（`Bearer <access_token>`）
-  - `is_owner` の判定にのみ使用する。未登録トークン・形式不正の場合はエラーにせず未ログイン扱い
+  - `is_owner` / `is_joined` の判定と `requested_power` の公開範囲の判定にのみ使用する。未登録トークン・形式不正の場合はエラーにせず未ログイン扱い
 
 ## パスパラメータ
 
@@ -33,7 +33,27 @@
     "phase_kind": "main",
     "next_update_at": "2026-05-10 20:00",
     "is_private": false,
-    "is_owner": false
+    "is_owner": false,
+    "regulation": {
+      "face_type": "girls",
+      "progress_mode": "scheduled",
+      "duration_type": "normal"
+    },
+    "start_at": "2026-05-01 20:00",
+    "players": [
+      {
+        "user": {
+          "discord_user_id": "123456789012345678",
+          "username": "alice",
+          "global_name": "Alice",
+          "avatar_url": "https://cdn.discordapp.com/avatars/..."
+        },
+        "is_owner": true,
+        "requested_power": "f",
+        "power": "f"
+      }
+    ],
+    "is_joined": false
   }
 }
 ```
@@ -50,6 +70,35 @@
 | `next_update_at` | `string \| null` | 次回更新日時（JST、`"YYYY-MM-DD HH:mm"` 形式）。未設定は `null` |
 | `is_private`     | `boolean`        | キーワード設定済みの鍵卓かどうか                                |
 | `is_owner`       | `boolean`        | リクエスト者がその卓の卓主か（未認証時は `false`）              |
+| `regulation`     | `object`         | 卓のレギュレーション（下表参照）                                |
+| `start_at`       | `string`         | 開始日時（JST、`"YYYY-MM-DD HH:mm"` 形式。分は常に `00`）       |
+| `players`        | `object[]`       | 卓主を含む全参加者（参加申請の順）。下表参照                    |
+| `is_joined`      | `boolean`        | リクエスト者がその卓に参加（申請）済みか（未認証時は `false`）  |
+
+#### `regulation` の値
+
+| フィールド      | 型       | 値                             |
+| --------------- | -------- | ------------------------------ |
+| `face_type`     | `string` | `"girls"` \| `"flags"`         |
+| `progress_mode` | `string` | `"scheduled"` \| `"consensus"` |
+| `duration_type` | `string` | `"short"` \| `"normal"`        |
+
+#### `players[]` の値
+
+| フィールド            | 型               | 説明                                                                                       |
+| --------------------- | ---------------- | ------------------------------------------------------------------------------------------ |
+| `user.discord_user_id` | `string`        | Discord ユーザー ID                                                                        |
+| `user.username`       | `string`         | Discord ユーザー名                                                                         |
+| `user.global_name`    | `string \| null` | Discord 表示名                                                                             |
+| `user.avatar_url`     | `string \| null` | アバター画像 URL                                                                           |
+| `is_owner`            | `boolean`        | 卓主か                                                                                     |
+| `requested_power`     | `string \| null` | 希望国（`a` / `e` / `f` / `g` / `i` / `r` / `t`）。希望なしは `null`。下記の公開範囲を参照 |
+| `power`               | `string \| null` | 担当国（`a` / `e` / `f` / `g` / `i` / `r` / `t`）。割り当て前は `null`                      |
+
+`requested_power` の公開範囲:
+
+- 卓主の希望国は全員に公開する
+- 卓主以外の希望国は本人にのみ公開し、それ以外（未認証を含む）には `null` を返す
 
 #### `status` の値
 
@@ -114,6 +163,7 @@
 | 条件             | message                   |
 | ---------------- | ------------------------- |
 | データベース障害 | `"repository error: ..."` |
+| 参加者のユーザーレコードが存在しない | `"repository error: ..."` |
 
 ## curl
 

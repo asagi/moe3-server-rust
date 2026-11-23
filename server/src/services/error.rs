@@ -95,8 +95,46 @@ pub(crate) enum JoinGameError {
     InvalidRequest(String),
     Unauthorized,
     NotFound,
-    Forbidden(String),
+    Forbidden(JoinGameForbiddenReason),
     Repository(RepositoryError),
+}
+
+///
+/// 卓参加を拒否する理由の列挙体
+///
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum JoinGameForbiddenReason {
+    AlreadyInAnotherGame,
+    KeywordMismatch,
+    NotAcceptingPlayers,
+    GameFull,
+}
+
+/// 卓参加を拒否する理由の列挙体の実装
+impl JoinGameForbiddenReason {
+    ///
+    /// 拒否理由に対応するエラーコードを返却する
+    ///
+    pub(crate) const fn code(self) -> &'static str {
+        match self {
+            Self::AlreadyInAnotherGame => "already_in_another_game",
+            Self::KeywordMismatch => "keyword_mismatch",
+            Self::NotAcceptingPlayers => "not_accepting_players",
+            Self::GameFull => "game_full",
+        }
+    }
+
+    ///
+    /// 拒否理由に対応するエラーメッセージを返却する
+    ///
+    pub(crate) const fn message(self) -> &'static str {
+        match self {
+            Self::AlreadyInAnotherGame => "user is already participating in another active game",
+            Self::KeywordMismatch => "keyword does not match",
+            Self::NotAcceptingPlayers => "game is not accepting new players",
+            Self::GameFull => "game is full (max players reached)",
+        }
+    }
 }
 
 /// 卓参加エラーの列挙体の実装（Error トレイト）
@@ -109,7 +147,7 @@ impl fmt::Display for JoinGameError {
             Self::InvalidRequest(message) => write!(f, "invalid request: {}", message),
             Self::Unauthorized => write!(f, "unauthorized"),
             Self::NotFound => write!(f, "game not found"),
-            Self::Forbidden(message) => write!(f, "forbidden: {}", message),
+            Self::Forbidden(reason) => write!(f, "forbidden: {}", reason.message()),
             Self::Repository(error) => write!(f, "repository error: {}", error),
         }
     }

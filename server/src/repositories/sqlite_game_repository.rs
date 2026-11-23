@@ -518,6 +518,7 @@ impl SqliteGameRepository {
                         SELECT user_uuid, power, is_accepting_draw, progress_consented, is_owner, requested_power
                         FROM game_players
                         WHERE game_uuid = ?1
+                        ORDER BY id ASC
                         "#,
                     )
                     .map_err(|error| RepositoryError::Unavailable(format!("prepare load players: {}", error)))?;

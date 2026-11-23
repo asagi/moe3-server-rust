@@ -30,6 +30,32 @@ pub(crate) struct GetGameResponseGame {
     pub next_update_at: Option<String>,
     pub is_private: bool,
     pub is_owner: bool,
+    pub regulation: GameListItemRegulation,
+    pub start_at: String,
+    pub players: Vec<GetGameResponsePlayer>,
+    pub is_joined: bool,
+}
+
+///
+/// 卓情報取得レスポンスのプレイヤー構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(crate) struct GetGameResponsePlayer {
+    pub user: GetGameResponseUser,
+    pub is_owner: bool,
+    pub requested_power: Option<String>,
+    pub power: Option<String>,
+}
+
+///
+/// 卓情報取得レスポンスのユーザー構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(crate) struct GetGameResponseUser {
+    pub discord_user_id: String,
+    pub username: String,
+    pub global_name: Option<String>,
+    pub avatar_url: Option<String>,
 }
 
 ///

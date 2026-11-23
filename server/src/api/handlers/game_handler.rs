@@ -49,6 +49,7 @@ use super::ListGamesResult;
 use super::Power;
 use super::ProgressMode;
 use super::Regulation;
+use super::RepositoryError;
 use super::SetDrawProposalCommand;
 use super::SetDrawProposalError;
 use super::SetDrawProposalHandlerError;
@@ -1474,6 +1475,39 @@ where
             .iter()
             .any(|player| player.is_owner && player.user_uuid == viewer)
     });
+    let is_joined = viewer_user_uuid.is_some_and(|viewer| game.players.iter().any(|player| player.user_uuid == viewer));
+
+    let players =
+        game.players
+            .iter()
+            .map(|player| {
+                let user = service
+                    .find_user_by_uuid(player.user_uuid)
+                    .map_err(|error| super::GetGameHandlerError::Service(super::GetGameError::Repository(error)))?
+                    .ok_or_else(|| {
+                        super::GetGameHandlerError::Service(super::GetGameError::Repository(RepositoryError::Unavailable(
+                            format!("user not found for player: {}", player.user_uuid),
+                        )))
+                    })?;
+                // 卓主の希望国は全員に公開し、それ以外の希望国は本人にのみ公開する
+                let requested_power = if player.is_owner || viewer_user_uuid == Some(player.user_uuid) {
+                    player.requested_power.map(|power| power.symbol().to_string())
+                } else {
+                    None
+                };
+                Ok(super::GetGameResponsePlayer {
+                    user: super::GetGameResponseUser {
+                        discord_user_id: user.discord_user_id,
+                        username: user.username,
+                        global_name: user.global_name,
+                        avatar_url: user.avatar_url,
+                    },
+                    is_owner: player.is_owner,
+                    requested_power,
+                    power: player.power.map(|power| power.symbol().to_string()),
+                })
+            })
+            .collect::<Result<Vec<_>, super::GetGameHandlerError>>()?;
 
     let status = match game.status {
         GameStatus::Preparing => "preparing",
@@ -1483,6 +1517,21 @@ where
         GameStatus::Draw => "draw",
         GameStatus::Aborted => "aborted",
         GameStatus::Closed => "closed",
+    };
+
+    let face_type = match game.regulation.face_type {
+        FaceType::Girls => "girls",
+        FaceType::Flags => "flags",
+    };
+
+    let progress_mode = match game.regulation.progress_mode {
+        ProgressMode::Scheduled => "scheduled",
+        ProgressMode::Consensus => "consensus",
+    };
+
+    let duration_type = match game.regulation.duration_type {
+        DurationType::Short => "short",
+        DurationType::Normal => "normal",
     };
 
     let seasons = build_seasons(&game);
@@ -1506,6 +1555,18 @@ where
             next_update_at,
             is_private: game.keyword.is_some(),
             is_owner,
+            regulation: GameListItemRegulation {
+                face_type: face_type.to_string(),
+                progress_mode: progress_mode.to_string(),
+                duration_type: duration_type.to_string(),
+            },
+            start_at: format!(
+                "{} {:02}:00",
+                game.regulation.start_date.format("%Y-%m-%d"),
+                game.regulation.first_period_hour
+            ),
+            players,
+            is_joined,
         },
     })
 }
@@ -4652,7 +4713,7 @@ mod tests {
     fn handle_get_game_returns_game_for_existing_uuid() {
         let owner_uuid = uuid::Uuid::now_v7();
         let game_uuid = uuid::Uuid::now_v7();
-        let user_repository = InMemoryUserRepository::new(vec![]);
+        let user_repository = InMemoryUserRepository::new(vec![user_record_for_is_owner_tests(1, owner_uuid, "alice")]);
         let game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::InProgress);
         let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
         let service = GameService::new(user_repository, game_repository);
@@ -4680,7 +4741,7 @@ mod tests {
     fn handle_get_game_seasons_ends_with_debrief_for_solo() {
         let owner_uuid = uuid::Uuid::now_v7();
         let game_uuid = uuid::Uuid::now_v7();
-        let user_repository = InMemoryUserRepository::new(vec![]);
+        let user_repository = InMemoryUserRepository::new(vec![user_record_for_is_owner_tests(1, owner_uuid, "alice")]);
         let mut game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::Solo);
         game.phases.push(crate::domain::Phase::new_debrief(1901, 10));
         let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
@@ -4696,7 +4757,7 @@ mod tests {
     fn handle_get_game_is_private_when_keyword_is_set() {
         let owner_uuid = uuid::Uuid::now_v7();
         let game_uuid = uuid::Uuid::now_v7();
-        let user_repository = InMemoryUserRepository::new(vec![]);
+        let user_repository = InMemoryUserRepository::new(vec![user_record_for_is_owner_tests(1, owner_uuid, "alice")]);
         let mut game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::Preparing);
         game.keyword = Some("secret".to_string());
         let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
@@ -4711,7 +4772,7 @@ mod tests {
     fn handle_get_game_is_not_private_when_keyword_is_none() {
         let owner_uuid = uuid::Uuid::now_v7();
         let game_uuid = uuid::Uuid::now_v7();
-        let user_repository = InMemoryUserRepository::new(vec![]);
+        let user_repository = InMemoryUserRepository::new(vec![user_record_for_is_owner_tests(1, owner_uuid, "alice")]);
         let mut game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::Preparing);
         game.keyword = None;
         let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
@@ -4720,6 +4781,126 @@ mod tests {
         let response = handle_get_game(&service, game_uuid, None).expect("should succeed");
 
         assert!(!response.game.is_private);
+    }
+
+    fn get_game_with_players_for(authorization: Option<&str>) -> crate::api::GetGameResponseGame {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let member_uuid = uuid::Uuid::now_v7();
+        let outsider_uuid = uuid::Uuid::now_v7();
+        let game_uuid = uuid::Uuid::now_v7();
+        let mut alice = user_record_for_is_owner_tests(1, owner_uuid, "alice");
+        alice.global_name = Some("Alice".to_string());
+        alice.avatar_url = Some("https://example.com/alice.png".to_string());
+        let user_repository = InMemoryUserRepository::new(vec![
+            alice,
+            user_record_for_is_owner_tests(2, member_uuid, "bob"),
+            user_record_for_is_owner_tests(3, outsider_uuid, "carol"),
+        ]);
+        let mut game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::Preparing);
+        game.regulation.start_date = NaiveDate::from_ymd_opt(2026, 11, 24).expect("valid date");
+        game.regulation.first_period_hour = 7;
+        game.players[0].requested_power = Some(Power::France);
+        game.players.push(Player {
+            user_uuid: member_uuid,
+            power: Some(Power::England),
+            is_accepting_draw: false,
+            progress_consented: false,
+            is_owner: false,
+            requested_power: Some(Power::Turkey),
+        });
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        handle_get_game(&service, game_uuid, authorization)
+            .expect("should succeed")
+            .game
+    }
+
+    #[test]
+    fn handle_get_game_returns_regulation_start_at_and_players() {
+        let game = get_game_with_players_for(None);
+
+        assert_eq!(game.regulation.face_type, "girls");
+        assert_eq!(game.regulation.progress_mode, "scheduled");
+        assert_eq!(game.regulation.duration_type, "short");
+        assert_eq!(game.start_at, "2026-11-24 07:00");
+        assert!(!game.is_joined);
+
+        assert_eq!(game.players.len(), 2);
+        let owner = &game.players[0];
+        assert!(owner.is_owner);
+        assert_eq!(owner.user.discord_user_id, "1001");
+        assert_eq!(owner.user.username, "alice");
+        assert_eq!(owner.user.global_name.as_deref(), Some("Alice"));
+        assert_eq!(owner.user.avatar_url.as_deref(), Some("https://example.com/alice.png"));
+        assert_eq!(owner.requested_power.as_deref(), Some("f"));
+        assert_eq!(owner.power, None);
+
+        let member = &game.players[1];
+        assert!(!member.is_owner);
+        assert_eq!(member.user.username, "bob");
+        assert_eq!(member.user.global_name, None);
+        assert_eq!(member.power.as_deref(), Some("e"));
+    }
+
+    #[test]
+    fn handle_get_game_hides_non_owner_requested_power_from_others() {
+        assert_eq!(get_game_with_players_for(None).players[1].requested_power, None);
+        assert_eq!(
+            get_game_with_players_for(Some("Bearer token-carol")).players[1].requested_power,
+            None
+        );
+        assert_eq!(
+            get_game_with_players_for(Some("Bearer token-alice")).players[1].requested_power,
+            None
+        );
+    }
+
+    #[test]
+    fn handle_get_game_shows_own_requested_power_to_self() {
+        let game = get_game_with_players_for(Some("Bearer token-bob"));
+
+        assert_eq!(game.players[1].requested_power.as_deref(), Some("t"));
+        assert_eq!(game.players[0].requested_power.as_deref(), Some("f"));
+    }
+
+    #[test]
+    fn handle_get_game_is_joined_reflects_viewer() {
+        assert!(get_game_with_players_for(Some("Bearer token-alice")).is_joined);
+        assert!(get_game_with_players_for(Some("Bearer token-bob")).is_joined);
+        assert!(!get_game_with_players_for(Some("Bearer token-carol")).is_joined);
+        assert!(!get_game_with_players_for(Some("Bearer token-unknown")).is_joined);
+        assert!(!get_game_with_players_for(None).is_joined);
+    }
+
+    #[test]
+    fn handle_get_game_returns_repository_error_when_player_user_is_missing() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let game_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::Preparing);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let error = handle_get_game(&service, game_uuid, None).expect_err("should fail");
+
+        assert_eq!(error.code(), "repository_error");
+    }
+
+    #[test]
+    fn join_game_handler_error_code_reflects_forbidden_reason() {
+        use crate::services::JoinGameForbiddenReason;
+        let cases = [
+            (JoinGameForbiddenReason::AlreadyInAnotherGame, "already_in_another_game"),
+            (JoinGameForbiddenReason::KeywordMismatch, "keyword_mismatch"),
+            (JoinGameForbiddenReason::NotAcceptingPlayers, "not_accepting_players"),
+            (JoinGameForbiddenReason::GameFull, "game_full"),
+        ];
+        for (reason, code) in cases {
+            let error = JoinGameHandlerError::Service(JoinGameError::Forbidden(reason));
+            assert_eq!(error.code(), code);
+            assert_eq!(error.to_api_error_response().message, reason.message());
+        }
     }
 
     // ============================================================================

@@ -25,6 +25,8 @@ pub(crate) use game_response::GameResultUnitResponse;
 pub(crate) use game_response::GetGameLogsResponse;
 pub(crate) use game_response::GetGameResponse;
 pub(crate) use game_response::GetGameResponseGame;
+pub(crate) use game_response::GetGameResponsePlayer;
+pub(crate) use game_response::GetGameResponseUser;
 pub(crate) use game_response::GetGameResultResponse;
 pub(crate) use game_response::GetGamesResponse;
 pub(crate) use game_response::JoinGameResponse;

@@ -16,6 +16,7 @@ use super::GameStatusFilter;
 use super::GameSummary;
 use super::GetGameError;
 use super::JoinGameError;
+use super::JoinGameForbiddenReason;
 use super::ListGamesError;
 use super::NewGame;
 use super::Phase;
@@ -31,6 +32,7 @@ use super::SetProgressModeError;
 use super::SetTerritoryError;
 use super::SetUnitError;
 use super::Unit;
+use super::UserRecord;
 use super::UserRepository;
 use crate::Territory;
 use strum::IntoEnumIterator;
@@ -409,30 +411,28 @@ where
             .exists_active_game_for_user(user.uuid)
             .map_err(JoinGameError::Repository)?
         {
-            return Err(JoinGameError::Forbidden(
-                "user is already participating in another active game".to_string(),
-            ));
+            return Err(JoinGameError::Forbidden(JoinGameForbiddenReason::AlreadyInAnotherGame));
         }
 
         // keyword 不一致の場合はエラー（卓にkeywordがない場合にリクエストにkeywordがあっても弾く）
         if command.keyword.as_deref().unwrap_or("") != game.keyword.as_deref().unwrap_or("") {
-            return Err(JoinGameError::Forbidden("keyword does not match".to_string()));
+            return Err(JoinGameError::Forbidden(JoinGameForbiddenReason::KeywordMismatch));
         }
 
         if game.status != GameStatus::Preparing {
-            return Err(JoinGameError::Forbidden("game is not accepting new players".to_string()));
+            return Err(JoinGameError::Forbidden(JoinGameForbiddenReason::NotAcceptingPlayers));
         }
 
         // 定員超過チェック
         if game.players.len() >= Power::iter().count() {
-            return Err(JoinGameError::Forbidden("game is full (max players reached)".to_string()));
+            return Err(JoinGameError::Forbidden(JoinGameForbiddenReason::GameFull));
         }
 
         // DBに新規プレイヤーを追加
         self.game_repository
             .add_player(game.uuid, user.uuid, command.requested_power)
             .map_err(|e| match e {
-                RepositoryError::Conflict => JoinGameError::Forbidden("game is full (max players reached)".to_string()),
+                RepositoryError::Conflict => JoinGameError::Forbidden(JoinGameForbiddenReason::GameFull),
                 other => JoinGameError::Repository(other),
             })?;
 
@@ -1106,6 +1106,13 @@ where
         }
 
         Ok(self.user_repository.find_by_access_token(access_token)?.map(|user| user.uuid))
+    }
+
+    ///
+    /// UUID でユーザーを取得する
+    ///
+    pub(crate) fn find_user_by_uuid(&self, user_uuid: Uuid) -> Result<Option<UserRecord>, RepositoryError> {
+        self.user_repository.find_by_uuid(user_uuid)
     }
 
     ///
@@ -1917,7 +1924,7 @@ mod tests {
             })
             .expect_err("join game should fail");
 
-        assert!(matches!(error, JoinGameError::Forbidden(_)));
+        assert_eq!(error, JoinGameError::Forbidden(JoinGameForbiddenReason::AlreadyInAnotherGame));
     }
 
     #[test]
@@ -2000,7 +2007,7 @@ mod tests {
             })
             .expect_err("join game should fail");
 
-        assert!(matches!(error, JoinGameError::Forbidden(_)));
+        assert_eq!(error, JoinGameError::Forbidden(JoinGameForbiddenReason::NotAcceptingPlayers));
     }
 
     /// 6 人分のプレイヤー（卓主 + 5 人）が参加済みのゲームを生成するヘルパー
@@ -2204,7 +2211,7 @@ mod tests {
             })
             .expect_err("join game should fail");
 
-        assert!(matches!(error, JoinGameError::Forbidden(_)));
+        assert_eq!(error, JoinGameError::Forbidden(JoinGameForbiddenReason::KeywordMismatch));
     }
 
     #[test]
@@ -2240,7 +2247,7 @@ mod tests {
             })
             .expect_err("join game should fail");
 
-        assert!(matches!(error, JoinGameError::Forbidden(_)));
+        assert_eq!(error, JoinGameError::Forbidden(JoinGameForbiddenReason::KeywordMismatch));
     }
 
     #[test]
@@ -2312,7 +2319,7 @@ mod tests {
             })
             .expect_err("join game should fail");
 
-        assert!(matches!(error, JoinGameError::Forbidden(_)));
+        assert_eq!(error, JoinGameError::Forbidden(JoinGameForbiddenReason::KeywordMismatch));
     }
 
     // ============================================================================
