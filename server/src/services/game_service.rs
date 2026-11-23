@@ -1213,6 +1213,10 @@ mod tests {
             Ok(None)
         }
 
+        fn find_by_username(&self, _username: &str) -> Result<Option<UserRecord>, RepositoryError> {
+            Ok(None)
+        }
+
         fn find_by_access_token(&self, access_token: &str) -> Result<Option<UserRecord>, RepositoryError> {
             Ok(self.rows.borrow().get(access_token).cloned())
         }

@@ -71,7 +71,7 @@ use super::handlers::put_games_progress_consensus;
 static INSTANCE_LOCK: Mutex<Option<Arc<File>>> = Mutex::new(None);
 
 /// 成り代わり先ユーザー ID を指定するヘッダ名
-const IMPERSONATE_USER_ID_HEADER: HeaderName = HeaderName::from_static("x-impersonate-user-id");
+const IMPERSONATE_USER_NAME_HEADER: HeaderName = HeaderName::from_static("x-impersonate-user-name");
 
 ///
 /// ルーター起動パラメータ構造体
@@ -194,7 +194,7 @@ fn create_cors_layer(allowed_origins: &[String]) -> Result<CorsLayer, Box<dyn Er
     Ok(CorsLayer::new()
         .allow_origin(allow_origin)
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
-        .allow_headers([AUTHORIZATION, CONTENT_TYPE, IMPERSONATE_USER_ID_HEADER]))
+        .allow_headers([AUTHORIZATION, CONTENT_TYPE, IMPERSONATE_USER_NAME_HEADER]))
 }
 
 ///
@@ -255,14 +255,14 @@ where
     // トークンリセットは本人のトークンを対象とすべきなので成り代わりの対象外とする
     let impersonation_target = request.uri().path() != "/auth/token";
     if let (true, Some(access_token)) = (impersonation_target, access_token) {
-        let impersonate_user_id = request
+        let impersonate_user_name = request
             .headers()
-            .get(&IMPERSONATE_USER_ID_HEADER)
-            .map(|value| value.to_str().unwrap_or("INVALID").trim().to_string())
+            .get(&IMPERSONATE_USER_NAME_HEADER)
+            .map(|value| String::from_utf8_lossy(value.as_bytes()).trim().to_string())
             .filter(|value| !value.is_empty());
         let user_repository = Arc::clone(&state.user_repository);
         let resolve_result = tokio::task::spawn_blocking(move || {
-            resolve_impersonated_access_token(user_repository.as_ref(), &access_token, impersonate_user_id.as_deref())
+            resolve_impersonated_access_token(user_repository.as_ref(), &access_token, impersonate_user_name.as_deref())
         })
         .await;
 
@@ -279,15 +279,10 @@ where
                     format!("invalid access token of impersonated user: {}", error),
                 )),
             },
-            Ok(Err(ImpersonationError::InvalidUserId)) => Some((
-                StatusCode::BAD_REQUEST,
-                "invalid_impersonate_user_id",
-                "X-Impersonate-User-Id must be a valid discord user id".to_string(),
-            )),
             Ok(Err(ImpersonationError::UserNotFound)) => Some((
                 StatusCode::NOT_FOUND,
                 "impersonate_user_not_found",
-                "user specified by X-Impersonate-User-Id was not found".to_string(),
+                "user specified by X-Impersonate-User-Name was not found".to_string(),
             )),
             Ok(Err(ImpersonationError::Repository(error))) => {
                 Some((StatusCode::INTERNAL_SERVER_ERROR, "impersonation_failed", error.to_string()))
@@ -361,7 +356,6 @@ where
 ///
 #[derive(Debug)]
 enum ImpersonationError {
-    InvalidUserId,
     UserNotFound,
     Repository(super::RepositoryError),
 }
@@ -369,18 +363,18 @@ enum ImpersonationError {
 ///
 /// 成り代わり先アクセストークン解決関数
 ///
-/// リクエストユーザーが管理者で、かつ成り代わり先ユーザー ID が指定されている場合のみ、
+/// リクエストユーザーが管理者で、かつ成り代わり先ユーザー名が指定されている場合のみ、
 /// 成り代わり先ユーザーのアクセストークンを返す。それ以外は `None` を返す（リクエストユーザー自身の権限で実行）。
 ///
 fn resolve_impersonated_access_token<U>(
     user_repository: &U,
     access_token: &str,
-    impersonate_user_id: Option<&str>,
+    impersonate_user_name: Option<&str>,
 ) -> Result<Option<String>, ImpersonationError>
 where
     U: UserRepository,
 {
-    let Some(impersonate_user_id) = impersonate_user_id else {
+    let Some(impersonate_user_name) = impersonate_user_name else {
         return Ok(None);
     };
 
@@ -391,12 +385,8 @@ where
         return Ok(None);
     }
 
-    // Discord ユーザー ID（snowflake）は数字のみで構成される
-    if !impersonate_user_id.bytes().all(|byte| byte.is_ascii_digit()) {
-        return Err(ImpersonationError::InvalidUserId);
-    }
     let target = user_repository
-        .find_by_discord_user_id(impersonate_user_id)
+        .find_by_username(impersonate_user_name)
         .map_err(ImpersonationError::Repository)?
         .ok_or(ImpersonationError::UserNotFound)?;
 
@@ -509,6 +499,16 @@ mod tests {
                 .expect("lock should succeed")
                 .iter()
                 .find(|row| row.discord_user_id == discord_user_id)
+                .cloned())
+        }
+
+        fn find_by_username(&self, username: &str) -> Result<Option<UserRecord>, super::super::RepositoryError> {
+            Ok(self
+                .users
+                .lock()
+                .expect("lock should succeed")
+                .iter()
+                .find(|row| row.username == username)
                 .cloned())
         }
 
@@ -630,10 +630,10 @@ mod tests {
     fn resolve_impersonated_access_token_returns_target_token_for_admin() {
         let admin = user_record(1, "admin-token", true);
         let target = user_record(2, "target-token", false);
-        let target_discord_user_id = target.discord_user_id.clone();
+        let target_username = target.username.clone();
         let repository = InMemoryUserRepository::new(vec![admin, target]);
 
-        let resolved = resolve_impersonated_access_token(&repository, "admin-token", Some(&target_discord_user_id))
+        let resolved = resolve_impersonated_access_token(&repository, "admin-token", Some(&target_username))
             .expect("resolve should succeed");
 
         assert_eq!(resolved, Some("target-token".to_string()));
@@ -652,11 +652,11 @@ mod tests {
     fn resolve_impersonated_access_token_ignores_header_for_non_admin() {
         let requester = user_record(1, "user-token", false);
         let target = user_record(2, "target-token", false);
-        let target_discord_user_id = target.discord_user_id.clone();
+        let target_username = target.username.clone();
         let repository = InMemoryUserRepository::new(vec![requester, target]);
 
-        let resolved = resolve_impersonated_access_token(&repository, "user-token", Some(&target_discord_user_id))
-            .expect("resolve should succeed");
+        let resolved =
+            resolve_impersonated_access_token(&repository, "user-token", Some(&target_username)).expect("resolve should succeed");
 
         assert_eq!(resolved, None);
     }
@@ -664,28 +664,19 @@ mod tests {
     #[test]
     fn resolve_impersonated_access_token_ignores_header_for_unknown_token() {
         let target = user_record(2, "target-token", false);
-        let target_discord_user_id = target.discord_user_id.clone();
+        let target_username = target.username.clone();
         let repository = InMemoryUserRepository::new(vec![target]);
 
-        let resolved = resolve_impersonated_access_token(&repository, "unknown-token", Some(&target_discord_user_id))
+        let resolved = resolve_impersonated_access_token(&repository, "unknown-token", Some(&target_username))
             .expect("resolve should succeed");
 
         assert_eq!(resolved, None);
     }
 
     #[test]
-    fn resolve_impersonated_access_token_rejects_invalid_discord_user_id_for_admin() {
-        let repository = InMemoryUserRepository::new(vec![user_record(1, "admin-token", true)]);
-
-        let result = resolve_impersonated_access_token(&repository, "admin-token", Some("not-a-discord-id"));
-
-        assert!(matches!(result, Err(ImpersonationError::InvalidUserId)));
-    }
-
-    #[test]
     fn resolve_impersonated_access_token_rejects_unknown_target_for_admin() {
         let repository = InMemoryUserRepository::new(vec![user_record(1, "admin-token", true)]);
-        let result = resolve_impersonated_access_token(&repository, "admin-token", Some("9999"));
+        let result = resolve_impersonated_access_token(&repository, "admin-token", Some("unknown-user"));
 
         assert!(matches!(result, Err(ImpersonationError::UserNotFound)));
     }

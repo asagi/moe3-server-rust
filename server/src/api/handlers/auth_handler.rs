@@ -283,6 +283,16 @@ mod tests {
             Ok(self.state.borrow().rows.get(discord_user_id).cloned())
         }
 
+        fn find_by_username(&self, username: &str) -> Result<Option<UserRecord>, RepositoryError> {
+            Ok(self
+                .state
+                .borrow()
+                .rows
+                .values()
+                .find(|row| row.username == username)
+                .cloned())
+        }
+
         fn find_by_access_token(&self, access_token: &str) -> Result<Option<UserRecord>, RepositoryError> {
             Ok(self
                 .state
