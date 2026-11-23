@@ -85,6 +85,8 @@ pub(crate) use super::GetGameLogsQueryParams;
 pub(crate) use super::GetGameLogsResponse;
 pub(crate) use super::GetGameResponse;
 pub(crate) use super::GetGameResponseGame;
+pub(crate) use super::GetGameResponsePlayer;
+pub(crate) use super::GetGameResponseUser;
 pub(crate) use super::GetGameResultResponse;
 pub(crate) use super::GetGamesQueryParams;
 pub(crate) use super::GetGamesRequest;

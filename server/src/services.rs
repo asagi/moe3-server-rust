@@ -23,6 +23,7 @@ pub(crate) use error::DiscordClientError;
 pub(crate) use error::GameProgressionError;
 pub(crate) use error::GetGameError;
 pub(crate) use error::JoinGameError;
+pub(crate) use error::JoinGameForbiddenReason;
 pub(crate) use error::ListGamesError;
 pub(crate) use error::SetDrawProposalError;
 pub(crate) use error::SetNextUpdateAtError;

@@ -109,7 +109,7 @@
 
 ```json
 {
-  "code": "invalid_request | unauthorized | not_found | forbidden | repository_error",
+  "code": "invalid_request | unauthorized | not_found | already_in_another_game | keyword_mismatch | not_accepting_players | game_full | repository_error",
   "message": "人間向け説明"
 }
 ```
@@ -146,14 +146,16 @@
 | ----------------------------------------------------------- | ---------------- |
 | アクセストークン未登録（DB にユーザーレコードが存在しない） | `"unauthorized"` |
 
-### `403 Forbidden` — `code: forbidden`
+### `403 Forbidden`
 
-| 条件                                                                               | `message`                                                |
-| ---------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| リクエストユーザーが別の卓に参加中                                                 | `"user is already participating in another active game"` |
-| キーワードが卓のキーワードと一致しない（キーワードなし卓へのキーワード指定を含む） | `"keyword does not match"`                               |
-| 卓のステータスが `Preparing` でない（募集終了済み）                                | `"game is not accepting new players"`                    |
-| 卓の定員（7人）に達している                                                        | `"game is full (max players reached)"`                   |
+| 条件                                                                               | `code`                    | `message`                                                |
+| ---------------------------------------------------------------------------------- | ------------------------- | -------------------------------------------------------- |
+| リクエストユーザーが別の卓に参加中                                                 | `already_in_another_game` | `"user is already participating in another active game"` |
+| キーワードが卓のキーワードと一致しない（キーワードなし卓へのキーワード指定を含む） | `keyword_mismatch`        | `"keyword does not match"`                               |
+| 卓のステータスが `Preparing` でない（募集終了済み）                                | `not_accepting_players`   | `"game is not accepting new players"`                    |
+| 卓の定員（7人）に達している                                                        | `game_full`               | `"game is full (max players reached)"`                   |
+
+判定は上の表の順に行う（例：別の卓に参加中かつキーワード不一致の場合は `already_in_another_game`）。
 
 ### `404 Not Found` — `code: not_found`
 

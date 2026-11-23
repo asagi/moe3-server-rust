@@ -64,6 +64,8 @@ pub(crate) use responses::GameResultUnitResponse;
 pub(crate) use responses::GetGameLogsResponse;
 pub(crate) use responses::GetGameResponse;
 pub(crate) use responses::GetGameResponseGame;
+pub(crate) use responses::GetGameResponsePlayer;
+pub(crate) use responses::GetGameResponseUser;
 pub(crate) use responses::GetGameResultResponse;
 pub(crate) use responses::GetGamesResponse;
 pub(crate) use responses::GetMeResponse;
