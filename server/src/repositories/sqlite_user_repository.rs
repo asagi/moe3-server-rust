@@ -181,6 +181,24 @@ impl UserRepository for SqliteUserRepository {
             .map_err(|error| RepositoryError::Unavailable(format!("find user by discord_user_id: {}", error)))
     }
 
+    /// Discord ユーザ名でユーザをロードする
+    fn find_by_username(&self, username: &str) -> Result<Option<UserRecord>, RepositoryError> {
+        let sql = r#"
+            SELECT id, uuid, discord_user_id, username, global_name, avatar_hash, avatar_url, access_token, last_access_at, is_admin
+            FROM users
+            WHERE username = ?1
+            ORDER BY last_access_at DESC
+            LIMIT 1
+        "#;
+
+        self.connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?
+            .query_row(sql, params![username], Self::row_to_user_record)
+            .optional()
+            .map_err(|error| RepositoryError::Unavailable(format!("find user by username: {}", error)))
+    }
+
     /// アクセストークンでユーザをロードする
     fn find_by_access_token(&self, access_token: &str) -> Result<Option<UserRecord>, RepositoryError> {
         let sql = r#"

@@ -89,6 +89,9 @@ pub(crate) trait UserRepository {
     /// Discord ユーザ ID でユーザをロードする
     fn find_by_discord_user_id(&self, discord_user_id: &str) -> Result<Option<UserRecord>, RepositoryError>;
 
+    /// Discord ユーザ名でユーザをロードする
+    fn find_by_username(&self, username: &str) -> Result<Option<UserRecord>, RepositoryError>;
+
     /// アクセストークンでユーザをロードする
     fn find_by_access_token(&self, access_token: &str) -> Result<Option<UserRecord>, RepositoryError>;
 
