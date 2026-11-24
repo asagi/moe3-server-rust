@@ -18,15 +18,30 @@ use super::User;
 ///
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum MessageKind {
-    #[allow(dead_code)]
     Public(PublicPress),
-    #[allow(dead_code)]
     Confidential(ConfidentialLetter),
-    #[allow(dead_code)]
     Personal(PersonalNote),
     #[allow(dead_code)]
     Ghost(GhostTalk),
     System(SystemNotice),
+}
+
+/// メッセージ種別の列挙体の実装
+impl MessageKind {
+    /// 公式声明を生成する
+    pub(crate) fn public() -> Self {
+        Self::Public(PublicPress {})
+    }
+
+    /// 宛先を指定して機密書簡を生成する
+    pub(crate) fn confidential(recipients: Vec<Power>) -> Self {
+        Self::Confidential(ConfidentialLetter { recipients })
+    }
+
+    /// 独り言を生成する
+    pub(crate) fn personal() -> Self {
+        Self::Personal(PersonalNote {})
+    }
 }
 
 ///

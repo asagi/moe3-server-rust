@@ -40,6 +40,8 @@ pub(crate) use repositories::GameRepository;
 pub(crate) use repositories::GameStatusFilter;
 pub(crate) use repositories::GameSummary;
 pub(crate) use repositories::MessageRecord;
+pub(crate) use repositories::MessageSenderKind;
+pub(crate) use repositories::NewChatMessage;
 pub(crate) use repositories::NewGame;
 pub(crate) use repositories::NewUser;
 pub(crate) use repositories::RepositoryError;

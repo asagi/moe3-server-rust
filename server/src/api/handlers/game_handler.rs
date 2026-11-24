@@ -1574,7 +1574,7 @@ where
 /// 認証任意の API 向けに Authorization ヘッダから Bearer トークンを取り出す
 ///
 /// ヘッダ欠落・形式不正の場合は空文字を返す（＝未ログイン扱い）。
-fn optional_bearer_token(authorization: Option<&str>) -> &str {
+pub(super) fn optional_bearer_token(authorization: Option<&str>) -> &str {
     let auth = authorization.unwrap_or("").trim();
     match auth.get(..7) {
         Some(prefix) if prefix.eq_ignore_ascii_case("Bearer ") => auth.get(7..).unwrap_or("").trim(),
@@ -1746,12 +1746,13 @@ where
         None
     };
 
-    let messages = apply_log_access_control(records, &game, viewer_power);
+    let mut messages = apply_log_access_control(records, &game, viewer_power);
+    attach_sender_users(&mut messages, user_repository).map_err(super::GetGameLogsHandlerError::Repository)?;
     Ok(super::GetGameLogsResponse { messages })
 }
 
 /// アクセス制御を適用してメッセージ一覧を返す
-fn apply_log_access_control(
+pub(super) fn apply_log_access_control(
     records: Vec<crate::MessageRecord>,
     game: &crate::Game,
     viewer_power: Option<Power>,
@@ -1797,7 +1798,7 @@ fn apply_log_access_control(
 }
 
 /// 担当 Power が滅亡しているかを判定する（最新フェイズにユニットが存在しない場合）
-fn is_power_eliminated(power: Power, game: &crate::Game) -> bool {
+pub(super) fn is_power_eliminated(power: Power, game: &crate::Game) -> bool {
     let latest = match game.phases.last() {
         Some(p) => p,
         None => return false,
@@ -1808,17 +1809,62 @@ fn is_power_eliminated(power: Power, game: &crate::Game) -> bool {
     !latest.units.iter().any(|u| u.power == power)
 }
 
+/// 送信者種別が "user" のメッセージについて、送信ユーザーの UUID を返す
+///
+/// 国の発言・管理人発言では送信ユーザーを公開しないため `None` を返す。
+fn sender_user_uuid_of(r: &crate::MessageRecord) -> Option<Uuid> {
+    match r.sender_kind {
+        crate::MessageSenderKind::User => r.sender_user_uuid,
+        _ => None,
+    }
+}
+
+///
+/// メッセージレスポンスの送信ユーザー情報を解決する
+///
+/// 同じユーザーの発言が続く場合に備えて、検索結果をキャッシュする。
+/// ユーザーが見つからない場合は `sender_user` を `None` のままにする。
+///
+pub(super) fn attach_sender_users<U>(messages: &mut [super::GameLogMessage], user_repository: &U) -> Result<(), RepositoryError>
+where
+    U: UserRepository,
+{
+    let mut cache: std::collections::HashMap<Uuid, Option<super::GameLogSenderUser>> = std::collections::HashMap::new();
+    for message in messages.iter_mut() {
+        let Some(user_uuid) = message.sender_user_uuid else {
+            continue;
+        };
+        let sender_user = match cache.entry(user_uuid) {
+            std::collections::hash_map::Entry::Occupied(entry) => entry.get().clone(),
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                let sender_user = user_repository.find_by_uuid(user_uuid)?.map(|user| super::GameLogSenderUser {
+                    username: user.username,
+                    global_name: user.global_name,
+                    avatar_url: user.avatar_url,
+                });
+                entry.insert(sender_user).clone()
+            }
+        };
+        message.sender_user = sender_user;
+    }
+    Ok(())
+}
+
 /// フルコンテンツのメッセージレスポンスを生成する
-fn to_game_log_message_full(r: crate::MessageRecord) -> super::GameLogMessage {
+pub(super) fn to_game_log_message_full(r: crate::MessageRecord) -> super::GameLogMessage {
     let is_confidential = r.kind == "confidential";
     let recipients = if is_confidential {
         Some(r.recipients.iter().map(|p| p.symbol().to_string()).collect())
     } else {
         None
     };
+    let sender_user_uuid = sender_user_uuid_of(&r);
     super::GameLogMessage {
         message_uuid: r.message_uuid,
         sender: r.sender_power.map(|p| p.symbol().to_string()),
+        sender_kind: r.sender_kind.as_str().to_string(),
+        sender_user: None,
+        sender_user_uuid,
         turn: r.turn,
         context: Some(r.context),
         kind: r.kind,
@@ -1830,9 +1876,13 @@ fn to_game_log_message_full(r: crate::MessageRecord) -> super::GameLogMessage {
 /// マスクされたメッセージレスポンスを生成する（kind="masked"、context=null）
 fn to_game_log_message_masked(r: crate::MessageRecord) -> super::GameLogMessage {
     let recipients = Some(r.recipients.iter().map(|p| p.symbol().to_string()).collect());
+    let sender_user_uuid = sender_user_uuid_of(&r);
     super::GameLogMessage {
         message_uuid: r.message_uuid,
         sender: r.sender_power.map(|p| p.symbol().to_string()),
+        sender_kind: r.sender_kind.as_str().to_string(),
+        sender_user: None,
+        sender_user_uuid,
         turn: r.turn,
         context: None,
         kind: "masked".to_string(),
@@ -4963,7 +5013,13 @@ mod tests {
     ) -> crate::MessageRecord {
         crate::MessageRecord {
             message_uuid: uuid::Uuid::now_v7(),
+            sender_kind: if kind == "system" {
+                crate::MessageSenderKind::System
+            } else {
+                crate::MessageSenderKind::Power
+            },
             sender_power: sender,
+            sender_user_uuid: None,
             turn: "1901s".to_string(),
             context: "test message".to_string(),
             kind: kind.to_string(),
