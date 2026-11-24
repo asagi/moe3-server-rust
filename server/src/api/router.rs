@@ -50,11 +50,13 @@ use super::handlers::delete_admin_games_units;
 use super::handlers::get_game;
 use super::handlers::get_games;
 use super::handlers::get_games_logs;
+use super::handlers::get_games_messages_stream;
 use super::handlers::get_games_result;
 use super::handlers::get_users_me;
 use super::handlers::post_auth_login;
 use super::handlers::post_auth_reset_token;
 use super::handlers::post_games;
+use super::handlers::post_games_messages;
 use super::handlers::post_games_players;
 use super::handlers::put_admin_games_draw_proposal;
 use super::handlers::put_admin_games_next_update_at;
@@ -72,6 +74,9 @@ static INSTANCE_LOCK: Mutex<Option<Arc<File>>> = Mutex::new(None);
 
 /// 成り代わり先ユーザー ID を指定するヘッダ名
 const IMPERSONATE_USER_NAME_HEADER: HeaderName = HeaderName::from_static("x-impersonate-user-name");
+
+/// SSE 再接続時の最終イベント ID ヘッダ名
+const LAST_EVENT_ID_HEADER: HeaderName = HeaderName::from_static("last-event-id");
 
 ///
 /// ルーター起動パラメータ構造体
@@ -194,7 +199,12 @@ fn create_cors_layer(allowed_origins: &[String]) -> Result<CorsLayer, Box<dyn Er
     Ok(CorsLayer::new()
         .allow_origin(allow_origin)
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
-        .allow_headers([AUTHORIZATION, CONTENT_TYPE, IMPERSONATE_USER_NAME_HEADER]))
+        .allow_headers([
+            AUTHORIZATION,
+            CONTENT_TYPE,
+            IMPERSONATE_USER_NAME_HEADER,
+            LAST_EVENT_ID_HEADER,
+        ]))
 }
 
 ///
@@ -422,6 +432,11 @@ where
         .route("/games/{game_uuid}", get(get_game::<U, G, D>))
         .route("/games/{game_uuid}/logs/{season}", get(get_games_logs::<U, G, D>))
         .route("/games/{game_uuid}/result/{season}", get(get_games_result::<U, G, D>))
+        .route("/games/{game_uuid}/messages", post(post_games_messages::<U, G, D>))
+        .route(
+            "/games/{game_uuid}/messages/stream",
+            get(get_games_messages_stream::<U, G, D>),
+        )
         .route("/games/{game_uuid}/players", post(post_games_players::<U, G, D>))
         .route(
             "/games/{game_uuid}/progress-consensus",

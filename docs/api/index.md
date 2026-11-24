@@ -10,14 +10,16 @@
 
 ## 募集と応募
 
-| メソッド | パス                                                       | 概要             |
-| -------- | ---------------------------------------------------------- | ---------------- |
-| `GET`    | [`/games` 🔗](./games__get.md)                             | 卓一覧取得       |
-| `POST`   | [`/games` 🔗](./games__post.md)                            | 新規卓作成       |
-| `GET`    | [`/games/:game_uuid` 🔗](./games-game-uuid__get.md)        | 卓情報取得       |
-| `GET`    | [`/games/:game_uuid/logs/:season` 🔗](./games-game-uuid-logs-season__get.md) | 外交履歴取得     |
-| `GET`    | [`/games/:game_uuid/result/:season` 🔗](./games-game-uuid-result-season__get.md) | 命令解決履歴取得 |
-| `POST`   | [`/games/:game_uuid/players` 🔗](./games-players__post.md) | ゲームへの参加   |
+| メソッド | パス                                                                                | 概要                          |
+| -------- | ----------------------------------------------------------------------------------- | ----------------------------- |
+| `GET`    | [`/games` 🔗](./games__get.md)                                                      | 卓一覧取得                    |
+| `POST`   | [`/games` 🔗](./games__post.md)                                                     | 新規卓作成                    |
+| `GET`    | [`/games/:game_uuid` 🔗](./games-game-uuid__get.md)                                 | 卓情報取得                    |
+| `GET`    | [`/games/:game_uuid/logs/:season` 🔗](./games-game-uuid-logs-season__get.md)        | 外交履歴取得                  |
+| `GET`    | [`/games/:game_uuid/result/:season` 🔗](./games-game-uuid-result-season__get.md)    | 命令解決履歴取得              |
+| `POST`   | [`/games/:game_uuid/messages` 🔗](./games-game-uuid-messages__post.md)              | 発言の投稿                    |
+| `GET`    | [`/games/:game_uuid/messages/stream` 🔗](./games-game-uuid-messages-stream__get.md) | 発言のリアルタイム配信（SSE） |
+| `POST`   | [`/games/:game_uuid/players` 🔗](./games-players__post.md)                          | ゲームへの参加                |
 
 ## ゲーム進行・命令
 

@@ -5,6 +5,7 @@
 use chrono::Utc;
 use rusqlite::Connection;
 use rusqlite::params;
+use tokio::sync::broadcast;
 use uuid::Uuid;
 
 use super::Message;
@@ -27,7 +28,9 @@ use super::User;
 #[derive(Debug, Clone)]
 pub(crate) struct MessageRecord {
     pub message_uuid: Uuid,
+    pub sender_kind: MessageSenderKind,
     pub sender_power: Option<Power>,
+    pub sender_user_uuid: Option<Uuid>,
     pub turn: String,
     pub context: String,
     pub kind: String,
@@ -36,12 +39,83 @@ pub(crate) struct MessageRecord {
 }
 
 ///
+/// messages テーブルの 1 行分の生データの構造体
+///
+struct MessageRow {
+    message_uuid: String,
+    sender_power: Option<String>,
+    sender_kind: Option<String>,
+    sender_user_uuid: Option<String>,
+    turn: String,
+    context: String,
+    kind: String,
+    recipients: Option<String>,
+    created_at: String,
+}
+
+///
+/// メッセージ送信者種別の列挙体
+///
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MessageSenderKind {
+    /// 担当国としての発言
+    Power,
+    /// 担当国を持たないユーザーとしての発言（開戦前夜・感想戦）
+    User,
+    /// 管理人発言
+    Admin,
+    /// システムメッセージ
+    System,
+}
+
+/// メッセージ送信者種別の列挙体の実装
+impl MessageSenderKind {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Power => "power",
+            Self::User => "user",
+            Self::Admin => "admin",
+            Self::System => "system",
+        }
+    }
+
+    fn from_str(value: &str) -> Option<Self> {
+        match value {
+            "power" => Some(Self::Power),
+            "user" => Some(Self::User),
+            "admin" => Some(Self::Admin),
+            "system" => Some(Self::System),
+            _ => None,
+        }
+    }
+}
+
+///
+/// ユーザー発言の登録内容の構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct NewChatMessage {
+    pub sender_kind: MessageSenderKind,
+    pub sender_power: Option<Power>,
+    pub sender_user_uuid: Uuid,
+    pub turn: String,
+    pub context: String,
+    pub kind: MessageKind,
+}
+
+///
 /// SQLite 用のメッセージリポジトリ構造体
+///
+/// メッセージを保存するたびに、対象卓の UUID を `notifier` で通知する（SSE 配信用）。
 ///
 #[derive(Debug, Clone)]
 pub(crate) struct SqliteMessageRepository {
     message_database_path: String,
+    notifier: broadcast::Sender<Uuid>,
 }
+
+/// メッセージ保存通知チャネルの容量
+const NOTIFIER_CAPACITY: usize = 1024;
 
 const READY_TURN: &str = "ready";
 const DEBRIEF_TURN: &str = "debrief";
@@ -52,9 +126,93 @@ impl SqliteMessageRepository {
     /// new 関数
     ///
     pub(crate) fn new(messages_database_path: &str) -> Self {
+        let (notifier, _) = broadcast::channel(NOTIFIER_CAPACITY);
         Self {
             message_database_path: messages_database_path.to_string(),
+            notifier,
         }
+    }
+
+    ///
+    /// メッセージ保存通知を購読する
+    ///
+    /// 受信する値はメッセージが保存された卓の UUID。
+    ///
+    pub(crate) fn subscribe(&self) -> broadcast::Receiver<Uuid> {
+        self.notifier.subscribe()
+    }
+
+    /// メッセージ保存を購読者に通知する（購読者がいない場合は何もしない）
+    fn notify(&self, game_uuid: Uuid) {
+        let _ = self.notifier.send(game_uuid);
+    }
+
+    ///
+    /// ユーザー発言（公式声明・機密書簡・独り言・管理人発言）を保存する
+    ///
+    pub(crate) fn append_chat_message(&self, game_uuid: Uuid, message: NewChatMessage) -> Result<MessageRecord, RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+
+        let now = Utc::now().to_rfc3339();
+        let message_uuid = Uuid::now_v7();
+        let sender_power = message.sender_power.map(Self::power_to_symbol);
+        let kind = Self::kind_to_text(&message.kind);
+        let recipients = match &message.kind {
+            MessageKind::Confidential(letter) => letter.recipients.clone(),
+            _ => Vec::new(),
+        };
+        let recipients_text = if recipients.is_empty() {
+            None
+        } else {
+            Some(recipients.iter().map(|power| power.symbol()).collect::<Vec<_>>().join(","))
+        };
+
+        connection
+            .execute(
+                r#"
+                INSERT INTO messages (
+                    message_uuid,
+                    game_uuid,
+                    sender_power,
+                    sender_kind,
+                    sender_user_uuid,
+                    turn,
+                    context,
+                    kind,
+                    recipients,
+                    created_at,
+                    is_deleted
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 0)
+                "#,
+                params![
+                    message_uuid.to_string(),
+                    game_uuid.to_string(),
+                    sender_power,
+                    message.sender_kind.as_str(),
+                    message.sender_user_uuid.to_string(),
+                    message.turn,
+                    message.context,
+                    kind,
+                    recipients_text,
+                    now,
+                ],
+            )
+            .map_err(|error| RepositoryError::Unavailable(format!("insert chat message: {}", error)))?;
+
+        self.notify(game_uuid);
+
+        Ok(MessageRecord {
+            message_uuid,
+            sender_kind: message.sender_kind,
+            sender_power: message.sender_power,
+            sender_user_uuid: Some(message.sender_user_uuid),
+            turn: message.turn,
+            context: message.context,
+            kind: kind.to_string(),
+            recipients,
+            created_at: now,
+        })
     }
 
     ///
@@ -484,6 +642,8 @@ impl SqliteMessageRepository {
                 message_uuid TEXT PRIMARY KEY,
                 game_uuid TEXT NOT NULL,
                 sender_power TEXT,
+                sender_kind TEXT,
+                sender_user_uuid TEXT,
                 turn TEXT NOT NULL,
                 context TEXT NOT NULL,
                 kind TEXT NOT NULL,
@@ -504,6 +664,22 @@ impl SqliteMessageRepository {
             .execute_batch(sql)
             .map_err(|error| RepositoryError::Unavailable(format!("create message tables: {}", error)))?;
 
+        // 既存 DB に送信者種別・送信ユーザーの列が無い場合は追加する
+        for column in ["sender_kind", "sender_user_uuid"] {
+            let exists: bool = connection
+                .query_row(
+                    "SELECT COUNT(*) > 0 FROM pragma_table_info('messages') WHERE name = ?1",
+                    params![column],
+                    |row| row.get(0),
+                )
+                .map_err(|error| RepositoryError::Unavailable(format!("inspect messages table: {}", error)))?;
+            if !exists {
+                connection
+                    .execute(&format!("ALTER TABLE messages ADD COLUMN {} TEXT", column), [])
+                    .map_err(|error| RepositoryError::Unavailable(format!("add messages.{} column: {}", column, error)))?;
+            }
+        }
+
         Ok(())
     }
 
@@ -522,17 +698,19 @@ impl SqliteMessageRepository {
                     message_uuid,
                     game_uuid,
                     sender_power,
+                    sender_kind,
                     turn,
                     context,
                     kind,
                     created_at,
                     is_deleted
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0)
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0)
                 "#,
                 params![
                     message_uuid.to_string(),
                     game_uuid.to_string(),
                     sender_power,
+                    MessageSenderKind::System.as_str(),
                     message.turn,
                     message.context,
                     kind,
@@ -540,6 +718,8 @@ impl SqliteMessageRepository {
                 ],
             )
             .map_err(|error| RepositoryError::Unavailable(format!("insert system message: {}", error)))?;
+
+        self.notify(game_uuid);
 
         Ok(())
     }
@@ -575,7 +755,7 @@ impl SqliteMessageRepository {
         let mut stmt = connection
             .prepare(
                 r#"
-                SELECT message_uuid, sender_power, turn, context, kind, recipients, created_at
+                SELECT message_uuid, sender_power, sender_kind, sender_user_uuid, turn, context, kind, recipients, created_at
                 FROM messages
                 WHERE game_uuid = ?1
                   AND turn = ?2
@@ -586,47 +766,141 @@ impl SqliteMessageRepository {
             )
             .map_err(|e| RepositoryError::Unavailable(format!("prepare find_by_game_and_season: {}", e)))?;
 
-        let records = stmt
-            .query_map(params![game_uuid.to_string(), season, after_str], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, Option<String>>(1)?,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, String>(3)?,
-                    row.get::<_, String>(4)?,
-                    row.get::<_, Option<String>>(5)?,
-                    row.get::<_, String>(6)?,
-                ))
-            })
+        let rows = stmt
+            .query_map(params![game_uuid.to_string(), season, after_str], Self::read_message_row)
             .map_err(|e| RepositoryError::Unavailable(format!("query find_by_game_and_season: {}", e)))?;
 
+        Self::collect_message_records(rows, "find_by_game_and_season")
+    }
+
+    ///
+    /// 指定した卓の、指定メッセージより後のメッセージ一覧をシーズンを問わず返す
+    ///
+    /// `after_uuid` が `None` の場合は全件を返す。
+    ///
+    pub(crate) fn find_by_game_after(
+        &self,
+        game_uuid: Uuid,
+        after_uuid: Option<Uuid>,
+    ) -> Result<Vec<MessageRecord>, RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+
+        let after_str = after_uuid.map(|u| u.to_string());
+
+        let mut stmt = connection
+            .prepare(
+                r#"
+                SELECT message_uuid, sender_power, sender_kind, sender_user_uuid, turn, context, kind, recipients, created_at
+                FROM messages
+                WHERE game_uuid = ?1
+                  AND is_deleted = 0
+                  AND (?2 IS NULL OR message_uuid > ?2)
+                ORDER BY message_uuid ASC
+                "#,
+            )
+            .map_err(|e| RepositoryError::Unavailable(format!("prepare find_by_game_after: {}", e)))?;
+
+        let rows = stmt
+            .query_map(params![game_uuid.to_string(), after_str], Self::read_message_row)
+            .map_err(|e| RepositoryError::Unavailable(format!("query find_by_game_after: {}", e)))?;
+
+        Self::collect_message_records(rows, "find_by_game_after")
+    }
+
+    ///
+    /// 指定した卓の最新メッセージの UUID を返す（削除済みを含む）
+    ///
+    pub(crate) fn find_latest_message_uuid(&self, game_uuid: Uuid) -> Result<Option<Uuid>, RepositoryError> {
+        let connection = self.open_connection()?;
+        self.init_schema(&connection)?;
+
+        let latest: Option<String> = connection
+            .query_row(
+                "SELECT MAX(message_uuid) FROM messages WHERE game_uuid = ?1",
+                params![game_uuid.to_string()],
+                |row| row.get(0),
+            )
+            .map_err(|e| RepositoryError::Unavailable(format!("query find_latest_message_uuid: {}", e)))?;
+
+        latest
+            .map(|value| Uuid::parse_str(&value).map_err(|e| RepositoryError::Unavailable(format!("parse message_uuid: {}", e))))
+            .transpose()
+    }
+
+    /// メッセージ行を読み取る
+    fn read_message_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<MessageRow> {
+        Ok(MessageRow {
+            message_uuid: row.get(0)?,
+            sender_power: row.get(1)?,
+            sender_kind: row.get(2)?,
+            sender_user_uuid: row.get(3)?,
+            turn: row.get(4)?,
+            context: row.get(5)?,
+            kind: row.get(6)?,
+            recipients: row.get(7)?,
+            created_at: row.get(8)?,
+        })
+    }
+
+    /// メッセージ行をメッセージクエリ結果に変換して収集する
+    fn collect_message_records<I>(rows: I, label: &str) -> Result<Vec<MessageRecord>, RepositoryError>
+    where
+        I: Iterator<Item = rusqlite::Result<MessageRow>>,
+    {
         let mut result = Vec::new();
-        for row in records {
-            let (message_uuid_str, sender_power_str, turn, context, kind, recipients_str, created_at) =
-                row.map_err(|e| RepositoryError::Unavailable(format!("row find_by_game_and_season: {}", e)))?;
-
-            let message_uuid = Uuid::parse_str(&message_uuid_str)
-                .map_err(|e| RepositoryError::Unavailable(format!("parse message_uuid: {}", e)))?;
-
-            let sender_power = sender_power_str.as_deref().and_then(Power::from_symbol);
-
-            let recipients = recipients_str
-                .as_deref()
-                .map(|s| s.split(',').filter_map(Power::from_symbol).collect())
-                .unwrap_or_default();
-
-            result.push(MessageRecord {
-                message_uuid,
-                sender_power,
-                turn,
-                context,
-                kind,
-                recipients,
-                created_at,
-            });
+        for row in rows {
+            let row = row.map_err(|e| RepositoryError::Unavailable(format!("row {}: {}", label, e)))?;
+            result.push(Self::message_row_to_record(row)?);
         }
-
         Ok(result)
+    }
+
+    /// メッセージ行をメッセージクエリ結果に変換する
+    fn message_row_to_record(row: MessageRow) -> Result<MessageRecord, RepositoryError> {
+        let message_uuid =
+            Uuid::parse_str(&row.message_uuid).map_err(|e| RepositoryError::Unavailable(format!("parse message_uuid: {}", e)))?;
+
+        let sender_power = row.sender_power.as_deref().and_then(Power::from_symbol);
+
+        let sender_user_uuid = row
+            .sender_user_uuid
+            .as_deref()
+            .map(Uuid::parse_str)
+            .transpose()
+            .map_err(|e| RepositoryError::Unavailable(format!("parse sender_user_uuid: {}", e)))?;
+
+        // 送信者種別の列が追加される前のメッセージは、種別と送信国から推定する
+        let sender_kind = if row.kind == "system" {
+            MessageSenderKind::System
+        } else {
+            row.sender_kind
+                .as_deref()
+                .and_then(MessageSenderKind::from_str)
+                .unwrap_or(if sender_power.is_some() {
+                    MessageSenderKind::Power
+                } else {
+                    MessageSenderKind::User
+                })
+        };
+
+        let recipients = row
+            .recipients
+            .as_deref()
+            .map(|s| s.split(',').filter_map(Power::from_symbol).collect())
+            .unwrap_or_default();
+
+        Ok(MessageRecord {
+            message_uuid,
+            sender_kind,
+            sender_power,
+            sender_user_uuid,
+            turn: row.turn,
+            context: row.context,
+            kind: row.kind,
+            recipients,
+            created_at: row.created_at,
+        })
     }
 
     pub(crate) fn append_progress_mode_changed_message(&self, game_uuid: Uuid, turn: &str) -> Result<(), RepositoryError> {
@@ -1038,6 +1312,58 @@ mod tests {
         let msg = &result[0];
         assert_eq!(msg.sender_power, Some(Power::France));
         assert_eq!(msg.recipients, vec![Power::England, Power::Germany]);
+    }
+
+    #[test]
+    fn find_by_game_and_season_migrates_legacy_schema_and_infers_sender_kind() {
+        let (repository, db_path) = new_test_repository();
+        // 送信者種別の列が無い旧スキーマに、旧形式の行を入れておく
+        let conn = setup_db(&db_path);
+        let game_uuid = Uuid::now_v7();
+        insert_message_row(&conn, game_uuid, "1901s", "public", Some("f"), None, false);
+        insert_message_row(&conn, game_uuid, "1901s", "system", None, None, false);
+
+        let result = repository
+            .find_by_game_and_season(game_uuid, "1901s", None)
+            .expect("should succeed");
+
+        assert_eq!(result[0].sender_kind, MessageSenderKind::Power);
+        assert_eq!(result[0].sender_user_uuid, None);
+        assert_eq!(result[1].sender_kind, MessageSenderKind::System);
+    }
+
+    #[test]
+    fn append_chat_message_persists_sender_and_recipients() {
+        let (repository, _db_path) = new_test_repository();
+        let game_uuid = Uuid::now_v7();
+        let user_uuid = Uuid::now_v7();
+
+        let record = repository
+            .append_chat_message(
+                game_uuid,
+                NewChatMessage {
+                    sender_kind: MessageSenderKind::Power,
+                    sender_power: Some(Power::France),
+                    sender_user_uuid: user_uuid,
+                    turn: "1901s".to_string(),
+                    context: "密談".to_string(),
+                    kind: MessageKind::confidential(vec![Power::England, Power::Germany]),
+                },
+            )
+            .expect("append should succeed");
+
+        let result = repository.find_by_game_after(game_uuid, None).expect("should succeed");
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].message_uuid, record.message_uuid);
+        assert_eq!(result[0].sender_kind, MessageSenderKind::Power);
+        assert_eq!(result[0].sender_user_uuid, Some(user_uuid));
+        assert_eq!(result[0].kind, "confidential");
+        assert_eq!(result[0].recipients, vec![Power::England, Power::Germany]);
+        assert_eq!(
+            repository.find_latest_message_uuid(game_uuid).expect("latest"),
+            Some(record.message_uuid)
+        );
+        assert_eq!(repository.find_latest_message_uuid(Uuid::now_v7()).expect("latest"), None);
     }
 
     #[test]

@@ -186,11 +186,30 @@ pub(crate) struct GetGamesResponse {
 pub(crate) struct GameLogMessage {
     pub message_uuid: Uuid,
     pub sender: Option<String>,
+    /// 送信者種別（"power" / "user" / "admin" / "system"）
+    pub sender_kind: String,
+    /// 送信者種別が "user" のときの送信ユーザー
+    pub sender_user: Option<GameLogSenderUser>,
+    /// 送信ユーザーの UUID（sender_user 解決用の内部値で、レスポンスには含めない）
+    #[serde(skip)]
+    pub sender_user_uuid: Option<Uuid>,
     pub turn: String,
     pub context: Option<String>,
     pub kind: String,
     pub recipients: Option<Vec<String>>,
     pub created_at: String,
+}
+
+///
+/// 外交履歴取得レスポンスの送信ユーザー構造体
+///
+/// Discord の数値 ID は画面に出さない方針のため含めない。
+///
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub(crate) struct GameLogSenderUser {
+    pub username: String,
+    pub global_name: Option<String>,
+    pub avatar_url: Option<String>,
 }
 
 ///

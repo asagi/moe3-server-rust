@@ -5,6 +5,7 @@
 mod auth_handler;
 mod error;
 mod game_handler;
+mod message_handler;
 
 // ============================================================================
 // exports
@@ -21,6 +22,7 @@ pub(crate) use error::GetGameResultHandlerError;
 pub(crate) use error::GetGamesHandlerError;
 pub(crate) use error::GetMeHandlerError;
 pub(crate) use error::JoinGameHandlerError;
+pub(crate) use error::PostGameMessageHandlerError;
 pub(crate) use error::ResetTokenHandlerError;
 pub(crate) use error::SetDrawProposalHandlerError;
 pub(crate) use error::SetNextUpdateAtHandlerError;
@@ -42,6 +44,8 @@ pub(crate) use game_handler::put_admin_games_progress_mode;
 pub(crate) use game_handler::put_admin_games_territories;
 pub(crate) use game_handler::put_admin_games_units;
 pub(crate) use game_handler::put_games_progress_consensus;
+pub(crate) use message_handler::get_games_messages_stream;
+pub(crate) use message_handler::post_games_messages;
 
 // ============================================================================
 // re-exports
@@ -73,6 +77,7 @@ pub(crate) use super::FaceType;
 pub(crate) use super::GameListItem;
 pub(crate) use super::GameListItemRegulation;
 pub(crate) use super::GameLogMessage;
+pub(crate) use super::GameLogSenderUser;
 pub(crate) use super::GameRepository;
 pub(crate) use super::GameResultOrderResponse;
 pub(crate) use super::GameResultPhaseResponse;
@@ -83,6 +88,7 @@ pub(crate) use super::GameStatusFilter;
 pub(crate) use super::GetGameError;
 pub(crate) use super::GetGameLogsQueryParams;
 pub(crate) use super::GetGameLogsResponse;
+pub(crate) use super::GetGameMessagesStreamQueryParams;
 pub(crate) use super::GetGameResponse;
 pub(crate) use super::GetGameResponseGame;
 pub(crate) use super::GetGameResponsePlayer;
@@ -102,6 +108,7 @@ pub(crate) use super::JoinGameResponse;
 pub(crate) use super::ListGamesError;
 pub(crate) use super::ListGamesResult;
 pub(crate) use super::LoginCommand;
+pub(crate) use super::PostGameMessageRequestBody;
 pub(crate) use super::Power;
 pub(crate) use super::ProgressMode;
 pub(crate) use super::Regulation;

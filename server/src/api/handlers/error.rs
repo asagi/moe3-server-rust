@@ -2,6 +2,8 @@
 // imports
 // ============================================================================
 
+use axum::http::StatusCode;
+
 use super::ApiErrorResponse;
 use super::AuthError;
 use super::AuthRequestValidationError;
@@ -743,6 +745,83 @@ impl GetGameLogsHandlerError {
         match self {
             Self::GameNotFound => "game not found".to_string(),
             Self::SeasonNotFound => "season not found".to_string(),
+            Self::Repository(error) => error.to_string(),
+        }
+    }
+}
+
+///
+/// 発言投稿リクエストハンドラのエラーの列挙体
+///
+#[derive(Debug)]
+pub(crate) enum PostGameMessageHandlerError {
+    InvalidGameUuid,
+    Unauthorized,
+    InvalidKind(String),
+    InvalidRecipients(String),
+    EmptyContext,
+    ContextTooLong(usize),
+    NotFound,
+    NotAPlayer,
+    PowerEliminated,
+    AdminPostNotAllowed(String),
+    GameNotAcceptingMessages,
+    Repository(RepositoryError),
+}
+
+/// 発言投稿リクエストハンドラのエラーの列挙体の実装
+impl PostGameMessageHandlerError {
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidGameUuid => "invalid_request",
+            Self::Unauthorized => "unauthorized",
+            Self::InvalidKind(_) => "invalid_kind",
+            Self::InvalidRecipients(_) => "invalid_recipients",
+            Self::EmptyContext => "empty_context",
+            Self::ContextTooLong(_) => "context_too_long",
+            Self::NotFound => "not_found",
+            Self::NotAPlayer => "not_a_player",
+            Self::PowerEliminated => "power_eliminated",
+            Self::AdminPostNotAllowed(_) => "admin_post_not_allowed",
+            Self::GameNotAcceptingMessages => "game_not_accepting_messages",
+            Self::Repository(_) => "repository_error",
+        }
+    }
+
+    pub(crate) fn status(&self) -> StatusCode {
+        match self {
+            Self::InvalidGameUuid
+            | Self::InvalidKind(_)
+            | Self::InvalidRecipients(_)
+            | Self::EmptyContext
+            | Self::ContextTooLong(_) => StatusCode::BAD_REQUEST,
+            Self::Unauthorized => StatusCode::UNAUTHORIZED,
+            Self::NotAPlayer | Self::PowerEliminated | Self::AdminPostNotAllowed(_) | Self::GameNotAcceptingMessages => {
+                StatusCode::FORBIDDEN
+            }
+            Self::NotFound => StatusCode::NOT_FOUND,
+            Self::Repository(_) => StatusCode::SERVICE_UNAVAILABLE,
+        }
+    }
+
+    pub(crate) fn to_api_error_response(&self) -> ApiErrorResponse {
+        ApiErrorResponse {
+            code: self.code(),
+            message: self.message(),
+        }
+    }
+
+    fn message(&self) -> String {
+        match self {
+            Self::InvalidGameUuid => "game_uuid is invalid".to_string(),
+            Self::Unauthorized => "unauthorized".to_string(),
+            Self::InvalidKind(message) | Self::InvalidRecipients(message) | Self::AdminPostNotAllowed(message) => message.clone(),
+            Self::EmptyContext => "context must not be empty".to_string(),
+            Self::ContextTooLong(max) => format!("context must be at most {} characters", max),
+            Self::NotFound => "game not found".to_string(),
+            Self::NotAPlayer => "only players of the game can post messages".to_string(),
+            Self::PowerEliminated => "eliminated power cannot post messages".to_string(),
+            Self::GameNotAcceptingMessages => "the game is not accepting messages".to_string(),
             Self::Repository(error) => error.to_string(),
         }
     }

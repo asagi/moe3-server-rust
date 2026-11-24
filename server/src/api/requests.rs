@@ -5,6 +5,7 @@
 mod auth_request;
 mod error;
 mod game_request;
+mod message_request;
 
 // ============================================================================
 // exports
@@ -46,3 +47,5 @@ pub(crate) use game_request::SetUnitRequest;
 pub(crate) use game_request::SetUnitRequestBody;
 #[allow(unused_imports)]
 pub(crate) use game_request::UnitSpecBody;
+pub(crate) use message_request::GetGameMessagesStreamQueryParams;
+pub(crate) use message_request::PostGameMessageRequestBody;
