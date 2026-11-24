@@ -141,10 +141,10 @@ impl fmt::Display for SystemNoticeCatalog {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::GameCreated { user } => {
-                write!(f, "{} ({}) が募集を開始しました。", user.username, user.discord_user_id)
+                write!(f, "@{} が募集を開始しました。", user.username)
             }
             Self::PlayerJoined { user } => {
-                write!(f, "{} ({}) が参加を表明しました。", user.username, user.discord_user_id)
+                write!(f, "@{} が参加を表明しました。", user.username)
             }
             Self::Ready => {
                 write!(f, "プレイヤーが揃い、担当国が割り当てられました。")

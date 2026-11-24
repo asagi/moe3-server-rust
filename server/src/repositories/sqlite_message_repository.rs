@@ -711,10 +711,7 @@ mod tests {
         assert_eq!(sender_power, None);
         assert_eq!(turn, "ready");
         assert_eq!(kind, "system");
-        assert_eq!(
-            context,
-            format!("{} ({}) が参加を表明しました。", user.username, user.discord_user_id)
-        );
+        assert_eq!(context, format!("@{} が参加を表明しました。", user.username));
     }
 
     #[test]
