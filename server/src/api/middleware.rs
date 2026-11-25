@@ -70,7 +70,7 @@ where
             }
         }
 
-        let (aborted_game_uuids, started_seasons, solo_games, draw_games, closed_games) = self
+        let (progressed_game_uuids, aborted_game_uuids, started_seasons, solo_games, draw_games, closed_games) = self
             .progression_service
             .progress_games()
             .map_err(PreHandlerError::GameProgression)?;
@@ -119,6 +119,12 @@ where
             if let Err(error) = self.message_repository.append_closed_message(game_uuid) {
                 eprintln!("failed to persist Closed message (game_uuid={}): {}", game_uuid, error);
             }
+        }
+
+        // システムメッセージを伴わないフェイズ進行（例：メインフェイズ → 撤退フェイズ）も
+        // SSE 配信へ伝わるよう、進行した卓を購読者に通知する
+        for game_uuid in progressed_game_uuids {
+            self.message_repository.notify_game_updated(game_uuid);
         }
 
         Ok(())

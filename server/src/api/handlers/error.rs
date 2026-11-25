@@ -766,6 +766,7 @@ pub(crate) enum PostGameMessageHandlerError {
     PowerEliminated,
     AdminPostNotAllowed(String),
     GameNotAcceptingMessages,
+    PhaseNotAcceptingMessages,
     Repository(RepositoryError),
 }
 
@@ -784,6 +785,7 @@ impl PostGameMessageHandlerError {
             Self::PowerEliminated => "power_eliminated",
             Self::AdminPostNotAllowed(_) => "admin_post_not_allowed",
             Self::GameNotAcceptingMessages => "game_not_accepting_messages",
+            Self::PhaseNotAcceptingMessages => "phase_not_accepting_messages",
             Self::Repository(_) => "repository_error",
         }
     }
@@ -796,9 +798,11 @@ impl PostGameMessageHandlerError {
             | Self::EmptyContext
             | Self::ContextTooLong(_) => StatusCode::BAD_REQUEST,
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
-            Self::NotAPlayer | Self::PowerEliminated | Self::AdminPostNotAllowed(_) | Self::GameNotAcceptingMessages => {
-                StatusCode::FORBIDDEN
-            }
+            Self::NotAPlayer
+            | Self::PowerEliminated
+            | Self::AdminPostNotAllowed(_)
+            | Self::GameNotAcceptingMessages
+            | Self::PhaseNotAcceptingMessages => StatusCode::FORBIDDEN,
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::Repository(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
@@ -822,6 +826,7 @@ impl PostGameMessageHandlerError {
             Self::NotAPlayer => "only players of the game can post messages".to_string(),
             Self::PowerEliminated => "eliminated power cannot post messages".to_string(),
             Self::GameNotAcceptingMessages => "the game is not accepting messages".to_string(),
+            Self::PhaseNotAcceptingMessages => "messages are not accepted during retreat or adjustment phase".to_string(),
             Self::Repository(error) => error.to_string(),
         }
     }

@@ -35,14 +35,20 @@
 
 ## 送信者と権限
 
-| 卓のステータス                    | 発言できる人                 | 使える `kind`                          | 記録される送信者                  |
-| --------------------------------- | ---------------------------- | -------------------------------------- | --------------------------------- |
-| `preparing` / `ready`（開戦前夜） | 参加者                       | `public` のみ                          | ユーザー（`sender_kind: "user"`） |
-| `in_progress`                     | 担当国を持つ参加者           | `public` / `confidential` / `personal` | 担当国（`sender_kind: "power"`）  |
-| `solo` / `draw`（感想戦）         | 参加者                       | `public` のみ                          | ユーザー（`sender_kind: "user"`） |
-| `closed` / `aborted`              | 投稿不可                     | -                                      | -                                 |
+| 卓のステータス                    | 発言できる人       | 使える `kind`                          | 記録される送信者                  |
+| --------------------------------- | ------------------ | -------------------------------------- | --------------------------------- |
+| `preparing` / `ready`（開戦前夜） | 参加者             | `public` のみ                          | ユーザー（`sender_kind: "user"`） |
+| `in_progress`                     | 担当国を持つ参加者 | `public` / `confidential` / `personal` | 担当国（`sender_kind: "power"`）  |
+| `solo` / `draw`（感想戦）         | 参加者             | `public` のみ                          | ユーザー（`sender_kind: "user"`） |
+| `closed` / `aborted`              | 投稿不可           | -                                      | -                                 |
 
 - 「滅亡」とは、最新フェイズに担当国のユニットが存在しない状態を指す。
+
+### 撤退フェイズ・調整フェイズ
+
+- 最新フェイズが撤退フェイズ（春・秋）または調整フェイズのあいだは、すべての発言を受け付けない（`phase_not_accepting_messages`、403）。
+- 対象は通常の発言（`public` / `confidential` / `personal`）と管理人発言（`as_admin: true`）のすべて。
+- フェイズの切り替わりは [`GET /games/:game_uuid/messages/stream`](./games-game-uuid-messages-stream__get.md) の `phase` イベントで通知する。
 
 ### 滅亡した国の発言
 
@@ -62,7 +68,7 @@
 ### 管理人発言（`as_admin: true`）
 
 - `is_admin` のユーザー本人だけが使える。`X-Impersonate-User-Name` 付きのリクエストでは使えない。
-- 卓に参加していなくても、`closed` / `aborted` 以外のすべてのステータスで投稿できる。
+- 卓に参加していなくても、`closed` / `aborted` 以外のすべてのステータスで投稿できる（撤退フェイズ・調整フェイズを除く）。
 - `kind` は `"public"` のみ（オープンチャンネルにだけ書ける）。
 - 管理人が卓に参加していても、担当国ではなく管理人の発言（`sender_kind: "admin"`）として記録する。
 - 管理人発言は `kind: "public"` なので、外交履歴取得 API で全員（第三者を含む）に見える。
@@ -99,22 +105,23 @@
 
 ## エラー
 
-| Status | `code`                        | 条件                                                                             |
-| ------ | ----------------------------- | -------------------------------------------------------------------------------- |
-| `400`  | `invalid_request`             | `game_uuid` が有効な UUID でない                                                 |
-| `400`  | `invalid_kind`                | `kind` が不正 / 開戦前夜・感想戦に `public` 以外 / 管理人発言に `public` 以外    |
-| `400`  | `invalid_recipients`          | `confidential` で宛先なし・空・重複・不明な国・自国を含む / それ以外で宛先を指定 |
-| `400`  | `empty_context`               | 本文が空（空白だけを含む）                                                       |
-| `400`  | `context_too_long`            | 本文が 2000 文字を超える                                                         |
-| `401`  | `unauthorized`                | Authorization ヘッダが無い・不正、またはアクセストークンが未登録                 |
-| `403`  | `not_a_player`                | 通常の発言で、リクエストユーザーが卓の参加者でない                               |
-| `403`  | `power_eliminated`            | 進行中に、担当国が滅亡しているプレイヤーが機密書簡（`confidential`）を書こうとした |
-| `403`  | `admin_post_not_allowed`      | 管理人発言で、管理者でない / `X-Impersonate-User-Name` 付き                      |
-| `403`  | `game_not_accepting_messages` | 卓が `closed` / `aborted`                                                        |
-| `404`  | `not_found`                   | 卓が存在しない                                                                   |
-| `503`  | `repository_error`            | データベース障害                                                                 |
+| Status | `code`                         | 条件                                                                                            |
+| ------ | ------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `400`  | `invalid_request`              | `game_uuid` が有効な UUID でない                                                                |
+| `400`  | `invalid_kind`                 | `kind` が不正 / 開戦前夜・感想戦に `public` 以外 / 管理人発言に `public` 以外                   |
+| `400`  | `invalid_recipients`           | `confidential` で宛先なし・空・重複・不明な国・自国を含む / それ以外で宛先を指定                |
+| `400`  | `empty_context`                | 本文が空（空白だけを含む）                                                                      |
+| `400`  | `context_too_long`             | 本文が 2000 文字を超える                                                                        |
+| `401`  | `unauthorized`                 | Authorization ヘッダが無い・不正、またはアクセストークンが未登録                                |
+| `403`  | `not_a_player`                 | 通常の発言で、リクエストユーザーが卓の参加者でない                                              |
+| `403`  | `power_eliminated`             | 進行中に、担当国が滅亡しているプレイヤーが機密書簡（`confidential`）を書こうとした              |
+| `403`  | `admin_post_not_allowed`       | 管理人発言で、管理者でない / `X-Impersonate-User-Name` 付き                                     |
+| `403`  | `game_not_accepting_messages`  | 卓が `closed` / `aborted`                                                                       |
+| `403`  | `phase_not_accepting_messages` | 最新フェイズが撤退フェイズ（`SpringRetreat` / `FallRetreat`）または調整フェイズ（`Adjustment`） |
+| `404`  | `not_found`                    | 卓が存在しない                                                                                  |
+| `503`  | `repository_error`             | データベース障害                                                                                |
 
-- チェックの順序は「認証 → リクエストボディの形式 → 卓の存在 → 卓のステータス → 権限 → シーズンと種別の組み合わせ」。
+- チェックの順序は「認証 → リクエストボディの形式 → 卓の存在 → 卓のステータス → 最新フェイズ → 権限 → シーズンと種別の組み合わせ」。
 
 ## ビジネスルール
 

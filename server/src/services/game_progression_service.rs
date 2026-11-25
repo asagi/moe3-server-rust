@@ -33,14 +33,16 @@ type StartedSeasonMessage = (uuid::Uuid, String, String);
 type SoloMessage = (uuid::Uuid, super::Power);
 type DrawMessage = uuid::Uuid;
 type ClosedMessage = uuid::Uuid;
+type ProgressedGame = uuid::Uuid;
 type ProgressGamesResult = (
+    Vec<ProgressedGame>,
     Vec<uuid::Uuid>,
     Vec<StartedSeasonMessage>,
     Vec<SoloMessage>,
     Vec<DrawMessage>,
     Vec<ClosedMessage>,
 );
-type ProgressGameResult = (bool, Option<(String, String)>, Option<super::Power>, bool, bool);
+type ProgressGameResult = (bool, bool, Option<(String, String)>, Option<super::Power>, bool, bool);
 const SOLO_SUPPLY_CENTER_THRESHOLD: usize = 18;
 
 /// 卓進行サービスの構造体の実装
@@ -64,8 +66,10 @@ where
     ///
     /// Closed・Aborted 以外の全 Game に対してフェイズ進行を試みる。
     /// next_update_at が現在時刻より過去の場合のみ進行処理を実行する。
+    /// 戻り値の先頭は、進行処理（中止を含む）で卓を更新した卓 UUID の一覧。
     pub(crate) fn progress_games(&self) -> Result<ProgressGamesResult, GameProgressionError> {
         let now = Utc::now().naive_utc();
+        let mut progressed_game_uuids = Vec::new();
         let mut aborted_game_uuids = Vec::new();
         let mut started_seasons = Vec::new();
         let mut solo_games = Vec::new();
@@ -78,7 +82,12 @@ where
             .map_err(GameProgressionError::Repository)?;
 
         for game_uuid in candidate_game_uuids {
-            let (is_aborted, started_season, solo_power, is_draw, is_closed) = self.progress_game(game_uuid, now)?;
+            let (is_progressed, is_aborted, started_season, solo_power, is_draw, is_closed) =
+                self.progress_game(game_uuid, now)?;
+
+            if is_progressed {
+                progressed_game_uuids.push(game_uuid);
+            }
 
             if is_aborted {
                 aborted_game_uuids.push(game_uuid);
@@ -101,7 +110,14 @@ where
             }
         }
 
-        Ok((aborted_game_uuids, started_seasons, solo_games, draw_games, closed_games))
+        Ok((
+            progressed_game_uuids,
+            aborted_game_uuids,
+            started_seasons,
+            solo_games,
+            draw_games,
+            closed_games,
+        ))
     }
 
     /// 卓別の進行処理を実行する
@@ -117,15 +133,15 @@ where
             .find_by_uuid(game_uuid)
             .map_err(GameProgressionError::Repository)?
         else {
-            return Ok((false, None, None, false, false));
+            return Ok((false, false, None, None, false, false));
         };
 
         let Some(previous_next_update) = game.next_update_at else {
-            return Ok((false, None, None, false, false));
+            return Ok((false, false, None, None, false, false));
         };
 
         if game.status == GameStatus::Closed || game.status == GameStatus::Aborted || previous_next_update > now {
-            return Ok((false, None, None, false, false));
+            return Ok((false, false, None, None, false, false));
         }
 
         let latest_phase = game.phases.pop().expect("game should have at least one phase");
@@ -139,7 +155,7 @@ where
             game.status = GameStatus::Aborted;
             game.next_update_at = None;
             self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
-            return Ok((true, None, None, false, false));
+            return Ok((true, true, None, None, false, false));
         }
 
         // フェイズ進行処理
@@ -204,7 +220,7 @@ where
 
         let is_draw = game.is_draw && !is_debrief_closed;
 
-        Ok((false, started_season, solo_power, is_draw, is_debrief_closed))
+        Ok((true, false, started_season, solo_power, is_draw, is_debrief_closed))
     }
 
     /// 卓主が和平終了を承認しているかどうかを返却する
@@ -805,9 +821,10 @@ mod tests {
         let repository = InMemoryGameRepository::new(vec![game]);
         let service = GameProgressionService::new(users, repository.clone());
 
-        service.progress_games().expect("progress should succeed");
+        let (progressed, ..) = service.progress_games().expect("progress should succeed");
 
         assert_eq!(repository.updated_len(), 0);
+        assert!(progressed.is_empty());
     }
 
     #[test]
@@ -818,9 +835,10 @@ mod tests {
         let repository = InMemoryGameRepository::new(vec![game]);
         let service = GameProgressionService::new(users, repository.clone());
 
-        service.progress_games().expect("progress should succeed");
+        let (progressed, ..) = service.progress_games().expect("progress should succeed");
 
         assert_eq!(repository.updated_len(), 0);
+        assert!(progressed.is_empty());
     }
 
     #[test]
@@ -828,13 +846,15 @@ mod tests {
         let past_date = (chrono::Utc::now().naive_utc() - chrono::Duration::days(1)).date();
         let past = past_date.and_hms_opt(14, 32, 0).expect("valid datetime");
         let game = sample_full_game(Some(past));
+        let game_uuid = game.uuid;
         let users = InMemoryUserRepository::new(users_for_full_game(&game, chrono::Utc::now()));
         let repository = InMemoryGameRepository::new(vec![game]);
         let service = GameProgressionService::new(users, repository.clone());
 
-        service.progress_games().expect("progress should succeed");
+        let (progressed, ..) = service.progress_games().expect("progress should succeed");
 
         assert_eq!(repository.updated_len(), 1);
+        assert_eq!(progressed, vec![game_uuid]);
         let updated = repository.updated_first().expect("updated game should exist");
         assert_eq!(updated.status, GameStatus::InProgress);
         assert_eq!(

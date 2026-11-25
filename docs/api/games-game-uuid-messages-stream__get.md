@@ -60,6 +60,21 @@ data: {"season":"1901f"}
 
 ```
 
+### `phase`：フェイズ種別が切り替わった
+
+- `data`: 切り替わったあとのシーズンとフェイズ種別。
+  - `season`: [`current_turn()`](./games-game-uuid__get.md) と同じ形（`ready` / `1901s` / … / `debrief`）
+  - `phase_kind`: [`GET /games/:game_uuid`](./games-game-uuid__get.md) の `phase_kind` と同じ値（`ready` / `main` / `retreat` / `adjustment` / `debrief`）
+- 最新フェイズの種別が変わったときに送る。メインフェイズ → 撤退フェイズのように、シーズンが変わらない切り替えでも届く。
+- シーズンも変わる切り替え（例：撤退フェイズ → 秋のメインフェイズ）では、`season` イベントのあとに `phase` イベントを送る。
+- 撤退フェイズ・調整フェイズのあいだは [発言 API](./games-game-uuid-messages__post.md) が `phase_not_accepting_messages` を返すので、フロントはこのイベントで書き込み画面とログビューアーを切り替える。
+
+```
+event: phase
+data: {"season":"1901s","phase_kind":"retreat"}
+
+```
+
 ### 接続維持
 
 - 15 秒ごとにコメント行 `:ping` を送る（プロキシのタイムアウト対策）。
@@ -83,6 +98,7 @@ data: {"season":"1901f"}
 ## 注意
 
 - フェイズの進行（シーズンの切り替え）は、これまでどおり何らかの API リクエストを受けたときに行われる。SSE の接続を開いているだけではフェイズは進まない。
+- フェイズが進んだ卓は、システムメッセージの有無にかかわらず購読者に通知され、`season` / `phase` イベントが送られる。
 
 ## curl
 
