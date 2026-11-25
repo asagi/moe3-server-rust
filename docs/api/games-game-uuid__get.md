@@ -50,7 +50,8 @@
         },
         "is_owner": true,
         "requested_power": "f",
-        "power": "f"
+        "power": "f",
+        "is_eliminated": false
       }
     ],
     "is_joined": false
@@ -94,6 +95,7 @@
 | `is_owner`            | `boolean`        | 卓主か                                                                                     |
 | `requested_power`     | `string \| null` | 希望国（`a` / `e` / `f` / `g` / `i` / `r` / `t`）。希望なしは `null`。下記の公開範囲を参照 |
 | `power`               | `string \| null` | 担当国（`a` / `e` / `f` / `g` / `i` / `r` / `t`）。割り当て前は `null`                      |
+| `is_eliminated`       | `boolean`        | 担当国が滅亡しているか（最新フェイズに担当国のユニットがない）。担当国がない・最新フェイズが開戦前夜 / 感想戦の場合は `false` |
 
 `requested_power` の公開範囲:
 

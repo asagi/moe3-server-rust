@@ -38,11 +38,26 @@
 | 卓のステータス                    | 発言できる人                 | 使える `kind`                          | 記録される送信者                  |
 | --------------------------------- | ---------------------------- | -------------------------------------- | --------------------------------- |
 | `preparing` / `ready`（開戦前夜） | 参加者                       | `public` のみ                          | ユーザー（`sender_kind: "user"`） |
-| `in_progress`                     | 担当国が滅亡していない参加者 | `public` / `confidential` / `personal` | 担当国（`sender_kind: "power"`）  |
+| `in_progress`                     | 担当国を持つ参加者           | `public` / `confidential` / `personal` | 担当国（`sender_kind: "power"`）  |
 | `solo` / `draw`（感想戦）         | 参加者                       | `public` のみ                          | ユーザー（`sender_kind: "user"`） |
 | `closed` / `aborted`              | 投稿不可                     | -                                      | -                                 |
 
 - 「滅亡」とは、最新フェイズに担当国のユニットが存在しない状態を指す。
+
+### 滅亡した国の発言
+
+進行中の卓で担当国が滅亡している場合、リクエストの `kind` に応じて次のように扱う。
+
+| リクエストの `kind` | 滅亡していない国 | 滅亡した国                                      |
+| ------------------- | ---------------- | ----------------------------------------------- |
+| `public`            | `public` で保存  | `ghost`（亡国会話）で保存。送信者は担当国のまま |
+| `confidential`      | `confidential`   | `power_eliminated`（403）                       |
+| `personal`          | `personal`       | `personal` で保存                               |
+
+- `ghost` にするかどうかはサーバーが判定する。クライアントは滅亡した国でも `kind: "public"` を送る。
+- リクエストで `kind: "ghost"` を直接指定することはできない（`invalid_kind`）。
+- レスポンスのメッセージの `kind` は、保存した種別（`ghost`）になる。
+- `ghost` は `public` と同じく全員に公開される（[外交履歴取得 API](./games-game-uuid-logs-season__get.md) を参照）。
 
 ### 管理人発言（`as_admin: true`）
 
@@ -93,7 +108,7 @@
 | `400`  | `context_too_long`            | 本文が 2000 文字を超える                                                         |
 | `401`  | `unauthorized`                | Authorization ヘッダが無い・不正、またはアクセストークンが未登録                 |
 | `403`  | `not_a_player`                | 通常の発言で、リクエストユーザーが卓の参加者でない                               |
-| `403`  | `power_eliminated`            | 進行中に、担当国が滅亡しているプレイヤーが発言しようとした                       |
+| `403`  | `power_eliminated`            | 進行中に、担当国が滅亡しているプレイヤーが機密書簡（`confidential`）を書こうとした |
 | `403`  | `admin_post_not_allowed`      | 管理人発言で、管理者でない / `X-Impersonate-User-Name` 付き                      |
 | `403`  | `game_not_accepting_messages` | 卓が `closed` / `aborted`                                                        |
 | `404`  | `not_found`                   | 卓が存在しない                                                                   |

@@ -45,6 +45,7 @@ pub(crate) struct GetGameResponsePlayer {
     pub is_owner: bool,
     pub requested_power: Option<String>,
     pub power: Option<String>,
+    pub is_eliminated: bool,
 }
 
 ///
