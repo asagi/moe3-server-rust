@@ -86,16 +86,16 @@
 
 #### `players[]` の値
 
-| フィールド            | 型               | 説明                                                                                       |
-| --------------------- | ---------------- | ------------------------------------------------------------------------------------------ |
-| `user.discord_user_id` | `string`        | Discord ユーザー ID                                                                        |
-| `user.username`       | `string`         | Discord ユーザー名                                                                         |
-| `user.global_name`    | `string \| null` | Discord 表示名                                                                             |
-| `user.avatar_url`     | `string \| null` | アバター画像 URL                                                                           |
-| `is_owner`            | `boolean`        | 卓主か                                                                                     |
-| `requested_power`     | `string \| null` | 希望国（`a` / `e` / `f` / `g` / `i` / `r` / `t`）。希望なしは `null`。下記の公開範囲を参照 |
-| `power`               | `string \| null` | 担当国（`a` / `e` / `f` / `g` / `i` / `r` / `t`）。割り当て前は `null`                      |
-| `is_eliminated`       | `boolean`        | 担当国が滅亡しているか（最新フェイズに担当国のユニットがない）。担当国がない・最新フェイズが開戦前夜 / 感想戦の場合は `false` |
+| フィールド             | 型               | 説明                                                                                                                                            |
+| ---------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `user.discord_user_id` | `string`         | Discord ユーザー ID                                                                                                                             |
+| `user.username`        | `string`         | Discord ユーザー名                                                                                                                              |
+| `user.global_name`     | `string \| null` | Discord 表示名                                                                                                                                  |
+| `user.avatar_url`      | `string \| null` | アバター画像 URL                                                                                                                                |
+| `is_owner`             | `boolean`        | 卓主か                                                                                                                                          |
+| `requested_power`      | `string \| null` | 希望国（`a` / `e` / `f` / `g` / `i` / `r` / `t`）。希望なしは `null`。下記の公開範囲を参照                                                      |
+| `power`                | `string \| null` | 担当国（`a` / `e` / `f` / `g` / `i` / `r` / `t`）。割り当て前は `null`                                                                          |
+| `is_eliminated`        | `boolean`        | 担当国が滅亡しているか（最新フェイズに担当国のユニットと補給都市がどちらもない）。担当国がない・最新フェイズが開戦前夜 / 感想戦の場合は `false` |
 
 `requested_power` の公開範囲:
 
@@ -162,9 +162,9 @@
 
 ### `503 Service Unavailable` — `code: repository_error`
 
-| 条件             | message                   |
-| ---------------- | ------------------------- |
-| データベース障害 | `"repository error: ..."` |
+| 条件                                 | message                   |
+| ------------------------------------ | ------------------------- |
+| データベース障害                     | `"repository error: ..."` |
 | 参加者のユーザーレコードが存在しない | `"repository error: ..."` |
 
 ## curl

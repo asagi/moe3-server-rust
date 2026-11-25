@@ -270,3 +270,33 @@ pub(crate) struct GetGameResultResponse {
     pub retreat_phase: Option<GameResultPhaseResponse>,
     pub adjustment_phase: Option<GameResultPhaseResponse>,
 }
+
+///
+/// 盤面取得レスポンスのユニット構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub(crate) struct GameBoardUnitResponse {
+    pub power: String,
+    pub kind: String,
+    pub location: String,
+}
+
+///
+/// 盤面取得レスポンスの占領情報構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub(crate) struct GameBoardTerritoryResponse {
+    pub power: String,
+    pub code: String,
+}
+
+///
+/// 盤面取得レスポンスの構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub(crate) struct GetGameBoardResponse {
+    pub season: String,
+    pub phase_kind: String,
+    pub units: Vec<GameBoardUnitResponse>,
+    pub territories: Vec<GameBoardTerritoryResponse>,
+}

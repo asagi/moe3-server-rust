@@ -384,7 +384,7 @@ impl SetUnitHandlerError {
             Self::InvalidRequest(SetUnitRequestValidationError::MissingAccessToken) => "access token is required".to_string(),
             Self::InvalidRequest(SetUnitRequestValidationError::InvalidGameUuid) => "game_uuid is invalid".to_string(),
             Self::InvalidRequest(SetUnitRequestValidationError::InvalidSeason) => {
-                "season must be in the format like '1901s' or '1901f'".to_string()
+                "season must be 'ready' or in the format like '1901s' or '1901f'".to_string()
             }
             Self::Service(SetUnitError::Forbidden(message)) | Self::Service(SetUnitError::InvalidRequest(message)) => {
                 message.clone()
@@ -438,7 +438,7 @@ impl SetTerritoryHandlerError {
             }
             Self::InvalidRequest(SetTerritoryRequestValidationError::InvalidGameUuid) => "game_uuid is invalid".to_string(),
             Self::InvalidRequest(SetTerritoryRequestValidationError::InvalidSeason) => {
-                "season must be in the format like '1901s' or '1901f'".to_string()
+                "season must be 'ready' or in the format like '1901s' or '1901f'".to_string()
             }
             Self::Service(SetTerritoryError::Forbidden(message)) | Self::Service(SetTerritoryError::InvalidRequest(message)) => {
                 message.clone()

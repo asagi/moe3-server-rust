@@ -17,6 +17,7 @@
 | `GET`    | [`/games/:game_uuid` 🔗](./games-game-uuid__get.md)                                 | 卓情報取得                    |
 | `GET`    | [`/games/:game_uuid/logs/:season` 🔗](./games-game-uuid-logs-season__get.md)        | 外交履歴取得                  |
 | `GET`    | [`/games/:game_uuid/result/:season` 🔗](./games-game-uuid-result-season__get.md)    | 命令解決履歴取得              |
+| `GET`    | [`/games/:game_uuid/board` 🔗](./games-game-uuid-board__get.md)                     | 最新フェイズの盤面取得        |
 | `POST`   | [`/games/:game_uuid/messages` 🔗](./games-game-uuid-messages__post.md)              | 発言の投稿                    |
 | `GET`    | [`/games/:game_uuid/messages/stream` 🔗](./games-game-uuid-messages-stream__get.md) | 発言のリアルタイム配信（SSE） |
 | `POST`   | [`/games/:game_uuid/players` 🔗](./games-players__post.md)                          | ゲームへの参加                |
@@ -35,15 +36,15 @@
 
 ## 卓主権限
 
-| メソッド | パス                                                                                   | 概要                             |
-| -------- | -------------------------------------------------------------------------------------- | -------------------------------- |
-| `PUT`    | [`/admin/games/:game_uuid/units/:location` 🔗](./admin-games-units__put.md)            | ユニットの登録、変更             |
-| `DELETE` | [`/admin/games/:game_uuid/units/:location` 🔗](./admin-games-units__delete.md)         | ユニットの削除                   |
-| `PUT`    | [`/admin/games/:game_uuid/territories/:code` 🔗](./admin-games-territories__put.md)    | 占領情報の登録、変更             |
-| `DELETE` | [`/admin/games/:game_uuid/territories/:code` 🔗](./admin-games-territories__delete.md) | 占領情報の削除                   |
-| `PUT`    | [`/admin/games/:game_uuid/progress-mode` 🔗](./admin-games-progress-mode__put.md)      | 進行モードを合意進行に切り替える |
-| `PUT`    | [`/admin/games/:game_uuid/next-update-at` 🔗](./admin-games-next-update-at__put.md)    | 次回更新時刻を延長する           |
-| `PUT`    | [`/admin/games/:game_uuid/draw-proposal` 🔗](./admin-games-draw-proposal__put.md)      | 和平終了フラグを変更する         |
+| メソッド | パス                                                                                   | 概要                               |
+| -------- | -------------------------------------------------------------------------------------- | ---------------------------------- |
+| `PUT`    | [`/admin/games/:game_uuid/units/:location` 🔗](./admin-games-units__put.md)            | ユニットの登録、変更（管理者も可） |
+| `DELETE` | [`/admin/games/:game_uuid/units/:location` 🔗](./admin-games-units__delete.md)         | ユニットの削除（管理者も可）       |
+| `PUT`    | [`/admin/games/:game_uuid/territories/:code` 🔗](./admin-games-territories__put.md)    | 占領情報の登録、変更（管理者も可） |
+| `DELETE` | [`/admin/games/:game_uuid/territories/:code` 🔗](./admin-games-territories__delete.md) | 占領情報の削除（管理者も可）       |
+| `PUT`    | [`/admin/games/:game_uuid/progress-mode` 🔗](./admin-games-progress-mode__put.md)      | 進行モードを合意進行に切り替える   |
+| `PUT`    | [`/admin/games/:game_uuid/next-update-at` 🔗](./admin-games-next-update-at__put.md)    | 次回更新時刻を延長する             |
+| `PUT`    | [`/admin/games/:game_uuid/draw-proposal` 🔗](./admin-games-draw-proposal__put.md)      | 和平終了フラグを変更する           |
 
 ---
 
