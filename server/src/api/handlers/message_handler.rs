@@ -272,7 +272,9 @@ where
         if game.status == GameStatus::InProgress {
             // 進行中は担当国の発言
             let power = player.power.ok_or(PostGameMessageHandlerError::NotAPlayer)?;
-            if is_power_eliminated(power, &game) {
+            // 滅亡した国は、公式声明を亡国会話として保存し、機密書簡は書けない
+            let is_eliminated = is_power_eliminated(power, &game);
+            if is_eliminated && kind == PostKind::Confidential {
                 return Err(PostGameMessageHandlerError::PowerEliminated);
             }
             if recipients.contains(&power) {
@@ -281,6 +283,7 @@ where
                 ));
             }
             let message_kind = match kind {
+                PostKind::Public if is_eliminated => crate::MessageKind::ghost(),
                 PostKind::Public => crate::MessageKind::public(),
                 PostKind::Confidential => crate::MessageKind::confidential(recipients),
                 PostKind::Personal => crate::MessageKind::personal(),
@@ -1064,25 +1067,83 @@ mod tests {
         assert_eq!(error.status(), StatusCode::FORBIDDEN);
     }
 
-    #[test]
-    fn post_rejects_eliminated_power() {
+    /// Germany 担当（ユニットなし＝滅亡）のプレイヤーを追加したフィクスチャを返す
+    fn fixture_with_eliminated_germany() -> Fixture {
         let fixture = fixture(GameStatus::InProgress);
-        // Germany 担当（ユニットなし）のプレイヤーを追加する
         let germany = user("germany", "token-g", false);
         let mut game = fixture.service.get_game(fixture.game_uuid).expect("game");
         game.players.push(player(germany.uuid, Some(Power::Germany)));
         let mut users = fixture.user_repository.users.clone();
         users.push(germany);
         let user_repository = InMemoryUserRepository { users };
-        let fixture = Fixture {
+        Fixture {
             service: GameService::new(user_repository.clone(), InMemoryGameRepository { games: vec![game] }),
             user_repository,
             ..fixture
-        };
+        }
+    }
 
-        let error = post(&fixture, Some("token-g"), false, body("public", None, "本文", false)).expect_err("should fail");
+    #[test]
+    fn post_public_by_eliminated_power_is_recorded_as_ghost() {
+        let fixture = fixture_with_eliminated_germany();
+
+        let message = post(&fixture, Some("token-g"), false, body("public", None, "本文", false)).expect("should succeed");
+
+        assert_eq!(message.kind, "ghost");
+        assert_eq!(message.sender, Some("g".to_string()));
+        assert_eq!(message.sender_kind, "power");
+        assert_eq!(message.context, Some("本文".to_string()));
+
+        let stored = fixture
+            .message_repository
+            .find_by_game_and_season(fixture.game_uuid, "1901s", None)
+            .expect("find should succeed");
+        assert_eq!(stored.len(), 1);
+        assert_eq!(stored[0].kind, "ghost");
+    }
+
+    #[test]
+    fn post_personal_by_eliminated_power_is_allowed() {
+        let fixture = fixture_with_eliminated_germany();
+
+        let message = post(&fixture, Some("token-g"), false, body("personal", None, "独り言", false)).expect("should succeed");
+
+        assert_eq!(message.kind, "personal");
+        assert_eq!(message.sender, Some("g".to_string()));
+    }
+
+    #[test]
+    fn post_confidential_by_eliminated_power_is_rejected() {
+        let fixture = fixture_with_eliminated_germany();
+
+        let error = post(
+            &fixture,
+            Some("token-g"),
+            false,
+            body("confidential", Some(vec!["f"]), "密談", false),
+        )
+        .expect_err("should fail");
 
         assert_eq!(error.code(), "power_eliminated");
+        assert_eq!(error.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[test]
+    fn stream_update_includes_ghost_for_everyone() {
+        let fixture = fixture_with_eliminated_germany();
+        let cursor = fixture
+            .message_repository
+            .find_latest_message_uuid(fixture.game_uuid)
+            .expect("latest should succeed");
+        post(&fixture, Some("token-g"), false, body("public", None, "亡国", false)).expect("ghost");
+
+        // 滅亡していない参加者・第三者のどちらにも全文で配信する
+        for viewer in [Some(fixture.france_user_uuid), None] {
+            let update = collect(&fixture, viewer, cursor, "1901s");
+            let kinds: Vec<_> = update.messages.iter().map(|m| m.kind.as_str()).collect();
+            assert_eq!(kinds, vec!["ghost"], "viewer: {:?}", viewer);
+            assert_eq!(update.messages[0].context, Some("亡国".to_string()));
+        }
     }
 
     #[test]

@@ -21,7 +21,6 @@ pub(crate) enum MessageKind {
     Public(PublicPress),
     Confidential(ConfidentialLetter),
     Personal(PersonalNote),
-    #[allow(dead_code)]
     Ghost(GhostTalk),
     System(SystemNotice),
 }
@@ -41,6 +40,11 @@ impl MessageKind {
     /// 独り言を生成する
     pub(crate) fn personal() -> Self {
         Self::Personal(PersonalNote {})
+    }
+
+    /// 亡国会話を生成する
+    pub(crate) fn ghost() -> Self {
+        Self::Ghost(GhostTalk {})
     }
 }
 

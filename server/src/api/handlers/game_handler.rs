@@ -1505,6 +1505,7 @@ where
                     is_owner: player.is_owner,
                     requested_power,
                     power: player.power.map(|power| power.symbol().to_string()),
+                    is_eliminated: player.power.is_some_and(|power| is_power_eliminated(power, &game)),
                 })
             })
             .collect::<Result<Vec<_>, super::GetGameHandlerError>>()?;
@@ -1761,21 +1762,13 @@ pub(super) fn apply_log_access_control(
         return records.into_iter().map(to_game_log_message_full).collect();
     }
 
-    let viewer_is_eliminated = viewer_power.is_some_and(|p| is_power_eliminated(p, game));
-
     records
         .into_iter()
         .filter_map(|r| match r.kind.as_str() {
-            "public" | "system" => Some(to_game_log_message_full(r)),
+            // 亡国会話は公式声明と同じく全員に公開する
+            "public" | "ghost" | "system" => Some(to_game_log_message_full(r)),
             "personal" => {
                 if viewer_power.is_some() && r.sender_power == viewer_power {
-                    Some(to_game_log_message_full(r))
-                } else {
-                    None
-                }
-            }
-            "ghost" => {
-                if viewer_is_eliminated {
                     Some(to_game_log_message_full(r))
                 } else {
                     None
@@ -4375,6 +4368,62 @@ mod tests {
         assert!(!get_game_is_owner_for(Some("Bearer token-unknown")));
     }
 
+    /// France（ユニットあり）・England（ユニットなし）・担当国なしの 3 人がいる卓で、
+    /// 卓情報取得 API の players[].is_eliminated を返す
+    fn get_game_is_eliminated_for(latest_phase: Option<Phase>) -> Vec<bool> {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let england_uuid = uuid::Uuid::now_v7();
+        let unassigned_uuid = uuid::Uuid::now_v7();
+        let game_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![
+            user_record_for_is_owner_tests(1, owner_uuid, "alice"),
+            user_record_for_is_owner_tests(2, england_uuid, "bob"),
+            user_record_for_is_owner_tests(3, unassigned_uuid, "carol"),
+        ]);
+        let mut game = build_game_for_get_games_tests(game_uuid, owner_uuid, GameStatus::InProgress);
+        game.players[0].power = Some(crate::domain::Power::France);
+        for (user_uuid, power) in [(england_uuid, Some(crate::domain::Power::England)), (unassigned_uuid, None)] {
+            game.players.push(Player {
+                user_uuid,
+                power,
+                is_accepting_draw: false,
+                progress_consented: false,
+                is_owner: false,
+                requested_power: None,
+            });
+        }
+        let phase = game.phases.last_mut().expect("phase exists");
+        phase.units.clear();
+        phase.units.push(crate::domain::Unit::new_army(
+            crate::domain::Power::France,
+            crate::domain::Province::from_code("par").expect("par"),
+        ));
+        if let Some(latest_phase) = latest_phase {
+            game.phases.push(latest_phase);
+        }
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        handle_get_game(&service, game_uuid, None)
+            .expect("should succeed")
+            .game
+            .players
+            .iter()
+            .map(|player| player.is_eliminated)
+            .collect()
+    }
+
+    #[test]
+    fn handle_get_game_is_eliminated_true_only_for_power_without_units() {
+        assert_eq!(get_game_is_eliminated_for(None), vec![false, true, false]);
+    }
+
+    #[test]
+    fn handle_get_game_is_eliminated_false_during_debrief() {
+        let debrief = Phase::new_debrief(1901, 1);
+        assert_eq!(get_game_is_eliminated_for(Some(debrief)), vec![false, false, false]);
+    }
+
     #[test]
     fn handle_get_games_returns_active_games_by_default() {
         let owner_uuid = uuid::Uuid::now_v7();
@@ -5138,13 +5187,15 @@ mod tests {
     }
 
     #[test]
-    fn access_control_in_progress_unauthenticated_ghost_hidden() {
+    fn access_control_in_progress_unauthenticated_ghost_visible() {
         let game = in_progress_game();
         let records = vec![make_message_record("ghost", Some(crate::domain::Power::France), vec![])];
 
         let result = apply_log_access_control(records, &game, None);
 
-        assert!(result.is_empty());
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].kind, "ghost");
+        assert!(result[0].context.is_some());
     }
 
     #[test]
@@ -5234,14 +5285,16 @@ mod tests {
     }
 
     #[test]
-    fn access_control_in_progress_participant_ghost_hidden_when_not_eliminated() {
+    fn access_control_in_progress_participant_ghost_visible_when_not_eliminated() {
         // Austria にユニットを与えて「滅亡していない」状態にする
         let game = game_with_units_for(crate::domain::Power::Austria);
         let records = vec![make_message_record("ghost", Some(crate::domain::Power::France), vec![])];
 
         let result = apply_log_access_control(records, &game, Some(crate::domain::Power::Austria));
 
-        assert!(result.is_empty());
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].kind, "ghost");
+        assert!(result[0].context.is_some());
     }
 
     #[test]
