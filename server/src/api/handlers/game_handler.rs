@@ -5530,6 +5530,12 @@ mod tests {
         assert_eq!(response.phase_kind, "ready");
         assert_eq!(response.units.len(), ready.units.len());
         assert_eq!(response.territories.len(), ready.territories.len());
+        // 補給都市 22 か所 + 補給都市でない本国の陸地 20 か所
+        assert_eq!(response.territories.len(), 42);
+        assert!(response.territories.contains(&GameBoardTerritoryResponse {
+            power: "t".to_string(),
+            code: "syr".to_string(),
+        }));
         assert!(response.units.contains(&GameBoardUnitResponse {
             power: "f".to_string(),
             kind: "A".to_string(),

@@ -155,8 +155,18 @@ impl Phase {
             Unit::new_army(Power::Turkey, Province::from_code("smy").unwrap()),
         ];
 
-        // 初期領土生成
-        phase.territories = vec![
+        // 初期領土生成（補給都市 22 か所 + 補給都市でない本国の陸地 20 か所）
+        phase.territories = Self::initial_supply_center_territories();
+        phase.territories.extend(Self::initial_non_supply_territories());
+
+        phase
+    }
+
+    ///
+    /// 開戦前夜に各国が保有する補給都市の占領情報を返す（22 か所）
+    ///
+    fn initial_supply_center_territories() -> Vec<Territory> {
+        vec![
             Territory::new(Power::Austria, "vie"),
             Territory::new(Power::Austria, "bud"),
             Territory::new(Power::Austria, "tri"),
@@ -179,9 +189,37 @@ impl Phase {
             Territory::new(Power::Turkey, "ank"),
             Territory::new(Power::Turkey, "con"),
             Territory::new(Power::Turkey, "smy"),
-        ];
+        ]
+    }
 
-        phase
+    ///
+    /// 開戦前夜に各国が保有する、補給都市でない本国の陸地の占領情報を返す（20 か所）
+    ///
+    /// 補給都市の数には含まれないため、調整・滅亡・単独勝利の判定には影響しない。
+    ///
+    pub(crate) fn initial_non_supply_territories() -> Vec<Territory> {
+        vec![
+            Territory::new(Power::Austria, "boh"),
+            Territory::new(Power::Austria, "gal"),
+            Territory::new(Power::Austria, "tyr"),
+            Territory::new(Power::England, "cly"),
+            Territory::new(Power::England, "wal"),
+            Territory::new(Power::England, "yor"),
+            Territory::new(Power::France, "bur"),
+            Territory::new(Power::France, "gas"),
+            Territory::new(Power::France, "pic"),
+            Territory::new(Power::Germany, "pru"),
+            Territory::new(Power::Germany, "ruh"),
+            Territory::new(Power::Germany, "sil"),
+            Territory::new(Power::Italy, "apu"),
+            Territory::new(Power::Italy, "pie"),
+            Territory::new(Power::Italy, "tus"),
+            Territory::new(Power::Russia, "fin"),
+            Territory::new(Power::Russia, "lvn"),
+            Territory::new(Power::Russia, "ukr"),
+            Territory::new(Power::Turkey, "arm"),
+            Territory::new(Power::Turkey, "syr"),
+        ]
     }
 
     /// 春メインフェイズを生成する
@@ -678,6 +716,7 @@ mod tests {
 
         assert_eq!(spring_main.units, expected_units);
         assert_eq!(spring_main.territories, expected_territories);
+        assert_eq!(spring_main.territories.len(), 42);
         assert_eq!(spring_main.orders.len(), expected_units.len());
         assert!(spring_main.orders.iter().all(|o| matches!(o.kind, OrderKind::Hold(_))));
         assert!(spring_main.standoff_codes.is_empty());
@@ -986,6 +1025,65 @@ mod tests {
         FallRetreatPhase {}.occupy(&mut fall_retreat);
 
         assert!(fall_retreat.territories.is_empty());
+    }
+
+    /// 開戦前夜の盤面は補給都市 22 か所と補給都市でない本国の陸地 20 か所を持つ
+    #[test]
+    fn new_ready_has_42_initial_territories() {
+        let ready = Phase::new_ready();
+
+        assert_eq!(ready.territories.len(), 42);
+        let supply = ready
+            .territories
+            .iter()
+            .filter(|t| Province::from_code(t.code_with_coast()).is_some_and(Province::is_supply_center))
+            .count();
+        assert_eq!(supply, 22);
+
+        let non_supply = Phase::initial_non_supply_territories();
+        assert_eq!(non_supply.len(), 20);
+        for t in &non_supply {
+            let province = Province::from_code(t.code_with_coast()).expect("valid province");
+            assert!(!province.is_supply_center(), "{} must not be a supply center", t.code());
+            assert!(!province.is_water(), "{} must be land", t.code());
+            assert!(ready.territories.contains(t), "{} must be in ready territories", t.code());
+        }
+
+        // 重複がない
+        let mut codes: Vec<&str> = ready.territories.iter().map(|t| t.code()).collect();
+        codes.sort_unstable();
+        codes.dedup();
+        assert_eq!(codes.len(), 42);
+    }
+
+    /// 開戦前夜の補給都市数は各国 3（ロシアのみ 4）で、本国の陸地を加えても変わらない
+    #[test]
+    fn new_ready_supply_center_counts_are_unchanged() {
+        let ready = Phase::new_ready();
+        for power in Power::iter() {
+            let expected = if power == Power::Russia { 4 } else { 3 };
+            assert_eq!(ready.count_supply_centers(&power), expected, "{:?}", power);
+            assert_eq!(ready.count_supply_centers(&power), ready.count_units(&power), "{:?}", power);
+        }
+    }
+
+    /// 補給都市でない陸地を占領していても、調整フェイズの解体命令数は補給都市数で決まる
+    #[test]
+    fn adjustment_orders_ignore_non_supply_territories() {
+        let mut fall_retreat = Phase::new_fall_retreat(1901, 4);
+        fall_retreat.units = vec![a("f", "par"), a("f", "bur"), a("f", "gas")];
+        fall_retreat.territories = vec![
+            Territory::new(Power::France, "par"),
+            Territory::new(Power::France, "bur"),
+            Territory::new(Power::France, "gas"),
+            Territory::new(Power::France, "pic"),
+        ];
+
+        let mut adjustment = Phase::new_adjustment(fall_retreat.year, fall_retreat.index);
+        adjustment.initialize(&fall_retreat);
+
+        // 補給都市 1・ユニット 3 なので 2 ユニットの解体命令
+        assert_eq!(adjustment.orders.len(), 2);
     }
 
     #[test]

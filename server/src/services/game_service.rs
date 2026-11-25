@@ -1026,9 +1026,10 @@ where
 
     fn consensus_required_powers(latest_phase: &Phase) -> std::collections::HashSet<Power> {
         match latest_phase.kind {
-            crate::domain::PhaseKind::SpringMain(_) | crate::domain::PhaseKind::FallMain(_) => {
-                latest_phase.territories.iter().map(|t| t.power).collect()
-            }
+            // 補給都市でない陸地の占領だけが残っている国（滅亡済み）は対象外
+            crate::domain::PhaseKind::SpringMain(_) | crate::domain::PhaseKind::FallMain(_) => Power::iter()
+                .filter(|power| latest_phase.count_supply_centers(power) > 0 || latest_phase.count_units(power) > 0)
+                .collect(),
             crate::domain::PhaseKind::SpringRetreat(_) | crate::domain::PhaseKind::FallRetreat(_) => latest_phase
                 .orders
                 .iter()
@@ -1037,8 +1038,8 @@ where
                 .collect(),
             crate::domain::PhaseKind::Adjustment(_) => Power::iter()
                 .filter(|power| {
-                    let supply_center_count = latest_phase.territories.iter().filter(|t| t.power == *power).count();
-                    let unit_count = latest_phase.units.iter().filter(|u| u.power == *power).count();
+                    let supply_center_count = latest_phase.count_supply_centers(power);
+                    let unit_count = latest_phase.count_units(power);
                     supply_center_count != unit_count
                 })
                 .collect(),
@@ -3476,6 +3477,44 @@ mod tests {
         assert!(!result.reached_consensus_in_main_phase);
         let updated = game_repository.updated_first().expect("game should be updated");
         assert!(updated.next_update_at.is_some(), "next_update_at should be set to now");
+    }
+
+    /// メインフェイズでは、補給都市でない陸地の占領だけが残る国は合意の対象外
+    #[test]
+    fn consensus_required_powers_in_main_phase_ignores_non_supply_territories() {
+        let mut phase = Phase::new_spring_main(1900, 0);
+        phase.units = vec![Unit::new_army(
+            Power::England,
+            Province::from_code("wal").expect("valid province"),
+        )];
+        phase.territories = vec![
+            Territory::new(Power::France, "par"),
+            Territory::new(Power::Turkey, "syr"),
+            Territory::new(Power::England, "wal"),
+        ];
+
+        let powers = GameService::<InMemoryUserRepository, InMemoryGameRepository>::consensus_required_powers(&phase);
+
+        assert_eq!(powers, [Power::France, Power::England].into_iter().collect());
+    }
+
+    /// 調整フェイズでは、補給都市数とユニット数を比べて合意の対象国を決める（補給都市でない陸地は数えない）
+    #[test]
+    fn consensus_required_powers_in_adjustment_ignores_non_supply_territories() {
+        let mut phase = Phase::new_adjustment(1901, 4);
+        phase.units = vec![Unit::new_army(
+            Power::France,
+            Province::from_code("par").expect("valid province"),
+        )];
+        phase.territories = vec![
+            Territory::new(Power::France, "par"),
+            Territory::new(Power::France, "bur"),
+            Territory::new(Power::France, "gas"),
+        ];
+
+        let powers = GameService::<InMemoryUserRepository, InMemoryGameRepository>::consensus_required_powers(&phase);
+
+        assert!(powers.is_empty());
     }
 
     // ============================================================================
