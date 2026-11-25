@@ -136,7 +136,7 @@ impl SqliteMessageRepository {
     ///
     /// メッセージ保存通知を購読する
     ///
-    /// 受信する値はメッセージが保存された卓の UUID。
+    /// 受信する値はメッセージが保存された（またはフェイズが進行した）卓の UUID。
     ///
     pub(crate) fn subscribe(&self) -> broadcast::Receiver<Uuid> {
         self.notifier.subscribe()
@@ -145,6 +145,15 @@ impl SqliteMessageRepository {
     /// メッセージ保存を購読者に通知する（購読者がいない場合は何もしない）
     fn notify(&self, game_uuid: Uuid) {
         let _ = self.notifier.send(game_uuid);
+    }
+
+    ///
+    /// メッセージの保存を伴わない卓の更新（フェイズ進行など）を購読者に通知する
+    ///
+    /// SSE 配信はこの通知を受けて卓の状態を読み直し、season / phase イベントを送る。
+    ///
+    pub(crate) fn notify_game_updated(&self, game_uuid: Uuid) {
+        self.notify(game_uuid);
     }
 
     ///

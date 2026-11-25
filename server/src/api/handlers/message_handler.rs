@@ -42,6 +42,7 @@ use super::game_handler::apply_log_access_control;
 use super::game_handler::attach_sender_users;
 use super::game_handler::is_power_eliminated;
 use super::game_handler::optional_bearer_token;
+use super::game_handler::phase_kind_str;
 use super::game_handler::to_game_log_message_full;
 
 // ============================================================================
@@ -91,6 +92,24 @@ struct SeasonEventData {
 }
 
 ///
+/// SSE の phase イベントのデータ構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq)]
+struct PhaseEventData {
+    season: String,
+    phase_kind: &'static str,
+}
+
+///
+/// SSE 配信で受信者に通知済みのシーズン・フェイズ種別の構造体
+///
+#[derive(Debug, Clone, Copy)]
+struct KnownPhase<'a> {
+    season: &'a str,
+    phase_kind: &'a str,
+}
+
+///
 /// SSE 配信の差分取得結果の構造体
 ///
 #[derive(Debug, Clone, PartialEq)]
@@ -99,6 +118,8 @@ struct StreamUpdate {
     cursor: Option<Uuid>,
     /// シーズンが切り替わった場合の新しいシーズン
     new_season: Option<String>,
+    /// フェイズ種別が切り替わった場合の新しいフェイズ種別
+    new_phase_kind: Option<&'static str>,
     /// 受信者に配信するメッセージ
     messages: Vec<GameLogMessage>,
 }
@@ -119,6 +140,7 @@ where
     viewer_user_uuid: Option<Uuid>,
     cursor: Option<Uuid>,
     season: String,
+    phase_kind: &'static str,
     pending: VecDeque<Event>,
     needs_fetch: bool,
 }
@@ -234,6 +256,10 @@ where
     if matches!(game.status, GameStatus::Closed | GameStatus::Aborted) {
         return Err(PostGameMessageHandlerError::GameNotAcceptingMessages);
     }
+    // 撤退フェイズ・調整フェイズは管理人発言を含めてすべての発言を受け付けない
+    if is_phase_closed_for_messages(&game) {
+        return Err(PostGameMessageHandlerError::PhaseNotAcceptingMessages);
+    }
     let turn = game.current_turn();
 
     let new_message = if body.as_admin {
@@ -321,6 +347,14 @@ where
     let mut messages = vec![to_game_log_message_full(record)];
     attach_sender_users(&mut messages, user_repository).map_err(PostGameMessageHandlerError::Repository)?;
     Ok(messages.remove(0))
+}
+
+/// 最新フェイズが発言を受け付けないフェイズ（撤退フェイズ・調整フェイズ）かどうかを返す
+fn is_phase_closed_for_messages(game: &crate::Game) -> bool {
+    matches!(
+        game.phases.last().map(|phase| &phase.kind),
+        Some(crate::PhaseKind::SpringRetreat(_)) | Some(crate::PhaseKind::FallRetreat(_)) | Some(crate::PhaseKind::Adjustment(_))
+    )
 }
 
 /// 成り代わり（X-Impersonate-User-Name）付きのリクエストかどうかを返す
@@ -429,11 +463,11 @@ where
                 .find_latest_message_uuid(game_uuid)
                 .map_err(crate::GetGameError::Repository)?,
         };
-        Ok::<_, crate::GetGameError>((game.current_turn(), viewer_user_uuid, cursor))
+        Ok::<_, crate::GetGameError>((game.current_turn(), phase_kind_str(&game), viewer_user_uuid, cursor))
     })
     .await;
 
-    let (season, viewer_user_uuid, cursor) = match init_result {
+    let (season, phase_kind, viewer_user_uuid, cursor) = match init_result {
         Ok(Ok(initial)) => initial,
         Ok(Err(crate::GetGameError::NotFound)) => {
             return (
@@ -470,6 +504,7 @@ where
         viewer_user_uuid,
         cursor,
         season,
+        phase_kind,
         pending: VecDeque::new(),
         // 起点が指定された再接続では、取りこぼした分をすぐに送り直す
         needs_fetch: after.is_some(),
@@ -485,7 +520,7 @@ where
 ///
 /// SSE で次に送るイベントを返す
 ///
-/// 保存通知を待ち、対象卓のメッセージが保存されたら差分を取得してイベントにする。
+/// 保存通知（フェイズ進行時の卓更新通知を含む）を待ち、対象卓の通知を受けたら差分を取得してイベントにする。
 /// 通知チャネルが閉じられた場合や差分取得に失敗した場合はストリームを終了する
 /// （クライアントは Last-Event-ID 付きで再接続することで続きを受け取れる）。
 ///
@@ -517,6 +552,7 @@ where
         let viewer_user_uuid = state.viewer_user_uuid;
         let cursor = state.cursor;
         let season = state.season.clone();
+        let phase_kind = state.phase_kind;
         let update = tokio::task::spawn_blocking(move || {
             collect_stream_update(
                 &game_service,
@@ -525,7 +561,10 @@ where
                 game_uuid,
                 viewer_user_uuid,
                 cursor,
-                &season,
+                KnownPhase {
+                    season: &season,
+                    phase_kind,
+                },
             )
         })
         .await;
@@ -555,6 +594,16 @@ where
             }
             state.season = new_season;
         }
+        if let Some(new_phase_kind) = update.new_phase_kind {
+            match Event::default().event("phase").json_data(PhaseEventData {
+                season: state.season.clone(),
+                phase_kind: new_phase_kind,
+            }) {
+                Ok(event) => state.pending.push_back(event),
+                Err(error) => eprintln!("failed to serialize phase event: {}", error),
+            }
+            state.phase_kind = new_phase_kind;
+        }
         for message in update.messages {
             match Event::default()
                 .id(message.message_uuid.to_string())
@@ -580,7 +629,7 @@ fn collect_stream_update<U, G>(
     game_uuid: Uuid,
     viewer_user_uuid: Option<Uuid>,
     cursor: Option<Uuid>,
-    season: &str,
+    known: KnownPhase<'_>,
 ) -> Result<StreamUpdate, StreamUpdateError>
 where
     U: UserRepository,
@@ -594,7 +643,9 @@ where
     let next_cursor = records.last().map(|record| record.message_uuid).or(cursor);
 
     let current_season = game.current_turn();
-    let new_season = (current_season != season).then_some(current_season);
+    let new_season = (current_season != known.season).then_some(current_season);
+    let current_phase_kind = phase_kind_str(&game);
+    let new_phase_kind = (current_phase_kind != known.phase_kind).then_some(current_phase_kind);
 
     let viewer_power = viewer_user_uuid.and_then(|viewer| {
         game.players
@@ -608,6 +659,7 @@ where
     Ok(StreamUpdate {
         cursor: next_cursor,
         new_season,
+        new_phase_kind,
         messages,
     })
 }
@@ -930,6 +982,16 @@ mod tests {
     }
 
     fn collect(fixture: &Fixture, viewer: Option<Uuid>, cursor: Option<Uuid>, season: &str) -> StreamUpdate {
+        collect_with_phase(fixture, viewer, cursor, season, "main")
+    }
+
+    fn collect_with_phase(
+        fixture: &Fixture,
+        viewer: Option<Uuid>,
+        cursor: Option<Uuid>,
+        season: &str,
+        phase_kind: &str,
+    ) -> StreamUpdate {
         collect_stream_update(
             &fixture.service,
             &fixture.user_repository,
@@ -937,7 +999,7 @@ mod tests {
             fixture.game_uuid,
             viewer,
             cursor,
-            season,
+            KnownPhase { season, phase_kind },
         )
         .expect("collect should succeed")
     }
@@ -1280,6 +1342,110 @@ mod tests {
         assert_eq!(receiver.try_recv().expect("should be notified"), fixture.game_uuid);
     }
 
+    /// 進行中の卓（1901 年春メインフェイズ）に、指定したフェイズを最新フェイズとして積んだフィクスチャを返す
+    fn fixture_with_latest_phase(build: impl FnOnce(&Phase) -> Vec<Phase>) -> Fixture {
+        let fixture = fixture(GameStatus::InProgress);
+        let mut game = fixture.service.get_game(fixture.game_uuid).expect("game");
+        let main = game.phases.last().cloned().expect("main phase");
+        for mut phase in build(&main) {
+            // 担当国が滅亡扱いにならないよう、ユニットを引き継ぐ
+            phase.units = main.units.clone();
+            game.phases.push(phase);
+        }
+        Fixture {
+            service: GameService::new(fixture.user_repository.clone(), InMemoryGameRepository { games: vec![game] }),
+            ..fixture
+        }
+    }
+
+    type PhaseBuilder = fn(&Phase) -> Vec<Phase>;
+
+    fn spring_retreat(main: &Phase) -> Vec<Phase> {
+        vec![Phase::new_spring_retreat(main.year, main.index)]
+    }
+
+    fn fall_main(main: &Phase) -> Vec<Phase> {
+        vec![Phase::new_fall_main(main.year, main.index)]
+    }
+
+    fn fall_retreat(main: &Phase) -> Vec<Phase> {
+        let fall = Phase::new_fall_main(main.year, main.index);
+        let retreat = Phase::new_fall_retreat(fall.year, fall.index);
+        vec![fall, retreat]
+    }
+
+    fn adjustment(main: &Phase) -> Vec<Phase> {
+        let fall = Phase::new_fall_main(main.year, main.index);
+        let adjustment = Phase::new_adjustment(fall.year, fall.index);
+        vec![fall, adjustment]
+    }
+
+    #[test]
+    fn post_rejects_all_messages_during_retreat_and_adjustment() {
+        let builders: [(&str, PhaseBuilder); 3] = [
+            ("spring_retreat", spring_retreat),
+            ("fall_retreat", fall_retreat),
+            ("adjustment", adjustment),
+        ];
+        for (label, build) in builders {
+            let fixture = fixture_with_latest_phase(build);
+            let cases = [
+                ("token-f", body("public", None, "公開", false)),
+                ("token-f", body("personal", None, "独り言", false)),
+                ("token-f", body("confidential", Some(vec!["e"]), "密談", false)),
+                ("token-admin", body("public", None, "管理人です", true)),
+            ];
+            for (token, request_body) in cases {
+                let kind = request_body.kind.clone();
+                let as_admin = request_body.as_admin;
+                let error = post(&fixture, Some(token), false, request_body).expect_err("should fail");
+                assert_eq!(
+                    error.code(),
+                    "phase_not_accepting_messages",
+                    "phase: {}, kind: {}, as_admin: {}",
+                    label,
+                    kind,
+                    as_admin
+                );
+                assert_eq!(error.status(), StatusCode::FORBIDDEN);
+            }
+
+            let stored = fixture
+                .message_repository
+                .find_latest_message_uuid(fixture.game_uuid)
+                .expect("latest should succeed");
+            assert_eq!(stored, None, "phase: {}", label);
+        }
+    }
+
+    #[test]
+    fn post_is_accepted_during_main_phases() {
+        for build in [(|_: &Phase| Vec::new()) as PhaseBuilder, fall_main] {
+            let fixture = fixture_with_latest_phase(build);
+
+            post(&fixture, Some("token-f"), false, body("public", None, "公開", false)).expect("public");
+            post(&fixture, Some("token-f"), false, body("personal", None, "独り言", false)).expect("personal");
+            post(
+                &fixture,
+                Some("token-f"),
+                false,
+                body("confidential", Some(vec!["e"]), "密談", false),
+            )
+            .expect("confidential");
+            post(&fixture, Some("token-admin"), false, body("public", None, "管理人です", true)).expect("admin");
+        }
+    }
+
+    #[test]
+    fn post_is_accepted_before_start_and_during_debrief() {
+        for status in [GameStatus::Ready, GameStatus::Solo, GameStatus::Draw] {
+            let fixture = fixture(status);
+
+            post(&fixture, Some("token-f"), false, body("public", None, "本文", false)).expect("player");
+            post(&fixture, Some("token-admin"), false, body("public", None, "管理人です", true)).expect("admin");
+        }
+    }
+
     // ------------------------------------------------------------------------
     // collect_stream_update
     // ------------------------------------------------------------------------
@@ -1307,6 +1473,7 @@ mod tests {
         assert_eq!(kinds, vec!["public", "personal", "confidential"]);
         assert_eq!(update.cursor, Some(last.message_uuid));
         assert_eq!(update.new_season, None);
+        assert_eq!(update.new_phase_kind, None);
 
         // 宛先は独り言が見えず、密談は全文
         let update = collect(&fixture, Some(fixture.england_user_uuid), cursor, "1901s");
@@ -1324,9 +1491,10 @@ mod tests {
     fn stream_update_reports_season_change() {
         let fixture = fixture(GameStatus::InProgress);
 
-        let update = collect(&fixture, None, None, "ready");
+        let update = collect_with_phase(&fixture, None, None, "ready", "ready");
 
         assert_eq!(update.new_season, Some("1901s".to_string()));
+        assert_eq!(update.new_phase_kind, Some("main"));
         assert!(update.messages.is_empty());
         assert_eq!(update.cursor, None);
     }
@@ -1367,6 +1535,7 @@ mod tests {
             viewer_user_uuid: viewer,
             cursor,
             season: "1901s".to_string(),
+            phase_kind: "main",
             pending: VecDeque::new(),
             needs_fetch,
         }
@@ -1416,6 +1585,100 @@ mod tests {
         let event = format!("{:?}", event.expect("infallible"));
         assert!(event.contains(&second.message_uuid.to_string()), "event: {}", event);
         assert_eq!(state.cursor, Some(second.message_uuid));
+    }
+
+    #[test]
+    fn stream_update_reports_phase_change_without_season_change() {
+        let fixture = fixture_with_latest_phase(spring_retreat);
+
+        let update = collect_with_phase(&fixture, None, None, "1901s", "main");
+
+        assert_eq!(update.new_season, None);
+        assert_eq!(update.new_phase_kind, Some("retreat"));
+
+        let update = collect_with_phase(&fixture, None, None, "1901s", "retreat");
+        assert_eq!(update.new_phase_kind, None);
+    }
+
+    #[test]
+    fn stream_update_reports_both_season_and_phase_change() {
+        let fixture = fixture_with_latest_phase(fall_main);
+
+        let update = collect_with_phase(&fixture, None, None, "1901s", "retreat");
+
+        assert_eq!(update.new_season, Some("1901f".to_string()));
+        assert_eq!(update.new_phase_kind, Some("main"));
+    }
+
+    #[test]
+    fn stream_update_reports_adjustment_phase() {
+        let fixture = fixture_with_latest_phase(adjustment);
+
+        let update = collect_with_phase(&fixture, None, None, "1901f", "main");
+
+        assert_eq!(update.new_season, None);
+        assert_eq!(update.new_phase_kind, Some("adjustment"));
+    }
+
+    #[tokio::test]
+    async fn stream_yields_phase_event_when_main_phase_turns_into_retreat() {
+        // 接続時はメインフェイズ（1901s / main）で、その後撤退フェイズへ進んだ状態を再現する
+        let fixture = fixture_with_latest_phase(spring_retreat);
+        let state = stream_state(&fixture, None, None, false);
+
+        fixture.message_repository.notify_game_updated(fixture.game_uuid);
+
+        let (event, state) = tokio::time::timeout(Duration::from_secs(5), next_stream_event(state))
+            .await
+            .expect("should not time out")
+            .expect("stream should yield");
+        let event = format!("{:?}", event.expect("infallible"));
+        assert!(event.contains("event: phase"), "event: {}", event);
+        assert!(
+            event.contains(r#"{\"season\":\"1901s\",\"phase_kind\":\"retreat\"}"#),
+            "event: {}",
+            event
+        );
+        assert_eq!(state.phase_kind, "retreat");
+        assert_eq!(state.season, "1901s");
+        assert!(state.pending.is_empty());
+    }
+
+    #[tokio::test]
+    async fn stream_yields_season_and_phase_events_when_season_also_changes() {
+        let fixture = fixture_with_latest_phase(fall_main);
+        let mut state = stream_state(&fixture, None, None, false);
+        state.phase_kind = "retreat";
+
+        fixture.message_repository.notify_game_updated(fixture.game_uuid);
+
+        let (first, state) = tokio::time::timeout(Duration::from_secs(5), next_stream_event(state))
+            .await
+            .expect("should not time out")
+            .expect("stream should yield");
+        let first = format!("{:?}", first.expect("infallible"));
+        assert!(first.contains("event: season"), "event: {}", first);
+        assert_eq!(state.pending.len(), 1);
+        let second = format!("{:?}", state.pending.front().expect("phase event"));
+        assert!(second.contains("event: phase"), "event: {}", second);
+        assert!(
+            second.contains(r#"{\"season\":\"1901f\",\"phase_kind\":\"main\"}"#),
+            "event: {}",
+            second
+        );
+        assert_eq!(state.season, "1901f");
+        assert_eq!(state.phase_kind, "main");
+    }
+
+    #[test]
+    fn phase_event_data_serializes_as_expected() {
+        let json = serde_json::to_string(&PhaseEventData {
+            season: "1901s".to_string(),
+            phase_kind: "retreat",
+        })
+        .expect("serialize");
+
+        assert_eq!(json, r#"{"season":"1901s","phase_kind":"retreat"}"#);
     }
 
     #[test]

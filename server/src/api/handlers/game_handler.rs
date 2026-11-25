@@ -1603,7 +1603,7 @@ fn build_seasons(game: &crate::Game) -> Vec<String> {
 }
 
 /// 現在のフェイズ種別文字列を返す
-fn phase_kind_str(game: &crate::Game) -> &'static str {
+pub(crate) fn phase_kind_str(game: &crate::Game) -> &'static str {
     match game.phases.last().map(|p| &p.kind) {
         Some(crate::PhaseKind::Ready(_)) | None => "ready",
         Some(crate::PhaseKind::SpringMain(_)) | Some(crate::PhaseKind::FallMain(_)) => "main",
