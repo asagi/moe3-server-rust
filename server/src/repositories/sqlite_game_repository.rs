@@ -145,6 +145,111 @@ impl SqliteGameRepository {
             .execute_batch(sql)
             .map_err(|error| RepositoryError::Unavailable(format!("create game tables: {}", error)))?;
 
+        self.migrate_ready_phase_initial_territories()?;
+
+        Ok(())
+    }
+
+    /// 開戦前夜の初期占領地に補給都市でない本国の陸地を加える移行処理の名前
+    const MIGRATION_READY_INITIAL_TERRITORIES: &'static str = "20261125_04_ready_phase_initial_non_supply_territories";
+
+    ///
+    /// 最新フェイズが開戦前夜の卓に、補給都市でない本国の陸地 20 か所の占領情報を加える（1 回だけ実行する）
+    ///
+    /// - すでに開戦している卓（開戦前夜より後のフェイズを持つ卓）は変更しない。
+    /// - 占領情報がすでにある地域（盤面の編集で別の国にしたものを含む）は上書きしない。
+    /// - 実行済みの記録を `schema_migrations` に残し、2 回目以降の起動では実行しない
+    ///   （移行後に盤面の編集で占領を外した地域が、再起動で戻らないようにするため）。
+    ///
+    fn migrate_ready_phase_initial_territories(&self) -> Result<(), RepositoryError> {
+        let mut connection = self
+            .connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
+
+        let transaction = connection
+            .transaction()
+            .map_err(|error| RepositoryError::Unavailable(format!("begin migration transaction: {}", error)))?;
+
+        transaction
+            .execute_batch(
+                r#"
+                CREATE TABLE IF NOT EXISTS schema_migrations (
+                    name TEXT PRIMARY KEY,
+                    applied_at TEXT NOT NULL
+                );
+                "#,
+            )
+            .map_err(|error| RepositoryError::Unavailable(format!("create schema_migrations table: {}", error)))?;
+
+        let applied: bool = transaction
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE name = ?1)",
+                params![Self::MIGRATION_READY_INITIAL_TERRITORIES],
+                |row| row.get(0),
+            )
+            .map_err(|error| RepositoryError::Unavailable(format!("query schema_migrations: {}", error)))?;
+        if applied {
+            return Ok(());
+        }
+
+        // 最新フェイズ（phase_index が最大）を持つ行だけを取り出す
+        let rows: Vec<(i64, String, String)> = {
+            let mut statement = transaction
+                .prepare(
+                    r#"
+                    SELECT p.id, p.phase_kind, p.territories
+                    FROM game_phases p
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM game_phases q
+                        WHERE q.game_uuid = p.game_uuid AND q.phase_index > p.phase_index
+                    )
+                    "#,
+                )
+                .map_err(|error| RepositoryError::Unavailable(format!("prepare latest phases query: {}", error)))?;
+            statement
+                .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+                .map_err(|error| RepositoryError::Unavailable(format!("query latest phases: {}", error)))?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| RepositoryError::Unavailable(format!("collect latest phases: {}", error)))?
+        };
+
+        let now = Utc::now().to_rfc3339();
+        for (phase_id, kind_text, territories_text) in rows {
+            if !matches!(Self::deserialize_phase_kind(&kind_text)?, PhaseKind::Ready(_)) {
+                continue;
+            }
+
+            let mut territories = Self::deserialize_territories(&territories_text)?;
+            let before = territories.len();
+            for territory in Phase::initial_non_supply_territories() {
+                if territories.iter().all(|t| t.code() != territory.code()) {
+                    territories.push(territory);
+                }
+            }
+            if territories.len() == before {
+                continue;
+            }
+
+            transaction
+                .execute(
+                    "UPDATE game_phases SET territories = ?1, updated_at = ?2 WHERE id = ?3",
+                    params![Self::serialize_territories(&territories), now, phase_id],
+                )
+                .map_err(|error| RepositoryError::Unavailable(format!("update ready phase territories: {}", error)))?;
+        }
+
+        transaction
+            .execute(
+                "INSERT INTO schema_migrations (name, applied_at) VALUES (?1, ?2)",
+                params![Self::MIGRATION_READY_INITIAL_TERRITORIES, now],
+            )
+            .map_err(|error| RepositoryError::Unavailable(format!("insert schema_migrations: {}", error)))?;
+
+        transaction
+            .commit()
+            .map_err(|error| RepositoryError::Unavailable(format!("commit migration transaction: {}", error)))?;
+
         Ok(())
     }
 
@@ -2146,5 +2251,148 @@ mod transaction_tests {
             candidates.is_empty(),
             "aborted game should not appear in find_progress_candidates"
         );
+    }
+}
+
+#[cfg(test)]
+mod migration_tests {
+    use super::*;
+    use crate::domain::DurationType;
+    use crate::domain::FaceType;
+    use crate::domain::Player;
+    use crate::domain::ProgressMode;
+    use crate::domain::Regulation;
+
+    /// 変更前の開戦前夜の初期領土（補給都市 22 か所のみ）
+    fn legacy_ready_phase() -> Phase {
+        let mut phase = Phase::new_ready();
+        let non_supply = Phase::initial_non_supply_territories();
+        phase.territories.retain(|t| !non_supply.contains(t));
+        assert_eq!(phase.territories.len(), 22);
+        phase
+    }
+
+    fn sample_game(phases: Vec<Phase>) -> Game {
+        Game {
+            uuid: Uuid::now_v7(),
+            game_number: None,
+            keyword: None,
+            regulation: Regulation::new(
+                FaceType::Girls,
+                ProgressMode::Scheduled,
+                DurationType::Short,
+                NaiveDate::from_ymd_opt(2026, 4, 19).expect("valid date"),
+                12,
+            )
+            .expect("valid regulation"),
+            players: vec![Player {
+                user_uuid: Uuid::now_v7(),
+                power: None,
+                is_accepting_draw: false,
+                progress_consented: false,
+                is_owner: true,
+                requested_power: None,
+            }],
+            phases,
+            status: GameStatus::Preparing,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        }
+    }
+
+    /// 移行処理を未実行の状態に戻してから再実行する
+    fn rerun_migration(repository: &SqliteGameRepository) {
+        repository
+            .connection
+            .lock()
+            .expect("lock")
+            .execute("DELETE FROM schema_migrations", [])
+            .expect("reset schema_migrations");
+        repository
+            .migrate_ready_phase_initial_territories()
+            .expect("migration should succeed");
+    }
+
+    fn find(repository: &SqliteGameRepository, uuid: Uuid) -> Game {
+        repository
+            .find_by_uuid(uuid)
+            .expect("find should succeed")
+            .expect("game should exist")
+    }
+
+    #[test]
+    fn migration_adds_non_supply_territories_to_ready_games_only() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+
+        let ready_game = sample_game(vec![legacy_ready_phase()]);
+        let ready_uuid = ready_game.uuid;
+        repository.insert(NewGame { game: ready_game }).expect("insert");
+
+        let legacy_ready = legacy_ready_phase();
+        let mut spring = Phase::new_spring_main(legacy_ready.year, legacy_ready.index);
+        spring.territories = legacy_ready.territories.clone();
+        let started_game = sample_game(vec![legacy_ready, spring]);
+        let started_uuid = started_game.uuid;
+        repository.insert(NewGame { game: started_game }).expect("insert");
+
+        rerun_migration(&repository);
+
+        // 開戦前夜の卓は 42 か所になる
+        let ready = find(&repository, ready_uuid);
+        assert_eq!(ready.phases.len(), 1);
+        assert_eq!(ready.phases[0].territories.len(), 42);
+        for t in Phase::initial_non_supply_territories() {
+            assert!(ready.phases[0].territories.contains(&t), "{} should be added", t.code());
+        }
+
+        // 開戦済みの卓は開戦前夜のフェイズも含めて変更しない
+        let started = find(&repository, started_uuid);
+        assert!(started.phases.iter().all(|p| p.territories.len() == 22));
+    }
+
+    #[test]
+    fn migration_does_not_overwrite_existing_territories() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+
+        let mut phase = legacy_ready_phase();
+        // 盤面の編集で bur をドイツ領にしていた
+        phase.territories.push(Territory::new(Power::Germany, "bur"));
+        let game = sample_game(vec![phase]);
+        let uuid = game.uuid;
+        repository.insert(NewGame { game }).expect("insert");
+
+        rerun_migration(&repository);
+
+        let restored = find(&repository, uuid);
+        let territories = &restored.phases[0].territories;
+        assert_eq!(territories.len(), 42);
+        assert_eq!(territories.iter().filter(|t| t.code() == "bur").count(), 1);
+        assert!(territories.contains(&Territory::new(Power::Germany, "bur")));
+    }
+
+    #[test]
+    fn migration_runs_only_once() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+
+        let game = sample_game(vec![legacy_ready_phase()]);
+        let uuid = game.uuid;
+        repository.insert(NewGame { game }).expect("insert");
+
+        rerun_migration(&repository);
+
+        // 移行後に盤面の編集で gas の占領を外す
+        let mut edited = find(&repository, uuid);
+        edited.phases[0].territories.retain(|t| t.code() != "gas");
+        repository.update(&edited).expect("update");
+
+        // 再起動相当（実行済みの記録が残っている状態）で再実行しても戻らない
+        repository
+            .migrate_ready_phase_initial_territories()
+            .expect("migration should succeed");
+
+        let restored = find(&repository, uuid);
+        assert_eq!(restored.phases[0].territories.len(), 41);
+        assert!(restored.phases[0].territories.iter().all(|t| t.code() != "gas"));
     }
 }
