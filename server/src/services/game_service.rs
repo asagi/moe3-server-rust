@@ -634,7 +634,7 @@ where
     }
 
     ///
-    /// ユニットを配置・削除する
+    /// 卓主・管理者権限でユニットを配置・削除する
     ///
     pub(crate) fn set_unit(&self, command: SetUnitCommand) -> Result<SetUnitResult, SetUnitError> {
         if command.access_token.is_empty() {
@@ -653,24 +653,7 @@ where
             .map_err(SetUnitError::Repository)?
             .ok_or(SetUnitError::NotFound)?;
 
-        game.players
-            .iter()
-            .find(|p| p.is_owner && p.user_uuid == user.uuid)
-            .ok_or_else(|| SetUnitError::Forbidden("user is not the owner of this game".to_string()))?;
-
-        let latest_phase = game
-            .phases
-            .last()
-            .ok_or_else(|| SetUnitError::Forbidden("game has no phases".to_string()))?;
-        let is_main_phase = matches!(
-            latest_phase.kind,
-            crate::domain::PhaseKind::SpringMain(_) | crate::domain::PhaseKind::FallMain(_)
-        );
-        if !is_main_phase {
-            return Err(SetUnitError::Forbidden(
-                "units can only be set during a main phase".to_string(),
-            ));
-        }
+        ensure_board_editable(&game, &user, "units").map_err(SetUnitError::Forbidden)?;
 
         if game.current_turn() != command.season {
             return Err(SetUnitError::PhaseConflict);
@@ -744,25 +727,21 @@ where
         if old_unit.is_some() {
             phase.units.retain(|u| u.location.code() != location.code());
 
-            // 削除ユニットに関する命令もすべて削除
-            phase.orders.retain(|o| {
-                // 直接命令（削除ユニット自身が主体）
-                if o.unit.location.code() == location.code() {
-                    return false;
-                }
-                // 仮定命令（支援・輸送の対象が削除ユニット）
-                match o.kind {
-                    crate::domain::OrderKind::Support(s) => s.target_unit.location.code() != location.code(),
-                    crate::domain::OrderKind::Convoy(c) => c.target_unit.location.code() != location.code(),
-                    _ => true,
-                }
-            });
+            // 削除ユニット自身の命令を削除する
+            // （削除ユニットを支援・輸送する他ユニットの命令は残す。一致する命令がなければ解決時に失敗となる）
+            phase.orders.retain(|o| o.unit.location.code() != location.code());
         }
 
-        // 新ユニットを配置し、Hold 命令を生成
+        // 新ユニットを配置する（メインフェイズのみ Hold 命令を生成。
+        // 開戦前夜は 1901 年春のメインフェイズ生成時に維持命令が作られる）
         if let Some(unit) = new_unit {
             phase.units.push(unit);
-            phase.orders.push(crate::domain::Order::new_hold(unit.power, unit));
+            if matches!(
+                phase.kind,
+                crate::domain::PhaseKind::SpringMain(_) | crate::domain::PhaseKind::FallMain(_)
+            ) {
+                phase.orders.push(crate::domain::Order::new_hold(unit.power, unit));
+            }
         }
 
         self.game_repository.update(&updated_game).map_err(SetUnitError::Repository)?;
@@ -776,7 +755,7 @@ where
     }
 
     ///
-    /// 卓主権限で占領情報を設定・削除する
+    /// 卓主・管理者権限で占領情報を設定・削除する
     ///
     pub(crate) fn set_territory(&self, command: SetTerritoryCommand) -> Result<SetTerritoryResult, SetTerritoryError> {
         if command.access_token.is_empty() {
@@ -795,24 +774,7 @@ where
             .map_err(SetTerritoryError::Repository)?
             .ok_or(SetTerritoryError::NotFound)?;
 
-        game.players
-            .iter()
-            .find(|p| p.is_owner && p.user_uuid == user.uuid)
-            .ok_or_else(|| SetTerritoryError::Forbidden("user is not the owner of this game".to_string()))?;
-
-        let latest_phase = game
-            .phases
-            .last()
-            .ok_or_else(|| SetTerritoryError::Forbidden("game has no phases".to_string()))?;
-        let is_main_phase = matches!(
-            latest_phase.kind,
-            crate::domain::PhaseKind::SpringMain(_) | crate::domain::PhaseKind::FallMain(_)
-        );
-        if !is_main_phase {
-            return Err(SetTerritoryError::Forbidden(
-                "territories can only be set during a main phase".to_string(),
-            ));
-        }
+        ensure_board_editable(&game, &user, "territories").map_err(SetTerritoryError::Forbidden)?;
 
         if game.current_turn() != command.season {
             return Err(SetTerritoryError::PhaseConflict);
@@ -1160,6 +1122,37 @@ where
 
         Ok(ListGamesResult { games, total })
     }
+}
+
+///
+/// 盤面（ユニット配置・占領情報）を編集できるかを検証する
+///
+/// - 卓主または管理者（`is_admin`）であること
+/// - 卓が終了（Closed・Aborted）していないこと
+/// - 最新フェイズが開戦前夜（Ready）またはメインフェイズ（SpringMain・FallMain）であること
+///
+/// 編集できない場合は `403 Forbidden` 用のメッセージを返す。`target` はメッセージに使う対象名（`units` など）。
+///
+fn ensure_board_editable(game: &Game, user: &UserRecord, target: &str) -> Result<(), String> {
+    let is_owner = game.players.iter().any(|p| p.is_owner && p.user_uuid == user.uuid);
+    if !is_owner && !user.is_admin {
+        return Err("user is neither the owner of this game nor an administrator".to_string());
+    }
+
+    if matches!(game.status, GameStatus::Closed | GameStatus::Aborted) {
+        return Err(format!("{} cannot be set in a finished game", target));
+    }
+
+    let latest_phase = game.phases.last().ok_or_else(|| "game has no phases".to_string())?;
+    let is_editable_phase = matches!(
+        latest_phase.kind,
+        crate::domain::PhaseKind::Ready(_) | crate::domain::PhaseKind::SpringMain(_) | crate::domain::PhaseKind::FallMain(_)
+    );
+    if !is_editable_phase {
+        return Err(format!("{} can only be set during a ready or main phase", target));
+    }
+
+    Ok(())
 }
 
 // ============================================================================
@@ -2715,7 +2708,7 @@ mod tests {
     fn set_unit_rejects_when_not_main_phase() {
         let owner_uuid = Uuid::now_v7();
         let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
-        let game = sample_preparing_game(owner_uuid);
+        let game = sample_board_game(owner_uuid, Phase::new_spring_retreat(1901, 1), GameStatus::InProgress);
         let game_uuid = game.uuid;
         let game_repository = InMemoryGameRepository::new(vec![game]);
         let service = GameService::new(user_repository, game_repository);
@@ -3483,5 +3476,345 @@ mod tests {
         assert!(!result.reached_consensus_in_main_phase);
         let updated = game_repository.updated_first().expect("game should be updated");
         assert!(updated.next_update_at.is_some(), "next_update_at should be set to now");
+    }
+
+    // ============================================================================
+    // 盤面編集（set_unit / set_territory）の権限・フェイズ制御 tests
+    // ============================================================================
+
+    /// 最新フェイズとステータスを指定した卓を生成する（卓主は owner_uuid）
+    fn sample_board_game(owner_uuid: Uuid, latest_phase: Phase, status: GameStatus) -> Game {
+        let mut game = sample_preparing_game(owner_uuid);
+        game.status = status;
+        game.phases = vec![latest_phase];
+        game
+    }
+
+    fn admin_user_record(user_uuid: Uuid) -> UserRecord {
+        UserRecord {
+            id: 3,
+            uuid: user_uuid,
+            discord_user_id: "discord-admin".to_string(),
+            username: "admin".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-admin".to_string(),
+            last_access_at: Utc::now(),
+            is_admin: true,
+        }
+    }
+
+    /// 盤面編集の 4 操作（ユニット配置・削除、占領設定・削除）
+    #[derive(Debug, Clone, Copy)]
+    enum BoardEdit {
+        PutUnit,
+        DeleteUnit,
+        PutTerritory,
+        DeleteTerritory,
+    }
+
+    const ALL_BOARD_EDITS: [BoardEdit; 4] = [
+        BoardEdit::PutUnit,
+        BoardEdit::DeleteUnit,
+        BoardEdit::PutTerritory,
+        BoardEdit::DeleteTerritory,
+    ];
+
+    /// 盤面編集を実行し、成功時は更新後の卓、失敗時はエラーの Debug 表現を返す
+    fn run_board_edit(
+        service: &GameService<InMemoryUserRepository, InMemoryGameRepository>,
+        edit: BoardEdit,
+        token: &str,
+        game_uuid: Uuid,
+        season: &str,
+    ) -> Result<Game, String> {
+        match edit {
+            BoardEdit::PutUnit | BoardEdit::DeleteUnit => service
+                .set_unit(SetUnitCommand {
+                    access_token: token.to_string(),
+                    game_uuid,
+                    location: "pic".to_string(),
+                    unit: matches!(edit, BoardEdit::PutUnit).then(|| UnitSpec {
+                        power_symbol: "f".to_string(),
+                        kind_str: "a".to_string(),
+                    }),
+                    season: season.to_string(),
+                })
+                .map(|r| r.game)
+                .map_err(|e| format!("{:?}", e)),
+            BoardEdit::PutTerritory | BoardEdit::DeleteTerritory => service
+                .set_territory(SetTerritoryCommand {
+                    access_token: token.to_string(),
+                    game_uuid,
+                    code: "pic".to_string(),
+                    power: matches!(edit, BoardEdit::PutTerritory).then(|| "f".to_string()),
+                    season: season.to_string(),
+                })
+                .map(|r| r.game)
+                .map_err(|e| format!("{:?}", e)),
+        }
+    }
+
+    #[test]
+    fn board_edit_allows_admin_who_is_not_owner() {
+        let owner_uuid = Uuid::now_v7();
+        let admin_uuid = Uuid::now_v7();
+        for edit in ALL_BOARD_EDITS {
+            let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid), admin_user_record(admin_uuid)]);
+            let game = sample_in_progress_game(owner_uuid);
+            let game_uuid = game.uuid;
+            let service = GameService::new(user_repository, InMemoryGameRepository::new(vec![game]));
+
+            let result = run_board_edit(&service, edit, "token-admin", game_uuid, "1901s");
+
+            assert!(result.is_ok(), "admin should be allowed: {:?} -> {:?}", edit, result);
+        }
+    }
+
+    #[test]
+    fn board_edit_rejects_user_who_is_neither_owner_nor_admin() {
+        let owner_uuid = Uuid::now_v7();
+        let other_uuid = Uuid::now_v7();
+        for edit in ALL_BOARD_EDITS {
+            let user_repository = InMemoryUserRepository::new(vec![
+                owner_user_record(owner_uuid),
+                player_user_record(other_uuid, "token-other"),
+            ]);
+            let game = sample_in_progress_game(owner_uuid);
+            let game_uuid = game.uuid;
+            let service = GameService::new(user_repository, InMemoryGameRepository::new(vec![game]));
+
+            let error = run_board_edit(&service, edit, "token-other", game_uuid, "1901s").expect_err("should reject");
+
+            assert!(error.starts_with("Forbidden"), "{:?} -> {}", edit, error);
+        }
+    }
+
+    #[test]
+    fn board_edit_is_allowed_in_ready_phase_with_ready_season() {
+        let owner_uuid = Uuid::now_v7();
+        for status in [GameStatus::Preparing, GameStatus::Ready] {
+            for edit in ALL_BOARD_EDITS {
+                let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+                let game = sample_board_game(owner_uuid, Phase::new_ready(), status);
+                let game_uuid = game.uuid;
+                let service = GameService::new(user_repository, InMemoryGameRepository::new(vec![game]));
+
+                let result = run_board_edit(&service, edit, "token-owner", game_uuid, "ready");
+
+                assert!(
+                    result.is_ok(),
+                    "ready phase should be editable: {:?} {:?} -> {:?}",
+                    status,
+                    edit,
+                    result
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn board_edit_rejects_retreat_adjustment_and_debrief_phases() {
+        let owner_uuid = Uuid::now_v7();
+        let phases = [
+            Phase::new_spring_retreat(1901, 1),
+            Phase::new_fall_retreat(1901, 3),
+            Phase::new_adjustment(1901, 4),
+            Phase::new_debrief(1901, 5),
+        ];
+        for phase in phases {
+            for edit in ALL_BOARD_EDITS {
+                let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+                let game = sample_board_game(owner_uuid, phase.clone(), GameStatus::InProgress);
+                let season = game.current_turn();
+                let game_uuid = game.uuid;
+                let service = GameService::new(user_repository, InMemoryGameRepository::new(vec![game]));
+
+                let error = run_board_edit(&service, edit, "token-owner", game_uuid, &season).expect_err("should reject");
+
+                assert!(error.starts_with("Forbidden"), "{:?} {:?} -> {}", phase.kind, edit, error);
+            }
+        }
+    }
+
+    #[test]
+    fn board_edit_rejects_finished_game() {
+        let owner_uuid = Uuid::now_v7();
+        let admin_uuid = Uuid::now_v7();
+        let cases = [
+            (Phase::new_ready(), GameStatus::Aborted),
+            (Phase::new_spring_main(1900, 0), GameStatus::Aborted),
+            (Phase::new_spring_main(1900, 0), GameStatus::Closed),
+        ];
+        for (phase, status) in cases {
+            for edit in ALL_BOARD_EDITS {
+                let user_repository =
+                    InMemoryUserRepository::new(vec![owner_user_record(owner_uuid), admin_user_record(admin_uuid)]);
+                let game = sample_board_game(owner_uuid, phase.clone(), status);
+                let season = game.current_turn();
+                let game_uuid = game.uuid;
+                let service = GameService::new(user_repository, InMemoryGameRepository::new(vec![game]));
+
+                let error = run_board_edit(&service, edit, "token-admin", game_uuid, &season).expect_err("should reject");
+
+                assert!(error.starts_with("Forbidden"), "{:?} {:?} -> {}", status, edit, error);
+            }
+        }
+    }
+
+    #[test]
+    fn set_unit_in_ready_phase_does_not_create_order() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_board_game(owner_uuid, Phase::new_ready(), GameStatus::Ready);
+        let game_uuid = game.uuid;
+        let service = GameService::new(user_repository, InMemoryGameRepository::new(vec![game]));
+
+        let result = service
+            .set_unit(SetUnitCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                location: "pic".to_string(),
+                unit: Some(UnitSpec {
+                    power_symbol: "f".to_string(),
+                    kind_str: "a".to_string(),
+                }),
+                season: "ready".to_string(),
+            })
+            .expect("should succeed");
+
+        let phase = result.game.phases.last().unwrap();
+        assert!(phase.units.iter().any(|u| u.location.code() == "pic"));
+        assert!(phase.orders.is_empty(), "no orders should be created in ready phase");
+    }
+
+    #[test]
+    fn board_edits_in_ready_phase_are_carried_over_to_spring_1901_with_hold_orders() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_board_game(owner_uuid, Phase::new_ready(), GameStatus::Ready);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        // ユニットを追加・削除し、占領地を追加・削除する
+        service
+            .set_unit(SetUnitCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                location: "pic".to_string(),
+                unit: Some(UnitSpec {
+                    power_symbol: "f".to_string(),
+                    kind_str: "a".to_string(),
+                }),
+                season: "ready".to_string(),
+            })
+            .expect("put unit");
+        service
+            .set_unit(SetUnitCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                location: "lon".to_string(),
+                unit: None,
+                season: "ready".to_string(),
+            })
+            .expect("delete unit");
+        service
+            .set_territory(SetTerritoryCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                code: "bel".to_string(),
+                power: Some("f".to_string()),
+                season: "ready".to_string(),
+            })
+            .expect("put territory");
+        let result = service
+            .set_territory(SetTerritoryCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                code: "lon".to_string(),
+                power: None,
+                season: "ready".to_string(),
+            })
+            .expect("delete territory");
+
+        let ready = result.game.phases.last().unwrap().clone();
+        let expected_units = ready.units.clone();
+        let expected_territories = ready.territories.clone();
+
+        let mut context = crate::PhaseContext::new();
+        ready.close(&mut context);
+        let spring = context.phases().back().expect("spring main should be created").clone();
+
+        assert!(matches!(spring.kind, crate::domain::PhaseKind::SpringMain(_)));
+        assert_eq!(spring.year, 1901);
+        assert_eq!(spring.units, expected_units);
+        assert_eq!(spring.territories, expected_territories);
+        assert!(
+            spring
+                .units
+                .iter()
+                .any(|u| u.location.code() == "pic" && u.power == Power::France)
+        );
+        assert!(spring.units.iter().all(|u| u.location.code() != "lon"));
+        assert!(
+            spring
+                .territories
+                .iter()
+                .any(|t| t.code() == "bel" && t.power == Power::France)
+        );
+        assert!(spring.territories.iter().all(|t| t.code() != "lon"));
+
+        // 全ユニットに維持命令が 1 つずつ作られる
+        assert_eq!(spring.orders.len(), spring.units.len());
+        for unit in &spring.units {
+            assert!(
+                spring
+                    .orders
+                    .iter()
+                    .any(|o| o.unit == *unit && matches!(o.kind, crate::domain::OrderKind::Hold(_))),
+                "hold order should exist for {:?}",
+                unit
+            );
+        }
+    }
+
+    #[test]
+    fn set_unit_delete_removes_own_order_and_keeps_orders_of_other_units() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let mut game = sample_in_progress_game(owner_uuid);
+        let par = Province::from_code("par").unwrap();
+        let bur = Province::from_code("bur").unwrap();
+        let mar = Province::from_code("mar").unwrap();
+        let moving = Unit::new_army(Power::France, par);
+        let supporter = Unit::new_army(Power::Germany, mar);
+        let phase = game.phases.last_mut().unwrap();
+        phase.units = vec![moving, supporter];
+        phase.orders = vec![moving.move_to(bur), supporter.support_move(moving, bur)];
+
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        service
+            .set_unit(SetUnitCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                location: "par".to_string(),
+                unit: None,
+                season: "1901s".to_string(),
+            })
+            .expect("should succeed");
+
+        let updated = game_repository.updated_first().expect("game should be updated");
+        let phase = updated.phases.last().unwrap();
+        assert!(
+            phase.orders.iter().all(|o| o.unit.location.code() != "par"),
+            "own order of removed unit should be deleted"
+        );
+        assert_eq!(phase.orders.len(), 1, "support order of other unit should be kept");
+        assert_eq!(phase.orders[0].unit, supporter);
     }
 }

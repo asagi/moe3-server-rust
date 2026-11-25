@@ -1790,7 +1790,10 @@ pub(super) fn apply_log_access_control(
         .collect()
 }
 
-/// 担当 Power が滅亡しているかを判定する（最新フェイズにユニットが存在しない場合）
+/// 担当 Power が滅亡しているかを判定する
+///
+/// 最新フェイズにユニットと補給都市がどちらも存在しない場合に滅亡とみなす。
+/// 補給都市でない陸地の占領は判定に含めない。開戦前夜・感想戦では滅亡とみなさない。
 pub(super) fn is_power_eliminated(power: Power, game: &crate::Game) -> bool {
     let latest = match game.phases.last() {
         Some(p) => p,
@@ -1799,7 +1802,7 @@ pub(super) fn is_power_eliminated(power: Power, game: &crate::Game) -> bool {
     if matches!(latest.kind, crate::PhaseKind::Ready(_) | crate::PhaseKind::Debrief(_)) {
         return false;
     }
-    !latest.units.iter().any(|u| u.power == power)
+    latest.count_units(&power) == 0 && latest.count_supply_centers(&power) == 0
 }
 
 /// 送信者種別が "user" のメッセージについて、送信ユーザーの UUID を返す
@@ -1890,6 +1893,102 @@ fn utc_rfc3339_to_jst_string(utc_rfc3339: &str) -> String {
     chrono::DateTime::parse_from_rfc3339(utc_rfc3339)
         .map(|dt| dt.with_timezone(&jst).format("%Y-%m-%d %H:%M").to_string())
         .unwrap_or_else(|_| utc_rfc3339.to_string())
+}
+
+///
+/// 盤面取得リクエスト Axum ハンドラ関数
+///
+pub(crate) async fn get_games_board<U, G, D>(
+    State(state): State<AppState<U, G, D>>,
+    Path(game_uuid_str): Path<String>,
+) -> impl IntoResponse
+where
+    U: UserRepository + Send + Sync + 'static,
+    G: GameRepository + Send + Sync + 'static,
+    D: DiscordIdentityProvider + Send + Sync + 'static,
+{
+    let game_uuid = match Uuid::parse_str(&game_uuid_str) {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                axum::Json(ApiErrorResponse {
+                    code: "invalid_request",
+                    message: "game_uuid is invalid".to_string(),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    let game_service = std::sync::Arc::clone(&state.game_service);
+    let result = tokio::task::spawn_blocking(move || handle_get_games_board(&game_service, game_uuid)).await;
+
+    match result {
+        Ok(Ok(response)) => (StatusCode::OK, axum::Json(response)).into_response(),
+        Ok(Err(error)) => {
+            let status = match &error {
+                super::GetGameHandlerError::Service(super::GetGameError::NotFound) => StatusCode::NOT_FOUND,
+                super::GetGameHandlerError::Service(super::GetGameError::Repository(_)) => StatusCode::SERVICE_UNAVAILABLE,
+            };
+            (status, axum::Json(error.to_api_error_response())).into_response()
+        }
+        Err(join_err) => {
+            eprintln!("get_games_board task failed: {}", join_err);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                axum::Json(ApiErrorResponse {
+                    code: "internal_error",
+                    message: "internal server error".to_string(),
+                }),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// 盤面取得の純粋関数（テスト可能）
+///
+/// 最新フェイズのユニット配置と占領情報を返す。命令は含めない。
+pub(crate) fn handle_get_games_board<U, G>(
+    service: &GameService<U, G>,
+    game_uuid: Uuid,
+) -> Result<super::GetGameBoardResponse, super::GetGameHandlerError>
+where
+    U: UserRepository,
+    G: GameRepository,
+{
+    let game = service.get_game(game_uuid).map_err(super::GetGameHandlerError::Service)?;
+
+    let (units, territories) = match game.phases.last() {
+        Some(phase) => (
+            phase
+                .units
+                .iter()
+                .map(|u| super::GameBoardUnitResponse {
+                    power: u.power.symbol().to_string(),
+                    kind: u.symbol().to_string(),
+                    location: u.location.code_with_coast().to_string(),
+                })
+                .collect(),
+            phase
+                .territories
+                .iter()
+                .map(|t| super::GameBoardTerritoryResponse {
+                    power: t.power.symbol().to_string(),
+                    code: t.code().to_string(),
+                })
+                .collect(),
+        ),
+        None => (Vec::new(), Vec::new()),
+    };
+
+    Ok(super::GetGameBoardResponse {
+        season: game.current_turn(),
+        phase_kind: phase_kind_str(&game).to_string(),
+        units,
+        territories,
+    })
 }
 
 ///
@@ -2121,6 +2220,8 @@ mod tests {
 
     use super::*;
     use crate::GameSummary;
+    use crate::api::GameBoardTerritoryResponse;
+    use crate::api::GameBoardUnitResponse;
     use crate::api::GetGamesRequestValidationError;
     use crate::api::requests::UnitSpecBody;
     use crate::domain::Game;
@@ -5362,6 +5463,195 @@ mod tests {
         };
 
         assert!(!is_power_eliminated(crate::domain::Power::France, &game));
+    }
+
+    #[test]
+    fn is_power_eliminated_false_when_no_unit_but_supply_center_remains() {
+        let mut game = game_with_units_for(crate::domain::Power::France);
+        let phase = game.phases.last_mut().unwrap();
+        phase
+            .territories
+            .push(crate::domain::Territory::new(crate::domain::Power::England, "lon"));
+
+        assert!(!is_power_eliminated(crate::domain::Power::England, &game));
+    }
+
+    #[test]
+    fn is_power_eliminated_false_when_no_supply_center_but_unit_remains() {
+        let mut game = game_with_units_for(crate::domain::Power::France);
+        game.phases.last_mut().unwrap().territories.clear();
+
+        assert!(!is_power_eliminated(crate::domain::Power::France, &game));
+    }
+
+    #[test]
+    fn is_power_eliminated_true_when_only_non_supply_center_land_remains() {
+        let mut game = game_with_units_for(crate::domain::Power::France);
+        let phase = game.phases.last_mut().unwrap();
+        // wal・yor は補給都市でない陸地
+        phase
+            .territories
+            .push(crate::domain::Territory::new(crate::domain::Power::England, "wal"));
+        phase
+            .territories
+            .push(crate::domain::Territory::new(crate::domain::Power::England, "yor"));
+
+        assert!(is_power_eliminated(crate::domain::Power::England, &game));
+    }
+
+    #[test]
+    fn is_power_eliminated_false_when_last_phase_is_debrief() {
+        let mut game = in_progress_game();
+        game.phases.push(Phase::new_debrief(1901, 2));
+
+        assert!(!is_power_eliminated(crate::domain::Power::France, &game));
+    }
+
+    // ============================================================================
+    // handle_get_games_board tests
+    // ============================================================================
+
+    #[test]
+    fn handle_get_games_board_returns_ready_phase_board() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let mut game = sample_in_progress_game_for_handler(owner_uuid);
+        game.status = GameStatus::Ready;
+        game.phases.truncate(1);
+        let ready = game.phases[0].clone();
+        let game_uuid = game.uuid;
+        let service = GameService::new(
+            InMemoryUserRepository::new(vec![]),
+            InMemoryGameRepository::new_with_games(vec![game]),
+        );
+
+        let response = handle_get_games_board(&service, game_uuid).expect("should succeed");
+
+        assert_eq!(response.season, "ready");
+        assert_eq!(response.phase_kind, "ready");
+        assert_eq!(response.units.len(), ready.units.len());
+        assert_eq!(response.territories.len(), ready.territories.len());
+        assert!(response.units.contains(&GameBoardUnitResponse {
+            power: "f".to_string(),
+            kind: "A".to_string(),
+            location: "par".to_string(),
+        }));
+        assert!(response.units.contains(&GameBoardUnitResponse {
+            power: "r".to_string(),
+            kind: "F".to_string(),
+            location: "stp_sc".to_string(),
+        }));
+        assert!(response.territories.contains(&GameBoardTerritoryResponse {
+            power: "f".to_string(),
+            code: "par".to_string(),
+        }));
+    }
+
+    #[test]
+    fn handle_get_games_board_returns_latest_main_phase_board_without_orders() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let mut game = sample_in_progress_game_for_handler(owner_uuid);
+        let phase = game.phases.last_mut().unwrap();
+        let spa_nc = crate::domain::Province::from_code("spa_nc").unwrap();
+        let fleet = crate::domain::Unit::new_fleet(crate::domain::Power::France, spa_nc);
+        phase.units = vec![fleet];
+        phase.orders = vec![fleet.hold()];
+        phase.territories = vec![
+            crate::domain::Territory::new(crate::domain::Power::France, "spa"),
+            crate::domain::Territory::new(crate::domain::Power::France, "gas"),
+        ];
+        let game_uuid = game.uuid;
+        let service = GameService::new(
+            InMemoryUserRepository::new(vec![]),
+            InMemoryGameRepository::new_with_games(vec![game]),
+        );
+
+        let response = handle_get_games_board(&service, game_uuid).expect("should succeed");
+
+        assert_eq!(response.season, "1901s");
+        assert_eq!(response.phase_kind, "main");
+        assert_eq!(
+            response.units,
+            vec![GameBoardUnitResponse {
+                power: "f".to_string(),
+                kind: "F".to_string(),
+                location: "spa_nc".to_string(),
+            }]
+        );
+        assert_eq!(
+            response.territories,
+            vec![
+                GameBoardTerritoryResponse {
+                    power: "f".to_string(),
+                    code: "spa".to_string(),
+                },
+                GameBoardTerritoryResponse {
+                    power: "f".to_string(),
+                    code: "gas".to_string(),
+                },
+            ]
+        );
+        let json = serde_json::to_value(&response).unwrap();
+        assert!(json.get("orders").is_none());
+    }
+
+    #[test]
+    fn handle_get_games_board_returns_not_found_for_unknown_game() {
+        let service = GameService::new(InMemoryUserRepository::new(vec![]), InMemoryGameRepository::new());
+
+        let error = handle_get_games_board(&service, uuid::Uuid::now_v7()).expect_err("should fail");
+
+        assert_eq!(error.code(), "not_found");
+    }
+
+    #[test]
+    fn handle_set_unit_and_territory_accept_ready_season() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+            is_admin: false,
+        }]);
+        let mut game = sample_in_progress_game_for_handler(owner_uuid);
+        game.status = GameStatus::Ready;
+        game.phases.truncate(1);
+        let game_uuid = game.uuid;
+        let service = GameService::new(user_repository, InMemoryGameRepository::new_with_games(vec![game]));
+        let message_repository = new_test_message_repository();
+
+        let unit_response = handle_set_unit(
+            &service,
+            &message_repository,
+            SetUnitRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                unit: None,
+                location: "par".to_string(),
+                season: "ready".to_string(),
+            },
+        )
+        .expect("ready season should be accepted for units");
+        assert!(unit_response.unit.is_none());
+
+        let territory_response = handle_set_territory(
+            &service,
+            &message_repository,
+            SetTerritoryRequest {
+                authorization: "Bearer token-owner".to_string(),
+                game_uuid,
+                code: "par".to_string(),
+                power: None,
+                season: "READY".to_string(),
+            },
+        )
+        .expect("ready season should be accepted for territories");
+        assert!(territory_response.power.is_none());
     }
 
     #[test]
