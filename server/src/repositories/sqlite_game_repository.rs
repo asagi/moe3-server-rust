@@ -711,6 +711,7 @@ impl SqliteGameRepository {
                             SELECT order_json
                             FROM game_phase_orders
                             WHERE phase_id = ?1
+                            ORDER BY id
                             "#,
                         )
                         .map_err(|error| RepositoryError::Unavailable(format!("prepare load orders: {}", error)))?;

@@ -237,8 +237,8 @@ where
     U: UserRepository,
     G: GameRepository,
 {
-    user_repository: U,
-    game_repository: G,
+    pub(super) user_repository: U,
+    pub(super) game_repository: G,
 }
 
 /// 卓サービスの構造体の実装
@@ -1025,26 +1025,7 @@ where
     }
 
     fn consensus_required_powers(latest_phase: &Phase) -> std::collections::HashSet<Power> {
-        match latest_phase.kind {
-            // 補給都市でない陸地の占領だけが残っている国（滅亡済み）は対象外
-            crate::domain::PhaseKind::SpringMain(_) | crate::domain::PhaseKind::FallMain(_) => Power::iter()
-                .filter(|power| latest_phase.count_supply_centers(power) > 0 || latest_phase.count_units(power) > 0)
-                .collect(),
-            crate::domain::PhaseKind::SpringRetreat(_) | crate::domain::PhaseKind::FallRetreat(_) => latest_phase
-                .orders
-                .iter()
-                .filter(|o| o.dislodged_from.is_some())
-                .map(|o| o.power)
-                .collect(),
-            crate::domain::PhaseKind::Adjustment(_) => Power::iter()
-                .filter(|power| {
-                    let supply_center_count = latest_phase.count_supply_centers(power);
-                    let unit_count = latest_phase.count_units(power);
-                    supply_center_count != unit_count
-                })
-                .collect(),
-            crate::domain::PhaseKind::Ready(_) | crate::domain::PhaseKind::Debrief(_) => std::collections::HashSet::new(),
-        }
+        latest_phase.powers_requiring_action()
     }
 
     ///

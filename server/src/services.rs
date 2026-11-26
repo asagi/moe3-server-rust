@@ -7,6 +7,7 @@ mod discord_api_client;
 mod error;
 mod game_progression_service;
 mod game_service;
+mod order_service;
 
 // ============================================================================
 // exports
@@ -25,6 +26,7 @@ pub(crate) use error::GetGameError;
 pub(crate) use error::JoinGameError;
 pub(crate) use error::JoinGameForbiddenReason;
 pub(crate) use error::ListGamesError;
+pub(crate) use error::OrdersError;
 pub(crate) use error::SetDrawProposalError;
 pub(crate) use error::SetNextUpdateAtError;
 pub(crate) use error::SetProgressConsensusError;
@@ -43,6 +45,11 @@ pub(crate) use game_service::SetProgressModeCommand;
 pub(crate) use game_service::SetTerritoryCommand;
 pub(crate) use game_service::SetUnitCommand;
 pub(crate) use game_service::UnitSpec;
+pub(crate) use order_service::GetOrdersCommand;
+pub(crate) use order_service::OrderSpec;
+pub(crate) use order_service::OrdersView;
+pub(crate) use order_service::SubmitOrdersCommand;
+pub(crate) use order_service::phase_kind_of;
 
 // ============================================================================
 // re-exports

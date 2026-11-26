@@ -499,11 +499,31 @@ impl Path {
     }
 
     ///
+    /// ユニットが現在地から陸路（海軍は海路）で移動できる地域コードを返す（輸送による移動は含まない）
+    ///
+    pub(crate) fn move_dest_codes(unit: &Unit) -> Vec<&'static str> {
+        let origin = unit.location.code_with_coast();
+        let mut dests: Vec<&'static str> = Vec::new();
+        for p in PATHS.iter().filter(|p| p.origin == origin) {
+            let movable = match unit.kind() {
+                UnitKind::Army(_) => p.army,
+                UnitKind::Fleet(_) => p.fleet,
+            };
+            if movable && !dests.contains(&p.dest) {
+                dests.push(p.dest);
+            }
+        }
+        dests.sort_unstable();
+        dests
+    }
+
+    ///
     /// ユニットが指定地点へのサポートが可能かを判定する
     ///
     pub(crate) fn can_unit_support_to(unit: &Unit, origin: &str, dest: &str) -> bool {
         match unit.kind() {
-            UnitKind::Army(_) => PATHS.iter().any(|p| p.origin == origin && p.dest == dest && p.army),
+            // 陸軍は海岸を区別しないため、海岸付きの地域（例: spa_nc）も地域単位で判定する
+            UnitKind::Army(_) => PATHS.iter().any(|p| p.origin == origin && p.dest[..3] == dest[..3] && p.army),
             UnitKind::Fleet(_) => PATHS
                 .iter()
                 .any(|p| p.origin == origin && p.dest[..3] == dest[..3] && p.fleet),

@@ -101,12 +101,20 @@ struct PhaseEventData {
 }
 
 ///
+/// SSE の board イベントのデータ構造体（中身は空）
+///
+#[derive(Debug, Clone, Serialize, PartialEq)]
+struct BoardEventData {}
+
+///
 /// SSE 配信で受信者に通知済みのシーズン・フェイズ種別の構造体
 ///
 #[derive(Debug, Clone, Copy)]
 struct KnownPhase<'a> {
     season: &'a str,
     phase_kind: &'a str,
+    /// 通知済みの国ごとの状況の指紋（未取得なら `None`。この場合は board イベントを送らない）
+    board: Option<&'a str>,
 }
 
 ///
@@ -120,6 +128,10 @@ struct StreamUpdate {
     new_season: Option<String>,
     /// フェイズ種別が切り替わった場合の新しいフェイズ種別
     new_phase_kind: Option<&'static str>,
+    /// 現在の国ごとの状況の指紋
+    board: String,
+    /// 国ごとの状況が変わったか（board イベントを送るか）
+    board_changed: bool,
     /// 受信者に配信するメッセージ
     messages: Vec<GameLogMessage>,
 }
@@ -141,6 +153,7 @@ where
     cursor: Option<Uuid>,
     season: String,
     phase_kind: &'static str,
+    board: Option<String>,
     pending: VecDeque<Event>,
     needs_fetch: bool,
 }
@@ -463,11 +476,17 @@ where
                 .find_latest_message_uuid(game_uuid)
                 .map_err(crate::GetGameError::Repository)?,
         };
-        Ok::<_, crate::GetGameError>((game.current_turn(), phase_kind_str(&game), viewer_user_uuid, cursor))
+        Ok::<_, crate::GetGameError>((
+            game.current_turn(),
+            phase_kind_str(&game),
+            board_fingerprint(&game),
+            viewer_user_uuid,
+            cursor,
+        ))
     })
     .await;
 
-    let (season, phase_kind, viewer_user_uuid, cursor) = match init_result {
+    let (season, phase_kind, board, viewer_user_uuid, cursor) = match init_result {
         Ok(Ok(initial)) => initial,
         Ok(Err(crate::GetGameError::NotFound)) => {
             return (
@@ -505,6 +524,7 @@ where
         cursor,
         season,
         phase_kind,
+        board: Some(board),
         pending: VecDeque::new(),
         // 起点が指定された再接続では、取りこぼした分をすぐに送り直す
         needs_fetch: after.is_some(),
@@ -553,6 +573,7 @@ where
         let cursor = state.cursor;
         let season = state.season.clone();
         let phase_kind = state.phase_kind;
+        let board = state.board.clone();
         let update = tokio::task::spawn_blocking(move || {
             collect_stream_update(
                 &game_service,
@@ -564,6 +585,7 @@ where
                 KnownPhase {
                     season: &season,
                     phase_kind,
+                    board: board.as_deref(),
                 },
             )
         })
@@ -604,6 +626,14 @@ where
             }
             state.phase_kind = new_phase_kind;
         }
+        if update.board_changed {
+            // 中身は空。フロントは盤面取得 API を読み直す
+            match Event::default().event("board").json_data(BoardEventData {}) {
+                Ok(event) => state.pending.push_back(event),
+                Err(error) => eprintln!("failed to serialize board event: {}", error),
+            }
+        }
+        state.board = Some(update.board);
         for message in update.messages {
             match Event::default()
                 .id(message.message_uuid.to_string())
@@ -646,6 +676,8 @@ where
     let new_season = (current_season != known.season).then_some(current_season);
     let current_phase_kind = phase_kind_str(&game);
     let new_phase_kind = (current_phase_kind != known.phase_kind).then_some(current_phase_kind);
+    let board = board_fingerprint(&game);
+    let board_changed = known.board.is_some_and(|known_board| known_board != board);
 
     let viewer_power = viewer_user_uuid.and_then(|viewer| {
         game.players
@@ -660,8 +692,37 @@ where
         cursor: next_cursor,
         new_season,
         new_phase_kind,
+        board,
+        board_changed,
         messages,
     })
+}
+
+///
+/// 国ごとの状況（補給都市・ユニット数・即時進行合意）の指紋を返す
+///
+/// 状況が変わったかを判定するためだけに使う。命令の確定は他国に知らせないため含めない。
+///
+fn board_fingerprint(game: &crate::Game) -> String {
+    let Some(phase) = game.phases.last() else {
+        return String::new();
+    };
+    Power::iter()
+        .map(|power| {
+            let fleets = phase.units.iter().filter(|u| u.power == power && u.is_fleet()).count();
+            let units = phase.count_units(&power);
+            let consented = game.players.iter().any(|p| p.power == Some(power) && p.progress_consented);
+            format!(
+                "{}:{}:{}:{}:{}",
+                power.symbol(),
+                phase.count_supply_centers(&power),
+                units - fleets,
+                fleets,
+                consented
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 ///
@@ -999,7 +1060,11 @@ mod tests {
             fixture.game_uuid,
             viewer,
             cursor,
-            KnownPhase { season, phase_kind },
+            KnownPhase {
+                season,
+                phase_kind,
+                board: None,
+            },
         )
         .expect("collect should succeed")
     }
@@ -1536,6 +1601,7 @@ mod tests {
             cursor,
             season: "1901s".to_string(),
             phase_kind: "main",
+            board: None,
             pending: VecDeque::new(),
             needs_fetch,
         }
@@ -1668,6 +1734,51 @@ mod tests {
         );
         assert_eq!(state.season, "1901f");
         assert_eq!(state.phase_kind, "main");
+    }
+
+    #[tokio::test]
+    async fn stream_yields_board_event_when_power_status_changes() {
+        let fixture = fixture(GameStatus::InProgress);
+        let original = fixture.service.get_game(fixture.game_uuid).expect("game");
+        let original_board = board_fingerprint(&original);
+
+        // 状況が変わらなければ board イベントは送らない
+        let update = collect_stream_update(
+            &fixture.service,
+            &fixture.user_repository,
+            &fixture.message_repository,
+            fixture.game_uuid,
+            None,
+            None,
+            KnownPhase {
+                season: "1901s",
+                phase_kind: "main",
+                board: Some(&original_board),
+            },
+        )
+        .expect("collect should succeed");
+        assert!(!update.board_changed);
+
+        // フランスが即時進行に合意した状態を再現する
+        let mut game = original.clone();
+        game.players[0].progress_consented = true;
+        let fixture = Fixture {
+            service: GameService::new(fixture.user_repository.clone(), InMemoryGameRepository { games: vec![game] }),
+            ..fixture
+        };
+        let mut state = stream_state(&fixture, None, None, false);
+        state.board = Some(original_board.clone());
+
+        fixture.message_repository.notify_game_updated(fixture.game_uuid);
+
+        let (event, state) = tokio::time::timeout(Duration::from_secs(5), next_stream_event(state))
+            .await
+            .expect("should not time out")
+            .expect("stream should yield");
+        let event = format!("{:?}", event.expect("infallible"));
+        assert!(event.contains("event: board"), "event: {}", event);
+        assert_ne!(state.board.as_deref(), Some(original_board.as_str()));
+        assert!(state.pending.is_empty());
     }
 
     #[test]

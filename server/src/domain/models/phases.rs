@@ -3,12 +3,17 @@
 // ============================================================================
 
 mod method;
+mod options;
 mod phase;
 
 // ============================================================================
 // exports
 // ============================================================================
 
+pub(crate) use options::AdjustmentOptions;
+pub(crate) use options::MainUnitOptions;
+pub(crate) use options::OrderInput;
+pub(crate) use options::OrderInputKind;
 pub(crate) use phase::AdjustmentPhase;
 pub(crate) use phase::DebriefPhase;
 pub(crate) use phase::FallMainPhase;
@@ -30,6 +35,7 @@ pub(crate) use super::MainAdjudicator;
 pub(crate) use super::MainOrderHelper;
 pub(crate) use super::Order;
 pub(crate) use super::OrderKind;
+pub(crate) use super::Path;
 pub(crate) use super::PhaseContext;
 pub(crate) use super::Power;
 pub(crate) use super::Province;

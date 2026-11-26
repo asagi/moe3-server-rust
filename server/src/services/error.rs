@@ -316,6 +316,36 @@ impl fmt::Display for SetProgressConsensusError {
 }
 
 ///
+/// 命令の取得・確定エラーの列挙体
+///
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum OrdersError {
+    Unauthorized,
+    NotFound,
+    Forbidden(String),
+    PhaseConflict,
+    InvalidOrder { location: Option<String>, message: String },
+    Repository(RepositoryError),
+}
+
+/// 命令の取得・確定エラーの列挙体の実装（Error トレイト）
+impl Error for OrdersError {}
+
+/// 命令の取得・確定エラーの列挙体の実装（fmt::Display トレイト）
+impl fmt::Display for OrdersError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unauthorized => write!(f, "unauthorized"),
+            Self::NotFound => write!(f, "game not found"),
+            Self::Forbidden(message) => write!(f, "forbidden: {}", message),
+            Self::PhaseConflict => write!(f, "phase has changed since this request was issued"),
+            Self::InvalidOrder { message, .. } => write!(f, "invalid order: {}", message),
+            Self::Repository(error) => write!(f, "repository error: {}", error),
+        }
+    }
+}
+
+///
 /// 卓情報取得エラーの列挙体
 ///
 #[derive(Debug, Clone, PartialEq, Eq)]

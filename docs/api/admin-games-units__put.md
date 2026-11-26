@@ -58,7 +58,7 @@
   "location": "par",
   "unit": {
     "power": "f",
-    "kind": "A"
+    "kind": "a"
   }
 }
 ```

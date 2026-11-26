@@ -91,6 +91,16 @@ impl Unit {
     }
 
     ///
+    /// API で返すユニット種別コード（小文字）を返す
+    ///
+    pub(crate) fn kind_code(&self) -> &'static str {
+        match self.kind {
+            UnitKind::Army(_) => "a",
+            UnitKind::Fleet(_) => "f",
+        }
+    }
+
+    ///
     /// ユニットのラベルを返す
     ///
     pub(crate) fn label(&self) -> String {
@@ -273,9 +283,11 @@ mod tests {
         let army = a("f", "par");
         assert_eq!(army.symbol(), "A");
         assert_eq!(army.label(), "A Par");
+        assert_eq!(army.kind_code(), "a");
 
         let fleet = f("e", "lon");
         assert_eq!(fleet.symbol(), "F");
         assert_eq!(fleet.label(), "F Lon");
+        assert_eq!(fleet.kind_code(), "f");
     }
 }
