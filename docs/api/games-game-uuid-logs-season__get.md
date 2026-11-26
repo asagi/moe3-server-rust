@@ -185,6 +185,7 @@
 | `progress_consensus_rescinded` | `{ "power": "f" }`                                                      | `France が即時進行への合意を撤回しました。`                              |
 | `progress_consensus_reached`   | `{}`                                                                    | `全ての生存国の合意を確認しました。メインフェイズをただちに終了します。` |
 | `next_update_at_changed`       | `{ "next_update_at": "2026-11-27 21:00" }`（JST、`"YYYY-MM-DD HH:mm"`） | `次回更新時刻が 2026-11-27 21:00 に変更されました。`                     |
+| `power_returned`               | `{ "power": "i" }`                                                      | `Italy が無政府状態から復帰しました。`                                   |
 
 ## エラー
 

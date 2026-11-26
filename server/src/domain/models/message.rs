@@ -166,6 +166,9 @@ pub(crate) enum SystemNoticeCatalog {
     NextUpdateAtChanged {
         next_update_at: String,
     },
+    PowerReturned {
+        power: Power,
+    },
 }
 
 /// システムメッセージ定義の列挙体の fmt::Display トレイト実装
@@ -261,6 +264,9 @@ impl fmt::Display for SystemNoticeCatalog {
             Self::NextUpdateAtChanged { next_update_at } => {
                 write!(f, "次回更新時刻が {} に変更されました。", next_update_at)
             }
+            Self::PowerReturned { power } => {
+                write!(f, "{} が無政府状態から復帰しました。", power.name())
+            }
         }
     }
 }
@@ -294,6 +300,7 @@ impl SystemNoticeCatalog {
             Self::ProgressConsensusRescinded { .. } => "progress_consensus_rescinded",
             Self::ProgressConsensusReached => "progress_consensus_reached",
             Self::NextUpdateAtChanged { .. } => "next_update_at_changed",
+            Self::PowerReturned { .. } => "power_returned",
         }
     }
 
@@ -307,7 +314,10 @@ impl SystemNoticeCatalog {
         match self {
             Self::GameCreated { user } | Self::PlayerJoined { user } => json!({ "username": user.username }),
             Self::StartSeason { season } => json!({ "season": season }),
-            Self::Solo { power } | Self::ProgressConsented { power } | Self::ProgressConsensusRescinded { power } => {
+            Self::Solo { power }
+            | Self::ProgressConsented { power }
+            | Self::ProgressConsensusRescinded { power }
+            | Self::PowerReturned { power } => {
                 json!({ "power": power.symbol() })
             }
             Self::UnitPlaced { unit } | Self::UnitRemoved { unit } => json!({ "unit": Self::unit_params(unit) }),
@@ -406,6 +416,11 @@ impl SystemNoticeCatalog {
         }
         if let Some(name) = Self::between(context, "", " が即時進行に合意しました。") {
             return Some(Self::ProgressConsented {
+                power: Self::power_by_name(name)?,
+            });
+        }
+        if let Some(name) = Self::between(context, "", " が無政府状態から復帰しました。") {
+            return Some(Self::PowerReturned {
                 power: Self::power_by_name(name)?,
             });
         }
@@ -580,6 +595,7 @@ mod tests {
             SystemNoticeCatalog::NextUpdateAtChanged {
                 next_update_at: "2026-11-27 21:00".to_string(),
             },
+            SystemNoticeCatalog::PowerReturned { power: Power::Italy },
         ]
     }
 
@@ -616,6 +632,11 @@ mod tests {
             territory_replaced.notice_params(),
             json!({ "province": "mun", "old_power": "a", "new_power": "g" })
         );
+
+        let returned = SystemNoticeCatalog::PowerReturned { power: Power::Italy };
+        assert_eq!(returned.notice_type(), "power_returned");
+        assert_eq!(returned.notice_params(), json!({ "power": "i" }));
+        assert_eq!(returned.to_string(), "Italy が無政府状態から復帰しました。");
 
         let solo = SystemNoticeCatalog::Solo { power: Power::France };
         assert_eq!(solo.notice_type(), "solo");

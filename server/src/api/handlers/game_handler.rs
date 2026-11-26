@@ -1788,14 +1788,7 @@ pub(super) fn apply_log_access_control(
 /// 最新フェイズにユニットと補給都市がどちらも存在しない場合に滅亡とみなす。
 /// 補給都市でない陸地の占領は判定に含めない。開戦前夜・感想戦では滅亡とみなさない。
 pub(super) fn is_power_eliminated(power: Power, game: &crate::Game) -> bool {
-    let latest = match game.phases.last() {
-        Some(p) => p,
-        None => return false,
-    };
-    if matches!(latest.kind, crate::PhaseKind::Ready(_) | crate::PhaseKind::Debrief(_)) {
-        return false;
-    }
-    latest.count_units(&power) == 0 && latest.count_supply_centers(&power) == 0
+    game.is_power_eliminated(power)
 }
 
 /// 送信者種別が "user" のメッセージについて、送信ユーザーの UUID を返す
@@ -2437,6 +2430,7 @@ mod tests {
                         power: None,
                         is_accepting_draw: false,
                         progress_consented: false,
+                        is_idle: false,
                         is_owner: false,
                         requested_power,
                     });
@@ -2792,6 +2786,7 @@ mod tests {
                 power: None,
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: true,
                 requested_power: None,
             }],
@@ -2967,6 +2962,7 @@ mod tests {
                 power: None,
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: true,
                 requested_power: None,
             }],
@@ -2987,6 +2983,7 @@ mod tests {
             power: Some(crate::domain::Power::England),
             is_accepting_draw: false,
             progress_consented: false,
+            is_idle: false,
             is_owner: false,
             requested_power: None,
         });
@@ -4557,6 +4554,7 @@ mod tests {
                 power,
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: false,
                 requested_power: None,
             });
@@ -5077,6 +5075,7 @@ mod tests {
             power: Some(Power::England),
             is_accepting_draw: false,
             progress_consented: false,
+            is_idle: false,
             is_owner: false,
             requested_power: Some(Power::Turkey),
         });
@@ -5204,6 +5203,7 @@ mod tests {
                     power: Some(crate::domain::Power::France),
                     is_accepting_draw: false,
                     progress_consented: false,
+                    is_idle: false,
                     is_owner: true,
                     requested_power: None,
                 },
@@ -5212,6 +5212,7 @@ mod tests {
                     power: Some(crate::domain::Power::England),
                     is_accepting_draw: false,
                     progress_consented: false,
+                    is_idle: false,
                     is_owner: false,
                     requested_power: None,
                 },
@@ -6219,6 +6220,7 @@ mod tests {
             power: Some(power),
             is_accepting_draw: false,
             progress_consented: false,
+            is_idle: false,
             is_owner: power == Power::France,
             requested_power: None,
         };

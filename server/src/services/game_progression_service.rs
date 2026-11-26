@@ -34,6 +34,7 @@ type SoloMessage = (uuid::Uuid, super::Power);
 type DrawMessage = uuid::Uuid;
 type ClosedMessage = uuid::Uuid;
 type ProgressedGame = uuid::Uuid;
+type PowerReturnedMessage = (uuid::Uuid, String, super::Power);
 type ProgressGamesResult = (
     Vec<ProgressedGame>,
     Vec<uuid::Uuid>,
@@ -333,6 +334,86 @@ where
         }
 
         Ok(())
+    }
+
+    /// 無政府プレイヤーに無政府化の印を付ける
+    ///
+    /// 進行中卓の担当国プレイヤーのうち、無政府判定されたものに `is_idle` を立てる。
+    /// 印は復帰時に [`Self::restore_returned_player`] で外す。
+    pub(crate) fn mark_idle_players(&self) -> Result<(), GameProgressionError> {
+        let now = Utc::now().naive_utc();
+        let games = self
+            .game_repository
+            .find_all_active()
+            .map_err(GameProgressionError::Repository)?;
+
+        for mut game in games {
+            if game.status != super::GameStatus::InProgress {
+                continue;
+            }
+
+            let threshold = Self::idle_threshold(&game, now);
+            let mut changed = false;
+
+            for player in game.players.iter_mut().filter(|p| p.power.is_some() && !p.is_idle) {
+                let user = self
+                    .user_repository
+                    .find_by_uuid(player.user_uuid)
+                    .map_err(GameProgressionError::Repository)?;
+
+                if Self::is_idle_or_missing(user, threshold) {
+                    player.is_idle = true;
+                    changed = true;
+                }
+            }
+
+            if changed {
+                self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// 無政府状態から復帰したユーザーの印を外す
+    ///
+    /// 指定ユーザーが担当国を持つ進行中卓のうち、`is_idle` が立っているものについて印を外す。
+    /// 復帰メッセージの対象として、滅亡していない国の (game_uuid, turn, power) を返す。
+    /// 即時進行合意（`progress_consented`）は本人の意思で外すものなので、ここでは変えない。
+    pub(crate) fn restore_returned_player(
+        &self,
+        user_uuid: uuid::Uuid,
+    ) -> Result<Vec<PowerReturnedMessage>, GameProgressionError> {
+        let games = self
+            .game_repository
+            .find_all_active()
+            .map_err(GameProgressionError::Repository)?;
+        let mut returned = Vec::new();
+
+        for mut game in games {
+            if game.status != super::GameStatus::InProgress {
+                continue;
+            }
+
+            let Some(player) = game
+                .players
+                .iter_mut()
+                .find(|p| p.user_uuid == user_uuid && p.power.is_some() && p.is_idle)
+            else {
+                continue;
+            };
+
+            player.is_idle = false;
+            let power = player.power.expect("filtered as Some");
+
+            self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
+
+            if !game.is_power_eliminated(power) {
+                returned.push((game.uuid, game.current_turn(), power));
+            }
+        }
+
+        Ok(returned)
     }
 
     /// 指定卓の卓主が現時刻基準で無政府状態かどうかを返す
@@ -728,6 +809,7 @@ mod tests {
                 power: Some(Power::France),
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             }],
@@ -749,6 +831,7 @@ mod tests {
                 power: Some(power),
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: false,
                 requested_power: Some(power),
             });
@@ -766,6 +849,7 @@ mod tests {
                 power: Some(power),
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: false,
                 requested_power: Some(power),
             });
@@ -909,6 +993,7 @@ mod tests {
                 power: Some(Power::France),
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             },
@@ -917,6 +1002,7 @@ mod tests {
                 power: Some(Power::Germany),
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: false,
                 requested_power: Some(Power::Germany),
             },
@@ -1117,6 +1203,139 @@ mod tests {
         assert_eq!(repository.updated_len(), 0);
     }
 
+    /// 無政府判定される最終アクセス時刻を返すヘルパー
+    fn idle_last_access_for(game: &Game) -> chrono::DateTime<chrono::Utc> {
+        chrono::Utc::now() - chrono::Duration::minutes(i64::from(game.regulation.duration_type.idle_limit_minutes() + 1))
+    }
+
+    #[test]
+    fn mark_idle_players_sets_flag_for_idle_player() {
+        let mut game = sample_game(None);
+        game.status = GameStatus::InProgress;
+        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, idle_last_access_for(&game))]);
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        service.mark_idle_players().expect("should succeed");
+
+        let updated = repository.updated_first().expect("game should be updated");
+        assert!(updated.players[0].is_idle);
+        // 即時進行合意には触らない
+        assert!(!updated.players[0].progress_consented);
+    }
+
+    #[test]
+    fn mark_idle_players_does_not_set_flag_for_active_player() {
+        let mut game = sample_game(None);
+        game.status = GameStatus::InProgress;
+        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, chrono::Utc::now())]);
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        service.mark_idle_players().expect("should succeed");
+
+        assert_eq!(repository.updated_len(), 0);
+    }
+
+    #[test]
+    fn mark_idle_players_skips_when_flag_already_set() {
+        let mut game = sample_game(None);
+        game.status = GameStatus::InProgress;
+        game.players[0].is_idle = true;
+        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, idle_last_access_for(&game))]);
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        service.mark_idle_players().expect("should succeed");
+
+        assert_eq!(repository.updated_len(), 0);
+    }
+
+    #[test]
+    fn mark_idle_players_skips_non_in_progress_games() {
+        let game = sample_game(None);
+        assert_eq!(game.status, GameStatus::Preparing);
+        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, idle_last_access_for(&game))]);
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        service.mark_idle_players().expect("should succeed");
+
+        assert_eq!(repository.updated_len(), 0);
+    }
+
+    #[test]
+    fn restore_returned_player_clears_flag_and_returns_power() {
+        let mut game = sample_game(None);
+        game.status = GameStatus::InProgress;
+        game.players[0].is_idle = true;
+        game.players[0].progress_consented = true;
+        let user_uuid = game.players[0].user_uuid;
+        let game_uuid = game.uuid;
+        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, chrono::Utc::now())]);
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        let returned = service.restore_returned_player(user_uuid).expect("should succeed");
+
+        assert_eq!(returned, vec![(game_uuid, "ready".to_string(), Power::France)]);
+        let updated = repository.updated_first().expect("game should be updated");
+        assert!(!updated.players[0].is_idle);
+        // 即時進行合意は本人が明示的に撤回するまで残す
+        assert!(updated.players[0].progress_consented);
+    }
+
+    #[test]
+    fn restore_returned_player_does_nothing_without_flag() {
+        let mut game = sample_game(None);
+        game.status = GameStatus::InProgress;
+        let user_uuid = game.players[0].user_uuid;
+        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, chrono::Utc::now())]);
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        let returned = service.restore_returned_player(user_uuid).expect("should succeed");
+
+        assert!(returned.is_empty());
+        assert_eq!(repository.updated_len(), 0);
+    }
+
+    #[test]
+    fn restore_returned_player_ignores_other_users() {
+        let mut game = sample_full_game(None);
+        game.status = GameStatus::InProgress;
+        game.players[0].is_idle = true;
+        let other_user_uuid = game.players[1].user_uuid;
+        let users = InMemoryUserRepository::new(users_for_full_game(&game, chrono::Utc::now()));
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        let returned = service.restore_returned_player(other_user_uuid).expect("should succeed");
+
+        assert!(returned.is_empty());
+        assert_eq!(repository.updated_len(), 0);
+    }
+
+    #[test]
+    fn restore_returned_player_clears_flag_without_message_for_eliminated_power() {
+        let mut game = sample_game(None);
+        game.status = GameStatus::InProgress;
+        let ready = game.phases[0].clone();
+        // ユニットも占領地も持たないメインフェイズ（フランスは滅亡扱い）
+        game.phases.push(Phase::new_spring_main(ready.year, ready.index));
+        game.players[0].is_idle = true;
+        let user_uuid = game.players[0].user_uuid;
+        let users = InMemoryUserRepository::new(vec![user_for(&game, Power::France, chrono::Utc::now())]);
+        let repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameProgressionService::new(users, repository.clone());
+
+        let returned = service.restore_returned_player(user_uuid).expect("should succeed");
+
+        assert!(returned.is_empty());
+        let updated = repository.updated_first().expect("game should be updated");
+        assert!(!updated.players[0].is_idle);
+    }
+
     #[test]
     fn mark_idle_owners_accepting_draw_skips_non_in_progress_games() {
         let game = sample_game(None);
@@ -1192,6 +1411,7 @@ mod tests {
                 power: None,
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: i == 0, // 最初のプレイヤーが卓主
                 requested_power: Some(p),
             })
@@ -1246,6 +1466,7 @@ mod tests {
                 power: None,
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: i == 0,
                 requested_power: Some(p),
             })
@@ -1275,6 +1496,7 @@ mod tests {
                 power: None,
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: true,
                 requested_power: Some(powers[0]), // Austria
             },
@@ -1283,6 +1505,7 @@ mod tests {
                 power: None,
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: false,
                 requested_power: Some(powers[0]), // Austria（衝突）
             },
@@ -1294,6 +1517,7 @@ mod tests {
                 power: None,
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: false,
                 requested_power: Some(p),
             });
@@ -1330,6 +1554,7 @@ mod tests {
             power: None,
             is_accepting_draw: false,
             progress_consented: false,
+            is_idle: false,
             is_owner: true,
             requested_power: Some(powers[0]), // Austria
         }];
@@ -1341,6 +1566,7 @@ mod tests {
                 power: None,
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: false,
                 requested_power: Some(england),
             });
@@ -1352,6 +1578,7 @@ mod tests {
                 power: None,
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: false,
                 requested_power: Some(p),
             });
@@ -1378,6 +1605,7 @@ mod tests {
             power: None,
             is_accepting_draw: false,
             progress_consented: false,
+            is_idle: false,
             is_owner: true,
             requested_power: None, // 希望なし
         }];
@@ -1387,6 +1615,7 @@ mod tests {
                 power: None,
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: false,
                 requested_power: Some(p),
             });

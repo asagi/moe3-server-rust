@@ -250,6 +250,8 @@ where
 
     // アイドル判定の誤検知を防ぐため、last_access_at の更新を先行して行う
     // 成り代わり時も、最終アクセス時刻はリクエストした本人（管理者）のものを更新する
+    // （無政府状態からの復帰も、リクエストした本人についてだけ扱う）
+    let mut accessing_user_uuid = None;
     if let Some(access_token) = access_token.clone() {
         let user_repository = Arc::clone(&state.user_repository);
         let touch_result = tokio::task::spawn_blocking(move || {
@@ -258,7 +260,7 @@ where
         .await;
 
         match touch_result {
-            Ok(Ok(())) => {}
+            Ok(Ok(user_uuid)) => accessing_user_uuid = user_uuid,
             Ok(Err(error)) => eprintln!("failed to update last_access_at: {}", error),
             Err(error) => eprintln!("failed to execute last_access_at task: {}", error),
         }
@@ -320,7 +322,7 @@ where
     let _game_update_guard = state.game_update_lock.lock().await;
 
     let pre_handler = Arc::clone(&state.pre_handler);
-    let pre_handler_result = tokio::task::spawn_blocking(move || pre_handler.run()).await;
+    let pre_handler_result = tokio::task::spawn_blocking(move || pre_handler.run(accessing_user_uuid)).await;
 
     match pre_handler_result {
         Ok(Ok(())) => {}
@@ -356,12 +358,14 @@ fn touch_last_access_at_by_access_token<U>(
     user_repository: &U,
     access_token: &str,
     last_access_at: DateTime<Utc>,
-) -> Result<(), super::RepositoryError>
+) -> Result<Option<uuid::Uuid>, super::RepositoryError>
 where
     U: UserRepository,
 {
-    let _ = user_repository.update_last_access_at_by_access_token(access_token, last_access_at)?;
-    Ok(())
+    if !user_repository.update_last_access_at_by_access_token(access_token, last_access_at)? {
+        return Ok(None);
+    }
+    Ok(user_repository.find_by_access_token(access_token)?.map(|user| user.uuid))
 }
 
 ///
@@ -586,9 +590,10 @@ mod tests {
     #[test]
     fn touch_last_access_at_by_access_token_updates_known_user() {
         let initial = Utc::now() - chrono::TimeDelta::minutes(10);
+        let user_uuid = uuid::Uuid::now_v7();
         let repository = InMemoryUserRepository::new(vec![UserRecord {
             id: 1,
-            uuid: uuid::Uuid::now_v7(),
+            uuid: user_uuid,
             discord_user_id: "1001".to_string(),
             username: "asagi".to_string(),
             global_name: None,
@@ -600,7 +605,10 @@ mod tests {
         }]);
         let touched_at = Utc::now();
 
-        touch_last_access_at_by_access_token(&repository, "token-1", touched_at).expect("touch should succeed");
+        let touched_user_uuid =
+            touch_last_access_at_by_access_token(&repository, "token-1", touched_at).expect("touch should succeed");
+
+        assert_eq!(touched_user_uuid, Some(user_uuid));
 
         let updated = repository
             .find_by_access_token("token-1")
@@ -625,7 +633,10 @@ mod tests {
             is_admin: false,
         }]);
 
-        touch_last_access_at_by_access_token(&repository, "missing-token", Utc::now()).expect("touch should succeed");
+        let touched_user_uuid =
+            touch_last_access_at_by_access_token(&repository, "missing-token", Utc::now()).expect("touch should succeed");
+
+        assert_eq!(touched_user_uuid, None);
 
         let unchanged = repository
             .find_by_access_token("token-1")
