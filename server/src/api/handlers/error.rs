@@ -303,6 +303,7 @@ impl SetDrawProposalHandlerError {
             Self::Service(SetDrawProposalError::Unauthorized) => "unauthorized",
             Self::Service(SetDrawProposalError::NotFound) => "not_found",
             Self::Service(SetDrawProposalError::Forbidden(_)) => "forbidden",
+            Self::Service(SetDrawProposalError::PhaseConflict) => "phase_conflict",
             Self::Service(SetDrawProposalError::Repository(_)) => "repository_error",
         }
     }
@@ -330,6 +331,9 @@ impl SetDrawProposalHandlerError {
                 "access token is required".to_string()
             }
             Self::InvalidRequest(SetDrawProposalRequestValidationError::InvalidGameUuid) => "game_uuid is invalid".to_string(),
+            Self::InvalidRequest(SetDrawProposalRequestValidationError::InvalidSeason) => {
+                "season must be in the format like '1901s' or '1901f'".to_string()
+            }
             Self::Service(SetDrawProposalError::Forbidden(message)) => message.clone(),
             Self::Service(error) => error.to_string(),
         }

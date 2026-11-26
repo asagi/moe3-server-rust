@@ -91,6 +91,8 @@ pub(crate) struct SetDrawProposalCommand {
     pub access_token: String,
     pub game_uuid: Uuid,
     pub draw_proposal: bool,
+    /// 画面が想定している最新シーズン（任意）。指定があって最新フェイズと異なる場合は PhaseConflict
+    pub season: Option<String>,
 }
 
 ///
@@ -512,6 +514,12 @@ where
             return Err(SetDrawProposalError::Forbidden(
                 "draw proposal can only be set during a main phase".to_string(),
             ));
+        }
+
+        if let Some(season) = &command.season
+            && game.current_turn() != season.to_ascii_lowercase()
+        {
+            return Err(SetDrawProposalError::PhaseConflict);
         }
 
         // 状態が既に同じなら変更なしで OK を返す
@@ -2446,6 +2454,7 @@ mod tests {
                 access_token: "".to_string(),
                 game_uuid,
                 draw_proposal: true,
+                season: None,
             })
             .expect_err("should reject empty token");
 
@@ -2466,6 +2475,7 @@ mod tests {
                 access_token: "unknown-token".to_string(),
                 game_uuid,
                 draw_proposal: true,
+                season: None,
             })
             .expect_err("should reject unknown token");
 
@@ -2484,6 +2494,7 @@ mod tests {
                 access_token: "token-owner".to_string(),
                 game_uuid: Uuid::now_v7(),
                 draw_proposal: true,
+                season: None,
             })
             .expect_err("should reject when game not found");
 
@@ -2519,6 +2530,7 @@ mod tests {
                 access_token: "token-other".to_string(),
                 game_uuid,
                 draw_proposal: true,
+                season: None,
             })
             .expect_err("should reject non-owner");
 
@@ -2540,6 +2552,7 @@ mod tests {
                 access_token: "token-owner".to_string(),
                 game_uuid,
                 draw_proposal: true,
+                season: None,
             })
             .expect_err("should reject when not main phase");
 
@@ -2562,6 +2575,7 @@ mod tests {
                 access_token: "token-owner".to_string(),
                 game_uuid,
                 draw_proposal: true,
+                season: None,
             })
             .expect("should succeed");
 
@@ -2584,6 +2598,7 @@ mod tests {
                 access_token: "token-owner".to_string(),
                 game_uuid,
                 draw_proposal: true,
+                season: None,
             })
             .expect("should succeed");
 
@@ -2597,6 +2612,50 @@ mod tests {
             updated.players.iter().find(|p| p.is_owner).unwrap().is_accepting_draw,
             "persisted game should have is_accepting_draw=true"
         );
+    }
+
+    #[test]
+    fn set_draw_proposal_rejects_stale_season() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository.clone());
+
+        let error = service
+            .set_draw_proposal(SetDrawProposalCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                draw_proposal: true,
+                season: Some("1900f".to_string()),
+            })
+            .expect_err("should reject stale season");
+
+        assert!(matches!(error, SetDrawProposalError::PhaseConflict));
+        assert!(game_repository.updated_first().is_none(), "update should not be called");
+    }
+
+    #[test]
+    fn set_draw_proposal_accepts_current_season_case_insensitively() {
+        let owner_uuid = Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record(owner_uuid)]);
+        let game = sample_in_progress_game(owner_uuid);
+        let game_uuid = game.uuid;
+        let season = game.current_turn().to_ascii_uppercase();
+        let game_repository = InMemoryGameRepository::new(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let result = service
+            .set_draw_proposal(SetDrawProposalCommand {
+                access_token: "token-owner".to_string(),
+                game_uuid,
+                draw_proposal: true,
+                season: Some(season),
+            })
+            .expect("should succeed with current season");
+
+        assert!(result.changed);
     }
 
     #[test]

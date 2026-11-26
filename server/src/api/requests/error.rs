@@ -59,6 +59,7 @@ pub(crate) enum SetDrawProposalRequestValidationError {
     InvalidAuthorizationScheme,
     MissingAccessToken,
     InvalidGameUuid,
+    InvalidSeason,
 }
 
 ///

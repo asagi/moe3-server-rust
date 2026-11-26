@@ -28,6 +28,7 @@ pub(crate) struct GetGameResponseGame {
     pub seasons: Vec<String>,
     pub phase_kind: String,
     pub next_update_at: Option<String>,
+    pub draw_proposal: bool,
     pub is_private: bool,
     pub is_owner: bool,
     pub regulation: GameListItemRegulation,

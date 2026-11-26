@@ -116,6 +116,7 @@ impl JoinGameRequest {
 #[derive(Debug, Deserialize)]
 pub(crate) struct SetDrawProposalRequestBody {
     pub draw_proposal: bool,
+    pub season: Option<String>,
 }
 
 ///
@@ -126,6 +127,7 @@ pub(crate) struct SetDrawProposalRequest {
     pub authorization: String,
     pub game_uuid: uuid::Uuid,
     pub draw_proposal: bool,
+    pub season: Option<String>,
 }
 
 /// 和平終了フラグ設定リクエストの構造体の実装
@@ -142,6 +144,12 @@ impl SetDrawProposalRequest {
         };
         if token.is_empty() {
             return Err(SetDrawProposalRequestValidationError::MissingAccessToken);
+        }
+
+        if let Some(season) = &self.season
+            && !is_valid_season(season)
+        {
+            return Err(SetDrawProposalRequestValidationError::InvalidSeason);
         }
 
         Ok(())
