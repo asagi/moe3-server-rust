@@ -161,6 +161,7 @@ pub(crate) enum SetDrawProposalError {
     Unauthorized,
     NotFound,
     Forbidden(String),
+    PhaseConflict,
     Repository(RepositoryError),
 }
 
@@ -174,6 +175,7 @@ impl fmt::Display for SetDrawProposalError {
             Self::Unauthorized => write!(f, "unauthorized"),
             Self::NotFound => write!(f, "game not found"),
             Self::Forbidden(message) => write!(f, "forbidden: {}", message),
+            Self::PhaseConflict => write!(f, "phase has changed since this request was issued"),
             Self::Repository(error) => write!(f, "repository error: {}", error),
         }
     }

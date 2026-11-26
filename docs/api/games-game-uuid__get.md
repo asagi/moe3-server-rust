@@ -32,6 +32,7 @@
     "seasons": ["ready", "1901s", "1901f", "1902s"],
     "phase_kind": "main",
     "next_update_at": "2026-05-10 20:00",
+    "draw_proposal": false,
     "is_private": false,
     "is_owner": false,
     "regulation": {
@@ -61,20 +62,21 @@
 
 ### フィールド詳細
 
-| フィールド       | 型               | 説明                                                            |
-| ---------------- | ---------------- | --------------------------------------------------------------- |
-| `game_uuid`      | `string`         | 卓の UUID                                                       |
-| `game_number`    | `number \| null` | 卓番号（採番前は `null`）                                       |
-| `status`         | `string`         | 卓のステータス（下表参照）                                      |
-| `seasons`        | `string[]`       | フェイズ履歴から生成されたシーズン配列（下表参照）              |
-| `phase_kind`     | `string`         | 最新フェイズの種別（下表参照）                                  |
-| `next_update_at` | `string \| null` | 次回更新日時（JST、`"YYYY-MM-DD HH:mm"` 形式）。未設定は `null` |
-| `is_private`     | `boolean`        | キーワード設定済みの鍵卓かどうか                                |
-| `is_owner`       | `boolean`        | リクエスト者がその卓の卓主か（未認証時は `false`）              |
-| `regulation`     | `object`         | 卓のレギュレーション（下表参照）                                |
-| `start_at`       | `string`         | 開始日時（JST、`"YYYY-MM-DD HH:mm"` 形式。分は常に `00`）       |
-| `players`        | `object[]`       | 卓主を含む全参加者（参加申請の順）。下表参照                    |
-| `is_joined`      | `boolean`        | リクエスト者がその卓に参加（申請）済みか（未認証時は `false`）  |
+| フィールド       | 型               | 説明                                                                                                                                |
+| ---------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `game_uuid`      | `string`         | 卓の UUID                                                                                                                           |
+| `game_number`    | `number \| null` | 卓番号（採番前は `null`）                                                                                                           |
+| `status`         | `string`         | 卓のステータス（下表参照）                                                                                                          |
+| `seasons`        | `string[]`       | フェイズ履歴から生成されたシーズン配列（下表参照）                                                                                  |
+| `phase_kind`     | `string`         | 最新フェイズの種別（下表参照）                                                                                                      |
+| `next_update_at` | `string \| null` | 次回更新日時（JST、`"YYYY-MM-DD HH:mm"` 形式）。未設定は `null`                                                                     |
+| `draw_proposal`  | `boolean`        | 卓主が和平終了フラグ（講和）を宣言しているか。卓主の無政府化で自動的に立った場合も `true`。卓主がいない・フェイズがない卓は `false` |
+| `is_private`     | `boolean`        | キーワード設定済みの鍵卓かどうか                                                                                                    |
+| `is_owner`       | `boolean`        | リクエスト者がその卓の卓主か（未認証時は `false`）                                                                                  |
+| `regulation`     | `object`         | 卓のレギュレーション（下表参照）                                                                                                    |
+| `start_at`       | `string`         | 開始日時（JST、`"YYYY-MM-DD HH:mm"` 形式。分は常に `00`）                                                                           |
+| `players`        | `object[]`       | 卓主を含む全参加者（参加申請の順）。下表参照                                                                                        |
+| `is_joined`      | `boolean`        | リクエスト者がその卓に参加（申請）済みか（未認証時は `false`）                                                                      |
 
 #### `regulation` の値
 

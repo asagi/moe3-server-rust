@@ -472,6 +472,7 @@ where
         authorization,
         game_uuid,
         draw_proposal: body.draw_proposal,
+        season: body.season,
     };
 
     let state_clone = state.clone();
@@ -491,6 +492,7 @@ where
                     SetDrawProposalHandlerError::Service(SetDrawProposalError::Unauthorized) => StatusCode::UNAUTHORIZED,
                     SetDrawProposalHandlerError::Service(SetDrawProposalError::NotFound) => StatusCode::NOT_FOUND,
                     SetDrawProposalHandlerError::Service(SetDrawProposalError::Forbidden(_)) => StatusCode::FORBIDDEN,
+                    SetDrawProposalHandlerError::Service(SetDrawProposalError::PhaseConflict) => StatusCode::CONFLICT,
                     _ => StatusCode::INTERNAL_SERVER_ERROR,
                 };
                 (status, Json(error.to_api_error_response())).into_response()
@@ -524,6 +526,7 @@ where
             access_token,
             game_uuid: request.game_uuid,
             draw_proposal: request.draw_proposal,
+            season: request.season.as_deref().map(str::to_lowercase),
         })
         .map_err(SetDrawProposalHandlerError::Service)?;
 
@@ -1538,6 +1541,9 @@ where
     let seasons = build_seasons(&game);
     let phase_kind = phase_kind_str(&game);
 
+    // 和平終了フラグ（講和の宣言）は卓主の is_accepting_draw。卓主がいない・フェイズがない卓は false
+    let draw_proposal = !game.phases.is_empty() && game.players.iter().any(|player| player.is_owner && player.is_accepting_draw);
+
     let jst = chrono::FixedOffset::east_opt(9 * 60 * 60).expect("JST offset");
     let next_update_at = game.next_update_at.map(|naive_utc| {
         chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(naive_utc, chrono::Utc)
@@ -1554,6 +1560,7 @@ where
             seasons,
             phase_kind: phase_kind.to_string(),
             next_update_at,
+            draw_proposal,
             is_private: game.keyword.is_some(),
             is_owner,
             regulation: GameListItemRegulation {
@@ -3014,6 +3021,7 @@ mod tests {
                 authorization: "".to_string(),
                 game_uuid: uuid::Uuid::now_v7(),
                 draw_proposal: true,
+                season: None,
             },
         )
         .expect_err("should fail without authorization");
@@ -3064,6 +3072,7 @@ mod tests {
                 authorization: "Bearer token-other".to_string(),
                 game_uuid,
                 draw_proposal: true,
+                season: None,
             },
         )
         .expect_err("should fail for non-owner");
@@ -3100,6 +3109,7 @@ mod tests {
                 authorization: "Bearer token-owner".to_string(),
                 game_uuid,
                 draw_proposal: false,
+                season: None,
             },
         )
         .expect("should succeed");
@@ -3136,12 +3146,153 @@ mod tests {
                 authorization: "Bearer token-owner".to_string(),
                 game_uuid,
                 draw_proposal: true,
+                season: None,
             },
         )
         .expect("should succeed");
 
         assert_eq!(response.game_uuid, game_uuid);
         assert!(response.draw_proposal);
+    }
+
+    fn owner_user_record_for_draw_proposal_tests(owner_uuid: uuid::Uuid) -> UserRecord {
+        UserRecord {
+            id: 1,
+            uuid: owner_uuid,
+            discord_user_id: "discord-owner".to_string(),
+            username: "owner".to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: "token-owner".to_string(),
+            last_access_at: Utc::now(),
+            is_admin: false,
+        }
+    }
+
+    fn draw_proposal_request(game_uuid: uuid::Uuid, draw_proposal: bool, season: Option<&str>) -> SetDrawProposalRequest {
+        SetDrawProposalRequest {
+            authorization: "Bearer token-owner".to_string(),
+            game_uuid,
+            draw_proposal,
+            season: season.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn handle_get_game_draw_proposal_follows_propose_and_rescind() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record_for_draw_proposal_tests(owner_uuid)]);
+        let game = sample_in_progress_game_for_handler(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let before = handle_get_game(&service, game_uuid, None).expect("get should succeed");
+        assert!(!before.game.draw_proposal);
+
+        handle_set_draw_proposal(&service, &message_repository, draw_proposal_request(game_uuid, true, None))
+            .expect("propose should succeed");
+        let proposed = handle_get_game(&service, game_uuid, None).expect("get should succeed");
+        assert!(proposed.game.draw_proposal);
+
+        handle_set_draw_proposal(&service, &message_repository, draw_proposal_request(game_uuid, false, None))
+            .expect("rescind should succeed");
+        let rescinded = handle_get_game(&service, game_uuid, None).expect("get should succeed");
+        assert!(!rescinded.game.draw_proposal);
+    }
+
+    #[test]
+    fn handle_get_game_draw_proposal_true_when_owner_marked_accepting_draw_by_idle() {
+        // 卓主の無政府化（mark_owner_accepting_draw_if_idle）で立ったフラグも同じ is_accepting_draw に保存される
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record_for_draw_proposal_tests(owner_uuid)]);
+        let mut game = sample_in_progress_game_for_handler(owner_uuid);
+        game.players.iter_mut().find(|p| p.is_owner).unwrap().is_accepting_draw = true;
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let response = handle_get_game(&service, game_uuid, None).expect("get should succeed");
+
+        assert!(response.game.draw_proposal);
+    }
+
+    #[test]
+    fn handle_get_game_draw_proposal_false_when_no_phases() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record_for_draw_proposal_tests(owner_uuid)]);
+        let mut game = sample_in_progress_game_for_handler(owner_uuid);
+        game.players.iter_mut().find(|p| p.is_owner).unwrap().is_accepting_draw = true;
+        game.phases.clear();
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+
+        let response = handle_get_game(&service, game_uuid, None).expect("get should succeed");
+
+        assert!(!response.game.draw_proposal);
+    }
+
+    #[test]
+    fn handle_set_draw_proposal_rejects_stale_season_with_phase_conflict() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record_for_draw_proposal_tests(owner_uuid)]);
+        let game = sample_in_progress_game_for_handler(owner_uuid);
+        let game_uuid = game.uuid;
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_draw_proposal(
+            &service,
+            &message_repository,
+            draw_proposal_request(game_uuid, true, Some("1900f")),
+        )
+        .expect_err("stale season should be rejected");
+
+        assert_eq!(error.code(), "phase_conflict");
+        let response = handle_get_game(&service, game_uuid, None).expect("get should succeed");
+        assert!(!response.game.draw_proposal, "flag must not be set on conflict");
+    }
+
+    #[test]
+    fn handle_set_draw_proposal_accepts_current_season() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let user_repository = InMemoryUserRepository::new(vec![owner_user_record_for_draw_proposal_tests(owner_uuid)]);
+        let game = sample_in_progress_game_for_handler(owner_uuid);
+        let game_uuid = game.uuid;
+        let season = game.current_turn();
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let response = handle_set_draw_proposal(
+            &service,
+            &message_repository,
+            draw_proposal_request(game_uuid, true, Some(&season)),
+        )
+        .expect("current season should be accepted");
+
+        assert!(response.draw_proposal);
+    }
+
+    #[test]
+    fn handle_set_draw_proposal_rejects_invalid_season_format() {
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new();
+        let service = GameService::new(user_repository, game_repository);
+        let message_repository = new_test_message_repository();
+
+        let error = handle_set_draw_proposal(
+            &service,
+            &message_repository,
+            draw_proposal_request(uuid::Uuid::now_v7(), true, Some("spring")),
+        )
+        .expect_err("invalid season should be rejected");
+
+        assert_eq!(error.code(), "invalid_request");
     }
 
     fn sample_in_progress_game_with_next_update(owner_uuid: uuid::Uuid) -> Game {

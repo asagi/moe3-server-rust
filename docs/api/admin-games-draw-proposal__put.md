@@ -31,6 +31,10 @@
 
 - `draw_proposal` (`boolean`)
 
+### 任意パラメータ
+
+- `season` (`string`): 画面が想定している最新シーズン（例: `"1901s"`, `"1903f"`）。指定した場合、最新フェイズのシーズンと異なれば `409 phase_conflict`。省略時はシーズンを確認しない
+
 ### 値定義
 
 #### `draw_proposal`
@@ -44,7 +48,8 @@
 
 ```json
 {
-  "draw_proposal": true
+  "draw_proposal": true,
+  "season": "1901s"
 }
 ```
 
@@ -76,7 +81,7 @@
 
 ```json
 {
-  "code": "invalid_request | unauthorized | not_found | forbidden | repository_error",
+  "code": "invalid_request | unauthorized | not_found | forbidden | phase_conflict | repository_error",
   "message": "人間向け説明"
 }
 ```
@@ -99,6 +104,12 @@
 | -------------------------------- | ------------------------ |
 | `game_uuid` が有効な UUID でない | `"game_uuid is invalid"` |
 
+#### リクエストボディ検証
+
+| 条件                  | `message`                                                |
+| --------------------- | -------------------------------------------------------- |
+| `season` の形式が不正 | `"season must be in the format like '1901s' or '1901f'"` |
+
 ### `401 Unauthorized` — `code: unauthorized`
 
 | 条件                                                        | `message`        |
@@ -118,6 +129,12 @@
 | ------------------------------ | ------------------ |
 | 指定した UUID の卓が存在しない | `"game not found"` |
 
+### `409 Conflict` — `code: phase_conflict`
+
+| 条件                                                    | `message`                                           |
+| ------------------------------------------------------- | --------------------------------------------------- |
+| `season` を指定し、それが最新フェイズのシーズンと異なる | `"phase has changed since this request was issued"` |
+
 ### `500 Internal Server Error` — `code: repository_error`
 
 | 条件             | `message`                 |
@@ -134,6 +151,8 @@
 | 宣言（`true`）  | `draw_proposed`  | 卓主によって講和が宣言されました。 |
 | 撤回（`false`） | `draw_rescinded` | 卓主によって講和が撤回されました。 |
 
+- シーズン確認: `season` 指定時は、卓主・メインフェイズの確認のあとに最新シーズンと照合する（大文字小文字は区別しない）
+- 現在の状態は `GET /games/:game_uuid` の `game.draw_proposal` で取得できる。変更はシステムメッセージ（`draw_proposed` / `draw_rescinded`）として SSE で配信される
 - 排他制御: サーバー全体の `game_update_lock` を取得した上で実行される
 
 ## curl
@@ -144,7 +163,7 @@
 curl -X PUT '{base_path}/admin/games/{game_uuid}/draw-proposal' \
   -H 'Authorization: Bearer token-1' \
   -H 'Content-Type: application/json' \
-  -d '{"draw_proposal":true}'
+  -d '{"draw_proposal":true,"season":"1901s"}'
 ```
 
 ### 講和撤回
