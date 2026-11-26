@@ -38,7 +38,7 @@
     {
       "power": "e",
       "kind": "a",
-      "location": "Lon"
+      "location": "lon"
     }
   ],
   "main_phase": {
@@ -47,36 +47,36 @@
       {
         "power": "e",
         "unit_kind": "a",
-        "location": "Lon",
+        "location": "lon",
         "order_kind": "hold",
         "status": "success"
       },
       {
         "power": "f",
         "unit_kind": "a",
-        "location": "Par",
+        "location": "par",
         "order_kind": "move",
         "status": "success",
-        "dest": "Bur",
+        "dest": "bur",
         "via_convoy": false
       },
       {
         "power": "g",
         "unit_kind": "a",
-        "location": "Mun",
+        "location": "mun",
         "order_kind": "support",
         "status": "success",
-        "target_location": "Boh",
-        "target_dest": "Tyr"
+        "target_location": "boh",
+        "target_dest": "tyr"
       },
       {
         "power": "e",
         "unit_kind": "f",
-        "location": "Nth",
+        "location": "nth",
         "order_kind": "convoy",
         "status": "success",
-        "target_location": "Lon",
-        "target_dest": "Hol"
+        "target_location": "lon",
+        "target_dest": "hol"
       }
     ]
   },
@@ -100,7 +100,7 @@
 | ----------- | -------- | ---------------------------------- |
 | `power`     | `string` | 国コード（1文字小文字）            |
 | `kind`      | `string` | ユニット種別（`"a"` 陸軍 / `"f"` 海軍） |
-| `location`  | `string` | 位置（省略形、例: `"Lon"` / `"Nth"`） |
+| `location`  | `string` | 位置（地域コード、例: `"lon"` / `"nth"` / `"stp_sc"`） |
 
 ### `PhaseResult` フィールド
 
@@ -126,6 +126,8 @@
 | `via_convoy`      | `bool \| 省略`   | 海路移動フラグ（`"move"` のみ）                                               |
 
 省略フィールドは、不要な場合はレスポンスに含まれない（`null` ではなくフィールドごと省略）。
+
+- 地域コード（`location` / `dest` / `target_location` / `target_dest`）は [`GET /board`](./games-game-uuid-board__get.md) と同じ形（小文字。海岸が複数ある地域の海軍は `spa_nc` / `stp_sc` / `bul_ec` などの海岸付きコード）。
 
 #### `order_kind` の値
 
