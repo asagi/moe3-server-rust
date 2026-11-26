@@ -6,6 +6,7 @@ mod auth_handler;
 mod error;
 mod game_handler;
 mod message_handler;
+mod order_handler;
 
 // ============================================================================
 // exports
@@ -47,6 +48,8 @@ pub(crate) use game_handler::put_admin_games_units;
 pub(crate) use game_handler::put_games_progress_consensus;
 pub(crate) use message_handler::get_games_messages_stream;
 pub(crate) use message_handler::post_games_messages;
+pub(crate) use order_handler::get_games_orders;
+pub(crate) use order_handler::put_games_orders;
 
 // ============================================================================
 // re-exports
@@ -75,6 +78,7 @@ pub(crate) use super::DiscordClientError;
 pub(crate) use super::DiscordIdentityProvider;
 pub(crate) use super::DurationType;
 pub(crate) use super::FaceType;
+pub(crate) use super::GameBoardPowerResponse;
 pub(crate) use super::GameBoardTerritoryResponse;
 pub(crate) use super::GameBoardUnitResponse;
 pub(crate) use super::GameListItem;
@@ -88,6 +92,7 @@ pub(crate) use super::GameResultUnitResponse;
 pub(crate) use super::GameService;
 pub(crate) use super::GameStatus;
 pub(crate) use super::GameStatusFilter;
+pub(crate) use super::GetGameBoardQueryParams;
 pub(crate) use super::GetGameBoardResponse;
 pub(crate) use super::GetGameError;
 pub(crate) use super::GetGameLogsQueryParams;

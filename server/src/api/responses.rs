@@ -16,6 +16,7 @@ pub(crate) use auth_response::AuthResetTokenResponse;
 pub(crate) use auth_response::GetMeResponse;
 pub(crate) use error::ApiErrorResponse;
 pub(crate) use game_response::CreateGameResponse;
+pub(crate) use game_response::GameBoardPowerResponse;
 pub(crate) use game_response::GameBoardTerritoryResponse;
 pub(crate) use game_response::GameBoardUnitResponse;
 pub(crate) use game_response::GameListItem;

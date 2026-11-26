@@ -710,7 +710,7 @@ where
 
     let unit_body = result.new_unit.map(|u| UnitResponseBody {
         power: u.power.symbol().to_string(),
-        kind: u.symbol().to_string(),
+        kind: u.kind_code().to_string(),
     });
 
     Ok(SetUnitResponse {
@@ -1587,14 +1587,7 @@ pub(super) fn optional_bearer_token(authorization: Option<&str>) -> &str {
 fn build_seasons(game: &crate::Game) -> Vec<String> {
     let mut seasons: Vec<String> = Vec::new();
     for phase in &game.phases {
-        let turn = match &phase.kind {
-            crate::PhaseKind::Ready(_) => "ready".to_string(),
-            crate::PhaseKind::SpringMain(_) | crate::PhaseKind::SpringRetreat(_) => format!("{}s", phase.year),
-            crate::PhaseKind::FallMain(_) | crate::PhaseKind::FallRetreat(_) | crate::PhaseKind::Adjustment(_) => {
-                format!("{}f", phase.year)
-            }
-            crate::PhaseKind::Debrief(_) => "debrief".to_string(),
-        };
+        let turn = turn_of_phase(phase);
         if seasons.last() != Some(&turn) {
             seasons.push(turn);
         }
@@ -1901,6 +1894,7 @@ fn utc_rfc3339_to_jst_string(utc_rfc3339: &str) -> String {
 pub(crate) async fn get_games_board<U, G, D>(
     State(state): State<AppState<U, G, D>>,
     Path(game_uuid_str): Path<String>,
+    Query(query): Query<super::GetGameBoardQueryParams>,
 ) -> impl IntoResponse
 where
     U: UserRepository + Send + Sync + 'static,
@@ -1922,14 +1916,17 @@ where
     };
 
     let game_service = std::sync::Arc::clone(&state.game_service);
-    let result = tokio::task::spawn_blocking(move || handle_get_games_board(&game_service, game_uuid)).await;
+    let result =
+        tokio::task::spawn_blocking(move || handle_get_games_board(&game_service, game_uuid, query.season.as_deref())).await;
 
     match result {
         Ok(Ok(response)) => (StatusCode::OK, axum::Json(response)).into_response(),
         Ok(Err(error)) => {
             let status = match &error {
-                super::GetGameHandlerError::Service(super::GetGameError::NotFound) => StatusCode::NOT_FOUND,
-                super::GetGameHandlerError::Service(super::GetGameError::Repository(_)) => StatusCode::SERVICE_UNAVAILABLE,
+                super::GetGameResultHandlerError::GameNotFound | super::GetGameResultHandlerError::SeasonNotFound => {
+                    StatusCode::NOT_FOUND
+                }
+                super::GetGameResultHandlerError::Repository(_) => StatusCode::SERVICE_UNAVAILABLE,
             };
             (status, axum::Json(error.to_api_error_response())).into_response()
         }
@@ -1949,46 +1946,97 @@ where
 
 /// 盤面取得の純粋関数（テスト可能）
 ///
-/// 最新フェイズのユニット配置と占領情報を返す。命令は含めない。
+/// シーズン指定がなければ最新フェイズ、指定があればそのシーズンの最後のフェイズについて、
+/// ユニット配置・占領情報・国ごとの状況を返す。命令は含めない。
 pub(crate) fn handle_get_games_board<U, G>(
     service: &GameService<U, G>,
     game_uuid: Uuid,
-) -> Result<super::GetGameBoardResponse, super::GetGameHandlerError>
+    season: Option<&str>,
+) -> Result<super::GetGameBoardResponse, super::GetGameResultHandlerError>
 where
     U: UserRepository,
     G: GameRepository,
 {
-    let game = service.get_game(game_uuid).map_err(super::GetGameHandlerError::Service)?;
+    let game = service.get_game(game_uuid).map_err(|e| match e {
+        super::GetGameError::NotFound => super::GetGameResultHandlerError::GameNotFound,
+        super::GetGameError::Repository(r) => super::GetGameResultHandlerError::Repository(r),
+    })?;
 
-    let (units, territories) = match game.phases.last() {
-        Some(phase) => (
+    let season = season.map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty());
+    let phase = match &season {
+        None => game.phases.last(),
+        Some(season) => {
+            let phase = game.phases.iter().rev().find(|p| &turn_of_phase(p) == season);
+            if phase.is_none() {
+                return Err(super::GetGameResultHandlerError::SeasonNotFound);
+            }
             phase
-                .units
-                .iter()
-                .map(|u| super::GameBoardUnitResponse {
-                    power: u.power.symbol().to_string(),
-                    kind: u.symbol().to_string(),
-                    location: u.location.code_with_coast().to_string(),
-                })
-                .collect(),
-            phase
-                .territories
-                .iter()
-                .map(|t| super::GameBoardTerritoryResponse {
-                    power: t.power.symbol().to_string(),
-                    code: t.code().to_string(),
-                })
-                .collect(),
-        ),
-        None => (Vec::new(), Vec::new()),
+        }
     };
 
+    let Some(phase) = phase else {
+        return Ok(super::GetGameBoardResponse {
+            season: game.current_turn(),
+            phase_kind: phase_kind_str(&game).to_string(),
+            units: Vec::new(),
+            territories: Vec::new(),
+            powers: Vec::new(),
+        });
+    };
+    let is_latest = game.phases.last().map(|p| p.index) == Some(phase.index);
+
+    let powers = service
+        .power_statuses(&game, phase, is_latest)
+        .map_err(super::GetGameResultHandlerError::Repository)?
+        .into_iter()
+        .map(|s| super::GameBoardPowerResponse {
+            power: s.power.symbol().to_string(),
+            supply_centers: s.supply_centers,
+            armies: s.armies,
+            fleets: s.fleets,
+            needs_action: s.needs_action,
+            progress_consented: s.progress_consented,
+            is_idle: s.is_idle,
+            is_eliminated: s.is_eliminated,
+        })
+        .collect();
+
     Ok(super::GetGameBoardResponse {
-        season: game.current_turn(),
-        phase_kind: phase_kind_str(&game).to_string(),
-        units,
-        territories,
+        season: turn_of_phase(phase),
+        phase_kind: crate::services::phase_kind_of(phase).to_string(),
+        units: phase
+            .units
+            .iter()
+            .map(|u| super::GameBoardUnitResponse {
+                power: u.power.symbol().to_string(),
+                kind: u.kind_code().to_string(),
+                location: u.location.code_with_coast().to_string(),
+                dislodged: u.dislodged,
+                dislodged_from: u.dislodged_from.map(|p| p.code_with_coast().to_string()),
+            })
+            .collect(),
+        territories: phase
+            .territories
+            .iter()
+            .map(|t| super::GameBoardTerritoryResponse {
+                power: t.power.symbol().to_string(),
+                code: t.code().to_string(),
+            })
+            .collect(),
+        powers,
     })
+}
+
+/// フェイズのシーズン文字列を返す（例: ready, 1901s, 1901f, debrief）
+fn turn_of_phase(phase: &crate::Phase) -> String {
+    match &phase.kind {
+        crate::PhaseKind::Ready(_) => "ready".to_string(),
+        crate::PhaseKind::SpringMain(_) | crate::PhaseKind::SpringRetreat(_) => format!("{}s", phase.year),
+        crate::PhaseKind::FallMain(_) | crate::PhaseKind::FallRetreat(_) | crate::PhaseKind::Adjustment(_) => {
+            format!("{}f", phase.year)
+        }
+        crate::PhaseKind::Debrief(_) => "debrief".to_string(),
+    }
 }
 
 ///
@@ -2101,6 +2149,10 @@ where
     };
 
     let build_orders = |phase: &crate::Phase| -> Vec<super::GameResultOrderResponse> {
+        // 進行中のフェイズの命令は公開しない（自分の命令は命令取得 API で取る）
+        if Some(phase.index) == last_phase_index {
+            return Vec::new();
+        }
         phase
             .orders
             .iter()
@@ -2139,7 +2191,7 @@ where
                 };
                 super::GameResultOrderResponse {
                     power: o.power.symbol().to_string(),
-                    unit_kind: o.unit.symbol().to_string(),
+                    unit_kind: o.unit.kind_code().to_string(),
                     location: o.unit.location.short_name().to_string(),
                     order_kind: order_kind.to_string(),
                     status: status.to_string(),
@@ -2179,7 +2231,7 @@ where
                 .iter()
                 .map(|u| super::GameResultUnitResponse {
                     power: u.power.symbol().to_string(),
-                    kind: u.symbol().to_string(),
+                    kind: u.kind_code().to_string(),
                     location: u.location.short_name().to_string(),
                 })
                 .collect()
@@ -2268,8 +2320,13 @@ mod tests {
             Ok(None)
         }
 
-        fn find_by_username(&self, _username: &str) -> Result<Option<UserRecord>, RepositoryError> {
-            Ok(None)
+        fn find_by_username(&self, username: &str) -> Result<Option<UserRecord>, RepositoryError> {
+            Ok(self
+                .rows_by_token
+                .borrow()
+                .values()
+                .find(|row| row.username == username)
+                .cloned())
         }
 
         fn find_by_access_token(&self, access_token: &str) -> Result<Option<UserRecord>, RepositoryError> {
@@ -5524,7 +5581,7 @@ mod tests {
             InMemoryGameRepository::new_with_games(vec![game]),
         );
 
-        let response = handle_get_games_board(&service, game_uuid).expect("should succeed");
+        let response = handle_get_games_board(&service, game_uuid, None).expect("should succeed");
 
         assert_eq!(response.season, "ready");
         assert_eq!(response.phase_kind, "ready");
@@ -5538,13 +5595,17 @@ mod tests {
         }));
         assert!(response.units.contains(&GameBoardUnitResponse {
             power: "f".to_string(),
-            kind: "A".to_string(),
+            kind: "a".to_string(),
             location: "par".to_string(),
+            dislodged: false,
+            dislodged_from: None,
         }));
         assert!(response.units.contains(&GameBoardUnitResponse {
             power: "r".to_string(),
-            kind: "F".to_string(),
+            kind: "f".to_string(),
             location: "stp_sc".to_string(),
+            dislodged: false,
+            dislodged_from: None,
         }));
         assert!(response.territories.contains(&GameBoardTerritoryResponse {
             power: "f".to_string(),
@@ -5571,7 +5632,7 @@ mod tests {
             InMemoryGameRepository::new_with_games(vec![game]),
         );
 
-        let response = handle_get_games_board(&service, game_uuid).expect("should succeed");
+        let response = handle_get_games_board(&service, game_uuid, None).expect("should succeed");
 
         assert_eq!(response.season, "1901s");
         assert_eq!(response.phase_kind, "main");
@@ -5579,8 +5640,10 @@ mod tests {
             response.units,
             vec![GameBoardUnitResponse {
                 power: "f".to_string(),
-                kind: "F".to_string(),
+                kind: "f".to_string(),
                 location: "spa_nc".to_string(),
+                dislodged: false,
+                dislodged_from: None,
             }]
         );
         assert_eq!(
@@ -5604,7 +5667,7 @@ mod tests {
     fn handle_get_games_board_returns_not_found_for_unknown_game() {
         let service = GameService::new(InMemoryUserRepository::new(vec![]), InMemoryGameRepository::new());
 
-        let error = handle_get_games_board(&service, uuid::Uuid::now_v7()).expect_err("should fail");
+        let error = handle_get_games_board(&service, uuid::Uuid::now_v7(), None).expect_err("should fail");
 
         assert_eq!(error.code(), "not_found");
     }
@@ -5739,8 +5802,8 @@ mod tests {
         assert_eq!(result.main_phase.status, "open");
         assert!(result.retreat_phase.is_none());
         assert!(result.adjustment_phase.is_none());
-        assert_eq!(result.main_phase.orders.len(), 1);
-        assert_eq!(result.main_phase.orders[0].order_kind, "hold");
+        // 進行中のフェイズの命令は返さない
+        assert!(result.main_phase.orders.is_empty());
         assert_eq!(result.units.len(), 1);
         assert_eq!(result.units[0].location, "Lon");
     }
@@ -5811,7 +5874,9 @@ mod tests {
         let assumed_order = crate::Order::new_hold(crate::domain::Power::France, eng_army);
         spring_main.orders = vec![real_order, assumed_order];
 
-        let game = make_game_for_result(uuid::Uuid::now_v7(), vec![ready, spring_main]);
+        // メインフェイズを締め切り済みにするため、後続のフェイズを置く
+        let spring_retreat = Phase::new_spring_retreat(spring_main.year, spring_main.index);
+        let game = make_game_for_result(uuid::Uuid::now_v7(), vec![ready, spring_main, spring_retreat]);
         let (uuid, service) = make_result_service(game);
 
         let result = handle_get_games_result(&service, uuid, "1901s").unwrap();
@@ -5846,7 +5911,9 @@ mod tests {
         let dest = province("wal");
         spring_main.orders = vec![crate::Order::new_move(crate::domain::Power::England, eng_army, dest)];
 
-        let game = make_game_for_result(uuid::Uuid::now_v7(), vec![ready, spring_main]);
+        // メインフェイズを締め切り済みにするため、後続のフェイズを置く
+        let spring_retreat = Phase::new_spring_retreat(spring_main.year, spring_main.index);
+        let game = make_game_for_result(uuid::Uuid::now_v7(), vec![ready, spring_main, spring_retreat]);
         let (uuid, service) = make_result_service(game);
 
         let result = handle_get_games_result(&service, uuid, "1901s").unwrap();
@@ -5855,6 +5922,44 @@ mod tests {
         assert_eq!(order.order_kind, "move");
         assert_eq!(order.dest.as_deref(), Some("Wal"));
         assert_eq!(order.via_convoy, Some(false));
+    }
+
+    #[test]
+    fn handle_get_games_result_hides_orders_of_open_retreat_and_adjustment_phases() {
+        let ready = Phase::new_ready();
+        let spring_main = Phase::new_spring_main(ready.year, ready.index);
+        let mut spring_retreat = Phase::new_spring_retreat(spring_main.year, spring_main.index);
+        let mut dislodged = army(crate::domain::Power::England, "lon");
+        dislodged.set_dislodged_from(Some(province("wal")));
+        spring_retreat.units = vec![dislodged];
+        spring_retreat.orders = vec![crate::Order::new_retreat(
+            crate::domain::Power::England,
+            dislodged,
+            province("yor"),
+        )];
+
+        let game = make_game_for_result(uuid::Uuid::now_v7(), vec![ready.clone(), spring_main.clone(), spring_retreat]);
+        let (uuid, service) = make_result_service(game);
+        let result = handle_get_games_result(&service, uuid, "1901s").unwrap();
+        assert_eq!(result.retreat_phase.as_ref().unwrap().status, "open");
+        assert!(result.retreat_phase.as_ref().unwrap().orders.is_empty());
+
+        let spring_retreat = Phase::new_spring_retreat(spring_main.year, spring_main.index);
+        let fall_main = Phase::new_fall_main(spring_retreat.year, spring_retreat.index);
+        let fall_retreat = Phase::new_fall_retreat(fall_main.year, fall_main.index);
+        let mut adjustment = Phase::new_adjustment(fall_retreat.year, fall_retreat.index);
+        adjustment.orders = vec![crate::Order::new_build(
+            crate::domain::Power::England,
+            army(crate::domain::Power::England, "lon"),
+        )];
+        let game = make_game_for_result(
+            uuid::Uuid::now_v7(),
+            vec![ready, spring_main, spring_retreat, fall_main, fall_retreat, adjustment],
+        );
+        let (uuid, service) = make_result_service(game);
+        let result = handle_get_games_result(&service, uuid, "1901f").unwrap();
+        assert_eq!(result.adjustment_phase.as_ref().unwrap().status, "open");
+        assert!(result.adjustment_phase.as_ref().unwrap().orders.is_empty());
     }
 
     #[test]
@@ -5920,5 +6025,517 @@ mod tests {
         let result = handle_get_games_result(&service, uuid, "1901s").unwrap();
 
         assert!(result.adjustment_phase.is_none());
+    }
+
+    // ============================================================================
+    // 命令取得・確定（GET / PUT /games/:game_uuid/orders）と盤面の国ごとの状況
+    // ============================================================================
+
+    use crate::api::handlers::order_handler::handle_get_orders;
+    use crate::api::handlers::order_handler::handle_put_orders;
+    use crate::services::GetOrdersCommand;
+    use crate::services::OrderSpec;
+    use crate::services::OrdersError;
+    use crate::services::SubmitOrdersCommand;
+
+    fn orders_user(id: i64, name: &str, last_access_at: DateTime<Utc>, is_admin: bool) -> UserRecord {
+        UserRecord {
+            id,
+            uuid: uuid::Uuid::now_v7(),
+            discord_user_id: format!("discord-{}", name),
+            username: name.to_string(),
+            global_name: None,
+            avatar_hash: None,
+            avatar_url: None,
+            access_token: format!("token-{}", name),
+            last_access_at,
+            is_admin,
+        }
+    }
+
+    struct OrdersFixture {
+        service: GameService<InMemoryUserRepository, InMemoryGameRepository>,
+        game_repository: InMemoryGameRepository,
+        user_repository: InMemoryUserRepository,
+        game_uuid: uuid::Uuid,
+    }
+
+    /// フランス・イギリス・ドイツ（無政府）の 3 人が参加し、指定したフェイズが最新の卓を作る
+    fn orders_fixture(latest: Phase) -> OrdersFixture {
+        let france = orders_user(1, "france", Utc::now(), false);
+        let england = orders_user(2, "england", Utc::now(), false);
+        let germany = orders_user(3, "germany", Utc::now() - chrono::Duration::days(30), false);
+        let outsider = orders_user(4, "outsider", Utc::now(), false);
+        let admin = orders_user(5, "admin", Utc::now(), true);
+        let player = |user: &UserRecord, power: Power| Player {
+            user_uuid: user.uuid,
+            power: Some(power),
+            is_accepting_draw: false,
+            progress_consented: false,
+            is_owner: power == Power::France,
+            requested_power: None,
+        };
+        let mut game = make_game_for_result(uuid::Uuid::now_v7(), vec![Phase::new_ready(), latest]);
+        game.players = vec![
+            player(&france, Power::France),
+            player(&england, Power::England),
+            player(&germany, Power::Germany),
+        ];
+        game.players[1].progress_consented = true;
+        let game_uuid = game.uuid;
+        let user_repository = InMemoryUserRepository::new(vec![france, england, germany, outsider, admin]);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        OrdersFixture {
+            service: GameService::new(user_repository.clone(), game_repository.clone()),
+            game_repository,
+            user_repository,
+            game_uuid,
+        }
+    }
+
+    fn orders_main_phase() -> Phase {
+        let ready = Phase::new_ready();
+        let mut phase = Phase::new_spring_main(ready.year, ready.index);
+        let par = army(Power::France, "par");
+        let bre = crate::domain::Unit::new_fleet(Power::France, province("bre"));
+        let lon = army(Power::England, "lon");
+        let nth = crate::domain::Unit::new_fleet(Power::England, province("nth"));
+        let mun = army(Power::Germany, "mun");
+        phase.units = vec![par, bre, lon, nth, mun];
+        phase.territories = vec![
+            crate::domain::Territory::new(Power::France, "par"),
+            crate::domain::Territory::new(Power::France, "bre"),
+            crate::domain::Territory::new(Power::England, "lon"),
+            crate::domain::Territory::new(Power::Germany, "mun"),
+        ];
+        phase.orders = phase.units.iter().map(|u| u.hold()).collect();
+        // イギリスの仮定命令（フランスには見えない）
+        phase.orders.push(par.move_to(province("bur")).assumed_by(Power::England));
+        // フランスの仮定命令
+        phase.orders.push(mun.move_to(province("bur")).assumed_by(Power::France));
+        phase
+    }
+
+    fn get_orders_as(
+        fixture: &OrdersFixture,
+        token: &str,
+    ) -> Result<crate::api::handlers::order_handler::OrdersResponse, OrdersError> {
+        handle_get_orders(
+            &fixture.service,
+            GetOrdersCommand {
+                access_token: token.to_string(),
+                game_uuid: fixture.game_uuid,
+            },
+        )
+    }
+
+    fn spec(unit_power: &str, unit_kind: &str, location: &str, order_kind: &str) -> OrderSpec {
+        OrderSpec {
+            unit_power: unit_power.to_string(),
+            unit_kind: unit_kind.to_string(),
+            location: location.to_string(),
+            order_kind: order_kind.to_string(),
+            ..OrderSpec::default()
+        }
+    }
+
+    fn put_orders_as(
+        fixture: &OrdersFixture,
+        token: &str,
+        season: &str,
+        phase_kind: &str,
+        orders: Vec<OrderSpec>,
+    ) -> Result<crate::api::handlers::order_handler::OrdersResponse, OrdersError> {
+        handle_put_orders(
+            &fixture.service,
+            SubmitOrdersCommand {
+                access_token: token.to_string(),
+                game_uuid: fixture.game_uuid,
+                season: season.to_string(),
+                phase_kind: phase_kind.to_string(),
+                orders,
+            },
+        )
+    }
+
+    #[test]
+    fn get_orders_returns_own_orders_and_own_assumed_orders_only() {
+        let fixture = orders_fixture(orders_main_phase());
+
+        let response = get_orders_as(&fixture, "token-france").expect("should succeed");
+
+        assert_eq!(response.season, "1901s");
+        assert_eq!(response.phase_kind, "main");
+        assert_eq!(response.power, "f");
+        assert!(response.needs_action);
+        let orders: Vec<(String, String, String, Option<String>)> = response
+            .orders
+            .iter()
+            .map(|o| (o.unit_power.clone(), o.location.clone(), o.order_kind.clone(), o.dest.clone()))
+            .collect();
+        assert_eq!(
+            orders,
+            vec![
+                ("f".to_string(), "par".to_string(), "hold".to_string(), None),
+                ("f".to_string(), "bre".to_string(), "hold".to_string(), None),
+                (
+                    "g".to_string(),
+                    "mun".to_string(),
+                    "move".to_string(),
+                    Some("bur".to_string())
+                ),
+            ]
+        );
+        // 候補は盤面の全ユニット分
+        assert_eq!(response.options.len(), 5);
+        let lon = response.options.iter().find(|o| o.location == "lon").expect("lon options");
+        assert!(lon.convoy_dests.as_ref().unwrap().contains(&"nwy".to_string()));
+        assert!(lon.retreat_dests.is_none());
+        let par = response.options.iter().find(|o| o.location == "par").expect("par options");
+        assert!(par.convoy_dests.as_ref().unwrap().is_empty());
+        let nth = response.options.iter().find(|o| o.location == "nth").expect("nth options");
+        assert!(
+            nth.convoy_targets
+                .as_ref()
+                .unwrap()
+                .iter()
+                .any(|c| c.target_location == "lon" && c.target_dests.contains(&"bel".to_string()))
+        );
+        assert!(response.adjustment.is_none());
+
+        let json = serde_json::to_value(&response).expect("serialize");
+        assert_eq!(json["orders"][0]["unit_kind"], "a");
+        assert!(json["orders"][0].get("status").is_none());
+        assert!(json["orders"][0].get("dest").is_none());
+    }
+
+    #[test]
+    fn get_orders_rejects_non_participants_and_missing_token() {
+        let fixture = orders_fixture(orders_main_phase());
+
+        let error = get_orders_as(&fixture, "token-outsider").expect_err("should fail");
+        assert!(matches!(error, OrdersError::Forbidden(_)));
+
+        let error = get_orders_as(&fixture, "").expect_err("should fail");
+        assert_eq!(error, OrdersError::Unauthorized);
+    }
+
+    #[test]
+    fn get_orders_rejects_debrief_phase() {
+        let fixture = orders_fixture(Phase::new_debrief(1901, 1));
+        let error = get_orders_as(&fixture, "token-france").expect_err("should fail");
+        assert!(matches!(error, OrdersError::Forbidden(_)));
+    }
+
+    #[test]
+    fn get_orders_works_with_impersonated_token() {
+        let fixture = orders_fixture(orders_main_phase());
+
+        // 管理者が成り代わると、ミドルウェアは切り替え先のトークンに差し替える
+        let token =
+            crate::api::router::resolve_impersonated_access_token(&fixture.user_repository, "token-admin", Some("england"))
+                .expect("should resolve")
+                .expect("admin can impersonate");
+        let response = get_orders_as(&fixture, &token).expect("should succeed");
+        assert_eq!(response.power, "e");
+        // イギリスの仮定命令が見える
+        assert!(response.orders.iter().any(|o| o.unit_power == "f" && o.location == "par"));
+
+        // 切り替え先が参加者なら命令も確定できる
+        let mut order = spec("e", "a", "lon", "move");
+        order.dest = Some("wal".to_string());
+        let response = put_orders_as(&fixture, &token, "1901s", "main", vec![order]).expect("should succeed");
+        assert!(
+            response
+                .orders
+                .iter()
+                .any(|o| o.location == "lon" && o.dest.as_deref() == Some("wal"))
+        );
+
+        // 成り代わらない管理者は参加者でないので使えない
+        let error = get_orders_as(&fixture, "token-admin").expect_err("should fail");
+        assert!(matches!(error, OrdersError::Forbidden(_)));
+    }
+
+    #[test]
+    fn put_orders_replaces_all_orders_of_the_power() {
+        let fixture = orders_fixture(orders_main_phase());
+
+        let mut bre = spec("f", "f", "bre", "move");
+        bre.dest = Some("eng".to_string());
+        let mut lon = spec("e", "a", "lon", "move");
+        lon.dest = Some("bel".to_string());
+        lon.via_convoy = Some(true);
+        let response = put_orders_as(&fixture, "token-france", "1901s", "main", vec![bre, lon]).expect("should succeed");
+
+        let orders: Vec<(String, String, String)> = response
+            .orders
+            .iter()
+            .map(|o| (o.unit_power.clone(), o.location.clone(), o.order_kind.clone()))
+            .collect();
+        // 含まれていない自国ユニット（パリ）は維持、含まれていない仮定命令（ミュンヘン）は消える
+        assert_eq!(
+            orders,
+            vec![
+                ("f".to_string(), "par".to_string(), "hold".to_string()),
+                ("f".to_string(), "bre".to_string(), "move".to_string()),
+                ("e".to_string(), "lon".to_string(), "move".to_string()),
+            ]
+        );
+
+        let saved = fixture.game_repository.last_updated().expect("game should be updated");
+        let phase = saved.phases.last().unwrap();
+        // イギリスの仮定命令と、ほかの国の命令は残る
+        assert!(phase.orders.iter().any(|o| o.power == Power::England && o.is_assumed()));
+        assert!(phase.orders.iter().any(|o| o.power == Power::Germany && !o.is_assumed()));
+        // 仮定命令は命令列の末尾にまとまる
+        let first_assumed = phase.orders.iter().position(|o| o.is_assumed()).unwrap();
+        assert!(phase.orders[first_assumed..].iter().all(|o| o.is_assumed()));
+    }
+
+    #[test]
+    fn put_orders_rejects_unavailable_order_without_changes() {
+        let fixture = orders_fixture(orders_main_phase());
+
+        let mut bre = spec("f", "f", "bre", "move");
+        bre.dest = Some("eng".to_string());
+        let mut par = spec("f", "a", "par", "move");
+        par.dest = Some("mun".to_string());
+        let error = put_orders_as(&fixture, "token-france", "1901s", "main", vec![bre, par]).expect_err("should fail");
+
+        match error {
+            OrdersError::InvalidOrder { location, .. } => assert_eq!(location.as_deref(), Some("par")),
+            other => panic!("unexpected error: {:?}", other),
+        }
+        assert!(fixture.game_repository.last_updated().is_none());
+    }
+
+    #[test]
+    fn put_orders_rejects_stale_phase() {
+        let fixture = orders_fixture(orders_main_phase());
+
+        let error = put_orders_as(&fixture, "token-france", "1901s", "retreat", vec![]).expect_err("should fail");
+        assert_eq!(error, OrdersError::PhaseConflict);
+        let error = put_orders_as(&fixture, "token-france", "1901f", "main", vec![]).expect_err("should fail");
+        assert_eq!(error, OrdersError::PhaseConflict);
+        assert!(fixture.game_repository.last_updated().is_none());
+    }
+
+    #[test]
+    fn put_orders_in_retreat_phase_defaults_to_disband() {
+        let ready = Phase::new_ready();
+        let main = Phase::new_spring_main(ready.year, ready.index);
+        let mut phase = Phase::new_spring_retreat(main.year, main.index);
+        let mut bur = army(Power::France, "bur");
+        bur.set_dislodged_from(Some(province("mun")));
+        let mut bre = crate::domain::Unit::new_fleet(Power::France, province("bre"));
+        bre.set_dislodged_from(Some(province("eng")));
+        phase.units = vec![
+            bur,
+            bre,
+            army(Power::Germany, "bur"),
+            crate::domain::Unit::new_fleet(Power::England, province("bre")),
+        ];
+        phase.territories = vec![crate::domain::Territory::new(Power::France, "par")];
+        phase.standoff_codes = vec!["pic".to_string()];
+        phase.orders = vec![bur.disband(), bre.disband()];
+        let fixture = orders_fixture(phase);
+
+        let response = get_orders_as(&fixture, "token-france").expect("should succeed");
+        assert_eq!(response.phase_kind, "retreat");
+        let bur_options = response.options.iter().find(|o| o.location == "bur").expect("bur options");
+        assert_eq!(
+            bur_options.retreat_dests.as_ref().unwrap(),
+            &vec![
+                "bel".to_string(),
+                "gas".to_string(),
+                "mar".to_string(),
+                "par".to_string(),
+                "ruh".to_string()
+            ]
+        );
+        assert!(bur_options.move_dests.is_none());
+        // ほかの国のユニットの候補は出さない
+        assert_eq!(response.options.len(), 2);
+
+        let mut retreat = spec("f", "a", "bur", "retreat");
+        retreat.dest = Some("gas".to_string());
+        let response = put_orders_as(&fixture, "token-france", "1901s", "retreat", vec![retreat]).expect("should succeed");
+        let orders: Vec<(String, String)> = response
+            .orders
+            .iter()
+            .map(|o| (o.location.clone(), o.order_kind.clone()))
+            .collect();
+        assert_eq!(
+            orders,
+            vec![
+                ("bur".to_string(), "retreat".to_string()),
+                ("bre".to_string(), "disband".to_string())
+            ]
+        );
+
+        // 操作が要らない国（イギリス）は確定できない
+        let error = put_orders_as(&fixture, "token-england", "1901s", "retreat", vec![]).expect_err("should fail");
+        assert!(matches!(error, OrdersError::Forbidden(_)));
+    }
+
+    #[test]
+    fn put_orders_in_adjustment_phase_validates_counts() {
+        let ready = Phase::new_ready();
+        let mut phase = Phase::new_adjustment(1901, ready.index + 4);
+        phase.units = vec![
+            army(Power::France, "par"),
+            army(Power::England, "lon"),
+            army(Power::England, "wal"),
+        ];
+        phase.territories = vec![
+            crate::domain::Territory::new(Power::France, "par"),
+            crate::domain::Territory::new(Power::France, "bre"),
+            crate::domain::Territory::new(Power::France, "mar"),
+            crate::domain::Territory::new(Power::England, "lon"),
+        ];
+        phase.orders = vec![army(Power::England, "wal").disband()];
+        let fixture = orders_fixture(phase);
+
+        let response = get_orders_as(&fixture, "token-france").expect("should succeed");
+        let adjustment = response.adjustment.as_ref().expect("adjustment exists");
+        assert_eq!(adjustment.build_count, 2);
+        assert_eq!(adjustment.disband_count, 0);
+        let bre = adjustment
+            .buildable
+            .iter()
+            .find(|b| b.location == "bre")
+            .expect("bre buildable");
+        assert_eq!(bre.unit_kinds, vec!["a".to_string(), "f".to_string()]);
+        assert!(!adjustment.buildable.iter().any(|b| b.location == "par"));
+
+        // 増設が多すぎる
+        let error = put_orders_as(
+            &fixture,
+            "token-france",
+            "1901f",
+            "adjustment",
+            vec![
+                spec("f", "f", "bre", "build"),
+                spec("f", "a", "mar", "build"),
+                spec("f", "a", "par", "build"),
+            ],
+        )
+        .expect_err("should fail");
+        assert!(matches!(error, OrdersError::InvalidOrder { .. }));
+
+        let response = put_orders_as(
+            &fixture,
+            "token-france",
+            "1901f",
+            "adjustment",
+            vec![spec("f", "f", "bre", "build")],
+        )
+        .expect("should succeed");
+        assert_eq!(response.orders.len(), 1);
+        assert_eq!(response.orders[0].order_kind, "build");
+
+        // 解体の数が合わない
+        let error = put_orders_as(&fixture, "token-england", "1901f", "adjustment", vec![]).expect_err("should fail");
+        assert!(matches!(error, OrdersError::InvalidOrder { location: None, .. }));
+        let response = put_orders_as(
+            &fixture,
+            "token-england",
+            "1901f",
+            "adjustment",
+            vec![spec("e", "a", "lon", "disband")],
+        )
+        .expect("should succeed");
+        assert_eq!(response.orders[0].location, "lon");
+    }
+
+    #[test]
+    fn handle_get_games_board_returns_power_statuses() {
+        let ready = Phase::new_ready();
+        let main = Phase::new_spring_main(ready.year, ready.index);
+        let mut retreat = Phase::new_spring_retreat(main.year, main.index);
+        let mut bur = army(Power::France, "bur");
+        bur.set_dislodged_from(Some(province("mun")));
+        let mut bre = crate::domain::Unit::new_fleet(Power::France, province("bre"));
+        bre.set_dislodged_via_convoy();
+        retreat.units = vec![bur, bre, army(Power::Germany, "bur"), army(Power::England, "bre")];
+        retreat.territories = vec![
+            crate::domain::Territory::new(Power::France, "par"),
+            crate::domain::Territory::new(Power::England, "lon"),
+            crate::domain::Territory::new(Power::England, "edi"),
+            crate::domain::Territory::new(Power::Germany, "mun"),
+        ];
+        let fixture = orders_fixture(retreat);
+
+        let response = handle_get_games_board(&fixture.service, fixture.game_uuid, None).expect("should succeed");
+
+        assert_eq!(response.season, "1901s");
+        assert_eq!(response.phase_kind, "retreat");
+        let unit = |location: &str, power: &str| {
+            response
+                .units
+                .iter()
+                .find(|u| u.location == location && u.power == power)
+                .expect("unit exists")
+                .clone()
+        };
+        assert!(unit("bur", "f").dislodged);
+        assert_eq!(unit("bur", "f").dislodged_from.as_deref(), Some("mun"));
+        assert!(unit("bre", "f").dislodged);
+        assert_eq!(unit("bre", "f").dislodged_from, None);
+        assert!(!unit("bur", "g").dislodged);
+
+        assert_eq!(response.powers.len(), 7);
+        let status = |power: &str| response.powers.iter().find(|p| p.power == power).expect("power").clone();
+        let france = status("f");
+        assert_eq!((france.supply_centers, france.armies, france.fleets), (1, 1, 1));
+        assert!(france.needs_action);
+        assert_eq!(france.progress_consented, Some(false));
+        assert_eq!(france.is_idle, Some(false));
+        assert!(!france.is_eliminated);
+        let england = status("e");
+        assert_eq!(england.supply_centers, 2);
+        assert!(!england.needs_action);
+        assert_eq!(england.progress_consented, Some(true));
+        // 担当者が無政府
+        assert_eq!(status("g").is_idle, Some(true));
+        // 担当者がいない国
+        let italy = status("i");
+        assert_eq!(italy.is_idle, Some(true));
+        assert!(italy.is_eliminated);
+    }
+
+    #[test]
+    fn handle_get_games_board_returns_past_season() {
+        let ready = Phase::new_ready();
+        let mut spring_main = Phase::new_spring_main(ready.year, ready.index);
+        spring_main.units = vec![army(Power::France, "par")];
+        let mut spring_retreat = Phase::new_spring_retreat(spring_main.year, spring_main.index);
+        spring_retreat.units = vec![army(Power::France, "bur")];
+        spring_retreat.territories = vec![crate::domain::Territory::new(Power::France, "par")];
+        let mut fall_main = Phase::new_fall_main(spring_retreat.year, spring_retreat.index);
+        fall_main.units = vec![army(Power::France, "mar")];
+        let mut game = make_game_for_result(uuid::Uuid::now_v7(), vec![ready, spring_main, spring_retreat, fall_main]);
+        game.players = vec![];
+        let (uuid, service) = make_result_service(game);
+
+        let response = handle_get_games_board(&service, uuid, Some("1901s")).expect("should succeed");
+        assert_eq!(response.season, "1901s");
+        // シーズンの最後のフェイズ（撤退フェイズ）の盤面
+        assert_eq!(response.phase_kind, "retreat");
+        assert_eq!(response.units.len(), 1);
+        assert_eq!(response.units[0].location, "bur");
+        let france = response.powers.iter().find(|p| p.power == "f").expect("france");
+        assert_eq!(france.supply_centers, 1);
+        assert_eq!(france.progress_consented, None);
+        assert_eq!(france.is_idle, None);
+        assert!(!france.needs_action);
+
+        let response = handle_get_games_board(&service, uuid, Some("1901f")).expect("should succeed");
+        assert_eq!(response.units[0].location, "mar");
+        assert!(response.powers.iter().all(|p| p.is_idle.is_some()));
+
+        let error = handle_get_games_board(&service, uuid, Some("1905s")).expect_err("should fail");
+        assert!(matches!(error, GetGameResultHandlerError::SeasonNotFound));
     }
 }

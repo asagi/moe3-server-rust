@@ -17,7 +17,7 @@
 | `GET`    | [`/games/:game_uuid` 🔗](./games-game-uuid__get.md)                                 | 卓情報取得                    |
 | `GET`    | [`/games/:game_uuid/logs/:season` 🔗](./games-game-uuid-logs-season__get.md)        | 外交履歴取得                  |
 | `GET`    | [`/games/:game_uuid/result/:season` 🔗](./games-game-uuid-result-season__get.md)    | 命令解決履歴取得              |
-| `GET`    | [`/games/:game_uuid/board` 🔗](./games-game-uuid-board__get.md)                     | 最新フェイズの盤面取得        |
+| `GET`    | [`/games/:game_uuid/board` 🔗](./games-game-uuid-board__get.md)                     | 盤面と国ごとの状況の取得      |
 | `POST`   | [`/games/:game_uuid/messages` 🔗](./games-game-uuid-messages__post.md)              | 発言の投稿                    |
 | `GET`    | [`/games/:game_uuid/messages/stream` 🔗](./games-game-uuid-messages-stream__get.md) | 発言のリアルタイム配信（SSE） |
 | `POST`   | [`/games/:game_uuid/players` 🔗](./games-players__post.md)                          | ゲームへの参加                |
@@ -27,11 +27,8 @@
 | メソッド | パス                                                                            | 概要                                                   |
 | -------- | ------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | `GET`    | `/games/:game_uuid/state`                                                       | 盤面情報の取得                                         |
-| `GET`    | `/games/:game_uuid/orders`                                                      | 自身の提出済み命令確認（他国軍に対する仮定命令も含む） |
-| `GET`    | `/games/:game_uuid/orders/:order_id`                                            | 命令詳細取得                                           |
-| `PUT`    | `/games/:game_uuid/orders/:order_id`                                            | 命令変更                                               |
-| `POST`   | `/games/:game_uuid/orders`                                                      | 仮想命令・建造命令登録                                 |
-| `DELETE` | `/games/:game_uuid/orders/:order_id`                                            | 仮想命令・建造命令削除                                 |
+| `GET`    | [`/games/:game_uuid/orders` 🔗](./games-game-uuid-orders__get.md)                | 自分の命令と命令の候補の取得（他国軍に対する仮定命令も含む） |
+| `PUT`    | [`/games/:game_uuid/orders` 🔗](./games-game-uuid-orders__put.md)                | 自分の命令をまとめて確定（丸ごと置き換え）             |
 | `PUT`    | [`/games/:game_uuid/progress-consensus` 🔗](./games-progress-consensus__put.md) | 即時進行への合意を表明/撤回                            |
 
 ## 卓主権限

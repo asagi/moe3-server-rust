@@ -474,3 +474,11 @@ impl GetGamesRequest {
 pub(crate) struct GetGameLogsQueryParams {
     pub after: Option<String>,
 }
+
+///
+/// 盤面取得クエリパラメータの構造体
+///
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(crate) struct GetGameBoardQueryParams {
+    pub season: Option<String>,
+}

@@ -52,6 +52,7 @@ use super::handlers::get_games;
 use super::handlers::get_games_board;
 use super::handlers::get_games_logs;
 use super::handlers::get_games_messages_stream;
+use super::handlers::get_games_orders;
 use super::handlers::get_games_result;
 use super::handlers::get_users_me;
 use super::handlers::post_auth_login;
@@ -64,6 +65,7 @@ use super::handlers::put_admin_games_next_update_at;
 use super::handlers::put_admin_games_progress_mode;
 use super::handlers::put_admin_games_territories;
 use super::handlers::put_admin_games_units;
+use super::handlers::put_games_orders;
 use super::handlers::put_games_progress_consensus;
 
 // ============================================================================
@@ -366,7 +368,7 @@ where
 /// 成り代わりエラーの列挙体
 ///
 #[derive(Debug)]
-enum ImpersonationError {
+pub(crate) enum ImpersonationError {
     UserNotFound,
     Repository(super::RepositoryError),
 }
@@ -377,7 +379,7 @@ enum ImpersonationError {
 /// リクエストユーザーが管理者で、かつ成り代わり先ユーザー名が指定されている場合のみ、
 /// 成り代わり先ユーザーのアクセストークンを返す。それ以外は `None` を返す（リクエストユーザー自身の権限で実行）。
 ///
-fn resolve_impersonated_access_token<U>(
+pub(crate) fn resolve_impersonated_access_token<U>(
     user_repository: &U,
     access_token: &str,
     impersonate_user_name: Option<&str>,
@@ -432,6 +434,10 @@ where
         .route("/games", get(get_games::<U, G, D>).post(post_games::<U, G, D>))
         .route("/games/{game_uuid}", get(get_game::<U, G, D>))
         .route("/games/{game_uuid}/board", get(get_games_board::<U, G, D>))
+        .route(
+            "/games/{game_uuid}/orders",
+            get(get_games_orders::<U, G, D>).put(put_games_orders::<U, G, D>),
+        )
         .route("/games/{game_uuid}/logs/{season}", get(get_games_logs::<U, G, D>))
         .route("/games/{game_uuid}/result/{season}", get(get_games_result::<U, G, D>))
         .route("/games/{game_uuid}/messages", post(post_games_messages::<U, G, D>))

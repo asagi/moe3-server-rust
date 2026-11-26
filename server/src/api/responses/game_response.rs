@@ -279,6 +279,10 @@ pub(crate) struct GameBoardUnitResponse {
     pub power: String,
     pub kind: String,
     pub location: String,
+    /// 撃退されたユニットか
+    pub dislodged: bool,
+    /// 攻撃元の地域（撃退されていない場合と、海路で攻められた場合は `null`）
+    pub dislodged_from: Option<String>,
 }
 
 ///
@@ -299,4 +303,22 @@ pub(crate) struct GetGameBoardResponse {
     pub phase_kind: String,
     pub units: Vec<GameBoardUnitResponse>,
     pub territories: Vec<GameBoardTerritoryResponse>,
+    pub powers: Vec<GameBoardPowerResponse>,
+}
+
+///
+/// 盤面取得レスポンスの国ごとの状況構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub(crate) struct GameBoardPowerResponse {
+    pub power: String,
+    pub supply_centers: usize,
+    pub armies: usize,
+    pub fleets: usize,
+    pub needs_action: bool,
+    /// 即時進行に合意しているか（過去のシーズンでは `null`）
+    pub progress_consented: Option<bool>,
+    /// 無政府状態か（過去のシーズンでは `null`）
+    pub is_idle: Option<bool>,
+    pub is_eliminated: bool,
 }
