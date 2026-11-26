@@ -60,7 +60,8 @@
       "context": "よろしくお願いします。",
       "kind": "public",
       "recipients": null,
-      "created_at": "2026-05-10 20:00"
+      "created_at": "2026-05-10 20:00",
+      "notice": null
     },
     {
       "message_uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
@@ -71,7 +72,8 @@
       "context": "フランスからの公式声明",
       "kind": "public",
       "recipients": null,
-      "created_at": "2026-05-10 20:00"
+      "created_at": "2026-05-10 20:00",
+      "notice": null
     },
     {
       "message_uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
@@ -82,7 +84,8 @@
       "context": "秘密の提案",
       "kind": "confidential",
       "recipients": ["e", "g"],
-      "created_at": "2026-05-10 20:00"
+      "created_at": "2026-05-10 20:00",
+      "notice": null
     },
     {
       "message_uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
@@ -93,7 +96,8 @@
       "context": null,
       "kind": "masked",
       "recipients": ["e", "g"],
-      "created_at": "2026-05-10 20:00"
+      "created_at": "2026-05-10 20:00",
+      "notice": null
     },
     {
       "message_uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
@@ -104,7 +108,26 @@
       "context": "1901 年春 のメインフェイズが開始されました。",
       "kind": "system",
       "recipients": null,
-      "created_at": "2026-05-10 20:00"
+      "created_at": "2026-05-10 20:00",
+      "notice": {
+        "type": "start_season",
+        "params": { "season": "1901s" }
+      }
+    },
+    {
+      "message_uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+      "sender": null,
+      "sender_kind": "system",
+      "sender_user": null,
+      "turn": "1901s",
+      "context": "German A Mun が配置されました。",
+      "kind": "system",
+      "recipients": null,
+      "created_at": "2026-05-10 20:00",
+      "notice": {
+        "type": "unit_placed",
+        "params": { "unit": { "power": "g", "kind": "a", "location": "mun" } }
+      }
     }
   ]
 }
@@ -123,6 +146,45 @@
 | `kind`         | `string`           | 種別（`"public"` / `"confidential"` / `"masked"` / `"personal"` / `"ghost"` / `"system"`）                                                   |
 | `recipients`   | `string[] \| null` | 宛先の国コード一覧。`confidential` / `masked` のみ設定され、それ以外は `null`                                                                |
 | `created_at`   | `string`           | 送信日時（JST、`"YYYY-MM-DD HH:mm"` 形式）                                                                                                   |
+| `notice`       | `object \| null`   | システムメッセージの種類と値（`type` / `params`）。`kind` が `"system"` 以外、または種類が不明な場合は `null`。詳細は下記                    |
+
+### `notice`（システムメッセージの種類）
+
+| フィールド | 型       | 説明                                                                                            |
+| ---------- | -------- | ----------------------------------------------------------------------------------------------- |
+| `type`     | `string` | 種類（下表）。今後増えることがあるため、フロントは知らない `type` のときは `context` を表示する |
+| `params`   | `object` | 本文の組み立てに使った値。表示名ではなくコードで入る（下表）                                    |
+
+- 国は国コード（例: `"g"`）、地域は地域コード（例: `"mun"` / `"stp_sc"`）、ユニット種別は `"a"`（陸軍）/ `"f"`（海軍）。
+- `Unit` は [盤面取得 API](./games-game-uuid-board__get.md) の `units[]` と同じ形（`{ "power": "g", "kind": "a", "location": "mun" }`）。
+- `username` は Discord のユーザー名（`@` なし）。Discord の数値 ID は含めない。
+- `context`（本文）は従来どおり返す。
+- 種類を保存するようになる前のシステムメッセージは、サーバー起動後の最初のアクセス時に本文から種類と値を逆算して埋める。逆算できない本文は `notice: null` のまま。
+
+| `type`                         | `params`                                                                | 本文の例                                                                 |
+| ------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `game_created`                 | `{ "username": "alice" }`                                               | `@alice が募集を開始しました。`                                          |
+| `player_joined`                | `{ "username": "alice" }`                                               | `@alice が参加を表明しました。`                                          |
+| `ready`                        | `{}`                                                                    | `プレイヤーが揃い、担当国が割り当てられました。`                         |
+| `aborted`                      | `{}`                                                                    | `プレイヤーが揃わなかったため、募集を終了します。`                       |
+| `start_season`                 | `{ "season": "1901s" }`（`turn` と同じ形）                              | `1901 年春 のメインフェイズが開始されました。`                           |
+| `draw_proposed`                | `{}`                                                                    | `卓主によって講和が宣言されました。`                                     |
+| `owner_absent`                 | `{}`                                                                    | `卓主が消息不明のため、自動的に講和の手続きが進められます。`             |
+| `draw_rescinded`               | `{}`                                                                    | `卓主によって講和が撤回されました。`                                     |
+| `solo`                         | `{ "power": "f" }`                                                      | `France による制覇が達成されました。お疲れさまでした。`                  |
+| `draw`                         | `{}`                                                                    | `講和が成立しました。お疲れさまでした。`                                 |
+| `closed`                       | `{}`                                                                    | `卓が閉鎖されました。`                                                   |
+| `unit_placed`                  | `{ "unit": Unit }`                                                      | `German A Mun が配置されました。`                                        |
+| `unit_replaced`                | `{ "old_unit": Unit, "new_unit": Unit }`                                | `German A Mun が Russian F StP(SC) に変更されました。`                   |
+| `unit_removed`                 | `{ "unit": Unit }`                                                      | `German A Mun が除去されました。`                                        |
+| `territory_set`                | `{ "province": "mun", "power": "g" }`                                   | `ミュンヘン の保有国が Germany に変更されました。`                       |
+| `territory_replaced`           | `{ "province": "mun", "old_power": "a", "new_power": "g" }`             | `ミュンヘン の保有国が Austria から Germany に変更されました。`          |
+| `territory_released`           | `{ "province": "mun", "old_power": "g" }`                               | `Germany が保有していた ミュンヘン が解放されました。`                   |
+| `progress_mode_changed`        | `{}`                                                                    | `進行モードが定時進行から合意進行に変更されました。`                     |
+| `progress_consented`           | `{ "power": "f" }`                                                      | `France が即時進行に合意しました。`                                      |
+| `progress_consensus_rescinded` | `{ "power": "f" }`                                                      | `France が即時進行への合意を撤回しました。`                              |
+| `progress_consensus_reached`   | `{}`                                                                    | `全ての生存国の合意を確認しました。メインフェイズをただちに終了します。` |
+| `next_update_at_changed`       | `{ "next_update_at": "2026-11-27 21:00" }`（JST、`"YYYY-MM-DD HH:mm"`） | `次回更新時刻が 2026-11-27 21:00 に変更されました。`                     |
 
 ## エラー
 

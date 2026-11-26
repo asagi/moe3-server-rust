@@ -4,6 +4,7 @@
 
 use chrono::Utc;
 use rusqlite::Connection;
+use rusqlite::TransactionBehavior;
 use rusqlite::params;
 use tokio::sync::broadcast;
 use uuid::Uuid;
@@ -13,7 +14,6 @@ use super::MessageKind;
 use super::Power;
 use super::Province;
 use super::RepositoryError;
-use super::SystemNotice;
 use super::SystemNoticeCatalog;
 use super::Unit;
 use super::User;
@@ -36,6 +36,19 @@ pub(crate) struct MessageRecord {
     pub kind: String,
     pub recipients: Vec<Power>,
     pub created_at: String,
+    /// システムメッセージの種類と値（システムメッセージ以外、または種類が不明な場合は None）
+    pub notice: Option<SystemNoticeRecord>,
+}
+
+///
+/// システムメッセージの種類と値の構造体
+///
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SystemNoticeRecord {
+    /// 種類（`SystemNoticeCatalog` のバリアント名の snake_case）
+    pub notice_type: String,
+    /// 本文の組み立てに使った値（コードで表す）
+    pub params: serde_json::Value,
 }
 
 ///
@@ -51,6 +64,8 @@ struct MessageRow {
     kind: String,
     recipients: Option<String>,
     created_at: String,
+    notice_type: Option<String>,
+    notice_params: Option<String>,
 }
 
 ///
@@ -221,6 +236,7 @@ impl SqliteMessageRepository {
             kind: kind.to_string(),
             recipients,
             created_at: now,
+            notice: None,
         })
     }
 
@@ -237,7 +253,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: READY_TURN.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
 
         self.insert_system_message(&connection, game_uuid, &message)?;
@@ -257,7 +273,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: READY_TURN.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
 
         self.insert_system_message(&connection, game_uuid, &message)?;
@@ -277,7 +293,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: READY_TURN.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
 
         self.insert_system_message(&connection, game_uuid, &message)?;
@@ -297,7 +313,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: READY_TURN.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
 
         self.insert_system_message(&connection, game_uuid, &message)?;
@@ -307,19 +323,19 @@ impl SqliteMessageRepository {
     ///
     /// 季節ごとのメインフェイズ開始のシステムメッセージを保存する
     ///
-    pub(crate) fn append_start_season_message(&self, game_uuid: Uuid, turn: &str, season: &str) -> Result<(), RepositoryError> {
+    pub(crate) fn append_start_season_message(&self, game_uuid: Uuid, turn: &str) -> Result<(), RepositoryError> {
         let connection = self.open_connection()?;
 
         self.init_schema(&connection)?;
 
         let catalog = SystemNoticeCatalog::StartSeason {
-            season: season.to_string(),
+            season: turn.to_string(),
         };
         let message = Message {
             sender: None,
             turn: turn.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
 
         self.insert_system_message(&connection, game_uuid, &message)?;
@@ -339,7 +355,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: turn.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
 
         self.insert_system_message(&connection, game_uuid, &message)?;
@@ -359,7 +375,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: DEBRIEF_TURN.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
 
         self.insert_system_message(&connection, game_uuid, &message)?;
@@ -379,7 +395,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: DEBRIEF_TURN.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
 
         self.insert_system_message(&connection, game_uuid, &message)?;
@@ -399,7 +415,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: DEBRIEF_TURN.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
 
         self.insert_system_message(&connection, game_uuid, &message)?;
@@ -419,7 +435,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: turn.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
 
         self.insert_system_message(&connection, game_uuid, &message)?;
@@ -439,7 +455,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: turn.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
 
         self.insert_system_message(&connection, game_uuid, &message)?;
@@ -462,7 +478,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: turn.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
         self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
@@ -484,7 +500,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: turn.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
         self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
@@ -501,7 +517,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: turn.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
         self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
@@ -518,7 +534,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: turn.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
         self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
@@ -541,7 +557,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: turn.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
         self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
@@ -558,7 +574,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: turn.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
         self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
@@ -581,7 +597,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: turn.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
         self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
@@ -609,7 +625,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: turn.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
         self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
@@ -632,7 +648,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: turn.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
         self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
@@ -659,7 +675,9 @@ impl SqliteMessageRepository {
                 recipients TEXT,
                 created_at TEXT NOT NULL,
                 is_deleted INTEGER NOT NULL DEFAULT 0,
-                deleted_at TEXT
+                deleted_at TEXT,
+                notice_type TEXT,
+                notice_params TEXT
             );
 
             CREATE INDEX IF NOT EXISTS idx_messages_game_created_at
@@ -675,21 +693,78 @@ impl SqliteMessageRepository {
 
         // 既存 DB に送信者種別・送信ユーザーの列が無い場合は追加する
         for column in ["sender_kind", "sender_user_uuid"] {
-            let exists: bool = connection
-                .query_row(
-                    "SELECT COUNT(*) > 0 FROM pragma_table_info('messages') WHERE name = ?1",
-                    params![column],
-                    |row| row.get(0),
-                )
-                .map_err(|error| RepositoryError::Unavailable(format!("inspect messages table: {}", error)))?;
-            if !exists {
+            if !Self::column_exists(connection, column)? {
                 connection
                     .execute(&format!("ALTER TABLE messages ADD COLUMN {} TEXT", column), [])
                     .map_err(|error| RepositoryError::Unavailable(format!("add messages.{} column: {}", column, error)))?;
             }
         }
 
+        // 既存 DB にシステムメッセージの種類の列が無い場合は追加し、保存済みの本文から種類を埋める
+        if !Self::column_exists(connection, "notice_type")? {
+            self.migrate_notice_columns(connection)?;
+        }
+
         Ok(())
+    }
+
+    /// messages テーブルに指定した列があるかを返す
+    fn column_exists(connection: &Connection, column: &str) -> Result<bool, RepositoryError> {
+        connection
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM pragma_table_info('messages') WHERE name = ?1",
+                params![column],
+                |row| row.get(0),
+            )
+            .map_err(|error| RepositoryError::Unavailable(format!("inspect messages table: {}", error)))
+    }
+
+    ///
+    /// システムメッセージの種類の列を追加し、保存済みのシステムメッセージに種類と値を埋める
+    ///
+    /// 種類は本文から逆算する（`SystemNoticeCatalog::parse_context`）。
+    /// 逆算できない本文は種類を NULL のままにする。
+    ///
+    fn migrate_notice_columns(&self, connection: &Connection) -> Result<(), RepositoryError> {
+        let transaction = rusqlite::Transaction::new_unchecked(connection, TransactionBehavior::Immediate)
+            .map_err(|error| RepositoryError::Unavailable(format!("begin notice migration: {}", error)))?;
+
+        // 他の接続が先に移行を終えている場合は何もしない
+        if Self::column_exists(&transaction, "notice_type")? {
+            return Ok(());
+        }
+
+        for column in ["notice_type", "notice_params"] {
+            transaction
+                .execute(&format!("ALTER TABLE messages ADD COLUMN {} TEXT", column), [])
+                .map_err(|error| RepositoryError::Unavailable(format!("add messages.{} column: {}", column, error)))?;
+        }
+
+        let system_messages = {
+            let mut stmt = transaction
+                .prepare("SELECT message_uuid, context FROM messages WHERE kind = 'system'")
+                .map_err(|error| RepositoryError::Unavailable(format!("prepare notice migration: {}", error)))?;
+            stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+                .map_err(|error| RepositoryError::Unavailable(format!("query notice migration: {}", error)))?
+                .collect::<rusqlite::Result<Vec<_>>>()
+                .map_err(|error| RepositoryError::Unavailable(format!("read notice migration: {}", error)))?
+        };
+
+        for (message_uuid, context) in system_messages {
+            let Some(catalog) = SystemNoticeCatalog::parse_context(&context) else {
+                continue;
+            };
+            transaction
+                .execute(
+                    "UPDATE messages SET notice_type = ?1, notice_params = ?2 WHERE message_uuid = ?3",
+                    params![catalog.notice_type(), catalog.notice_params().to_string(), message_uuid],
+                )
+                .map_err(|error| RepositoryError::Unavailable(format!("update notice migration: {}", error)))?;
+        }
+
+        transaction
+            .commit()
+            .map_err(|error| RepositoryError::Unavailable(format!("commit notice migration: {}", error)))
     }
 
     /// システムメッセージを挿入する
@@ -699,6 +774,13 @@ impl SqliteMessageRepository {
 
         let sender_power = message.sender.map(Self::power_to_symbol);
         let kind = Self::kind_to_text(&message.kind);
+        let (notice_type, notice_params) = match &message.kind {
+            MessageKind::System(notice) => (
+                Some(notice.catalog.notice_type()),
+                Some(notice.catalog.notice_params().to_string()),
+            ),
+            _ => (None, None),
+        };
 
         connection
             .execute(
@@ -712,8 +794,10 @@ impl SqliteMessageRepository {
                     context,
                     kind,
                     created_at,
-                    is_deleted
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0)
+                    is_deleted,
+                    notice_type,
+                    notice_params
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0, ?9, ?10)
                 "#,
                 params![
                     message_uuid.to_string(),
@@ -724,6 +808,8 @@ impl SqliteMessageRepository {
                     message.context,
                     kind,
                     now,
+                    notice_type,
+                    notice_params,
                 ],
             )
             .map_err(|error| RepositoryError::Unavailable(format!("insert system message: {}", error)))?;
@@ -764,7 +850,8 @@ impl SqliteMessageRepository {
         let mut stmt = connection
             .prepare(
                 r#"
-                SELECT message_uuid, sender_power, sender_kind, sender_user_uuid, turn, context, kind, recipients, created_at
+                SELECT message_uuid, sender_power, sender_kind, sender_user_uuid, turn, context, kind, recipients, created_at,
+                       notice_type, notice_params
                 FROM messages
                 WHERE game_uuid = ?1
                   AND turn = ?2
@@ -800,7 +887,8 @@ impl SqliteMessageRepository {
         let mut stmt = connection
             .prepare(
                 r#"
-                SELECT message_uuid, sender_power, sender_kind, sender_user_uuid, turn, context, kind, recipients, created_at
+                SELECT message_uuid, sender_power, sender_kind, sender_user_uuid, turn, context, kind, recipients, created_at,
+                       notice_type, notice_params
                 FROM messages
                 WHERE game_uuid = ?1
                   AND is_deleted = 0
@@ -849,6 +937,8 @@ impl SqliteMessageRepository {
             kind: row.get(6)?,
             recipients: row.get(7)?,
             created_at: row.get(8)?,
+            notice_type: row.get(9)?,
+            notice_params: row.get(10)?,
         })
     }
 
@@ -899,6 +989,14 @@ impl SqliteMessageRepository {
             .map(|s| s.split(',').filter_map(Power::from_symbol).collect())
             .unwrap_or_default();
 
+        // システムメッセージのみ種類と値を返す（値が JSON として読めない場合は種類が不明として扱う）
+        let notice = match (row.kind.as_str(), row.notice_type, row.notice_params.as_deref()) {
+            ("system", Some(notice_type), Some(params)) => serde_json::from_str(params)
+                .ok()
+                .map(|params| SystemNoticeRecord { notice_type, params }),
+            _ => None,
+        };
+
         Ok(MessageRecord {
             message_uuid,
             sender_kind,
@@ -909,6 +1007,7 @@ impl SqliteMessageRepository {
             kind: row.kind,
             recipients,
             created_at: row.created_at,
+            notice,
         })
     }
 
@@ -920,7 +1019,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: turn.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
         self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
@@ -941,7 +1040,7 @@ impl SqliteMessageRepository {
             sender: None,
             turn: turn.to_string(),
             context: catalog.to_string(),
-            kind: MessageKind::System(SystemNotice {}),
+            kind: MessageKind::system(catalog),
         };
         self.insert_system_message(&connection, game_uuid, &message)?;
         Ok(())
@@ -1339,6 +1438,104 @@ mod tests {
         assert_eq!(result[0].sender_kind, MessageSenderKind::Power);
         assert_eq!(result[0].sender_user_uuid, None);
         assert_eq!(result[1].sender_kind, MessageSenderKind::System);
+    }
+
+    fn insert_legacy_system_row(connection: &Connection, game_uuid: Uuid, context: &str) {
+        connection
+            .execute(
+                r#"INSERT INTO messages
+                   (message_uuid, game_uuid, sender_power, turn, context, kind, recipients, created_at, is_deleted)
+                   VALUES (?1, ?2, NULL, '1901s', ?3, 'system', NULL, ?4, 0)"#,
+                rusqlite::params![
+                    Uuid::now_v7().to_string(),
+                    game_uuid.to_string(),
+                    context,
+                    chrono::Utc::now().to_rfc3339()
+                ],
+            )
+            .expect("insert legacy system message");
+    }
+
+    #[test]
+    fn append_system_message_persists_notice() {
+        let (repository, _db_path) = new_test_repository();
+        let game_uuid = Uuid::now_v7();
+        let province = Province::from_code("stp_sc").expect("stp_sc should be valid");
+
+        repository
+            .append_unit_removed_message(game_uuid, "1901s", Unit::new_fleet(Power::Russia, province))
+            .expect("append unit removed message should succeed");
+        repository
+            .append_start_season_message(game_uuid, "1901s")
+            .expect("append start season message should succeed");
+
+        let result = repository.find_by_game_after(game_uuid, None).expect("should succeed");
+        assert_eq!(
+            result[0].notice,
+            Some(SystemNoticeRecord {
+                notice_type: "unit_removed".to_string(),
+                params: serde_json::json!({ "unit": { "power": "r", "kind": "f", "location": "stp_sc" } }),
+            })
+        );
+        assert_eq!(
+            result[1].notice,
+            Some(SystemNoticeRecord {
+                notice_type: "start_season".to_string(),
+                params: serde_json::json!({ "season": "1901s" }),
+            })
+        );
+    }
+
+    #[test]
+    fn init_schema_migrates_legacy_system_messages_notice() {
+        let (repository, db_path) = new_test_repository();
+        let conn = setup_db(&db_path);
+        let game_uuid = Uuid::now_v7();
+        insert_legacy_system_row(&conn, game_uuid, "@alice が募集を開始しました。");
+        insert_legacy_system_row(&conn, game_uuid, "1902 年秋 のメインフェイズが開始されました。");
+        insert_legacy_system_row(&conn, game_uuid, "German A Mun が Russian F StP(SC) に変更されました。");
+        insert_legacy_system_row(&conn, game_uuid, "Germany が保有していた ミュンヘン が解放されました。");
+        insert_legacy_system_row(&conn, game_uuid, "次回更新時刻が 2026-11-27 21:00 に変更されました。");
+        insert_legacy_system_row(&conn, game_uuid, "旧バージョンの未知のメッセージ");
+        insert_message_row(&conn, game_uuid, "1901s", "public", Some("f"), None, false);
+
+        let result = repository.find_by_game_after(game_uuid, None).expect("should succeed");
+        let notices: Vec<_> = result
+            .iter()
+            .map(|record| record.notice.as_ref().map(|n| (n.notice_type.as_str(), n.params.clone())))
+            .collect();
+
+        assert_eq!(
+            notices,
+            vec![
+                Some(("game_created", serde_json::json!({ "username": "alice" }))),
+                Some(("start_season", serde_json::json!({ "season": "1902f" }))),
+                Some((
+                    "unit_replaced",
+                    serde_json::json!({
+                        "old_unit": { "power": "g", "kind": "a", "location": "mun" },
+                        "new_unit": { "power": "r", "kind": "f", "location": "stp_sc" },
+                    })
+                )),
+                Some((
+                    "territory_released",
+                    serde_json::json!({ "province": "mun", "old_power": "g" })
+                )),
+                Some((
+                    "next_update_at_changed",
+                    serde_json::json!({ "next_update_at": "2026-11-27 21:00" })
+                )),
+                None,
+                None,
+            ]
+        );
+
+        // 移行は一度だけ行われ、以降の読み出しでも結果は変わらない
+        let again = repository.find_by_game_after(game_uuid, None).expect("should succeed");
+        assert_eq!(
+            again.iter().map(|r| r.notice.clone()).collect::<Vec<_>>(),
+            result.iter().map(|r| r.notice.clone()).collect::<Vec<_>>()
+        );
     }
 
     #[test]

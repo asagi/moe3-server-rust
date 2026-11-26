@@ -64,6 +64,7 @@ pub(crate) use responses::GameBoardUnitResponse;
 pub(crate) use responses::GameListItem;
 pub(crate) use responses::GameListItemRegulation;
 pub(crate) use responses::GameLogMessage;
+pub(crate) use responses::GameLogNotice;
 pub(crate) use responses::GameLogSenderUser;
 pub(crate) use responses::GameResultOrderResponse;
 pub(crate) use responses::GameResultPhaseResponse;

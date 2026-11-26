@@ -24,7 +24,6 @@ pub(crate) use game::Game;
 pub(crate) use game::GameStatus;
 pub(crate) use message::Message;
 pub(crate) use message::MessageKind;
-pub(crate) use message::SystemNotice;
 pub(crate) use message::SystemNoticeCatalog;
 pub(crate) use order::BuildOrder;
 pub(crate) use order::ConvoyOrder;

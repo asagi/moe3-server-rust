@@ -43,7 +43,6 @@ pub(crate) use models::Power;
 pub(crate) use models::ProgressMode;
 pub(crate) use models::Province;
 pub(crate) use models::Regulation;
-pub(crate) use models::SystemNotice;
 pub(crate) use models::SystemNoticeCatalog;
 pub(crate) use models::Territory;
 pub(crate) use models::Unit;

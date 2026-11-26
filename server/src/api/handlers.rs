@@ -84,6 +84,7 @@ pub(crate) use super::GameBoardUnitResponse;
 pub(crate) use super::GameListItem;
 pub(crate) use super::GameListItemRegulation;
 pub(crate) use super::GameLogMessage;
+pub(crate) use super::GameLogNotice;
 pub(crate) use super::GameLogSenderUser;
 pub(crate) use super::GameRepository;
 pub(crate) use super::GameResultOrderResponse;

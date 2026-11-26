@@ -30,7 +30,6 @@ pub(crate) use domain::Power;
 pub(crate) use domain::ProgressMode;
 pub(crate) use domain::Province;
 pub(crate) use domain::Regulation;
-pub(crate) use domain::SystemNotice;
 pub(crate) use domain::SystemNoticeCatalog;
 pub(crate) use domain::Territory;
 pub(crate) use domain::Unit;

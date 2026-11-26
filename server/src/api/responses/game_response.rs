@@ -199,6 +199,20 @@ pub(crate) struct GameLogMessage {
     pub kind: String,
     pub recipients: Option<Vec<String>>,
     pub created_at: String,
+    /// システムメッセージの種類と値（システムメッセージ以外、または種類が不明な場合は null）
+    pub notice: Option<GameLogNotice>,
+}
+
+///
+/// 外交履歴取得レスポンスのシステムメッセージの種類と値の構造体
+///
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub(crate) struct GameLogNotice {
+    /// 種類（例: "unit_placed"）
+    #[serde(rename = "type")]
+    pub notice_type: String,
+    /// 本文の組み立てに使った値（国・地域・ユニット種別はコードで表す）
+    pub params: serde_json::Value,
 }
 
 ///
