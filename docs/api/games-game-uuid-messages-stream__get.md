@@ -41,11 +41,21 @@
 
 - `id`: `message_uuid`
 - `data`: 外交履歴取得 API の `messages[]` の 1 件と同じ JSON
+- システムメッセージ（`kind: "system"`）には `notice`（種類と値）が入る。`type` と `params` の一覧は [外交履歴取得 API](./games-game-uuid-logs-season__get.md) の「`notice`（システムメッセージの種類）」を参照。それ以外は `notice: null`
 
 ```
 id: 019715e1-b123-7abc-8def-000000000001
 event: message
-data: {"message_uuid":"019715e1-b123-7abc-8def-000000000001","sender":"f","sender_kind":"power","sender_user":null,"turn":"1901s","context":"こんにちは","kind":"public","recipients":null,"created_at":"2026-11-24 21:00"}
+data: {"message_uuid":"019715e1-b123-7abc-8def-000000000001","sender":"f","sender_kind":"power","sender_user":null,"turn":"1901s","context":"こんにちは","kind":"public","recipients":null,"created_at":"2026-11-24 21:00","notice":null}
+
+```
+
+システムメッセージの例：
+
+```
+id: 019715e1-b123-7abc-8def-000000000002
+event: message
+data: {"message_uuid":"019715e1-b123-7abc-8def-000000000002","sender":null,"sender_kind":"system","sender_user":null,"turn":"1901s","context":"German A Mun が配置されました。","kind":"system","recipients":null,"created_at":"2026-11-24 21:01","notice":{"type":"unit_placed","params":{"unit":{"power":"g","kind":"a","location":"mun"}}}}
 
 ```
 

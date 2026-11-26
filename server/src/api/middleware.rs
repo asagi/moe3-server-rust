@@ -81,8 +81,8 @@ where
             }
         }
 
-        for (game_uuid, turn, season) in started_seasons {
-            if let Err(error) = self.message_repository.append_start_season_message(game_uuid, &turn, &season) {
+        for (game_uuid, turn, _season) in started_seasons {
+            if let Err(error) = self.message_repository.append_start_season_message(game_uuid, &turn) {
                 eprintln!(
                     "failed to persist StartSeason message (game_uuid={}, turn={}): {}",
                     game_uuid, turn, error

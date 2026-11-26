@@ -52,7 +52,6 @@ pub(crate) use super::Power;
 pub(crate) use super::ProgressMode;
 pub(crate) use super::Province;
 pub(crate) use super::Regulation;
-pub(crate) use super::SystemNotice;
 pub(crate) use super::SystemNoticeCatalog;
 pub(crate) use super::Territory;
 pub(crate) use super::Unit;

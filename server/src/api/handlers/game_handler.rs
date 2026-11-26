@@ -1859,6 +1859,10 @@ pub(super) fn to_game_log_message_full(r: crate::MessageRecord) -> super::GameLo
         kind: r.kind,
         recipients,
         created_at: utc_rfc3339_to_jst_string(&r.created_at),
+        notice: r.notice.map(|notice| super::GameLogNotice {
+            notice_type: notice.notice_type,
+            params: notice.params,
+        }),
     }
 }
 
@@ -1877,6 +1881,7 @@ fn to_game_log_message_masked(r: crate::MessageRecord) -> super::GameLogMessage 
         kind: "masked".to_string(),
         recipients,
         created_at: utc_rfc3339_to_jst_string(&r.created_at),
+        notice: None,
     }
 }
 
@@ -5238,6 +5243,7 @@ mod tests {
             kind: kind.to_string(),
             recipients,
             created_at: "2026-05-10T11:00:00Z".to_string(),
+            notice: None,
         }
     }
 
@@ -5285,6 +5291,108 @@ mod tests {
         .expect_err("should fail");
 
         assert_eq!(error.code(), "not_found");
+    }
+
+    #[test]
+    fn handle_get_games_logs_returns_system_notice_with_codes() {
+        let owner_uuid = uuid::Uuid::now_v7();
+        let player_uuid = uuid::Uuid::now_v7();
+        let game = sample_in_progress_game_for_logs(owner_uuid, player_uuid);
+        let game_uuid = game.uuid;
+        let user_repository = InMemoryUserRepository::new(vec![]);
+        let game_repository = InMemoryGameRepository::new_with_games(vec![game]);
+        let service = GameService::new(user_repository.clone(), game_repository);
+        let message_repository = new_test_message_repository();
+
+        let munich = crate::domain::Province::from_code("mun").expect("mun");
+        let stp_sc = crate::domain::Province::from_code("stp_sc").expect("stp_sc");
+        message_repository
+            .append_unit_placed_message(
+                game_uuid,
+                "1901s",
+                crate::domain::Unit::new_army(crate::domain::Power::Germany, munich),
+            )
+            .expect("unit placed");
+        message_repository
+            .append_unit_replaced_message(
+                game_uuid,
+                "1901s",
+                crate::domain::Unit::new_army(crate::domain::Power::Germany, munich),
+                crate::domain::Unit::new_fleet(crate::domain::Power::Russia, stp_sc),
+            )
+            .expect("unit replaced");
+        message_repository
+            .append_territory_replaced_message(
+                game_uuid,
+                "1901s",
+                munich,
+                crate::domain::Power::Austria,
+                crate::domain::Power::Germany,
+            )
+            .expect("territory replaced");
+        message_repository
+            .append_progress_consented_message(game_uuid, "1901s", crate::domain::Power::France)
+            .expect("progress consented");
+        message_repository
+            .append_chat_message(
+                game_uuid,
+                crate::repositories::NewChatMessage {
+                    sender_kind: crate::MessageSenderKind::Power,
+                    sender_power: Some(crate::domain::Power::France),
+                    sender_user_uuid: player_uuid,
+                    turn: "1901s".to_string(),
+                    context: "公開".to_string(),
+                    kind: crate::MessageKind::public(),
+                },
+            )
+            .expect("chat message");
+
+        let response = handle_get_games_logs(
+            &service,
+            &user_repository,
+            &message_repository,
+            game_uuid,
+            "1901s",
+            None,
+            None,
+        )
+        .expect("should succeed");
+        let json = serde_json::to_value(&response).expect("serialize");
+        let messages = json["messages"].as_array().expect("messages");
+
+        assert_eq!(messages.len(), 5);
+        assert_eq!(messages[0]["kind"], "system");
+        assert_eq!(messages[0]["context"], "German A Mun が配置されました。");
+        assert_eq!(
+            messages[0]["notice"],
+            serde_json::json!({
+                "type": "unit_placed",
+                "params": { "unit": { "power": "g", "kind": "a", "location": "mun" } },
+            })
+        );
+        assert_eq!(
+            messages[1]["notice"],
+            serde_json::json!({
+                "type": "unit_replaced",
+                "params": {
+                    "old_unit": { "power": "g", "kind": "a", "location": "mun" },
+                    "new_unit": { "power": "r", "kind": "f", "location": "stp_sc" },
+                },
+            })
+        );
+        assert_eq!(
+            messages[2]["notice"],
+            serde_json::json!({
+                "type": "territory_replaced",
+                "params": { "province": "mun", "old_power": "a", "new_power": "g" },
+            })
+        );
+        assert_eq!(
+            messages[3]["notice"],
+            serde_json::json!({ "type": "progress_consented", "params": { "power": "f" } })
+        );
+        assert_eq!(messages[4]["kind"], "public");
+        assert!(messages[4]["notice"].is_null());
     }
 
     // ============================================================================

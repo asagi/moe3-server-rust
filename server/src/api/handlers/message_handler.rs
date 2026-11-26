@@ -1553,6 +1553,31 @@ mod tests {
     }
 
     #[test]
+    fn stream_update_includes_system_notice() {
+        let fixture = fixture(GameStatus::InProgress);
+        let cursor = fixture
+            .message_repository
+            .find_latest_message_uuid(fixture.game_uuid)
+            .expect("latest should succeed");
+        let province = crate::domain::Province::from_code("mun").expect("mun");
+        fixture
+            .message_repository
+            .append_territory_set_message(fixture.game_uuid, "1901s", province, Power::Germany)
+            .expect("territory set");
+        post(&fixture, Some("token-f"), false, body("public", None, "公開", false)).expect("public");
+
+        let update = collect(&fixture, None, cursor, "1901s");
+
+        assert_eq!(update.messages.len(), 2);
+        let json = serde_json::to_value(&update.messages).expect("serialize");
+        assert_eq!(
+            json[0]["notice"],
+            serde_json::json!({ "type": "territory_set", "params": { "province": "mun", "power": "g" } })
+        );
+        assert!(json[1]["notice"].is_null());
+    }
+
+    #[test]
     fn stream_update_reports_season_change() {
         let fixture = fixture(GameStatus::InProgress);
 

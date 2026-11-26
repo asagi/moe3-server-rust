@@ -99,7 +99,8 @@
   "context": "ベルギーは譲ってほしい。",
   "kind": "confidential",
   "recipients": ["e", "g"],
-  "created_at": "2026-11-24 21:00"
+  "created_at": "2026-11-24 21:00",
+  "notice": null
 }
 ```
 
