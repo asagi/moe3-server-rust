@@ -14,6 +14,7 @@ use super::DurationType;
 use super::Phase;
 use super::PhaseKind;
 use super::Player;
+use super::Power;
 use super::ProgressMode;
 use super::Regulation;
 
@@ -54,6 +55,19 @@ pub(crate) struct Game {
 }
 
 impl Game {
+    /// 指定国が滅亡しているか（最新フェイズでユニットも補給都市も持たない）を返す
+    ///
+    /// 開戦前夜と感想戦では、どの国も滅亡していない扱いにする。
+    pub(crate) fn is_power_eliminated(&self, power: Power) -> bool {
+        let Some(latest) = self.phases.last() else {
+            return false;
+        };
+        if matches!(latest.kind, PhaseKind::Ready(_) | PhaseKind::Debrief(_)) {
+            return false;
+        }
+        latest.count_units(&power) == 0 && latest.count_supply_centers(&power) == 0
+    }
+
     /// 現在フェイズからターン文字列を返す（例: ready, 1901s, 1901f, debrief）
     pub(crate) fn current_turn(&self) -> String {
         let Some(current_phase) = self.phases.last() else {
@@ -200,6 +214,7 @@ mod tests {
                 power: Some(Power::France),
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             }],

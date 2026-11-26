@@ -108,6 +108,7 @@ impl SqliteGameRepository {
                 power INTEGER,
                 is_accepting_draw INTEGER NOT NULL,
                 progress_consented INTEGER NOT NULL DEFAULT 0,
+                is_idle INTEGER NOT NULL DEFAULT 0,
                 is_owner INTEGER NOT NULL,
                 requested_power INTEGER
             );
@@ -145,7 +146,33 @@ impl SqliteGameRepository {
             .execute_batch(sql)
             .map_err(|error| RepositoryError::Unavailable(format!("create game tables: {}", error)))?;
 
+        self.add_game_players_is_idle_column()?;
         self.migrate_ready_phase_initial_territories()?;
+
+        Ok(())
+    }
+
+    ///
+    /// 既存 DB の game_players に is_idle 列が無い場合は追加する
+    ///
+    fn add_game_players_is_idle_column(&self) -> Result<(), RepositoryError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|error| RepositoryError::Unavailable(format!("lock sqlite connection: {}", error)))?;
+
+        let has_is_idle: bool = connection
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM pragma_table_info('game_players') WHERE name = 'is_idle'",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|error| RepositoryError::Unavailable(format!("inspect game_players table: {}", error)))?;
+        if !has_is_idle {
+            connection
+                .execute("ALTER TABLE game_players ADD COLUMN is_idle INTEGER NOT NULL DEFAULT 0", [])
+                .map_err(|error| RepositoryError::Unavailable(format!("add game_players.is_idle column: {}", error)))?;
+        }
 
         Ok(())
     }
@@ -620,7 +647,7 @@ impl SqliteGameRepository {
                 let mut stmt = connection
                     .prepare(
                         r#"
-                        SELECT user_uuid, power, is_accepting_draw, progress_consented, is_owner, requested_power
+                        SELECT user_uuid, power, is_accepting_draw, progress_consented, is_owner, requested_power, is_idle
                         FROM game_players
                         WHERE game_uuid = ?1
                         ORDER BY id ASC
@@ -637,6 +664,7 @@ impl SqliteGameRepository {
                             r.get::<_, i32>(3)?,
                             r.get::<_, i32>(4)?,
                             r.get::<_, Option<i32>>(5)?,
+                            r.get::<_, i32>(6)?,
                         ))
                     })
                     .map_err(|error| RepositoryError::Unavailable(format!("query players: {}", error)))?
@@ -646,7 +674,15 @@ impl SqliteGameRepository {
                 raw_rows
                     .into_iter()
                     .map(
-                        |(user_uuid_str, power_val, is_accepting_draw, progress_consented, is_owner, requested_power_val)| {
+                        |(
+                            user_uuid_str,
+                            power_val,
+                            is_accepting_draw,
+                            progress_consented,
+                            is_owner,
+                            requested_power_val,
+                            is_idle,
+                        )| {
                             let user_uuid = Uuid::parse_str(&user_uuid_str)
                                 .map_err(|error| RepositoryError::Unavailable(format!("parse player uuid: {}", error)))?;
                             let power = power_val.map(Self::power_from_i32).transpose()?;
@@ -656,6 +692,7 @@ impl SqliteGameRepository {
                                 power,
                                 is_accepting_draw: is_accepting_draw != 0,
                                 progress_consented: progress_consented != 0,
+                                is_idle: is_idle != 0,
                                 is_owner: is_owner != 0,
                                 requested_power,
                             })
@@ -1017,8 +1054,9 @@ impl GameRepository for SqliteGameRepository {
                         is_accepting_draw,
                         progress_consented,
                         is_owner,
-                        requested_power
-                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                        requested_power,
+                        is_idle
+                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
                     "#,
                     params![
                         game.uuid.to_string(),
@@ -1028,6 +1066,7 @@ impl GameRepository for SqliteGameRepository {
                         player.progress_consented as i32,
                         player.is_owner as i32,
                         player.requested_power.map(|v| v as i32),
+                        player.is_idle as i32,
                     ],
                 )
                 .map_err(|error| RepositoryError::Unavailable(format!("insert game player: {}", error)))?;
@@ -1304,7 +1343,8 @@ impl GameRepository for SqliteGameRepository {
                     UPDATE game_players
                     SET is_accepting_draw = ?3,
                         progress_consented = ?4,
-                        power = ?5
+                        power = ?5,
+                        is_idle = ?6
                     WHERE game_uuid = ?1 AND user_uuid = ?2
                     "#,
                     params![
@@ -1313,6 +1353,7 @@ impl GameRepository for SqliteGameRepository {
                         player.is_accepting_draw as i32,
                         player.progress_consented as i32,
                         player.power.map(|p| p as i32),
+                        player.is_idle as i32,
                     ],
                 )
                 .map_err(|error| RepositoryError::Unavailable(format!("update game player: {}", error)))?;
@@ -1598,6 +1639,7 @@ mod tests {
                 power: None,
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             }],
@@ -1655,6 +1697,7 @@ mod tests {
                 power: None,
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: true,
                 requested_power: None,
             }],
@@ -1777,6 +1820,7 @@ mod tests {
                 power: Some(Power::France),
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             }],
@@ -1824,6 +1868,7 @@ mod tests {
                 power: Some(Power::France),
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             }],
@@ -1890,6 +1935,7 @@ mod tests {
                 power: Some(Power::France),
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             }],
@@ -1911,6 +1957,91 @@ mod tests {
             .expect("find should succeed")
             .expect("game should exist");
         assert!(restored.players[0].is_accepting_draw);
+    }
+
+    #[test]
+    fn update_persists_player_is_idle() {
+        let repository = SqliteGameRepository::new_in_memory().expect("repository should initialize");
+
+        let regulation = Regulation::new(
+            FaceType::Girls,
+            ProgressMode::Scheduled,
+            DurationType::Short,
+            chrono::NaiveDate::from_ymd_opt(2026, 4, 19).expect("valid date"),
+            12,
+        )
+        .expect("valid regulation");
+
+        let game = Game {
+            uuid: uuid::Uuid::now_v7(),
+            game_number: None,
+            keyword: None,
+            regulation,
+            players: vec![Player {
+                user_uuid: uuid::Uuid::now_v7(),
+                power: Some(Power::France),
+                is_accepting_draw: false,
+                progress_consented: false,
+                is_idle: false,
+                is_owner: true,
+                requested_power: Some(Power::France),
+            }],
+            phases: vec![Phase::new_ready()],
+            status: GameStatus::InProgress,
+            is_draw: false,
+            is_solo: false,
+            next_update_at: None,
+        };
+
+        let mut created = repository.insert(NewGame { game }).expect("insert should succeed");
+        assert!(!created.players[0].is_idle);
+
+        created.players[0].is_idle = true;
+        repository.update(&created).expect("update should succeed");
+
+        let restored = repository
+            .find_by_uuid(created.uuid)
+            .expect("find should succeed")
+            .expect("game should exist");
+        assert!(restored.players[0].is_idle);
+    }
+
+    #[test]
+    fn init_schema_adds_is_idle_column_to_existing_game_players_table() {
+        let connection = Connection::open_in_memory().expect("open in-memory db");
+        connection
+            .execute_batch(
+                r#"
+                CREATE TABLE game_players (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    game_uuid TEXT NOT NULL,
+                    user_uuid TEXT NOT NULL,
+                    power INTEGER,
+                    is_accepting_draw INTEGER NOT NULL,
+                    progress_consented INTEGER NOT NULL DEFAULT 0,
+                    is_owner INTEGER NOT NULL,
+                    requested_power INTEGER
+                );
+                "#,
+            )
+            .expect("create legacy table");
+        let repository = SqliteGameRepository {
+            connection: Arc::new(Mutex::new(connection)),
+        };
+
+        repository.init_schema().expect("init schema should succeed");
+
+        let has_is_idle: bool = repository
+            .connection
+            .lock()
+            .expect("lock connection")
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM pragma_table_info('game_players') WHERE name = 'is_idle'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("inspect table");
+        assert!(has_is_idle);
     }
 }
 
@@ -1962,6 +2093,7 @@ mod transaction_tests {
                 power: None,
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: true,
                 requested_power: None,
             }],
@@ -2012,6 +2144,7 @@ mod transaction_tests {
                 power: Some(Power::France),
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             }],
@@ -2047,6 +2180,7 @@ mod transaction_tests {
                 power: None,
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: true,
                 requested_power: None,
             }],
@@ -2233,6 +2367,7 @@ mod transaction_tests {
                 power: Some(Power::France),
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: true,
                 requested_power: Some(Power::France),
             }],
@@ -2291,6 +2426,7 @@ mod migration_tests {
                 power: None,
                 is_accepting_draw: false,
                 progress_consented: false,
+                is_idle: false,
                 is_owner: true,
                 requested_power: None,
             }],

@@ -363,6 +363,26 @@ impl SqliteMessageRepository {
     }
 
     ///
+    /// 無政府状態からの復帰のシステムメッセージを保存する
+    ///
+    pub(crate) fn append_power_returned_message(&self, game_uuid: Uuid, turn: &str, power: Power) -> Result<(), RepositoryError> {
+        let connection = self.open_connection()?;
+
+        self.init_schema(&connection)?;
+
+        let catalog = SystemNoticeCatalog::PowerReturned { power };
+        let message = Message {
+            sender: None,
+            turn: turn.to_string(),
+            context: catalog.to_string(),
+            kind: MessageKind::system(catalog),
+        };
+
+        self.insert_system_message(&connection, game_uuid, &message)?;
+        Ok(())
+    }
+
+    ///
     /// 制覇終了のシステムメッセージを保存する
     ///
     pub(crate) fn append_solo_message(&self, game_uuid: Uuid, power: Power) -> Result<(), RepositoryError> {
@@ -1226,6 +1246,28 @@ mod tests {
         assert_eq!(turn, "1901s");
         assert_eq!(kind, "system");
         assert_eq!(context, "進行モードが定時進行から合意進行に変更されました。");
+    }
+
+    #[test]
+    fn append_power_returned_message_persists_system_message() {
+        let (repository, db_path) = new_test_repository();
+        let game_uuid = Uuid::now_v7();
+
+        repository
+            .append_power_returned_message(game_uuid, "1901f", Power::Italy)
+            .expect("append power returned message should succeed");
+
+        let connection = Connection::open(&db_path).expect("open message db");
+        let (sender_power, turn, context, kind): (Option<String>, String, String, String) = connection
+            .query_row("SELECT sender_power, turn, context, kind FROM messages LIMIT 1", [], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
+            .expect("read inserted message");
+
+        assert_eq!(sender_power, None);
+        assert_eq!(turn, "1901f");
+        assert_eq!(kind, "system");
+        assert_eq!(context, "Italy が無政府状態から復帰しました。");
     }
 
     #[test]

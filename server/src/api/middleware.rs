@@ -49,9 +49,32 @@ where
     ///
     /// 全ハンドラの直前に呼び出す共通処理。
     ///
+    /// - `accessing_user_uuid`（トークン付きでアクセスしたユーザー）が無政府化の印を持つ卓について、
+    ///   印を外し、滅亡していない国なら復帰のシステムメッセージを保存する。
+    /// - 進行中卓の担当国プレイヤーの無政府化を確認し、無政府化していれば is_idle を true に設定する。
     /// - アクティブな全卓について卓主の無政府化を確認し、無政府化していれば is_accepting_draw を true に設定する。
     /// - Closed 以外の Game を取得し、next_update_at が過去なら最新フェイズを close する。
-    pub(crate) fn run(&self) -> Result<(), PreHandlerError> {
+    pub(crate) fn run(&self, accessing_user_uuid: Option<uuid::Uuid>) -> Result<(), PreHandlerError> {
+        if let Some(user_uuid) = accessing_user_uuid {
+            let returned_powers = self
+                .progression_service
+                .restore_returned_player(user_uuid)
+                .map_err(PreHandlerError::GameProgression)?;
+
+            for (game_uuid, turn, power) in returned_powers {
+                if let Err(error) = self.message_repository.append_power_returned_message(game_uuid, &turn, power) {
+                    eprintln!(
+                        "failed to persist PowerReturned message (game_uuid={}, turn={}): {}",
+                        game_uuid, turn, error
+                    );
+                }
+            }
+        }
+
+        self.progression_service
+            .mark_idle_players()
+            .map_err(PreHandlerError::GameProgression)?;
+
         self.progression_service
             .mark_idle_players_progress_consented()
             .map_err(PreHandlerError::GameProgression)?;

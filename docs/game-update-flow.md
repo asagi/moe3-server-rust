@@ -18,10 +18,14 @@ run_global_pre_handler（ミドルウェア）
     │       Authorization ヘッダのアクセストークンで users テーブルの
     │       last_access_at を現在時刻に更新する。
     │       （無政府判定の誤検知を防ぐため、ロック取得前に先行実行）
+    │       更新できたユーザーの UUID を [3] に渡す（視点変更中もリクエストした本人）
     │
     ├─[2] game_update_lock 取得
     │
-    ├─[3] GlobalPreHandler::run()
+    ├─[3] GlobalPreHandler::run(accessing_user_uuid)
+    │       ├─ R. 無政府状態からの復帰（restore_returned_player）
+    │       ├─ I. 担当国プレイヤーの無政府化チェック（mark_idle_players）
+    │       ├─ C. 無政府プレイヤーの即時進行合意（mark_idle_players_progress_consented）
     │       ├─ A. 卓主無政府化チェック（mark_idle_owners_accepting_draw）
     │       └─ B. フェイズ自動進行（progress_games）
     │
@@ -37,6 +41,20 @@ run_global_pre_handler（ミドルウェア）
 ---
 
 ## GlobalPreHandler::run の詳細
+
+### R. 無政府状態からの復帰（`restore_returned_player`）
+
+1. トークン付きでアクセスしたユーザーがいる場合のみ実行する
+2. そのユーザーが担当国を持つ進行中（InProgress）の卓のうち、`is_idle = true` のものについて `is_idle = false` に更新する
+3. 担当国が滅亡していなければ、現在のターンに `PowerReturned` メッセージ（`{国名} が無政府状態から復帰しました。`）を追記する
+4. 即時進行合意（`progress_consented`）は本人が明示的に撤回するものなので、復帰しても解除しない
+
+### I. 担当国プレイヤーの無政府化チェック（`mark_idle_players`）
+
+1. 進行中（InProgress）の卓の担当国プレイヤーについて、`last_access_at` が閾値以前かどうかを確認
+   - 閾値 = `now - duration_type.idle_limit_minutes()`
+2. 無政府状態かつ `is_idle = false` の場合のみ `is_idle = true` に更新し DB に反映（冪等）
+3. 無政府化はリクエストを契機に検出するため、誰もアクセスしないまま本人が戻ってきた場合は印が付かず、復帰メッセージも出ない
 
 ### A. 卓主無政府化チェック（`mark_idle_owners_accepting_draw`）
 

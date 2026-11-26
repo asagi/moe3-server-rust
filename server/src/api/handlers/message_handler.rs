@@ -939,6 +939,7 @@ mod tests {
             power,
             is_accepting_draw: false,
             progress_consented: false,
+            is_idle: false,
             is_owner: false,
             requested_power: None,
         }
