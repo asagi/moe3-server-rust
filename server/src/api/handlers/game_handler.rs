@@ -2160,22 +2160,28 @@ where
             .map(|o| {
                 let (order_kind, dest, target_location, target_dest, via_convoy) = match &o.kind {
                     crate::OrderKind::Hold(_) => ("hold", None, None, None, None),
-                    crate::OrderKind::Move(m) => ("move", Some(m.dest.short_name().to_string()), None, None, Some(m.via_convoy)),
+                    crate::OrderKind::Move(m) => (
+                        "move",
+                        Some(m.dest.code_with_coast().to_string()),
+                        None,
+                        None,
+                        Some(m.via_convoy),
+                    ),
                     crate::OrderKind::Support(s) => (
                         "support",
                         None,
-                        Some(s.target_unit.location.short_name().to_string()),
-                        s.target_dest.map(|p| p.short_name().to_string()),
+                        Some(s.target_unit.location.code_with_coast().to_string()),
+                        s.target_dest.map(|p| p.code_with_coast().to_string()),
                         None,
                     ),
                     crate::OrderKind::Convoy(c) => (
                         "convoy",
                         None,
-                        Some(c.target_unit.location.short_name().to_string()),
-                        Some(c.target_dest.short_name().to_string()),
+                        Some(c.target_unit.location.code_with_coast().to_string()),
+                        Some(c.target_dest.code_with_coast().to_string()),
                         None,
                     ),
-                    crate::OrderKind::Retreat(r) => ("retreat", Some(r.dest.short_name().to_string()), None, None, None),
+                    crate::OrderKind::Retreat(r) => ("retreat", Some(r.dest.code_with_coast().to_string()), None, None, None),
                     crate::OrderKind::Build(_) => ("build", None, None, None, None),
                     crate::OrderKind::Disband(_) => ("disband", None, None, None, None),
                 };
@@ -2192,7 +2198,7 @@ where
                 super::GameResultOrderResponse {
                     power: o.power.symbol().to_string(),
                     unit_kind: o.unit.kind_code().to_string(),
-                    location: o.unit.location.short_name().to_string(),
+                    location: o.unit.location.code_with_coast().to_string(),
                     order_kind: order_kind.to_string(),
                     status: status.to_string(),
                     dest,
@@ -2232,7 +2238,7 @@ where
                 .map(|u| super::GameResultUnitResponse {
                     power: u.power.symbol().to_string(),
                     kind: u.kind_code().to_string(),
-                    location: u.location.short_name().to_string(),
+                    location: u.location.code_with_coast().to_string(),
                 })
                 .collect()
         })
@@ -5805,7 +5811,7 @@ mod tests {
         // 進行中のフェイズの命令は返さない
         assert!(result.main_phase.orders.is_empty());
         assert_eq!(result.units.len(), 1);
-        assert_eq!(result.units[0].location, "Lon");
+        assert_eq!(result.units[0].location, "lon");
     }
 
     #[test]
@@ -5900,7 +5906,7 @@ mod tests {
         let result = handle_get_games_result(&service, uuid, "1901s").unwrap();
 
         assert_eq!(result.units.len(), 1);
-        assert_eq!(result.units[0].location, "Wal");
+        assert_eq!(result.units[0].location, "wal");
     }
 
     #[test]
@@ -5920,8 +5926,41 @@ mod tests {
 
         let order = &result.main_phase.orders[0];
         assert_eq!(order.order_kind, "move");
-        assert_eq!(order.dest.as_deref(), Some("Wal"));
+        assert_eq!(order.dest.as_deref(), Some("wal"));
         assert_eq!(order.via_convoy, Some(false));
+    }
+
+    #[test]
+    fn handle_get_games_result_uses_board_province_codes() {
+        let ready = Phase::new_ready();
+        let mut spring_main = Phase::new_spring_main(ready.year, ready.index);
+        let stp = crate::domain::Unit::new_fleet(crate::domain::Power::Russia, province("stp_sc"));
+        let fin = army(crate::domain::Power::Russia, "fin");
+        let mid = crate::domain::Unit::new_fleet(crate::domain::Power::France, province("mid"));
+        let gas = army(crate::domain::Power::France, "gas");
+        spring_main.units = vec![stp, fin, mid, gas];
+        spring_main.orders = vec![
+            crate::Order::new_move(crate::domain::Power::Russia, stp, province("bot")),
+            crate::Order::new_support(crate::domain::Power::Russia, fin, stp, Some(province("bot"))),
+            crate::Order::new_move(crate::domain::Power::France, mid, province("spa_nc")),
+            crate::Order::new_support(crate::domain::Power::France, gas, mid, Some(province("spa_nc"))),
+        ];
+        let mut spring_retreat = Phase::new_spring_retreat(spring_main.year, spring_main.index);
+        spring_retreat.units = spring_main.units.clone();
+
+        let game = make_game_for_result(uuid::Uuid::now_v7(), vec![ready, spring_main, spring_retreat]);
+        let (uuid, service) = make_result_service(game);
+        let result = handle_get_games_result(&service, uuid, "1901s").unwrap();
+
+        let orders = &result.main_phase.orders;
+        assert_eq!(orders[0].location, "stp_sc");
+        assert_eq!(orders[0].dest.as_deref(), Some("bot"));
+        assert_eq!(orders[1].location, "fin");
+        assert_eq!(orders[1].target_location.as_deref(), Some("stp_sc"));
+        assert_eq!(orders[1].target_dest.as_deref(), Some("bot"));
+        assert_eq!(orders[2].dest.as_deref(), Some("spa_nc"));
+        assert_eq!(orders[3].target_dest.as_deref(), Some("spa_nc"));
+        assert!(result.units.iter().any(|u| u.location == "stp_sc" && u.kind == "f"));
     }
 
     #[test]
