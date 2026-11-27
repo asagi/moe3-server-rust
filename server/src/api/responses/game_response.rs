@@ -335,5 +335,7 @@ pub(crate) struct GameBoardPowerResponse {
     pub progress_consented: Option<bool>,
     /// 無政府状態か（過去のシーズンでは `null`）
     pub is_idle: Option<bool>,
+    /// 担当者の最終アクセスからの経過分数（過去のシーズン・担当者がいない国では `null`）
+    pub absent_minutes: Option<i64>,
     pub is_eliminated: bool,
 }

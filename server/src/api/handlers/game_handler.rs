@@ -2002,6 +2002,7 @@ where
             needs_action: s.needs_action,
             progress_consented: s.progress_consented,
             is_idle: s.is_idle,
+            absent_minutes: s.absent_minutes,
             is_eliminated: s.is_eliminated,
         })
         .collect();
@@ -6766,7 +6767,13 @@ mod tests {
             crate::domain::Territory::new(Power::Germany, "mun"),
         ];
         let fixture = orders_fixture(retreat);
+        // イギリスの担当者は 42 分 30 秒前に最終アクセスした
+        fixture
+            .user_repository
+            .update_last_access_at_by_access_token("token-england", Utc::now() - chrono::Duration::seconds(42 * 60 + 30))
+            .expect("update last access");
 
+        // 認証なしで取得する
         let response = handle_get_games_board(&fixture.service, fixture.game_uuid, None).expect("should succeed");
 
         assert_eq!(response.season, "1901s");
@@ -6792,17 +6799,55 @@ mod tests {
         assert!(france.needs_action);
         assert_eq!(france.progress_consented, Some(false));
         assert_eq!(france.is_idle, Some(false));
+        assert_eq!(france.absent_minutes, Some(0));
         assert!(!france.is_eliminated);
         let england = status("e");
         assert_eq!(england.supply_centers, 2);
         assert!(!england.needs_action);
         assert_eq!(england.progress_consented, Some(true));
-        // 担当者が無政府
-        assert_eq!(status("g").is_idle, Some(true));
+        assert_eq!(england.is_idle, Some(false));
+        // 経過分数は切り捨て
+        assert_eq!(england.absent_minutes, Some(42));
+        // 担当者が無政府（30 日前に最終アクセス）
+        let germany = status("g");
+        assert_eq!(germany.is_idle, Some(true));
+        assert_eq!(germany.absent_minutes, Some(30 * 24 * 60));
         // 担当者がいない国
         let italy = status("i");
         assert_eq!(italy.is_idle, Some(true));
+        assert_eq!(italy.absent_minutes, None);
         assert!(italy.is_eliminated);
+    }
+
+    #[test]
+    fn handle_get_games_board_returns_null_absent_minutes_for_past_phase() {
+        let fixture = orders_fixture(orders_main_phase());
+        let mut game = fixture.service.get_game(fixture.game_uuid).expect("game");
+        let spring = game.phases.last().expect("phase").clone();
+        let retreat = Phase::new_spring_retreat(spring.year, spring.index);
+        let fall = Phase::new_fall_main(retreat.year, retreat.index);
+        game.phases.push(retreat);
+        game.phases.push(fall);
+        fixture.game_repository.update(&game).expect("update game");
+
+        // 過去のシーズンは担当者がいても null
+        let response = handle_get_games_board(&fixture.service, fixture.game_uuid, Some("1901s")).expect("should succeed");
+        assert!(response.powers.iter().all(|p| p.absent_minutes.is_none()));
+
+        // 最新のシーズンは担当者のいる国だけ値が入る
+        let response = handle_get_games_board(&fixture.service, fixture.game_uuid, None).expect("should succeed");
+        let absent = |power: &str| {
+            response
+                .powers
+                .iter()
+                .find(|p| p.power == power)
+                .expect("power")
+                .absent_minutes
+        };
+        assert_eq!(absent("f"), Some(0));
+        assert_eq!(absent("e"), Some(0));
+        assert!(absent("g").is_some());
+        assert_eq!(absent("i"), None);
     }
 
     #[test]
@@ -6829,6 +6874,7 @@ mod tests {
         assert_eq!(france.supply_centers, 1);
         assert_eq!(france.progress_consented, None);
         assert_eq!(france.is_idle, None);
+        assert_eq!(france.absent_minutes, None);
         assert!(!france.needs_action);
 
         let response = handle_get_games_board(&service, uuid, Some("1901f")).expect("should succeed");

@@ -699,7 +699,7 @@ where
 }
 
 ///
-/// 国ごとの状況（補給都市・ユニット数・即時進行合意）の指紋を返す
+/// 国ごとの状況（補給都市・ユニット数・即時進行合意・無政府状態）の指紋を返す
 ///
 /// 状況が変わったかを判定するためだけに使う。命令の確定は他国に知らせないため含めない。
 ///
@@ -711,14 +711,18 @@ fn board_fingerprint(game: &crate::Game) -> String {
         .map(|power| {
             let fleets = phase.units.iter().filter(|u| u.power == power && u.is_fleet()).count();
             let units = phase.count_units(&power);
-            let consented = game.players.iter().any(|p| p.power == Some(power) && p.progress_consented);
+            let player = game.players.iter().find(|p| p.power == Some(power));
+            let consented = player.is_some_and(|p| p.progress_consented);
+            // 滅亡した国の無政府状態は表示に影響しないので含めない
+            let idle = player.is_some_and(|p| p.is_idle) && !game.is_power_eliminated(power);
             format!(
-                "{}:{}:{}:{}:{}",
+                "{}:{}:{}:{}:{}:{}",
                 power.symbol(),
                 phase.count_supply_centers(&power),
                 units - fleets,
                 fleets,
-                consented
+                consented,
+                idle
             )
         })
         .collect::<Vec<_>>()
@@ -1805,6 +1809,21 @@ mod tests {
         assert!(event.contains("event: board"), "event: {}", event);
         assert_ne!(state.board.as_deref(), Some(original_board.as_str()));
         assert!(state.pending.is_empty());
+    }
+
+    #[test]
+    fn board_fingerprint_changes_when_player_becomes_idle() {
+        let fixture = fixture(GameStatus::InProgress);
+        let original = fixture.service.get_game(fixture.game_uuid).expect("game");
+        let original_board = board_fingerprint(&original);
+
+        let mut game = original.clone();
+        game.players[0].is_idle = true;
+        assert_ne!(board_fingerprint(&game), original_board);
+
+        // 復帰すれば元に戻る
+        game.players[0].is_idle = false;
+        assert_eq!(board_fingerprint(&game), original_board);
     }
 
     #[test]
