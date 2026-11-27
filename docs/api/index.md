@@ -26,7 +26,6 @@
 
 | メソッド | パス                                                                            | 概要                                                   |
 | -------- | ------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `GET`    | `/games/:game_uuid/state`                                                       | 盤面情報の取得                                         |
 | `GET`    | [`/games/:game_uuid/orders` 🔗](./games-game-uuid-orders__get.md)                | 自分の命令と命令の候補の取得（他国軍に対する仮定命令も含む） |
 | `PUT`    | [`/games/:game_uuid/orders` 🔗](./games-game-uuid-orders__put.md)                | 自分の命令をまとめて確定（丸ごと置き換え）             |
 | `PUT`    | [`/games/:game_uuid/progress-consensus` 🔗](./games-progress-consensus__put.md) | 即時進行への合意を表明/撤回                            |
