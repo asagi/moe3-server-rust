@@ -49,6 +49,7 @@
       "needs_action": true,
       "progress_consented": false,
       "is_idle": false,
+      "absent_minutes": 42,
       "is_eliminated": false
     }
   ]
@@ -96,6 +97,7 @@
 | `needs_action`       | `boolean`         | このフェイズで操作が必要か（[命令取得 API](./games-game-uuid-orders__get.md) の `needs_action` と同じ判定）。過去のフェイズでは `false` |
 | `progress_consented` | `boolean \| null` | 即時進行に合意しているか。担当者がいない国は `false`。過去のフェイズでは `null`                                             |
 | `is_idle`            | `boolean \| null` | 無政府状態か（担当者の最終アクセスが卓の無政府判定時間より前）。担当者がいない国も `true`。過去のフェイズでは `null`         |
+| `absent_minutes`     | `number \| null`  | 担当者の最終アクセスからレスポンス作成時点までの経過分数（切り捨て）。最終アクセスはユーザー単位なので、ほかの卓へのアクセスでも縮む。担当者がいない国・過去のフェイズでは `null`。滅亡した国も値を返す |
 | `is_eliminated`      | `boolean`         | 滅亡しているか（補給都市もユニットも無い）。開戦前夜・感想戦では常に `false`                                                |
 
 - 和平合意は卓主だけの権限なので、ここには含めない。

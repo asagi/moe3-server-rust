@@ -340,12 +340,14 @@ where
     ///
     /// 進行中卓の担当国プレイヤーのうち、無政府判定されたものに `is_idle` を立てる。
     /// 印は復帰時に [`Self::restore_returned_player`] で外す。
-    pub(crate) fn mark_idle_players(&self) -> Result<(), GameProgressionError> {
+    /// 新たに印を付けたプレイヤーがいる卓の UUID を返す（SSE 配信の通知用）。
+    pub(crate) fn mark_idle_players(&self) -> Result<Vec<uuid::Uuid>, GameProgressionError> {
         let now = Utc::now().naive_utc();
         let games = self
             .game_repository
             .find_all_active()
             .map_err(GameProgressionError::Repository)?;
+        let mut marked_games = Vec::new();
 
         for mut game in games {
             if game.status != super::GameStatus::InProgress {
@@ -369,10 +371,11 @@ where
 
             if changed {
                 self.game_repository.update(&game).map_err(GameProgressionError::Repository)?;
+                marked_games.push(game.uuid);
             }
         }
 
-        Ok(())
+        Ok(marked_games)
     }
 
     /// 無政府状態から復帰したユーザーの印を外す
@@ -1216,9 +1219,10 @@ mod tests {
         let repository = InMemoryGameRepository::new(vec![game]);
         let service = GameProgressionService::new(users, repository.clone());
 
-        service.mark_idle_players().expect("should succeed");
+        let marked = service.mark_idle_players().expect("should succeed");
 
         let updated = repository.updated_first().expect("game should be updated");
+        assert_eq!(marked, vec![updated.uuid]);
         assert!(updated.players[0].is_idle);
         // 即時進行合意には触らない
         assert!(!updated.players[0].progress_consented);
@@ -1232,7 +1236,9 @@ mod tests {
         let repository = InMemoryGameRepository::new(vec![game]);
         let service = GameProgressionService::new(users, repository.clone());
 
-        service.mark_idle_players().expect("should succeed");
+        let marked = service.mark_idle_players().expect("should succeed");
+
+        assert!(marked.is_empty());
 
         assert_eq!(repository.updated_len(), 0);
     }
@@ -1246,7 +1252,9 @@ mod tests {
         let repository = InMemoryGameRepository::new(vec![game]);
         let service = GameProgressionService::new(users, repository.clone());
 
-        service.mark_idle_players().expect("should succeed");
+        let marked = service.mark_idle_players().expect("should succeed");
+
+        assert!(marked.is_empty());
 
         assert_eq!(repository.updated_len(), 0);
     }

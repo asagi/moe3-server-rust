@@ -71,13 +71,20 @@ where
             }
         }
 
-        self.progression_service
+        let newly_idle_games = self
+            .progression_service
             .mark_idle_players()
             .map_err(PreHandlerError::GameProgression)?;
 
         self.progression_service
             .mark_idle_players_progress_consented()
             .map_err(PreHandlerError::GameProgression)?;
+
+        // 無政府状態への移行はシステムメッセージを伴わないので、SSE 配信が board イベントを送れるよう通知する
+        // （復帰は PowerReturned メッセージの保存で通知される）
+        for game_uuid in newly_idle_games {
+            self.message_repository.notify_game_updated(game_uuid);
+        }
 
         let newly_idle_owner_games = self
             .progression_service

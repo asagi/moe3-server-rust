@@ -96,6 +96,8 @@ pub(crate) struct PowerStatus {
     pub progress_consented: Option<bool>,
     /// 無政府状態か（過去のフェイズでは `None`）
     pub is_idle: Option<bool>,
+    /// 担当者の最終アクセスからの経過分数（切り捨て。過去のフェイズ・担当者がいない国では `None`）
+    pub absent_minutes: Option<i64>,
     pub is_eliminated: bool,
 }
 
@@ -154,7 +156,7 @@ where
     ///
     /// 指定したフェイズの国ごとの状況を返す
     ///
-    /// `is_latest` が `false`（過去のフェイズ）の場合、即時進行合意と無政府状態は `None`、操作の要否は `false` にする。
+    /// `is_latest` が `false`（過去のフェイズ）の場合、即時進行合意・無政府状態・不在時間は `None`、操作の要否は `false` にする。
     ///
     pub(crate) fn power_statuses(
         &self,
@@ -163,24 +165,28 @@ where
         is_latest: bool,
     ) -> Result<Vec<PowerStatus>, RepositoryError> {
         let requiring = phase.powers_requiring_action();
-        let threshold =
-            chrono::Utc::now() - chrono::Duration::minutes(i64::from(game.regulation.duration_type.idle_limit_minutes()));
+        let now = chrono::Utc::now();
+        let threshold = now - chrono::Duration::minutes(i64::from(game.regulation.duration_type.idle_limit_minutes()));
         let is_ready_or_debrief = matches!(phase.kind, PhaseKind::Ready(_) | PhaseKind::Debrief(_));
 
         Power::iter()
             .map(|power| {
                 let player = game.players.iter().find(|p| p.power == Some(power));
-                let (progress_consented, is_idle) = if is_latest {
-                    let is_idle = match player {
-                        Some(player) => match self.user_repository.find_by_uuid(player.user_uuid)? {
-                            Some(user) => user.last_access_at <= threshold,
-                            None => true,
-                        },
-                        None => true,
+                let (progress_consented, is_idle, absent_minutes) = if is_latest {
+                    let last_access_at = match player {
+                        Some(player) => self.user_repository.find_by_uuid(player.user_uuid)?.map(|u| u.last_access_at),
+                        None => None,
                     };
-                    (Some(player.is_some_and(|p| p.progress_consented)), Some(is_idle))
+                    let is_idle = last_access_at.is_none_or(|at| at <= threshold);
+                    // 時計のずれで最終アクセスが未来になっても負にしない
+                    let absent_minutes = last_access_at.map(|at| (now - at).num_minutes().max(0));
+                    (
+                        Some(player.is_some_and(|p| p.progress_consented)),
+                        Some(is_idle),
+                        absent_minutes,
+                    )
                 } else {
-                    (None, None)
+                    (None, None, None)
                 };
 
                 let supply_centers = phase.count_supply_centers(&power);
@@ -196,6 +202,7 @@ where
                     needs_action: is_latest && requiring.contains(&power),
                     progress_consented,
                     is_idle,
+                    absent_minutes,
                     is_eliminated: !is_ready_or_debrief && supply_centers == 0 && armies + fleets == 0,
                 })
             })

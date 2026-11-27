@@ -55,6 +55,7 @@ run_global_pre_handler（ミドルウェア）
    - 閾値 = `now - duration_type.idle_limit_minutes()`
 2. 無政府状態かつ `is_idle = false` の場合のみ `is_idle = true` に更新し DB に反映（冪等）
 3. 無政府化はリクエストを契機に検出するため、誰もアクセスしないまま本人が戻ってきた場合は印が付かず、復帰メッセージも出ない
+4. 新たに印を付けた卓は、C の処理のあとに SSE 配信へ通知する（`board` イベントの契機）
 
 ### A. 卓主無政府化チェック（`mark_idle_owners_accepting_draw`）
 
